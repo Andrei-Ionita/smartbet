@@ -1,0 +1,41 @@
+# SmartBet ML Model Weekly Retraining Cron Job Example
+# 
+# This file contains example cron job entries for automated model retraining.
+# Copy the appropriate line to your crontab using: crontab -e
+#
+# Note: Adjust the path to match your actual project location
+
+# Run every Sunday at 2:00 AM
+0 2 * * 0 /path/to/smartbet/scripts/retrain_weekly.sh
+
+# Run every Monday at 3:00 AM (alternative)
+0 3 * * 1 /path/to/smartbet/scripts/retrain_weekly.sh
+
+# Run twice a week: Wednesday and Sunday at 2:30 AM
+30 2 * * 0,3 /path/to/smartbet/scripts/retrain_weekly.sh
+
+# Run daily at 1:00 AM (for high-frequency retraining)
+0 1 * * * /path/to/smartbet/scripts/retrain_weekly.sh
+
+# Example with output redirection to a specific log file
+0 2 * * 0 /path/to/smartbet/scripts/retrain_weekly.sh >> /path/to/smartbet/logs/cron.log 2>&1
+
+# Example with email notifications on completion
+0 2 * * 0 /path/to/smartbet/scripts/retrain_weekly.sh && echo "SmartBet retraining completed" | mail -s "Retraining Success" admin@example.com
+
+# To install the cron job:
+# 1. Edit your crontab: crontab -e
+# 2. Add one of the lines above (adjust the path)
+# 3. Save and exit
+#
+# To view current cron jobs: crontab -l
+# To remove all cron jobs: crontab -r
+
+# Cron format explanation:
+# * * * * * command
+# │ │ │ │ │
+# │ │ │ │ └─── Day of week (0-7, Sunday = 0 or 7)
+# │ │ │ └───── Month (1-12)
+# │ │ └─────── Day of month (1-31)
+# │ └───────── Hour (0-23)
+# └─────────── Minute (0-59) 
