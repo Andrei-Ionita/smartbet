@@ -1,3 +1,33 @@
-version https://git-lfs.github.com/spec/v1
-oid sha256:03d801b5e76ad6567c63a87bd58854a613018649ab847e76a872056431f59bcf
-size 902
+{
+  "name": "smartbet-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "deploy": "npm run build && echo '✅ Build complete! Ready for deployment to Vercel, Netlify, or Railway.'",
+    "setup": "npm install && echo '✅ Dependencies installed! Ready to run npm run dev'"
+  },
+  "dependencies": {
+    "next": "14.0.0",
+    "react": "^18",
+    "react-dom": "^18",
+    "lucide-react": "^0.294.0",
+    "recharts": "^2.8.0",
+    "date-fns": "^2.30.0",
+    "swr": "^2.2.4"
+  },
+  "devDependencies": {
+    "typescript": "^5",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "autoprefixer": "^10.0.1",
+    "postcss": "^8",
+    "tailwindcss": "^3.3.0",
+    "eslint": "^8",
+    "eslint-config-next": "14.0.0"
+  }
+}
