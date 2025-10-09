@@ -45,12 +45,16 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     }
   }
 
-  const getProbabilityGap = (probabilities: { home: number; draw: number; away: number }, predictedOutcome: string) => {
+  const getPredictionStrength = (probabilities: { home: number; draw: number; away: number }) => {
     const probs = [probabilities.home, probabilities.draw, probabilities.away]
     const sortedProbs = [...probs].sort((a, b) => b - a)
     const gap = sortedProbs[0] - sortedProbs[1]
-    // Probabilities are already in percentage format, so no need to multiply by 100
-    return gap
+    
+    // Convert gap to user-friendly strength indicator
+    if (gap >= 60) return { label: 'Very Strong', color: 'text-green-700', bgColor: 'bg-green-100' }
+    if (gap >= 40) return { label: 'Strong', color: 'text-blue-700', bgColor: 'bg-blue-100' }
+    if (gap >= 20) return { label: 'Moderate', color: 'text-yellow-700', bgColor: 'bg-yellow-100' }
+    return { label: 'Low', color: 'text-red-700', bgColor: 'bg-red-100' }
   }
 
   return (
@@ -100,12 +104,41 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         {/* EV Badge - Only show if EV is available */}
         {recommendation.ev !== null && (
           <div className="flex items-center gap-3 mb-4">
+            <span className="bg-green-100 text-green-800 text-sm px-4 py-2 rounded-xl font-semibold">
+              ✅ GOOD BET
+            </span>
             <span className={`text-sm px-4 py-2 rounded-xl font-semibold ${getEVBadgeColor()}`}>
               {getEVBadgeText()}
             </span>
             <span className="text-sm text-gray-500 font-medium" title="EV = probability × odds − 1">
               Expected Value
             </span>
+          </div>
+        )}
+        
+        {/* Compact Odds Display */}
+        {recommendation.odds_data && (
+          <div className="flex items-center gap-4 mb-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs text-gray-500 font-medium">Odds:</span>
+              <div className="flex gap-3">
+                <span className={`text-sm font-semibold ${
+                  recommendation.predicted_outcome === 'Home' ? 'text-blue-700 bg-blue-100 px-2 py-1 rounded' : 'text-blue-600'
+                }`}>
+                  H: {recommendation.odds_data.home ? recommendation.odds_data.home.toFixed(2) : 'N/A'}
+                </span>
+                <span className={`text-sm font-semibold ${
+                  recommendation.predicted_outcome === 'Draw' ? 'text-gray-700 bg-gray-100 px-2 py-1 rounded' : 'text-gray-600'
+                }`}>
+                  D: {recommendation.odds_data.draw ? recommendation.odds_data.draw.toFixed(2) : 'N/A'}
+                </span>
+                <span className={`text-sm font-semibold ${
+                  recommendation.predicted_outcome === 'Away' ? 'text-purple-700 bg-purple-100 px-2 py-1 rounded' : 'text-purple-600'
+                }`}>
+                  A: {recommendation.odds_data.away ? recommendation.odds_data.away.toFixed(2) : 'N/A'}
+                </span>
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -123,22 +156,75 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="text-center bg-blue-50 rounded-xl p-4">
               <div className="text-sm text-gray-600 mb-2 font-medium">Home</div>
               <div className="text-2xl font-bold text-blue-600">
-                {Math.round(recommendation.probabilities.home * 100)}%
+                {Math.round(recommendation.probabilities.home)}%
               </div>
             </div>
             <div className="text-center bg-gray-50 rounded-xl p-4">
               <div className="text-sm text-gray-600 mb-2 font-medium">Draw</div>
               <div className="text-2xl font-bold text-gray-600">
-                {Math.round(recommendation.probabilities.draw * 100)}%
+                {Math.round(recommendation.probabilities.draw)}%
               </div>
             </div>
             <div className="text-center bg-purple-50 rounded-xl p-4">
               <div className="text-sm text-gray-600 mb-2 font-medium">Away</div>
               <div className="text-2xl font-bold text-purple-600">
-                {Math.round(recommendation.probabilities.away * 100)}%
+                {Math.round(recommendation.probabilities.away)}%
               </div>
             </div>
           </div>
+          
+          {/* Odds Display */}
+          {recommendation.odds_data && (
+            <div className="mt-6">
+              <h4 className="text-lg font-bold text-gray-900 mb-4">Betting Odds</h4>
+              <div className="grid grid-cols-3 gap-4">
+                <div className={`text-center rounded-xl p-4 ${
+                  recommendation.predicted_outcome === 'Home' ? 'bg-blue-100 border-2 border-blue-300' : 'bg-blue-50'
+                }`}>
+                  <div className="text-sm text-gray-600 mb-2 font-medium">Home</div>
+                  <div className={`text-xl font-bold ${
+                    recommendation.predicted_outcome === 'Home' ? 'text-blue-700' : 'text-blue-600'
+                  }`}>
+                    {recommendation.odds_data.home ? recommendation.odds_data.home.toFixed(2) : 'N/A'}
+                  </div>
+                  {recommendation.predicted_outcome === 'Home' && (
+                    <div className="text-xs text-blue-700 font-semibold mt-1">PREDICTED</div>
+                  )}
+                </div>
+                <div className={`text-center rounded-xl p-4 ${
+                  recommendation.predicted_outcome === 'Draw' ? 'bg-gray-100 border-2 border-gray-300' : 'bg-gray-50'
+                }`}>
+                  <div className="text-sm text-gray-600 mb-2 font-medium">Draw</div>
+                  <div className={`text-xl font-bold ${
+                    recommendation.predicted_outcome === 'Draw' ? 'text-gray-700' : 'text-gray-600'
+                  }`}>
+                    {recommendation.odds_data.draw ? recommendation.odds_data.draw.toFixed(2) : 'N/A'}
+                  </div>
+                  {recommendation.predicted_outcome === 'Draw' && (
+                    <div className="text-xs text-gray-700 font-semibold mt-1">PREDICTED</div>
+                  )}
+                </div>
+                <div className={`text-center rounded-xl p-4 ${
+                  recommendation.predicted_outcome === 'Away' ? 'bg-purple-100 border-2 border-purple-300' : 'bg-purple-50'
+                }`}>
+                  <div className="text-sm text-gray-600 mb-2 font-medium">Away</div>
+                  <div className={`text-xl font-bold ${
+                    recommendation.predicted_outcome === 'Away' ? 'text-purple-700' : 'text-purple-600'
+                  }`}>
+                    {recommendation.odds_data.away ? recommendation.odds_data.away.toFixed(2) : 'N/A'}
+                  </div>
+                  {recommendation.predicted_outcome === 'Away' && (
+                    <div className="text-xs text-purple-700 font-semibold mt-1">PREDICTED</div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-3 text-center">
+                <span className="text-sm text-gray-500">
+                  Source: {recommendation.odds_data.bookmaker}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -152,10 +238,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
         </button>
         
-        <div className="flex items-center gap-2 text-sm text-gray-500 bg-gray-50 px-3 py-2 rounded-lg">
-          <TrendingUp className="h-4 w-4" />
-          <span className="font-medium">Gap: {Math.round(getProbabilityGap(recommendation.probabilities, recommendation.predicted_outcome))}%</span>
-        </div>
+            <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg font-medium ${getPredictionStrength(recommendation.probabilities).bgColor} ${getPredictionStrength(recommendation.probabilities).color}`}>
+              <TrendingUp className="h-4 w-4" />
+              <span>{getPredictionStrength(recommendation.probabilities).label}</span>
+            </div>
       </div>
     </div>
   )

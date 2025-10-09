@@ -18,10 +18,14 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react'
-import { leagues } from '@/lib/mockData'
+// Removed mockData import - using real data from API
 import RecommendationCard from './components/RecommendationCard'
 import EmptyState from './components/EmptyState'
 import RecommendationSkeleton from './components/RecommendationSkeleton'
+import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
+import LoadingSpinner from './components/LoadingSpinner'
+import ErrorBoundary from './components/ErrorBoundary'
+import RetryButton from './components/RetryButton'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
@@ -31,26 +35,39 @@ export default function HomePage() {
   const [selectedLeague, setSelectedLeague] = useState('')
   const router = useRouter()
 
-  // Fetch recommendations with SWR
-  const { data, error, isLoading, mutate } = useSWR('/api/recommendations', fetcher, {
-    refreshInterval: 60000, // Refresh every 60 seconds
-    revalidateOnFocus: true,
-  })
-
-  const handleExplorePredictions = () => {
-    if (selectedLeague) {
-      router.push(`/predictions?league=${selectedLeague}`)
-    } else {
-      router.push('/predictions')
+  // Enhanced fetcher with error handling
+  const enhancedFetcher = async (url: string) => {
+    try {
+      const response = await fetch(url)
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+      return response.json()
+    } catch (error) {
+      console.error('Fetch error:', error)
+      throw error
     }
   }
 
+  // Fetch recommendations with SWR
+  const { data, error, isLoading, mutate } = useSWR('/api/recommendations', enhancedFetcher, {
+    refreshInterval: 60000, // Refresh every 60 seconds
+    revalidateOnFocus: true,
+    errorRetryCount: 3,
+    errorRetryInterval: 2000,
+    shouldRetryOnError: true,
+  })
+
+  const handleExplorePredictions = () => {
+    router.push('/explore')
+  }
+
   const handleViewDetails = (fixtureId: number) => {
-    router.push(`/predictions?fixture=${fixtureId}`)
+    router.push(`/explore?fixture=${fixtureId}`)
   }
 
   const handleBrowseAll = () => {
-    router.push('/predictions')
+    router.push('/explore')
   }
 
   const handleRetry = () => {
@@ -85,24 +102,24 @@ export default function HomePage() {
           </p>
 
           {/* Performance Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-primary-600 mb-1">74.4%</div>
-              <div className="text-sm text-gray-600">Hit Rate</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-green-600 mb-1">138.9%</div>
-              <div className="text-sm text-gray-600">ROI</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-blue-600 mb-1">5</div>
-              <div className="text-sm text-gray-600">Leagues</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-purple-600 mb-1">24/7</div>
-              <div className="text-sm text-gray-600">Updates</div>
-            </div>
-          </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+                  <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
+                  <div className="text-sm text-gray-600">Confidence Threshold</div>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+                  <div className="text-2xl font-bold text-green-600 mb-1">27</div>
+                  <div className="text-sm text-gray-600">Leagues Covered</div>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+                  <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
+                  <div className="text-sm text-gray-600">Days Ahead</div>
+                </div>
+                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+                  <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
+                  <div className="text-sm text-gray-600">AI Ensemble</div>
+                </div>
+              </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -141,46 +158,142 @@ export default function HomePage() {
           {isLoading && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <RecommendationSkeleton key={i} />
+                <RecommendationCardSkeleton key={i} />
               ))}
             </div>
           )}
 
           {error && (
-            <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-              <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
-                <AlertCircle className="h-8 w-8 text-red-500" />
+            <ErrorBoundary>
+              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
+                <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
+                  <AlertCircle className="h-8 w-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-red-900 mb-3">
+                  Unable to Load Recommendations
+                </h3>
+                <p className="text-red-700 mb-6 max-w-md mx-auto">
+                  {error.message.includes('HTTP') 
+                    ? `Server error: ${error.message}` 
+                    : 'We\'re experiencing some technical difficulties. Please try again in a moment.'}
+                </p>
+                <RetryButton 
+                  onRetry={handleRetry}
+                  text="Try Again"
+                  className="bg-red-600 hover:bg-red-700"
+                />
               </div>
-              <h3 className="text-xl font-semibold text-red-900 mb-3">
-                Unable to Load Recommendations
-              </h3>
-              <p className="text-red-700 mb-6 max-w-md mx-auto">
-                We're experiencing some technical difficulties. Please try again in a moment.
-              </p>
-              <button
-                onClick={handleRetry}
-                className="bg-red-600 hover:bg-red-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors inline-flex items-center gap-2"
-              >
-                <RefreshCw className="h-4 w-4" />
-                Try Again
-              </button>
-            </div>
+            </ErrorBoundary>
           )}
 
           {data && data.recommendations && data.recommendations.length > 0 && (
-            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-              {data.recommendations.map((recommendation: Recommendation) => (
-                <RecommendationCard
-                  key={recommendation.fixture_id}
-                  recommendation={recommendation}
-                  onViewDetails={handleViewDetails}
-                />
-              ))}
-            </div>
+            <>
+              {/* Stats Summary */}
+              <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-6 mb-8 border border-primary-200">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
+                  <div>
+                    <div className="text-2xl font-bold text-primary-600">{data.recommendations.length}</div>
+                    <div className="text-sm text-primary-700">High-Confidence Picks</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-green-600">{data.confidence_threshold}%+</div>
+                    <div className="text-sm text-green-700">Confidence Threshold</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-blue-600">{data.debug_info?.total_fixtures_found || 0}</div>
+                    <div className="text-sm text-blue-700">Total Fixtures</div>
+                  </div>
+                  <div>
+                    <div className="text-2xl font-bold text-purple-600">
+                      {data.debug_info?.highest_confidence ? Math.round(data.debug_info.highest_confidence) : 0}%
+                    </div>
+                    <div className="text-sm text-purple-700">Highest Confidence</div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Recommendations Grid */}
+              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+                {data.recommendations.map((recommendation: Recommendation) => (
+                  <RecommendationCard
+                    key={recommendation.fixture_id}
+                    recommendation={recommendation}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </div>
+
+              {/* League Diversity Info */}
+              {data.debug_info?.top_5_predictions && (
+                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 mt-8 border border-gray-200">
+                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">League Coverage</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    {data.debug_info.top_5_predictions.map((prediction: any, index: number) => (
+                      <div key={index} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
+                        <div className="text-sm font-medium text-gray-600 mb-1">{prediction.league}</div>
+                        <div className="text-sm text-gray-500 truncate">{prediction.match}</div>
+                        <div className="text-xs text-primary-600 font-semibold mt-1">
+                          {Math.round(prediction.confidence)}% confidence
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* View All Button */}
+              <div className="text-center mt-8">
+                <button
+                  onClick={handleBrowseAll}
+                  className="bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+                >
+                  View All Predictions
+                </button>
+              </div>
+            </>
           )}
 
           {data && data.recommendations && data.recommendations.length === 0 && (
-            <EmptyState onBrowseAll={handleBrowseAll} onRetry={handleRetry} />
+            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-8 text-center">
+              <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
+                <AlertCircle className="h-8 w-8 text-amber-500" />
+              </div>
+              <h3 className="text-xl font-semibold text-amber-900 mb-3">
+                {data.status === 'no_predictions_available'
+                  ? 'AI Predictions Not Available'
+                  : data.status === 'no_fixtures_found'
+                  ? 'No Upcoming Fixtures'
+                  : 'No High-Confidence Predictions'}
+              </h3>
+              <p className="text-amber-700 mb-6 max-w-md mx-auto">
+                {data.status_details || 'We\'re working to bring you the best predictions. Please check back soon.'}
+              </p>
+              {data.status === 'no_predictions_available' && (
+                <div className="bg-amber-100 rounded-lg p-4 mb-6 text-left">
+                  <p className="text-sm text-amber-800 font-medium mb-2">Possible Solutions:</p>
+                  <ul className="text-sm text-amber-700 space-y-1">
+                    <li>• Enable the Predictions Addon in your SportMonks account</li>
+                    <li>• Upgrade your SportMonks subscription plan</li>
+                    <li>• Contact SportMonks support for assistance</li>
+                  </ul>
+                </div>
+              )}
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <button
+                  onClick={handleRetry}
+                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors inline-flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Try Again
+                </button>
+                <button
+                  onClick={handleBrowseAll}
+                  className="bg-white hover:bg-gray-50 text-amber-700 font-semibold py-3 px-6 rounded-xl transition-colors border border-amber-200"
+                >
+                  View All Fixtures
+                </button>
+              </div>
+            </div>
           )}
         </div>
 
@@ -239,8 +352,36 @@ export default function HomePage() {
             </p>
           </div>
           
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
-            {leagues.map((league) => (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
+            {[
+              { id: 'premier-league', name: 'Premier League', country: 'England', status: 'PRODUCTION' },
+              { id: 'la-liga', name: 'La Liga', country: 'Spain', status: 'PRODUCTION' },
+              { id: 'bundesliga', name: 'Bundesliga', country: 'Germany', status: 'PRODUCTION' },
+              { id: 'serie-a', name: 'Serie A', country: 'Italy', status: 'PRODUCTION' },
+              { id: 'ligue-1', name: 'Ligue 1', country: 'France', status: 'PRODUCTION' },
+              { id: 'championship', name: 'Championship', country: 'England', status: 'PRODUCTION' },
+              { id: 'fa-cup', name: 'FA Cup', country: 'England', status: 'PRODUCTION' },
+              { id: 'carabao-cup', name: 'Carabao Cup', country: 'England', status: 'PRODUCTION' },
+              { id: 'eredivisie', name: 'Eredivisie', country: 'Netherlands', status: 'PRODUCTION' },
+              { id: 'admiral-bundesliga', name: 'Admiral Bundesliga', country: 'Austria', status: 'PRODUCTION' },
+              { id: 'pro-league', name: 'Pro League', country: 'Belgium', status: 'PRODUCTION' },
+              { id: '1-hnl', name: '1. HNL', country: 'Croatia', status: 'PRODUCTION' },
+              { id: 'superliga', name: 'Superliga', country: 'Denmark', status: 'PRODUCTION' },
+              { id: 'serie-b', name: 'Serie B', country: 'Italy', status: 'PRODUCTION' },
+              { id: 'coppa-italia', name: 'Coppa Italia', country: 'Italy', status: 'PRODUCTION' },
+              { id: 'eliteserien', name: 'Eliteserien', country: 'Norway', status: 'PRODUCTION' },
+              { id: 'ekstraklasa', name: 'Ekstraklasa', country: 'Poland', status: 'PRODUCTION' },
+              { id: 'liga-portugal', name: 'Liga Portugal', country: 'Portugal', status: 'PRODUCTION' },
+              { id: 'premier-league-ro', name: 'Premier League', country: 'Romania', status: 'PRODUCTION' },
+              { id: 'premiership', name: 'Premiership', country: 'Scotland', status: 'PRODUCTION' },
+              { id: 'la-liga-2', name: 'La Liga 2', country: 'Spain', status: 'PRODUCTION' },
+              { id: 'copa-del-rey', name: 'Copa Del Rey', country: 'Spain', status: 'PRODUCTION' },
+              { id: 'allsvenskan', name: 'Allsvenskan', country: 'Sweden', status: 'PRODUCTION' },
+              { id: 'super-league', name: 'Super League', country: 'Switzerland', status: 'PRODUCTION' },
+              { id: 'super-lig', name: 'Super Lig', country: 'Turkey', status: 'PRODUCTION' },
+              { id: 'premier-league-additional', name: 'Premier League', country: 'Additional', status: 'PRODUCTION' },
+              { id: 'uefa-europa-league', name: 'UEFA Europa League', country: 'Europe', status: 'PRODUCTION' }
+            ].map((league) => (
               <button
                 key={league.id}
                 onClick={() => setSelectedLeague(league.name)}
@@ -369,18 +510,19 @@ export default function HomePage() {
           </div>
         </div>
 
-        {/* Footer Status */}
-        <div className="text-center py-8 border-t border-gray-200">
-          <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
-            <span className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>5 Leagues Live</span>
-            </span>
-            <span>SportMonks Predictions</span>
-            <span>60s Refresh Rate</span>
-            <span>24/7 Monitoring</span>
-          </div>
-        </div>
+            {/* Footer Status */}
+            <div className="text-center py-8 border-t border-gray-200">
+              <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
+                <span className="flex items-center gap-2">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span>27 Leagues Covered</span>
+                </span>
+                <span>Consensus Ensemble</span>
+                <span>3 AI Models</span>
+                <span>60s Refresh Rate</span>
+                <span>14-Day Window</span>
+              </div>
+            </div>
       </div>
     </div>
   )

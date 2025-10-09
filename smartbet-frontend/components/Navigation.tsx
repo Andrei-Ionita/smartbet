@@ -2,16 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, BarChart3, Calendar, Play } from 'lucide-react'
+import { Trophy, Search, Activity } from 'lucide-react'
 
 export default function Navigation() {
   const pathname = usePathname()
 
   const navItems = [
     { href: '/', label: 'Home', icon: Trophy },
-    { href: '/predictions', label: 'Predictions', icon: BarChart3 },
-    { href: '/coming-soon', label: 'Coming Soon', icon: Calendar },
-    { href: '/sandbox', label: 'Sandbox', icon: Play },
+    { href: '/explore', label: 'Explore', icon: Search },
+    { href: '/monitoring', label: 'Monitoring', icon: Activity },
   ]
 
   return (

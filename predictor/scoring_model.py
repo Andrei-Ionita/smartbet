@@ -57,8 +57,8 @@ class MatchScore:
 
 def get_odds_for_fixture(fixture: Match) -> Optional[OddsSnapshot]:
     """
-    Get the latest odds for a fixture.
-    Prioritizes Pinnacle odds from OddsAPI, falls back to Bet365.
+    Get the latest odds for a fixture from SportMonks API.
+    Prioritizes Pinnacle odds, falls back to Bet365, then other bookmakers.
     
     Args:
         fixture: The match to get odds for
@@ -67,47 +67,49 @@ def get_odds_for_fixture(fixture: Match) -> Optional[OddsSnapshot]:
         The latest OddsSnapshot for the match, or None if no odds available
     """
     try:
-        # First try to get Pinnacle odds from OddsAPI
+        # First try to get Pinnacle odds from SportMonks
         pinnacle_odds = OddsSnapshot.objects.filter(
             match=fixture, 
-            bookmaker__startswith="OddsAPI (Pinnacle)"
+            bookmaker__icontains="Pinnacle"
         ).order_by('-fetched_at').first()
         
         if pinnacle_odds:
-            logger.info(f"Using Pinnacle odds from OddsAPI for match {fixture.id}")
+            logger.info(f"Using Pinnacle odds from SportMonks for match {fixture.id}")
             return pinnacle_odds
         
-        # Then try Bet365 from OddsAPI
+        # Then try Bet365 from SportMonks
         bet365_odds = OddsSnapshot.objects.filter(
             match=fixture, 
-            bookmaker__startswith="OddsAPI (Bet365)"
+            bookmaker__icontains="Bet365"
         ).order_by('-fetched_at').first()
         
         if bet365_odds:
-            logger.info(f"Using Bet365 odds from OddsAPI for match {fixture.id}")
+            logger.info(f"Using Bet365 odds from SportMonks for match {fixture.id}")
             return bet365_odds
         
-        # Fallback to direct Pinnacle odds
-        pinnacle_odds = OddsSnapshot.objects.filter(
-            match=fixture, 
-            bookmaker="Pinnacle"
-        ).order_by('-fetched_at').first()
+        # Try other priority bookmakers from SportMonks
+        priority_bookmakers = ["Betfair", "Marathonbet", "William Hill", "Unibet", "Ladbrokes", "Betway"]
         
-        if pinnacle_odds:
-            logger.info(f"Using direct Pinnacle odds for match {fixture.id}")
-            return pinnacle_odds
-        
-        # Final fallback to Bet365
-        bet365_odds = OddsSnapshot.objects.filter(
-            match=fixture, 
-            bookmaker="Bet365"
-        ).order_by('-fetched_at').first()
-        
-        if bet365_odds:
-            logger.info(f"Using direct Bet365 odds for match {fixture.id}")
-            return bet365_odds
+        for bookmaker in priority_bookmakers:
+            odds = OddsSnapshot.objects.filter(
+                match=fixture, 
+                bookmaker__icontains=bookmaker
+            ).order_by('-fetched_at').first()
             
-        logger.warning(f"No odds available for match {fixture.id}")
+            if odds:
+                logger.info(f"Using {bookmaker} odds from SportMonks for match {fixture.id}")
+                return odds
+        
+        # Final fallback - any SportMonks odds
+        any_odds = OddsSnapshot.objects.filter(
+            match=fixture
+        ).order_by('-fetched_at').first()
+        
+        if any_odds:
+            logger.info(f"Using any available SportMonks odds for match {fixture.id}")
+            return any_odds
+            
+        logger.warning(f"No SportMonks odds available for match {fixture.id}")
         return None
         
     except Exception as e:

@@ -324,20 +324,20 @@ def get_odds_snapshot(match: Match) -> Optional[OddsSnapshot]:
     # Try to get pre-match odds
     cutoff_time = match.kickoff
     
-    # Prioritize Pinnacle odds from OddsAPI
+    # Prioritize Pinnacle odds from SportMonks
     pinnacle_odds = OddsSnapshot.objects.filter(
         match=match,
-        bookmaker__startswith="OddsAPI (Pinnacle)",
+        bookmaker__icontains="Pinnacle",
         fetched_at__lt=cutoff_time
     ).order_by('-fetched_at').first()
     
     if pinnacle_odds:
         return pinnacle_odds
     
-    # Then try Bet365 from OddsAPI
+    # Then try Bet365 from SportMonks
     bet365_odds = OddsSnapshot.objects.filter(
         match=match, 
-        bookmaker__startswith="OddsAPI (Bet365)",
+        bookmaker__icontains="Bet365",
         fetched_at__lt=cutoff_time
     ).order_by('-fetched_at').first()
     
