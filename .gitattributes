@@ -1,9 +1,14 @@
 *.node filter=lfs diff=lfs merge=lfs -text
 *.pkl filter=lfs diff=lfs merge=lfs -text
 *.csv filter=lfs diff=lfs merge=lfs -text
-# Exclude package.json and other config files from LFS
-package.json -filter -diff -merge
-*.config.json -filter -diff -merge
+# Exclude all config files from LFS
+**/package.json -filter -diff -merge
+**/package-lock.json -filter -diff -merge
+**/tsconfig.json -filter -diff -merge
+**/components.json -filter -diff -merge
+*.config.js -filter -diff -merge
+*.config.mjs -filter -diff -merge
+*.config.ts -filter -diff -merge
 smartbet-frontend/package-lock.json !text !filter !merge !diff
 smartbet-frontend/tsconfig.json !text !filter !merge !diff
 smartbet-frontend/components.json !text !filter !merge !diff
