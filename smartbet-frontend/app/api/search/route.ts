@@ -51,9 +51,13 @@ function setCache(key: string, data: any, duration: number): void {
   })
 }
 
-const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN
-if (!SPORTMONKS_API_TOKEN) {
-  throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
+// Helper function to get API token (will be called at request time, not build time)
+function getApiToken(): string {
+  const token = process.env.SPORTMONKS_API_TOKEN
+  if (!token) {
+    throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
+  }
+  return token
 }
 
 // All 27 leagues covered by subscription
@@ -138,7 +142,7 @@ export async function GET(request: NextRequest) {
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
-          api_token: SPORTMONKS_API_TOKEN || '',
+          api_token: getApiToken(),
           include: 'participants;league;metadata;predictions;odds',
           filters: `fixtureLeagues:${leagueId}`,
           per_page: '50',

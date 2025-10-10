@@ -21,7 +21,7 @@ const createBatchedLeagueRequests = (leagueIds: number[], startDate: string, end
   return leagueIds.map(leagueId => async () => {
     const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
     const params = new URLSearchParams({
-      api_token: process.env.SPORTMONKS_API_TOKEN || '',
+      api_token: getApiToken(),
       include: 'participants;league;metadata;predictions;odds',
       filters: `fixtureLeagues:${leagueId}`,
       per_page: '50',
@@ -149,9 +149,13 @@ const SUPPORTED_LEAGUE_IDS = [
   1371,  // UEFA Europa League Play-offs
 ]
 
-const SPORTMONKS_API_TOKEN = process.env.SPORTMONKS_API_TOKEN
-if (!SPORTMONKS_API_TOKEN) {
-  throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
+// Helper function to get API token (will be called at request time, not build time)
+function getApiToken(): string {
+  const token = process.env.SPORTMONKS_API_TOKEN
+  if (!token) {
+    throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
+  }
+  return token
 }
 
 interface SportMonksFixture {
@@ -647,7 +651,7 @@ export async function GET(request: NextRequest) {
           uncachedLeagues.map(leagueId => async () => {
             const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
     const params = new URLSearchParams({
-      api_token: SPORTMONKS_API_TOKEN || '',
+      api_token: getApiToken(),
               include: 'participants;league;metadata;predictions;odds',
               filters: `fixtureLeagues:${leagueId}`,
               per_page: '50',
@@ -690,7 +694,7 @@ export async function GET(request: NextRequest) {
           try {
             const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
             const params = new URLSearchParams({
-              api_token: SPORTMONKS_API_TOKEN || '',
+              api_token: getApiToken(),
               include: 'participants;league;metadata;predictions;odds',
               filters: `fixtureLeagues:${leagueId}`,
               per_page: '50',
