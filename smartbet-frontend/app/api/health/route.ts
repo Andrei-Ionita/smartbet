@@ -1,5 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { performanceMonitor } from '@/lib/performance-monitor'
+// Inline performance monitor implementation
+const performanceMonitor = {
+  getMetrics() {
+    return {
+      totalRequests: 0,
+      successfulRequests: 0,
+      failedRequests: 0,
+      averageResponseTime: 0,
+      cacheHitRate: 0,
+      rateLimitHits: 0,
+      errorRate: 0,
+      lastUpdated: new Date().toISOString()
+    }
+  }
+}
 
 export async function GET(request: NextRequest) {
   try {

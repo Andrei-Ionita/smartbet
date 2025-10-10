@@ -1,5 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { apiClient } from '@/lib/api-client'
+// Simplified inline apiClient implementation
+const apiClient = {
+  async request(url: string) {
+    const response = await fetch(url)
+    return response.json()
+  }
+}
 
 // Cache configuration
 const CACHE_DURATION = {
