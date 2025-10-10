@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 import { Recommendation } from '../../src/types/recommendation'
-import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator } from 'lucide-react'
 
 interface RecommendationCardProps {
   recommendation: Recommendation
@@ -56,6 +56,42 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     if (gap >= 20) return { label: 'Moderate', color: 'text-yellow-700', bgColor: 'bg-yellow-100' }
     return { label: 'Low', color: 'text-red-700', bgColor: 'bg-red-100' }
   }
+
+  // Calculate Kelly Criterion for optimal stake sizing
+  const calculateKellyStake = (probability: number, odds: number, bankroll: number = 1000) => {
+    if (!odds || odds <= 0) return 0
+    const b = odds - 1 // Net odds received on the wager
+    const p = probability / 100 // Probability of winning
+    const q = 1 - p // Probability of losing
+    const kelly = (b * p - q) / b
+    return Math.max(0, Math.min(kelly * bankroll, bankroll * 0.25)) // Cap at 25% of bankroll
+  }
+
+  // Get risk level based on confidence and EV
+  const getRiskLevel = () => {
+    const confidence = recommendation.confidence
+    const ev = recommendation.ev || 0
+    
+    if (confidence >= 75 && ev > 0.1) return { level: 'Low Risk', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
+    if (confidence >= 60 && ev > 0) return { level: 'Medium Risk', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: AlertTriangle }
+    return { level: 'High Risk', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle }
+  }
+
+  // Visual probability bar component
+  const ProbabilityBar = ({ label, percentage, color, isSelected }: { label: string; percentage: number; color: string; isSelected: boolean }) => (
+    <div className="space-y-1">
+      <div className="flex justify-between text-xs">
+        <span className={`font-medium ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{label}</span>
+        <span className={`font-mono ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{percentage.toFixed(1)}%</span>
+      </div>
+      <div className="w-full bg-gray-200 rounded-full h-2">
+        <div 
+          className={`h-2 rounded-full transition-all duration-300 ${color} ${isSelected ? 'ring-2 ring-blue-400' : ''}`}
+          style={{ width: `${percentage}%` }}
+        ></div>
+      </div>
+    </div>
+  )
 
   return (
     <div className="group bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 hover:shadow-xl transition-all duration-300 hover:border-primary-300 hover:-translate-y-1">
@@ -148,27 +184,99 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         {recommendation.explanation}
       </p>
 
+      {/* Enhanced Visual Probability Bars */}
+      <div className="mb-6">
+        <div className="space-y-3">
+          <ProbabilityBar 
+            label="Home" 
+            percentage={recommendation.probabilities.home} 
+            color="bg-blue-500" 
+            isSelected={recommendation.predicted_outcome === 'Home'} 
+          />
+          <ProbabilityBar 
+            label="Draw" 
+            percentage={recommendation.probabilities.draw} 
+            color="bg-gray-500" 
+            isSelected={recommendation.predicted_outcome === 'Draw'} 
+          />
+          <ProbabilityBar 
+            label="Away" 
+            percentage={recommendation.probabilities.away} 
+            color="bg-purple-500" 
+            isSelected={recommendation.predicted_outcome === 'Away'} 
+          />
+        </div>
+      </div>
+
+      {/* Risk Level & Quick Actions */}
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-3">
+          {(() => {
+            const risk = getRiskLevel()
+            const Icon = risk.icon
+            return (
+              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${risk.bgColor}`}>
+                <Icon className={`h-4 w-4 ${risk.color}`} />
+                <span className={`text-sm font-medium ${risk.color}`}>{risk.level}</span>
+              </div>
+            )
+          })()}
+          <div className={`px-3 py-1 rounded-full ${getPredictionStrength(recommendation.probabilities).bgColor}`}>
+            <span className={`text-sm font-medium ${getPredictionStrength(recommendation.probabilities).color}`}>
+              {getPredictionStrength(recommendation.probabilities).label} Signal
+            </span>
+          </div>
+        </div>
+        <button
+          onClick={() => {/* TODO: Implement betting calculator modal */}}
+          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        >
+          <Calculator className="h-4 w-4" />
+          Calculate Stake
+        </button>
+      </div>
+
       {/* Expanded Details */}
       {isExpanded && (
         <div className="border-t border-gray-200 pt-6 mb-6">
-          <h4 className="text-lg font-bold text-gray-900 mb-4">Full Probability Breakdown</h4>
-          <div className="grid grid-cols-3 gap-6">
-            <div className="text-center bg-blue-50 rounded-xl p-4">
-              <div className="text-sm text-gray-600 mb-2 font-medium">Home</div>
-              <div className="text-2xl font-bold text-blue-600">
-                {Math.round(recommendation.probabilities.home)}%
+          <h4 className="text-lg font-bold text-gray-900 mb-4">Advanced Analytics</h4>
+          <div className="grid grid-cols-2 gap-4">
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Kelly Criterion</h5>
+              <div className="space-y-2">
+                {recommendation.odds_data && recommendation.odds_data.home && (
+                  <div className="text-xs">
+                    <span className="text-gray-600">Optimal Stake (Home): </span>
+                    <span className="font-mono font-semibold">
+                      ${calculateKellyStake(recommendation.probabilities.home, recommendation.odds_data.home).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {recommendation.odds_data && recommendation.odds_data.draw && (
+                  <div className="text-xs">
+                    <span className="text-gray-600">Optimal Stake (Draw): </span>
+                    <span className="font-mono font-semibold">
+                      ${calculateKellyStake(recommendation.probabilities.draw, recommendation.odds_data.draw).toFixed(2)}
+                    </span>
+                  </div>
+                )}
+                {recommendation.odds_data && recommendation.odds_data.away && (
+                  <div className="text-xs">
+                    <span className="text-gray-600">Optimal Stake (Away): </span>
+                    <span className="font-mono font-semibold">
+                      ${calculateKellyStake(recommendation.probabilities.away, recommendation.odds_data.away).toFixed(2)}
+                    </span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="text-center bg-gray-50 rounded-xl p-4">
-              <div className="text-sm text-gray-600 mb-2 font-medium">Draw</div>
-              <div className="text-2xl font-bold text-gray-600">
-                {Math.round(recommendation.probabilities.draw)}%
-              </div>
-            </div>
-            <div className="text-center bg-purple-50 rounded-xl p-4">
-              <div className="text-sm text-gray-600 mb-2 font-medium">Away</div>
-              <div className="text-2xl font-bold text-purple-600">
-                {Math.round(recommendation.probabilities.away)}%
+            <div className="bg-gray-50 rounded-xl p-4">
+              <h5 className="text-sm font-semibold text-gray-700 mb-2">Model Insights</h5>
+              <div className="space-y-2 text-xs text-gray-600">
+                <div>• {recommendation.explanation}</div>
+                {recommendation.debug_info && (
+                  <div>• Model consensus: {recommendation.debug_info.consensus?.toFixed(1)}%</div>
+                )}
               </div>
             </div>
           </div>
