@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Recommendation } from '../src/types/recommendation'
+import { Recommendation } from '../../src/types/recommendation'
 import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown } from 'lucide-react'
 
 interface RecommendationCardProps {

@@ -56,11 +56,15 @@ function setCache(key: string, data: any, duration: number): void {
 // Smart cache cleanup - remove expired entries
 function cleanupCache(): void {
   const now = Date.now()
-  for (const [key, cached] of cache.entries()) {
+  const keysToDelete: string[] = []
+  
+  cache.forEach((cached, key) => {
     if (now - cached.timestamp > cached.duration) {
-      cache.delete(key)
+      keysToDelete.push(key)
     }
-  }
+  })
+  
+  keysToDelete.forEach(key => cache.delete(key))
 }
 
 // All 27 leagues covered by subscription for maximum opportunity coverage
@@ -341,8 +345,8 @@ function analyzePredictions(predictions: any[]): PredictionAnalysis {
   } else if (x12Predictions.length > 0) {
     // Fallback: use the highest confidence 1X2 model
     const bestX12 = x12Predictions.reduce((best, current) => {
-    const currentMax = Math.max(current.predictions.home, current.predictions.draw, current.predictions.away)
-    const bestMax = Math.max(best.predictions.home, best.predictions.draw, best.predictions.away)
+    const currentMax = Math.max(current.predictions.home || 0, current.predictions.draw || 0, current.predictions.away || 0)
+    const bestMax = Math.max(best.predictions.home || 0, best.predictions.draw || 0, best.predictions.away || 0)
     return currentMax > bestMax ? current : best
   })
     finalPrediction = bestX12
@@ -363,8 +367,8 @@ function analyzePredictions(predictions: any[]): PredictionAnalysis {
   const awayAvg = predictions.reduce((sum, p) => sum + (p.predictions.away || 0), 0) / modelCount
 
   // Calculate consensus
-  const bestOutcome = Math.max(finalPrediction.predictions.home, finalPrediction.predictions.draw, finalPrediction.predictions.away) === finalPrediction.predictions.home ? 'home' :
-                     Math.max(finalPrediction.predictions.home, finalPrediction.predictions.draw, finalPrediction.predictions.away) === finalPrediction.predictions.draw ? 'draw' : 'away'
+  const bestOutcome = Math.max(finalPrediction.predictions.home || 0, finalPrediction.predictions.draw || 0, finalPrediction.predictions.away || 0) === finalPrediction.predictions.home ? 'home' :
+                     Math.max(finalPrediction.predictions.home || 0, finalPrediction.predictions.draw || 0, finalPrediction.predictions.away || 0) === finalPrediction.predictions.draw ? 'draw' : 'away'
 
   const consensusCount = predictions.filter(p => {
     const max = Math.max(p.predictions.home || 0, p.predictions.draw || 0, p.predictions.away || 0)
@@ -381,7 +385,7 @@ function analyzePredictions(predictions: any[]): PredictionAnalysis {
   const awayVariance = predictions.reduce((sum, p) => sum + Math.pow((p.predictions.away || 0) - awayAvg, 2), 0) / modelCount
   const avgVariance = (homeVariance + drawVariance + awayVariance) / 3
 
-  const maxConfidence = Math.max(finalPrediction.predictions.home, finalPrediction.predictions.draw, finalPrediction.predictions.away)
+  const maxConfidence = Math.max(finalPrediction.predictions.home || 0, finalPrediction.predictions.draw || 0, finalPrediction.predictions.away || 0)
 
   return {
     recommendedPrediction: finalPrediction,
@@ -592,7 +596,7 @@ export async function GET(request: NextRequest) {
           uncachedLeagues.map(leagueId => async () => {
             const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
     const params = new URLSearchParams({
-      api_token: SPORTMONKS_API_TOKEN,
+      api_token: SPORTMONKS_API_TOKEN || '',
               include: 'participants;league;metadata;predictions;odds',
               filters: `fixtureLeagues:${leagueId}`,
               per_page: '50',
@@ -635,7 +639,7 @@ export async function GET(request: NextRequest) {
           try {
             const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
             const params = new URLSearchParams({
-              api_token: SPORTMONKS_API_TOKEN,
+              api_token: SPORTMONKS_API_TOKEN || '',
               include: 'participants;league;metadata;predictions;odds',
               filters: `fixtureLeagues:${leagueId}`,
               per_page: '50',
@@ -723,6 +727,7 @@ export async function GET(request: NextRequest) {
       const fixtureWithPrediction = {
         ...fixture,
         predictions: Array.isArray(matchWinnerPrediction) ? matchWinnerPrediction : [{
+          type_id: 233, // Default match winner type ID
           predictions: matchWinnerPrediction
         }]
       }
@@ -797,7 +802,7 @@ export async function GET(request: NextRequest) {
       debug_info: {
           total_fixtures_found: allFixtures.length,
         total_with_predictions: allPredictions.length,
-        fixtures_without_predictions: fixturesWithoutPredictions.length,
+        fixtures_without_predictions_count: fixturesWithoutPredictions.length,
         highest_confidence: sortedAllPredictions.length > 0 ? sortedAllPredictions[0].max_confidence : 0,
         top_5_predictions: sortedAllPredictions.slice(0, 5).map(p => ({
           match: `${p.home_team} vs ${p.away_team}`,

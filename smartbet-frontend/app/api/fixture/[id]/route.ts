@@ -94,6 +94,8 @@ interface FixtureAnalysis {
     draw: number
     away: number
   }
+  predicted_outcome: 'home' | 'draw' | 'away'
+  prediction_confidence: number
   odds_data?: {
     home: number | null
     draw: number | null
@@ -144,16 +146,16 @@ const BOOKMAKER_NAMES: { [key: number]: string } = {
 }
 
 // Function to extract 1X2 odds from fixture
-function extract1X2Odds(fixture: SportMonksFixture): { home: number | null; draw: number | null; away: number | null; bookmaker: string } | null {
+function extract1X2Odds(fixture: SportMonksFixture): { home: number | null; draw: number | null; away: number | null; bookmaker: string } | undefined {
   if (!fixture.odds || fixture.odds.length === 0) {
-    return null
+    return undefined
   }
 
   // Find 1X2 odds (market_id: 1, Fulltime Result)
   const x12Odds = fixture.odds.filter(odd => odd.market_id === 1)
   
   if (x12Odds.length === 0) {
-    return null
+    return undefined
   }
 
   // Group by bookmaker and get the first available bookmaker
@@ -200,7 +202,7 @@ function extract1X2Odds(fixture: SportMonksFixture): { home: number | null; draw
     }
   }
 
-  return null
+  return undefined
 }
 
 // Consensus ensemble method
@@ -280,11 +282,23 @@ function analyzeFixture(fixture: SportMonksFixture): FixtureAnalysis | null {
     } else if (x12Predictions.length > 0) {
       // Use the highest confidence prediction
       const bestPred = x12Predictions.reduce((best, current) => {
-        const currentMax = Math.max(current.predictions.home, current.predictions.draw, current.predictions.away)
-        const bestMax = Math.max(best.predictions.home, best.predictions.draw, best.predictions.away)
+        const currentMax = Math.max(
+          current.predictions.home || 0, 
+          current.predictions.draw || 0, 
+          current.predictions.away || 0
+        )
+        const bestMax = Math.max(
+          best.predictions.home || 0, 
+          best.predictions.draw || 0, 
+          best.predictions.away || 0
+        )
         return currentMax > bestMax ? current : best
       })
-      finalPredictions = bestPred.predictions
+      finalPredictions = {
+        home: bestPred.predictions.home || 0,
+        draw: bestPred.predictions.draw || 0,
+        away: bestPred.predictions.away || 0
+      }
       strategy = `partial_1x2_${x12Predictions.length}_models`
     } else {
       return null
@@ -339,27 +353,27 @@ function analyzeFixture(fixture: SportMonksFixture): FixtureAnalysis | null {
     }
 
     // Calculate ensemble metadata
-    const homeAvg = x12Predictions.reduce((sum, p) => sum + p.predictions.home, 0) / modelCount
-    const drawAvg = x12Predictions.reduce((sum, p) => sum + p.predictions.draw, 0) / modelCount
-    const awayAvg = x12Predictions.reduce((sum, p) => sum + p.predictions.away, 0) / modelCount
+    const homeAvg = x12Predictions.reduce((sum, p) => sum + (p.predictions.home || 0), 0) / modelCount
+    const drawAvg = x12Predictions.reduce((sum, p) => sum + (p.predictions.draw || 0), 0) / modelCount
+    const awayAvg = x12Predictions.reduce((sum, p) => sum + (p.predictions.away || 0), 0) / modelCount
 
     // Calculate consensus (how many models agree with the final prediction)
     const bestOutcome = Math.max(finalPredictions.home, finalPredictions.draw, finalPredictions.away) === finalPredictions.home ? 'home' :
                        Math.max(finalPredictions.home, finalPredictions.draw, finalPredictions.away) === finalPredictions.draw ? 'draw' : 'away'
 
     const consensusCount = x12Predictions.filter(p => {
-      const max = Math.max(p.predictions.home, p.predictions.draw, p.predictions.away)
-      return (max === p.predictions.home && bestOutcome === 'home') ||
-             (max === p.predictions.draw && bestOutcome === 'draw') ||
-             (max === p.predictions.away && bestOutcome === 'away')
+      const max = Math.max(p.predictions.home || 0, p.predictions.draw || 0, p.predictions.away || 0)
+      return (max === (p.predictions.home || 0) && bestOutcome === 'home') ||
+             (max === (p.predictions.draw || 0) && bestOutcome === 'draw') ||
+             (max === (p.predictions.away || 0) && bestOutcome === 'away')
     }).length
 
     const consensus = consensusCount / modelCount
 
     // Calculate variance
-    const homeVariance = x12Predictions.reduce((sum, p) => sum + Math.pow(p.predictions.home - homeAvg, 2), 0) / modelCount
-    const drawVariance = x12Predictions.reduce((sum, p) => sum + Math.pow(p.predictions.draw - drawAvg, 2), 0) / modelCount
-    const awayVariance = x12Predictions.reduce((sum, p) => sum + Math.pow(p.predictions.away - awayAvg, 2), 0) / modelCount
+    const homeVariance = x12Predictions.reduce((sum, p) => sum + Math.pow((p.predictions.home || 0) - homeAvg, 2), 0) / modelCount
+    const drawVariance = x12Predictions.reduce((sum, p) => sum + Math.pow((p.predictions.draw || 0) - drawAvg, 2), 0) / modelCount
+    const awayVariance = x12Predictions.reduce((sum, p) => sum + Math.pow((p.predictions.away || 0) - awayAvg, 2), 0) / modelCount
     const avgVariance = (homeVariance + drawVariance + awayVariance) / 3
 
     // Calculate the actual predicted outcome
@@ -430,7 +444,7 @@ export async function GET(
     // Fetch fixture from SportMonks
     const url = `https://api.sportmonks.com/v3/football/fixtures/${fixtureId}`
     const params_api = new URLSearchParams({
-      api_token: SPORTMONKS_API_TOKEN,
+      api_token: SPORTMONKS_API_TOKEN || '',
       include: 'participants;league;metadata;predictions;odds',
       timezone: 'Europe/Bucharest'
     })

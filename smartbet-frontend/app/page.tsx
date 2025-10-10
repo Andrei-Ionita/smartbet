@@ -392,9 +392,6 @@ export default function HomePage() {
                 }`}
               >
                 <div className="text-center">
-                  <div className="text-3xl mb-3 group-hover:scale-110 transition-transform">
-                    {league.flag}
-                  </div>
                   <div className="font-semibold text-gray-900 mb-1">{league.name}</div>
                   <div className="text-sm text-gray-500 mb-3">{league.country}</div>
                   <div className={`text-xs px-3 py-1 rounded-full font-medium ${

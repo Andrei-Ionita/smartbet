@@ -127,7 +127,7 @@ export async function GET(request: NextRequest) {
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
-          api_token: SPORTMONKS_API_TOKEN,
+          api_token: SPORTMONKS_API_TOKEN || '',
           include: 'participants;league;metadata;predictions;odds',
           filters: `fixtureLeagues:${leagueId}`,
           per_page: '50',
