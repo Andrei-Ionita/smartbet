@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { Recommendation } from '../../src/types/recommendation'
 import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator } from 'lucide-react'
+import BettingCalculatorModal from './BettingCalculatorModal'
 
 interface RecommendationCardProps {
   recommendation: Recommendation
@@ -11,6 +12,7 @@ interface RecommendationCardProps {
 
 export default function RecommendationCard({ recommendation, onViewDetails }: RecommendationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
+  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
 
   const formatKickoff = (dateString: string) => {
     const date = new Date(dateString)
@@ -227,13 +229,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             </span>
           </div>
         </div>
-        <button
-          onClick={() => {/* TODO: Implement betting calculator modal */}}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
-        >
-          <Calculator className="h-4 w-4" />
-          Calculate Stake
-        </button>
+                 <button
+                   onClick={() => setIsCalculatorOpen(true)}
+                   className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+                 >
+                   <Calculator className="h-4 w-4" />
+                   Calculate Stake
+                 </button>
       </div>
 
       {/* Expanded Details */}
@@ -351,6 +353,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               <span>{getPredictionStrength(recommendation.probabilities).label}</span>
             </div>
       </div>
+
+      {/* Betting Calculator Modal */}
+      <BettingCalculatorModal
+        recommendation={recommendation}
+        isOpen={isCalculatorOpen}
+        onClose={() => setIsCalculatorOpen(false)}
+      />
     </div>
   )
 }
