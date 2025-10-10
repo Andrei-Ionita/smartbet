@@ -128,10 +128,10 @@ export default function PerformanceDashboard() {
     )
   }
 
-  if (!report) return null
+  if (!report || !report.metrics) return null
 
-  const { metrics, performanceScore, recommendations } = report
-  const successRate = metrics.totalRequests > 0 
+  const { metrics, performanceScore = 0, recommendations = [] } = report
+  const successRate = metrics && metrics.totalRequests > 0 
     ? Math.round((metrics.successfulRequests / metrics.totalRequests) * 100) 
     : 0
 
