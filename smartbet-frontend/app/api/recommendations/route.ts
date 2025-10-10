@@ -858,7 +858,7 @@ export async function GET(request: NextRequest) {
           total_fixtures_found: allFixtures.length,
         total_with_predictions: allPredictions.length,
         fixtures_without_predictions_count: fixturesWithoutPredictions.length,
-        highest_confidence: sortedAllPredictions.length > 0 ? sortedAllPredictions[0].max_confidence : 0,
+        highest_confidence: topRecommendations.length > 0 ? topRecommendations[0].confidence : 0,
         top_5_predictions: sortedAllPredictions.slice(0, 5).map(p => ({
           match: `${p.home_team} vs ${p.away_team}`,
           league: p.league,
