@@ -1,29 +1,25 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Prevent chunk loading errors during development
-  swcMinify: false,
+  // Optimized for Vercel deployment
   experimental: {
-    esmExternals: 'loose'
+    appDir: true,
   },
-  // Add webpack configuration to prevent chunk errors
-  webpack: (config, { dev, isServer }) => {
-    if (dev) {
-      // Disable chunk splitting in development
-      config.optimization = {
-        ...config.optimization,
-        splitChunks: {
-          chunks: 'all',
-          cacheGroups: {
-            default: false,
-            vendors: false,
-          },
-        },
-      };
-    }
-    return config;
+  images: {
+    domains: ['localhost'],
   },
-  // Disable static optimization to prevent chunk issues
-  output: 'standalone'
+  // API routes configuration
+  async headers() {
+    return [
+      {
+        source: '/api/:path*',
+        headers: [
+          { key: 'Access-Control-Allow-Origin', value: '*' },
+          { key: 'Access-Control-Allow-Methods', value: 'GET, POST, PUT, DELETE, OPTIONS' },
+          { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig; 
