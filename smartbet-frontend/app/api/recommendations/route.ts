@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { apiClient, createBatchedLeagueRequests } from '../../../lib/api-client'
-import { performanceMonitor } from '../../../lib/performance-monitor'
-import { logCacheOperation } from '../../../lib/performance-logger'
+import { apiClient, createBatchedLeagueRequests } from '../../lib/api-client'
+import { performanceMonitor } from '../../lib/performance-monitor'
+import { logCacheOperation } from '../../lib/performance-logger'
 
 // Cache configuration
 const CACHE_DURATION = {

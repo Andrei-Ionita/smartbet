@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { performanceMonitor } from '../../../lib/performance-monitor'
+import { performanceMonitor } from '../../lib/performance-monitor'
 
 export async function GET(request: NextRequest) {
   try {
