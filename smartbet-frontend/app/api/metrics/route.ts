@@ -1,4 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
+
+// This is a dynamic API route that should not be statically generated
+export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+
 // Inline performance monitor implementation
 const performanceMonitor = {
   getDetailedReport() {
