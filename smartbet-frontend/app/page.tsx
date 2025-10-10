@@ -102,24 +102,24 @@ export default function HomePage() {
           </p>
 
           {/* Performance Stats */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
                   <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
                   <div className="text-sm text-gray-600">Confidence Threshold</div>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
                   <div className="text-2xl font-bold text-green-600 mb-1">27</div>
                   <div className="text-sm text-gray-600">Leagues Covered</div>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
                   <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
                   <div className="text-sm text-gray-600">Days Ahead</div>
-                </div>
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
+            </div>
+            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
                   <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
                   <div className="text-sm text-gray-600">AI Ensemble</div>
-                </div>
-              </div>
+            </div>
+          </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <button
@@ -165,14 +165,14 @@ export default function HomePage() {
 
           {error && (
             <ErrorBoundary>
-              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-                <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
-                  <AlertCircle className="h-8 w-8 text-red-500" />
-                </div>
-                <h3 className="text-xl font-semibold text-red-900 mb-3">
-                  Unable to Load Recommendations
-                </h3>
-                <p className="text-red-700 mb-6 max-w-md mx-auto">
+            <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
+              <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
+                <AlertCircle className="h-8 w-8 text-red-500" />
+              </div>
+              <h3 className="text-xl font-semibold text-red-900 mb-3">
+                Unable to Load Recommendations
+              </h3>
+              <p className="text-red-700 mb-6 max-w-md mx-auto">
                   {error.message.includes('HTTP') 
                     ? `Server error: ${error.message}` 
                     : 'We\'re experiencing some technical difficulties. Please try again in a moment.'}
@@ -182,7 +182,7 @@ export default function HomePage() {
                   text="Try Again"
                   className="bg-red-600 hover:bg-red-700"
                 />
-              </div>
+            </div>
             </ErrorBoundary>
           )}
 
@@ -213,15 +213,15 @@ export default function HomePage() {
               </div>
 
               {/* Recommendations Grid */}
-              <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
-                {data.recommendations.map((recommendation: Recommendation) => (
-                  <RecommendationCard
-                    key={recommendation.fixture_id}
-                    recommendation={recommendation}
-                    onViewDetails={handleViewDetails}
-                  />
-                ))}
-              </div>
+            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+              {data.recommendations.map((recommendation: Recommendation) => (
+                <RecommendationCard
+                  key={recommendation.fixture_id}
+                  recommendation={recommendation}
+                  onViewDetails={handleViewDetails}
+                />
+              ))}
+            </div>
 
               {/* League Diversity Info */}
               {data.debug_info?.top_5_predictions && (
@@ -510,19 +510,19 @@ export default function HomePage() {
           </div>
         </div>
 
-            {/* Footer Status */}
-            <div className="text-center py-8 border-t border-gray-200">
-              <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
-                <span className="flex items-center gap-2">
-                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+        {/* Footer Status */}
+        <div className="text-center py-8 border-t border-gray-200">
+          <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
+            <span className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
                   <span>27 Leagues Covered</span>
-                </span>
+            </span>
                 <span>Consensus Ensemble</span>
                 <span>3 AI Models</span>
-                <span>60s Refresh Rate</span>
+            <span>60s Refresh Rate</span>
                 <span>14-Day Window</span>
-              </div>
-            </div>
+          </div>
+        </div>
       </div>
     </div>
   )

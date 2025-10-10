@@ -448,9 +448,9 @@ function calculateRecommendationScore(fixture: SportMonksFixture): Recommendatio
 
         // Apply minimum confidence threshold (55% - to show more matches)
         const MINIMUM_CONFIDENCE = 55 // Optimized threshold for maximum opportunities from all 27 leagues
-        if (best.prob < MINIMUM_CONFIDENCE) {
-          return null // Skip predictions below betting threshold
-        }
+    if (best.prob < MINIMUM_CONFIDENCE) {
+      return null // Skip predictions below betting threshold
+    }
 
     // Extract odds data and calculate EV
     const oddsData = extract1X2Odds(fixture)
@@ -500,31 +500,31 @@ function calculateRecommendationScore(fixture: SportMonksFixture): Recommendatio
         const homeTeam = fixture.participants.find(p => p.meta?.location === 'home')?.name || 'Home'
         const awayTeam = fixture.participants.find(p => p.meta?.location === 'away')?.name || 'Away'
 
-        return {
-          fixture_id: fixture.id,
+    return {
+      fixture_id: fixture.id,
           home_team: homeTeam,
           away_team: awayTeam,
-          league: fixture.league.name,
-          kickoff: fixture.starting_at,
-          predicted_outcome: best.label,
-          confidence: Math.round(best.prob),
+      league: fixture.league.name,
+      kickoff: fixture.starting_at,
+      predicted_outcome: best.label,
+      confidence: Math.round(best.prob),
           odds: predictedOdd,
-          ev,
-          score,
-          explanation,
-          probabilities,
+      ev,
+      score,
+      explanation,
+      probabilities,
           odds_data: oddsData ? {
             ...oddsData,
             predicted_odd: predictedOdd
           } : undefined,
-          debug_info: {
-            total_predictions: fixture.predictions?.length || 0,
-            valid_predictions: validPredictions.length,
-            strategy: analysis.strategy,
-            consensus: Math.round(analysis.consensus * 100),
-            variance: Math.round(analysis.variance),
-            model_count: analysis.modelCount
-          }
+      debug_info: {
+        total_predictions: fixture.predictions?.length || 0,
+        valid_predictions: validPredictions.length,
+        strategy: analysis.strategy,
+        consensus: Math.round(analysis.consensus * 100),
+        variance: Math.round(analysis.variance),
+        model_count: analysis.modelCount
+      }
         } as Recommendation
   } catch (error) {
     console.error('Error calculating recommendation:', error)
@@ -591,8 +591,8 @@ export async function GET(request: NextRequest) {
         const batchResults = await apiClient.batchRequests(
           uncachedLeagues.map(leagueId => async () => {
             const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
-            const params = new URLSearchParams({
-              api_token: SPORTMONKS_API_TOKEN,
+    const params = new URLSearchParams({
+      api_token: SPORTMONKS_API_TOKEN,
               include: 'participants;league;metadata;predictions;odds',
               filters: `fixtureLeagues:${leagueId}`,
               per_page: '50',
