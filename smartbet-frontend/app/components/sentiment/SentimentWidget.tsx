@@ -48,8 +48,15 @@ export default function SentimentWidget({ matchId, homeTeam, awayTeam, league, c
 
       console.log(`🔍 Fetching sentiment data for match ${matchId}: ${homeTeam} vs ${awayTeam}`)
       
-      // Fetch sentiment data from Vercel API (works on both local and production)
-      const response = await fetch(`/api/sentiment/${matchId}`)
+      // Check if we're in production (Vercel) - if so, show demo data message
+      if (process.env.NODE_ENV === 'production') {
+        setError('Sentiment analysis requires local Django backend with Reddit API access')
+        setLoading(false)
+        return
+      }
+      
+      // Fetch sentiment data from Django backend (localhost only)
+      const response = await fetch(`http://localhost:8000/api/sentiment/${matchId}/`)
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`)
@@ -66,7 +73,7 @@ export default function SentimentWidget({ matchId, homeTeam, awayTeam, league, c
       setSentimentData(data.data.sentiment)
       setTrapAnalysis(data.data.trap_analysis)
     } catch (err) {
-      setError('Failed to load sentiment data')
+      setError('Sentiment analysis requires local Django backend. Start the backend server to see real Reddit data.')
       console.error('Error fetching sentiment data:', err)
     } finally {
       setLoading(false)
