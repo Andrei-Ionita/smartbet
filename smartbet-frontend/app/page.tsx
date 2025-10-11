@@ -58,6 +58,11 @@ export default function HomePage() {
     shouldRetryOnError: true,
   })
 
+  // Fetch performance stats for live accuracy badge
+  const { data: performanceData } = useSWR('/api/performance', fetcher, {
+    refreshInterval: 120000, // Refresh every 2 minutes
+  })
+
   const handleExplorePredictions = () => {
     router.push('/explore')
   }
@@ -94,6 +99,25 @@ export default function HomePage() {
               <Sparkles className="h-5 w-5" />
               <span>AI-Powered Football Predictions</span>
             </div>
+            {/* Live Accuracy Badge */}
+            {performanceData?.data?.overall?.total_predictions > 0 && (
+              <div 
+                onClick={() => router.push('/track-record')}
+                className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105"
+              >
+                <Shield className="h-5 w-5" />
+                <div className="text-left">
+                  <div className="text-sm font-medium opacity-90">Verified Track Record</div>
+                  <div className="text-lg font-bold">
+                    {performanceData.data.overall.accuracy_percent}% Accuracy
+                    <span className="text-sm font-normal opacity-90 ml-2">
+                      ({performanceData.data.overall.correct_predictions}/{performanceData.data.overall.total_predictions} matches)
+                    </span>
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5" />
+              </div>
+            )}
           </div>
           
           <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
