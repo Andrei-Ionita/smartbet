@@ -132,6 +132,15 @@ export default function HomePage() {
               </span>
             </button>
             <button
+              onClick={() => router.push('/track-record')}
+              className="group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+            >
+              <span className="flex items-center gap-2">
+                <Shield className="h-5 w-5" />
+                Track Record
+              </span>
+            </button>
+            <button
               onClick={() => router.push('/about')}
               className="bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200"
             >
