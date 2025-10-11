@@ -104,15 +104,18 @@ class SentimentAnalyzer:
         self, 
         home_team: str, 
         away_team: str, 
-        match_date: datetime
+        match_date: datetime,
+        league: str = 'soccer'
     ) -> Optional[SentimentData]:
         """
         Scrape Reddit for sentiment data about a specific match.
+        CRITICAL: Only analyzes posts/comments from last 48 hours to avoid contamination.
         
         Args:
             home_team: Name of home team
             away_team: Name of away team  
             match_date: Date of the match
+            league: League name for subreddit mapping
             
         Returns:
             SentimentData object with analysis results or None if failed
@@ -120,7 +123,15 @@ class SentimentAnalyzer:
         try:
             import requests
             
-            # Use Reddit's public JSON API without authentication
+            # Calculate cutoff time (48 hours before match)
+            cutoff_time = match_date - timedelta(hours=48)
+            cutoff_timestamp = cutoff_time.timestamp()
+            current_time = timezone.now()
+            
+            logger.info(f"🔍 Scraping sentiment for {home_team} vs {away_team}")
+            logger.info(f"📅 Match date: {match_date}")
+            logger.info(f"⏰ Searching posts from: {cutoff_time} (48h before match)")
+            
             # Map leagues to their specific Reddit subreddits
             league_to_subreddit = {
                 'Premier League': 'PremierLeague',
@@ -163,18 +174,20 @@ class SentimentAnalyzer:
             all_home_mentions = []
             all_away_mentions = []
             data_sources = set()  # Use set to avoid duplicates - CRITICAL for clean UI
+            total_posts_found = 0
+            recent_posts_included = 0
             
             # Search each subreddit using public API
             for subreddit_name in subreddits_to_search:
                 try:
-                    # Reddit public JSON endpoint
+                    # Reddit public JSON endpoint with time filter
                     search_query = f"{home_team} {away_team}"
                     url = f"https://www.reddit.com/r/{subreddit_name}/search.json"
                     params = {
                         'q': search_query,
                         'sort': 'new',
-                        't': 'day',
-                        'limit': 25
+                        't': 'week',  # Search within last week
+                        'limit': 50   # Increased limit to get more posts
                     }
                     headers = {
                         'User-Agent': getattr(settings, 'REDDIT_USER_AGENT', 'SmartBet Sentiment Analyzer v1.0')
@@ -187,14 +200,23 @@ class SentimentAnalyzer:
                         
                         if 'data' in data and 'children' in data['data']:
                             posts = data['data']['children']
+                            total_posts_found += len(posts)
+                            subreddit_recent_posts = 0
                             
                             for post_data in posts:
                                 post = post_data['data']
                                 
-                                # Skip if post is too old (more than 48 hours)
-                                post_time = timezone.datetime.fromtimestamp(post['created_utc'], tz=dt_timezone.utc)
-                                if timezone.now() - post_time > timedelta(hours=48):
+                                # CRITICAL: Skip if post is older than 48 hours before match
+                                post_created_utc = post.get('created_utc', 0)
+                                if post_created_utc < cutoff_timestamp:
                                     continue
+                                
+                                # Additional check: Skip if post is too old relative to current time
+                                post_time = timezone.datetime.fromtimestamp(post_created_utc, tz=dt_timezone.utc)
+                                if current_time - post_time > timedelta(hours=72):  # Max 72h old
+                                    continue
+                                
+                                subreddit_recent_posts += 1
                                 
                                 # Analyze post title
                                 self._analyze_text(post['title'], home_team, away_team, all_home_mentions, all_away_mentions)
@@ -202,20 +224,34 @@ class SentimentAnalyzer:
                                 # Analyze selftext if available
                                 if post.get('selftext'):
                                     self._analyze_text(post['selftext'], home_team, away_team, all_home_mentions, all_away_mentions)
-                        
-                        # Add subreddit to data sources only once per subreddit
-                        if posts:  # Only add if we found posts
-                            data_sources.add(f"reddit/r/{subreddit_name}")
+                            
+                            recent_posts_included += subreddit_recent_posts
+                            
+                            # Add subreddit to data sources only if we found recent posts
+                            if subreddit_recent_posts > 0:
+                                data_sources.add(f"reddit/r/{subreddit_name}")
+                                logger.info(f"✅ r/{subreddit_name}: {subreddit_recent_posts} recent posts (from {total_posts_found} total)")
                     
                 except Exception as e:
-                    logger.warning(f"Error searching r/{subreddit_name}: {e}")
+                    logger.warning(f"❌ Error searching r/{subreddit_name}: {e}")
                     continue
                 
                 # Rate limiting
                 time.sleep(1)
             
+            # Log comprehensive results
+            logger.info(f"📊 Reddit scraping complete:")
+            logger.info(f"   📈 Total posts found: {total_posts_found}")
+            logger.info(f"   ✅ Recent posts included: {recent_posts_included}")
+            logger.info(f"   🏠 Home mentions: {len(all_home_mentions)}")
+            logger.info(f"   🚌 Away mentions: {len(all_away_mentions)}")
+            logger.info(f"   📍 Data sources: {list(data_sources)}")
+            
+            # Edge case: No recent discussions found
             if not all_home_mentions and not all_away_mentions:
-                logger.warning(f"No mentions found for {home_team} vs {away_team}")
+                logger.warning(f"⚠️ No recent mentions found for {home_team} vs {away_team} within 48h window")
+                logger.warning(f"   📅 Cutoff time: {cutoff_time}")
+                logger.warning(f"   🕐 Current time: {current_time}")
                 return None
             
             # Calculate sentiment scores
@@ -226,10 +262,15 @@ class SentimentAnalyzer:
             total_mentions = len(all_home_mentions) + len(all_away_mentions)
             public_attention_ratio = min(total_mentions / 100, 1.0)  # Normalize to 0-1
             
-            # Extract top keywords
+            # Extract top keywords (only from recent discussions)
             top_keywords = self._extract_top_keywords(all_home_mentions + all_away_mentions)
             
-            logger.info(f"Found {total_mentions} mentions for {home_team} vs {away_team}")
+            logger.info(f"✅ Sentiment analysis complete:")
+            logger.info(f"   📊 Total mentions: {total_mentions}")
+            logger.info(f"   😊 Home sentiment: {home_sentiment:.3f}")
+            logger.info(f"   😊 Away sentiment: {away_sentiment:.3f}")
+            logger.info(f"   🔥 Attention ratio: {public_attention_ratio:.3f}")
+            logger.info(f"   🏷️ Top keywords: {top_keywords[:5]}")
             
             return SentimentData(
                 home_mentions_count=len(all_home_mentions),
@@ -429,7 +470,8 @@ class SentimentAnalyzer:
         away_team: str,
         match_date: datetime,
         prediction_probs: Dict[str, float],
-        odds_data: Optional[Dict[str, float]] = None
+        odds_data: Optional[Dict[str, float]] = None,
+        league: str = 'soccer'
     ) -> Tuple[Optional[SentimentData], Optional[TrapAnalysis]]:
         """
         Main orchestrator method for complete sentiment analysis.
@@ -441,24 +483,28 @@ class SentimentAnalyzer:
             match_date: Match date
             prediction_probs: Our prediction probabilities
             odds_data: Optional bookmaker odds
+            league: League name for subreddit mapping
             
         Returns:
             Tuple of (SentimentData, TrapAnalysis) or (None, None) if failed
         """
         try:
-            logger.info(f"Analyzing sentiment for match {match_id}: {home_team} vs {away_team}")
+            logger.info(f"🎯 Analyzing sentiment for match {match_id}: {home_team} vs {away_team}")
+            logger.info(f"🏆 League: {league}")
             
-            # Scrape sentiment data
-            sentiment_data = self.scrape_reddit_sentiment(home_team, away_team, match_date)
+            # Scrape sentiment data with 48-hour time filtering
+            sentiment_data = self.scrape_reddit_sentiment(home_team, away_team, match_date, league)
             
             if not sentiment_data:
-                logger.warning(f"No sentiment data available for match {match_id}")
+                logger.warning(f"⚠️ No recent sentiment data available for match {match_id} (within 48h window)")
                 return None, None
             
             # Calculate trap analysis
             trap_analysis = self.calculate_trap_score(prediction_probs, sentiment_data, odds_data)
             
-            logger.info(f"Sentiment analysis complete for match {match_id}. Trap score: {trap_analysis.trap_score}")
+            logger.info(f"✅ Sentiment analysis complete for match {match_id}")
+            logger.info(f"   🎯 Trap score: {trap_analysis.trap_score}/10 ({trap_analysis.trap_level})")
+            logger.info(f"   📊 Total mentions: {sentiment_data.total_mentions}")
             
             return sentiment_data, trap_analysis
             
