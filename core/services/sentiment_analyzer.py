@@ -121,7 +121,44 @@ class SentimentAnalyzer:
             import requests
             
             # Use Reddit's public JSON API without authentication
-            subreddits_to_search = ['soccer', 'PremierLeague', 'LaLiga', 'SerieA', 'Bundesliga']
+            # Map leagues to their specific Reddit subreddits
+            league_to_subreddit = {
+                'Premier League': 'PremierLeague',
+                'Championship': 'Championship',
+                'FA Cup': 'soccer',
+                'Carabao Cup': 'soccer',
+                'Eredivisie': 'Eredivisie',
+                'Bundesliga': 'Bundesliga',
+                'Admiral Bundesliga': 'Bundesliga',
+                'Pro League': 'soccer',  # Belgian league
+                '1. HNL': 'soccer',  # Croatian league
+                'Superliga': 'soccer',  # Danish league
+                'Ligue 1': 'Ligue1',
+                'Serie A': 'SerieA',
+                'Serie B': 'SerieA',
+                'Coppa Italia': 'SerieA',
+                'Eliteserien': 'soccer',  # Norwegian league
+                'Ekstraklasa': 'soccer',  # Polish league
+                'Liga Portugal': 'soccer',  # Portuguese league
+                'Premier League (Romanian)': 'soccer',  # Romanian league
+                'Premiership': 'soccer',  # Scottish league
+                'La Liga': 'LaLiga',
+                'La Liga 2': 'LaLiga',
+                'Copa Del Rey': 'LaLiga',
+                'Allsvenskan': 'soccer',  # Swedish league
+                'Super League': 'soccer',  # Swiss league
+                'Super Lig': 'soccer',  # Turkish league
+                'Premier League (additional)': 'soccer',  # Ukrainian league
+                'UEFA Europa League Play-offs': 'soccer',
+            }
+            
+            # Get league-specific subreddit or default to general soccer
+            league_subreddit = league_to_subreddit.get(league, 'soccer')
+            subreddits_to_search = ['soccer', league_subreddit]
+            
+            # Add general football subreddit for more coverage
+            if league_subreddit != 'soccer':
+                subreddits_to_search.append('football')
             
             all_home_mentions = []
             all_away_mentions = []
