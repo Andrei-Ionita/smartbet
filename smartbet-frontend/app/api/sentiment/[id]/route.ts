@@ -122,18 +122,22 @@ export async function GET(
       'UEFA Europa League Play-offs': 'soccer',
     }
     
-    const dataSources = ['reddit/r/soccer']
+    // Create clean, professional data sources with NO duplicates
+    const dataSources = new Set(['reddit/r/soccer'])
     
     // Get league-specific subreddit
     const leagueSubreddit = leagueToSubreddit[league] || 'soccer'
     if (leagueSubreddit !== 'soccer') {
-      dataSources.push(`reddit/r/${leagueSubreddit}`)
+      dataSources.add(`reddit/r/${leagueSubreddit}`)
     }
     
     // Sometimes add football subreddit for more coverage
     if (random > 0.5 && leagueSubreddit !== 'soccer') {
-      dataSources.push('reddit/r/football')
+      dataSources.add('reddit/r/football')
     }
+    
+    // Convert Set to Array to ensure no duplicates
+    const cleanDataSources = Array.from(dataSources)
     
     const response = {
       success: true,
@@ -151,7 +155,7 @@ export async function GET(
           away_sentiment_score: Math.round(awaySentiment * 100) / 100,
           public_attention_ratio: Math.round(publicAttentionRatio * 100) / 100,
           top_keywords: ['league', 'phase', 'disney', 'nwsl', 'champions'],
-          data_sources: dataSources
+          data_sources: cleanDataSources
         },
         trap_analysis: {
           trap_score: trapScore,

@@ -162,7 +162,7 @@ class SentimentAnalyzer:
             
             all_home_mentions = []
             all_away_mentions = []
-            data_sources = set()  # Use set to avoid duplicates
+            data_sources = set()  # Use set to avoid duplicates - CRITICAL for clean UI
             
             # Search each subreddit using public API
             for subreddit_name in subreddits_to_search:
