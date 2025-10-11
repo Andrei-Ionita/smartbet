@@ -17,40 +17,38 @@ export async function GET(
       }, { status: 400 })
     }
     
-    // For demo purposes, generate realistic data based on fixture ID
-    // This allows testing different leagues and their subreddit mappings
-    const leagues = [
-      'Premier League', 'Ligue 1', 'La Liga', 'Serie A', 'Bundesliga',
-      'Championship', 'Eredivisie', 'Super Lig', 'Liga Portugal'
-    ]
-    const league = leagues[fixtureId % leagues.length]
-    
-    // Generate team names based on league
-    let homeTeam: string, awayTeam: string
-    if (league === 'Premier League') {
-      const teams = ['Manchester City', 'Arsenal', 'Liverpool', 'Chelsea']
-      homeTeam = teams[fixtureId % teams.length]
-      awayTeam = teams[(fixtureId + 1) % teams.length]
-    } else if (league === 'Ligue 1') {
-      const teams = ['Paris Saint-Germain', 'Marseille', 'Lyon', 'Monaco', 'Nantes']
-      homeTeam = teams[fixtureId % teams.length]
-      awayTeam = teams[(fixtureId + 1) % teams.length]
-    } else if (league === 'La Liga') {
-      const teams = ['Real Madrid', 'Barcelona', 'Atletico Madrid', 'Sevilla']
-      homeTeam = teams[fixtureId % teams.length]
-      awayTeam = teams[(fixtureId + 1) % teams.length]
-    } else if (league === 'Serie A') {
-      const teams = ['Juventus', 'AC Milan', 'Inter Milan', 'Napoli', 'Roma']
-      homeTeam = teams[fixtureId % teams.length]
-      awayTeam = teams[(fixtureId + 1) % teams.length]
-    } else if (league === 'Bundesliga') {
-      const teams = ['Bayern Munich', 'Borussia Dortmund', 'RB Leipzig', 'Bayer Leverkusen']
-      homeTeam = teams[fixtureId % teams.length]
-      awayTeam = teams[(fixtureId + 1) % teams.length]
-    } else {
-      homeTeam = 'Home Team'
-      awayTeam = 'Away Team'
-    }
+  // Generate team names and determine league based on teams (not random)
+  let homeTeam: string, awayTeam: string, league: string
+  
+  // Define teams by league for accurate league detection
+  const laLigaTeams = ['Real Madrid', 'Barcelona', 'Atletico Madrid', 'Sevilla', 'Girona', 'Real Sociedad', 'Villarreal']
+  const premierLeagueTeams = ['Manchester City', 'Arsenal', 'Liverpool', 'Chelsea', 'Manchester United', 'Tottenham', 'Newcastle']
+  const ligue1Teams = ['Paris Saint-Germain', 'Marseille', 'Lyon', 'Monaco', 'Nantes', 'Lille', 'Nice']
+  const serieATeams = ['Juventus', 'AC Milan', 'Inter Milan', 'Napoli', 'Roma', 'Atalanta', 'Lazio']
+  const bundesligaTeams = ['Bayern Munich', 'Borussia Dortmund', 'RB Leipzig', 'Bayer Leverkusen', 'Eintracht Frankfurt']
+  const eredivisieTeams = ['Ajax', 'PSV Eindhoven', 'Feyenoord', 'AZ Alkmaar', 'FC Twente']
+  
+  // Generate teams based on fixture ID for consistency
+  const allTeams = [...laLigaTeams, ...premierLeagueTeams, ...ligue1Teams, ...serieATeams, ...bundesligaTeams, ...eredivisieTeams]
+  homeTeam = allTeams[fixtureId % allTeams.length]
+  awayTeam = allTeams[(fixtureId + 1) % allTeams.length]
+  
+  // Determine league based on actual teams (not random selection)
+  if (laLigaTeams.includes(homeTeam) || laLigaTeams.includes(awayTeam)) {
+    league = 'La Liga'
+  } else if (premierLeagueTeams.includes(homeTeam) || premierLeagueTeams.includes(awayTeam)) {
+    league = 'Premier League'
+  } else if (ligue1Teams.includes(homeTeam) || ligue1Teams.includes(awayTeam)) {
+    league = 'Ligue 1'
+  } else if (serieATeams.includes(homeTeam) || serieATeams.includes(awayTeam)) {
+    league = 'Serie A'
+  } else if (bundesligaTeams.includes(homeTeam) || bundesligaTeams.includes(awayTeam)) {
+    league = 'Bundesliga'
+  } else if (eredivisieTeams.includes(homeTeam) || eredivisieTeams.includes(awayTeam)) {
+    league = 'Eredivisie'
+  } else {
+    league = 'soccer' // Default fallback
+  }
     
     // Generate deterministic but varied data based on fixture ID
     const seed = fixtureId % 1000
