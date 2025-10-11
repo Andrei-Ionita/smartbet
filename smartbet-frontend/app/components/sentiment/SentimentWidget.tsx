@@ -48,8 +48,8 @@ export default function SentimentWidget({ matchId, homeTeam, awayTeam, league, c
 
       console.log(`🔍 Fetching sentiment data for match ${matchId}: ${homeTeam} vs ${awayTeam}`)
       
-      // Fetch REAL sentiment data from Django backend
-      const response = await fetch(`http://localhost:8000/api/sentiment/${matchId}/`)
+      // Fetch sentiment data from Vercel API (works on both local and production)
+      const response = await fetch(`/api/sentiment/${matchId}`)
       
       if (!response.ok) {
         throw new Error(`API request failed: ${response.status}`)
