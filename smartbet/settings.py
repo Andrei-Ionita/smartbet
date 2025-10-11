@@ -195,3 +195,8 @@ CORS_ALLOW_METHODS = [
 
 # Allow preflight requests
 CORS_PREFLIGHT_MAX_AGE = 86400
+
+# Reddit API Configuration for Sentiment Analysis
+REDDIT_CLIENT_ID = 'Tl6PL8QbrVeUxOoyORZO3g'
+REDDIT_CLIENT_SECRET = 'IMPK4KWi8ruQ13N3lcBC8Ahmyptxcw'
+REDDIT_USER_AGENT = 'SmartBet Sentiment Analyzer v1.0'

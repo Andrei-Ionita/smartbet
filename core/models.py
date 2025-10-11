@@ -4,6 +4,7 @@ Core models for SmartBet - Prediction Tracking Only
 
 from django.db import models
 from django.utils import timezone
+import json
 
 
 class PredictionLog(models.Model):
@@ -151,3 +152,113 @@ class PerformanceSnapshot(models.Model):
     
     def __str__(self):
         return f"Performance on {self.snapshot_date}: {self.accuracy_percent}% accuracy"
+
+
+class MatchSentiment(models.Model):
+    """
+    Stores sentiment analysis data for matches to detect trap games.
+    
+    Trap games are matches where public sentiment is heavily skewed
+    compared to our predictions, potentially indicating value opportunities
+    or dangerous betting situations.
+    """
+    
+    # Match identification
+    fixture_id = models.IntegerField(unique=True, help_text="SportMonks fixture ID")
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100)
+    match_date = models.DateTimeField()
+    
+    # Sentiment metrics
+    home_mentions_count = models.IntegerField(default=0)
+    away_mentions_count = models.IntegerField(default=0)
+    home_sentiment_score = models.FloatField(default=0.0, help_text="Sentiment score -1 to +1")
+    away_sentiment_score = models.FloatField(default=0.0, help_text="Sentiment score -1 to +1")
+    public_attention_ratio = models.FloatField(default=0.0, help_text="Public attention level 0 to 1")
+    
+    # Trap detection
+    trap_score = models.IntegerField(default=0, help_text="Trap score 0 to 10")
+    trap_level = models.CharField(
+        max_length=10,
+        choices=[
+            ('low', 'Low Risk'),
+            ('medium', 'Medium Risk'),
+            ('high', 'High Risk'),
+            ('extreme', 'Extreme Risk')
+        ],
+        default='low'
+    )
+    alert_message = models.TextField(blank=True)
+    recommendation = models.TextField(blank=True)
+    confidence_divergence = models.FloatField(default=0.0)
+    
+    # Data sources and metadata
+    data_sources = models.JSONField(default=list, help_text="List of data sources used")
+    top_keywords = models.JSONField(default=list, help_text="Top keywords from sentiment analysis")
+    scraped_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    # Analysis metadata
+    total_mentions = models.IntegerField(default=0)
+    analysis_version = models.CharField(max_length=10, default='v1.0')
+    
+    class Meta:
+        ordering = ['-match_date', '-scraped_at']
+        indexes = [
+            models.Index(fields=['fixture_id']),
+            models.Index(fields=['match_date']),
+            models.Index(fields=['trap_score']),
+            models.Index(fields=['trap_level']),
+            models.Index(fields=['league']),
+            models.Index(fields=['scraped_at']),
+        ]
+        verbose_name = "Match Sentiment"
+        verbose_name_plural = "Match Sentiments"
+    
+    def __str__(self):
+        return f"[{self.fixture_id}] {self.home_team} vs {self.away_team} - Trap: {self.trap_level} ({self.trap_score}/10)"
+    
+    @property
+    def is_high_trap_risk(self):
+        """Returns True if this match is considered high trap risk"""
+        return self.trap_score >= 5
+    
+    @property
+    def sentiment_summary(self):
+        """Returns a summary of sentiment analysis"""
+        total_mentions = self.home_mentions_count + self.away_mentions_count
+        if total_mentions == 0:
+            return "No sentiment data available"
+        
+        home_ratio = self.home_mentions_count / total_mentions
+        away_ratio = self.away_mentions_count / total_mentions
+        
+        if home_ratio > 0.6:
+            favorite = f"{self.home_team} (public favorite)"
+        elif away_ratio > 0.6:
+            favorite = f"{self.away_team} (public favorite)"
+        else:
+            favorite = "Balanced public opinion"
+        
+        return f"{total_mentions} mentions, {favorite}"
+    
+    def get_alert_color(self):
+        """Returns CSS color class for trap alert"""
+        colors = {
+            'extreme': 'text-red-700 bg-red-100',
+            'high': 'text-orange-700 bg-orange-100', 
+            'medium': 'text-yellow-700 bg-yellow-100',
+            'low': 'text-green-700 bg-green-100'
+        }
+        return colors.get(self.trap_level, 'text-gray-700 bg-gray-100')
+    
+    def get_alert_icon(self):
+        """Returns icon for trap alert"""
+        icons = {
+            'extreme': '🚨',
+            'high': '⚠️',
+            'medium': '⚡',
+            'low': '✅'
+        }
+        return icons.get(self.trap_level, 'ℹ️')

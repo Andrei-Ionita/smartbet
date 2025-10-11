@@ -46,36 +46,25 @@ export default function SentimentWidget({ matchId, homeTeam, awayTeam, league, c
       setLoading(true)
       setError(null)
 
-      // For now, we'll use a mock API endpoint since the Django backend isn't deployed yet
-      // In production, this would call: `/api/sentiment/${matchId}/`
+      console.log(`🔍 Fetching sentiment data for match ${matchId}: ${homeTeam} vs ${awayTeam}`)
       
-      // Mock data for demonstration
-      const mockData = {
-        sentiment: {
-          home_mentions: 45,
-          away_mentions: 32,
-          total_mentions: 77,
-          home_sentiment_score: 0.23,
-          away_sentiment_score: -0.15,
-          public_attention_ratio: 0.68,
-          top_keywords: ['confident', 'strong', 'form', 'win', 'momentum'],
-          data_sources: ['reddit/r/soccer', 'reddit/r/PremierLeague']
-        },
-        trap_analysis: {
-          trap_score: 4,
-          trap_level: 'medium',
-          alert_message: '⚠️ MEDIUM TRAP RISK: High public attention',
-          recommendation: 'Moderate public bias. Monitor closely.',
-          confidence_divergence: 0.12,
-          is_high_risk: false
-        }
+      // Fetch REAL sentiment data from Django backend
+      const response = await fetch(`http://localhost:8000/api/sentiment/${matchId}/`)
+      
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`)
+      }
+      
+      const data = await response.json()
+      
+      console.log(`📊 Received sentiment data for ${matchId}:`, data)
+      
+      if (!data.success || !data.data) {
+        throw new Error('No sentiment data available for this match')
       }
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      setSentimentData(mockData.sentiment)
-      setTrapAnalysis(mockData.trap_analysis)
+      setSentimentData(data.data.sentiment)
+      setTrapAnalysis(data.data.trap_analysis)
     } catch (err) {
       setError('Failed to load sentiment data')
       console.error('Error fetching sentiment data:', err)
@@ -150,6 +139,14 @@ export default function SentimentWidget({ matchId, homeTeam, awayTeam, league, c
   const awayMentionRatio = sentimentData.total_mentions > 0 
     ? (sentimentData.away_mentions / sentimentData.total_mentions) * 100 
     : 0
+
+  console.log(`🎯 Displaying sentiment for ${homeTeam} vs ${awayTeam}:`, {
+    totalMentions: sentimentData.total_mentions,
+    homeMentions: sentimentData.home_mentions,
+    awayMentions: sentimentData.away_mentions,
+    trapLevel: trapAnalysis.trap_level,
+    trapScore: trapAnalysis.trap_score
+  })
 
   return (
     <div className={`bg-white rounded-xl border border-gray-200 p-6 ${className}`}>
