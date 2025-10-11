@@ -4,6 +4,38 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// Function to get league-specific accuracy stats
+async function getLeagueAccuracyStats(): Promise<Array<{
+  league: string
+  total: number
+  correct: number
+  accuracy_percent: number
+}>> {
+  try {
+    const { exec } = require('child_process')
+    const { promisify } = require('util')
+    const execAsync = promisify(exec)
+    const path = require('path')
+    
+    const projectRoot = path.join(process.cwd(), '..')
+    const scriptPath = path.join(projectRoot, 'production', 'scripts', 'get_performance_stats.py')
+    
+    const { stdout } = await execAsync(
+      `python "${scriptPath}" --json`,
+      { 
+        cwd: projectRoot,
+        timeout: 15000
+      }
+    )
+    
+    const stats = JSON.parse(stdout)
+    return stats.by_league || []
+  } catch (error) {
+    console.error('Error fetching league stats:', error)
+    return []
+  }
+}
+
 // Simplified inline implementations to fix build issues
 const apiClient = {
   async request(url: string) {
@@ -825,6 +857,23 @@ export async function GET(request: NextRequest) {
       .sort((a, b) => b.confidence - a.confidence)
           .slice(0, 10)
 
+    // Get league accuracy stats to add to recommendations
+    const leagueStats = await getLeagueAccuracyStats()
+    const leagueStatsMap = new Map(leagueStats.map((stat: any) => [stat.league, stat]))
+
+    // Add league accuracy stats to each recommendation
+    const recommendationsWithLeagueStats = topRecommendations.map(rec => {
+      const leagueStat = leagueStatsMap.get(rec.league)
+      return {
+        ...rec,
+        league_accuracy: leagueStat ? {
+          accuracy_percent: leagueStat.accuracy_percent,
+          total_predictions: leagueStat.total,
+          correct_predictions: leagueStat.correct
+        } : null
+      }
+    })
+
     // Sort all predictions by confidence for debugging
     const sortedAllPredictions = allPredictions.sort((a, b) => b.max_confidence - a.max_confidence)
 
@@ -847,8 +896,8 @@ export async function GET(request: NextRequest) {
 
     // Prepare final response data
     const responseData = {
-      recommendations: topRecommendations,
-      total: topRecommendations.length,
+      recommendations: recommendationsWithLeagueStats,
+      total: recommendationsWithLeagueStats.length,
           confidence_threshold: 55,
           ensemble_method: 'consensus_3_models',
           ensemble_description: 'Phase 1: Consensus ensemble of 3 SportMonks AI models (type_ids: 233, 237, 238)',

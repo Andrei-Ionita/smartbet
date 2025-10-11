@@ -210,25 +210,25 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         </div>
       </div>
 
-      {/* Risk Level & Quick Actions */}
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-3">
-          {(() => {
-            const risk = getRiskLevel()
-            const Icon = risk.icon
-            return (
-              <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${risk.bgColor}`}>
-                <Icon className={`h-4 w-4 ${risk.color}`} />
-                <span className={`text-sm font-medium ${risk.color}`}>{risk.level}</span>
+          {/* Risk Level & Quick Actions */}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              {(() => {
+                const risk = getRiskLevel()
+                const Icon = risk.icon
+                return (
+                  <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${risk.bgColor}`}>
+                    <Icon className={`h-4 w-4 ${risk.color}`} />
+                    <span className={`text-sm font-medium ${risk.color}`}>{risk.level}</span>
+                  </div>
+                )
+              })()}
+              <div className={`px-3 py-1 rounded-full ${getPredictionStrength(recommendation.probabilities).bgColor}`}>
+                <span className={`text-sm font-medium ${getPredictionStrength(recommendation.probabilities).color}`}>
+                  {getPredictionStrength(recommendation.probabilities).label} Signal
+                </span>
               </div>
-            )
-          })()}
-          <div className={`px-3 py-1 rounded-full ${getPredictionStrength(recommendation.probabilities).bgColor}`}>
-            <span className={`text-sm font-medium ${getPredictionStrength(recommendation.probabilities).color}`}>
-              {getPredictionStrength(recommendation.probabilities).label} Signal
-            </span>
-          </div>
-        </div>
+            </div>
                  <button
                    onClick={() => setIsCalculatorOpen(true)}
                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
@@ -237,6 +237,38 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                    Calculate Stake
                  </button>
       </div>
+
+          {/* League Accuracy Badge */}
+          {recommendation.league_accuracy && (
+            <div className="mb-6">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-blue-100 rounded-lg">
+                    <Target className="h-5 w-5 text-blue-600" />
+                  </div>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-semibold text-gray-700">
+                        {recommendation.league} Performance
+                      </span>
+                      <span className={`px-2 py-1 rounded-full text-xs font-bold ${
+                        recommendation.league_accuracy.accuracy_percent >= 65 
+                          ? 'text-green-700 bg-green-100' 
+                          : recommendation.league_accuracy.accuracy_percent >= 55
+                          ? 'text-yellow-700 bg-yellow-100'
+                          : 'text-red-700 bg-red-100'
+                      }`}>
+                        {recommendation.league_accuracy.accuracy_percent}% accuracy
+                      </span>
+                    </div>
+                    <div className="text-xs text-gray-600">
+                      {recommendation.league_accuracy.correct_predictions} correct out of {recommendation.league_accuracy.total_predictions} predictions
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
       {/* Expanded Details */}
       {isExpanded && (

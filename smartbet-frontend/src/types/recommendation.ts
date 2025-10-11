@@ -35,4 +35,9 @@ export interface Recommendation {
     variance: number
     model_count: number
   }
+  league_accuracy?: {
+    accuracy_percent: number
+    total_predictions: number
+    correct_predictions: number
+  } | null
 }
