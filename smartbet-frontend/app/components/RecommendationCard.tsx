@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Recommendation } from '../../src/types/recommendation'
 import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator } from 'lucide-react'
 import BettingCalculatorModal from './BettingCalculatorModal'
+import { SentimentWidget } from './sentiment'
 
 interface RecommendationCardProps {
   recommendation: Recommendation
@@ -367,6 +368,16 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </div>
             </div>
           )}
+
+          {/* Sentiment Analysis Widget */}
+          <div className="mt-6">
+            <SentimentWidget
+              matchId={recommendation.fixture_id}
+              homeTeam={recommendation.home_team}
+              awayTeam={recommendation.away_team}
+              league={recommendation.league}
+            />
+          </div>
         </div>
       )}
 
