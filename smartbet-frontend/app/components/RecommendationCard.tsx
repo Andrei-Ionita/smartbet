@@ -75,9 +75,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     const confidence = recommendation.confidence
     const ev = recommendation.ev || 0
     
-    if (confidence >= 75 && ev > 0.1) return { level: 'Low Risk', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
-    if (confidence >= 60 && ev > 0) return { level: 'Medium Risk', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: AlertTriangle }
-    return { level: 'High Risk', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle }
+    // Primary risk based on prediction confidence (72% should be Low Risk)
+    if (confidence >= 70) return { level: 'Low Risk', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
+    if (confidence >= 60) return { level: 'Medium Risk', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: AlertTriangle }
+    if (confidence >= 50) return { level: 'High Risk', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: AlertTriangle }
+    return { level: 'Very High Risk', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle }
   }
 
   // Visual probability bar component
