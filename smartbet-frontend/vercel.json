@@ -7,6 +7,9 @@
   "functions": {
     "app/api/**/*.ts": {
       "maxDuration": 30
+    },
+    "app/api/sentiment/**/*.ts": {
+      "maxDuration": 60
     }
   },
   "rewrites": [
