@@ -134,97 +134,61 @@ export async function GET(request: NextRequest) {
 
     console.log(`Searching for: "${query}" in league: "${league}"`)
 
-    // Prioritize major leagues for better performance
-    const MAJOR_LEAGUES = [8, 301, 564, 384, 82] // Premier League, Ligue 1, La Liga, Serie A, Bundesliga
-    const leaguesToSearch = league ? [parseInt(league)] : MAJOR_LEAGUES
+    // Search through all leagues or specific league (keeping all 27 leagues)
+    const leaguesToSearch = league ? [parseInt(league)] : SUPPORTED_LEAGUE_IDS
     const allResults: SearchResult[] = []
-    
-    // Add timeout to prevent hanging
-    const searchTimeout = 45000 // 45 seconds timeout
-    const searchPromise = searchLeagues(leaguesToSearch, query, startDate, endDate)
-    
-    try {
-      const results = await Promise.race([
-        searchPromise,
-        new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('Search timeout')), searchTimeout)
-        )
-      ]) as SearchResult[]
-      
-      allResults.push(...results)
-    } catch (timeoutError) {
-      console.warn(`Search timeout for query: "${query}"`)
-      // Return partial results if timeout occurs
-    }
 
-    async function searchLeagues(leagueIds: number[], searchQuery: string, startDate: string, endDate: string): Promise<SearchResult[]> {
-      const results: SearchResult[] = []
-      
-      // Search leagues in parallel batches to improve performance
-      const batchSize = 3
-      for (let i = 0; i < leagueIds.length; i += batchSize) {
-        const batch = leagueIds.slice(i, i + batchSize)
-        
-        const batchPromises = batch.map(async (leagueId) => {
-          try {
-            const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
-            const params = new URLSearchParams({
-              api_token: getApiToken(),
-              include: 'participants;league',
-              filters: `fixtureLeagues:${leagueId}`,
-              per_page: '25', // Reduced from 50 to improve speed
-              page: '1',
-              timezone: 'Europe/Bucharest'
-            })
+    for (const leagueId of leaguesToSearch) {
+      try {
+        const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
+        const params = new URLSearchParams({
+          api_token: getApiToken(),
+          include: 'participants;league;metadata;predictions;odds',
+          filters: `fixtureLeagues:${leagueId}`,
+          per_page: '50',
+          page: '1',
+          timezone: 'Europe/Bucharest'
+        })
 
-            const data = await apiClient.request(`${url}?${params}`)
-            const fixtures = data.data || []
+        const data = await apiClient.request(`${url}?${params}`)
+        const fixtures = data.data || []
 
-            // Filter fixtures by search query
-            const matchingFixtures = fixtures.filter((fixture: any) => {
-              const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
-              const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
-              const leagueName = fixture.league?.name?.toLowerCase() || ''
-              const searchTerm = searchQuery.toLowerCase()
+        // Filter fixtures by search query
+        const matchingFixtures = fixtures.filter((fixture: any) => {
+          // Correctly map home/away teams using meta.location
+          const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
+          const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
+          const leagueName = fixture.league?.name?.toLowerCase() || ''
+          const searchTerm = query.toLowerCase()
 
-              return homeTeam.includes(searchTerm) || 
-                     awayTeam.includes(searchTerm) || 
-                     leagueName.includes(searchTerm) ||
-                     `${homeTeam} vs ${awayTeam}`.includes(searchTerm)
-            })
+          return homeTeam.includes(searchTerm) || 
+                 awayTeam.includes(searchTerm) || 
+                 leagueName.includes(searchTerm) ||
+                 `${homeTeam} vs ${awayTeam}`.includes(searchTerm)
+        })
 
-            // Convert to search results
-            return matchingFixtures.map((fixture: any) => {
-              const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
-              const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
-              
-              return {
-                fixture_id: fixture.id,
-                home_team: homeTeam,
-                away_team: awayTeam,
-                league: fixture.league?.name || 'Unknown',
-                kickoff: fixture.starting_at,
-                has_predictions: false, // Simplified for performance
-                has_odds: false // Simplified for performance
-              }
-            })
-
-          } catch (error) {
-            console.log(`Error searching league ${leagueId}: ${error}`)
-            return []
+        // Convert to search results
+        const results = matchingFixtures.map((fixture: any) => {
+          // Correctly map home/away teams using meta.location
+          const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
+          const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+          
+          return {
+            fixture_id: fixture.id,
+            home_team: homeTeam,
+            away_team: awayTeam,
+            league: fixture.league?.name || 'Unknown',
+            kickoff: fixture.starting_at,
+            has_predictions: (fixture.predictions?.length || 0) > 0,
+            has_odds: (fixture.odds?.length || 0) > 0
           }
         })
-        
-        const batchResults = await Promise.all(batchPromises)
-        results.push(...batchResults.flat())
-        
-        // Early exit if we have enough results
-        if (results.length >= limit) {
-          break
-        }
+
+        allResults.push(...results)
+
+      } catch (error) {
+        console.log(`Error searching league ${leagueId}: ${error}`)
       }
-      
-      return results
     }
 
     // Sort by relevance (exact team name matches first, then partial matches)
