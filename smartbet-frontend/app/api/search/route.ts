@@ -126,19 +126,28 @@ export async function GET(request: NextRequest) {
 
     console.log(`🚀 Cache MISS - Searching for: "${query}"`)
 
-    // Calculate date range for next 7 days (reduced from 14 to improve performance)
+    // Calculate date range for next 3 days (minimal for fast search)
     const now = new Date()
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
     const startDate = now.toISOString().split('T')[0]
-    const endDate = sevenDaysFromNow.toISOString().split('T')[0]
+    const endDate = threeDaysFromNow.toISOString().split('T')[0]
 
     console.log(`Searching for: "${query}" in league: "${league}"`)
 
     // Search through all leagues or specific league (keeping all 27 leagues)
     const leaguesToSearch = league ? [parseInt(league)] : SUPPORTED_LEAGUE_IDS
     const allResults: SearchResult[] = []
+    
+    // Add timeout protection for search
+    const searchStartTime = Date.now()
+    const MAX_SEARCH_TIME = 8000 // 8 seconds max
 
     for (const leagueId of leaguesToSearch) {
+      // Check if we're taking too long
+      if (Date.now() - searchStartTime > MAX_SEARCH_TIME) {
+        console.log(`Search timeout reached, stopping at league ${leagueId}`)
+        break
+      }
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
