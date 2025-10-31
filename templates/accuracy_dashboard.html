@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Accuracy Dashboard - Real Data Analysis</title>
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body class="bg-gray-50">
+    <div x-data="dashboard()" x-init="loadData()" class="min-h-screen">
+        <!-- Header -->
+        <div class="bg-white shadow-sm border-b">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center py-6">
+                    <div>
+                        <h1 class="text-3xl font-bold text-gray-900">Prediction Accuracy Dashboard</h1>
+                        <p class="text-gray-600 mt-1">Real-time analysis of ensemble model performance</p>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm text-gray-500">Last Updated</div>
+                        <div class="text-lg font-semibold text-gray-900" x-text="lastUpdated"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Loading State -->
+        <div x-show="loading" class="flex justify-center items-center py-20">
+            <div class="text-center">
+                <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
+                <p class="text-gray-600 mt-4">Loading real prediction data...</p>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div x-show="!loading" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <!-- Summary Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-blue-100 rounded-lg">
+                            <svg class="w-6 h-6 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Leagues</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="totalLeagues"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-green-100 rounded-lg">
+                            <svg class="w-6 h-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Avg Hit Rate</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="averageHitRate"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-yellow-100 rounded-lg">
+                            <svg class="w-6 h-6 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Avg Confidence</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="averageConfidence"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-lg shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-2 bg-purple-100 rounded-lg">
+                            <svg class="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1"></path>
+                            </svg>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Avg EV</p>
+                            <p class="text-2xl font-bold text-gray-900" x-text="averageEV"></p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+                <!-- Accuracy Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">League Accuracy Overview</h3>
+                    <div id="accuracyChart" class="h-96"></div>
+                </div>
+
+                <!-- Confidence vs Accuracy Chart -->
+                <div class="bg-white rounded-lg shadow p-6">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">Confidence vs Accuracy Correlation</h3>
+                    <div id="confidenceChart" class="h-96"></div>
+                </div>
+            </div>
+
+            <!-- League Table -->
+            <div class="bg-white rounded-lg shadow">
+                <div class="px-6 py-4 border-b border-gray-200">
+                    <h3 class="text-lg font-semibold text-gray-900">League Performance Details</h3>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">League</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Predictions</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Hit Rate</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg Confidence</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Avg EV</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">High Conf Accuracy</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            <template x-for="league in leagues" :key="league.league_name">
+                                <tr class="hover:bg-gray-50">
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900" x-text="league.league_name"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" x-text="league.total_predictions"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                              :class="league.hit_rate >= 70 ? 'bg-green-100 text-green-800' : 
+                                                      league.hit_rate >= 60 ? 'bg-yellow-100 text-yellow-800' : 
+                                                      'bg-red-100 text-red-800'"
+                                              x-text="league.hit_rate.toFixed(1) + '%'"></span>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" x-text="league.avg_confidence.toFixed(1) + '%'"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" x-text="(league.avg_expected_value * 100).toFixed(1) + '%'"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm text-gray-900" x-text="league.high_confidence_accuracy.toFixed(1) + '%'"></div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <button @click="viewLeagueDetails(league.league_id)" 
+                                                class="text-blue-600 hover:text-blue-900 text-sm font-medium">
+                                            View Details
+                                        </button>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- League Details Modal -->
+        <div x-show="showLeagueModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+            <div class="relative top-20 mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                <div class="mt-3">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="text-lg font-semibold text-gray-900" x-text="selectedLeague.league_name + ' - Detailed Analysis'"></h3>
+                        <button @click="showLeagueModal = false" class="text-gray-400 hover:text-gray-600">
+                            <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                    
+                    <div class="overflow-x-auto max-h-96">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Match</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Predicted</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Confidence</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">EV</th>
+                                    <th class="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Result</th>
+                                </tr>
+                            </thead>
+                            <tbody class="bg-white divide-y divide-gray-200">
+                                <template x-for="fixture in selectedLeague.fixtures" :key="fixture.fixture_id">
+                                    <tr>
+                                        <td class="px-4 py-2 text-sm">
+                                            <div x-text="fixture.home_team + ' vs ' + fixture.away_team"></div>
+                                            <div class="text-xs text-gray-500" x-text="new Date(fixture.kickoff_datetime).toLocaleString()"></div>
+                                        </td>
+                                        <td class="px-4 py-2 text-sm font-medium" x-text="fixture.predicted_outcome"></td>
+                                        <td class="px-4 py-2 text-sm" x-text="fixture.actual_outcome"></td>
+                                        <td class="px-4 py-2 text-sm" x-text="fixture.confidence.toFixed(1) + '%'"></td>
+                                        <td class="px-4 py-2 text-sm" x-text="(fixture.expected_value * 100).toFixed(1) + '%'"></td>
+                                        <td class="px-4 py-2">
+                                            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium"
+                                                  :class="fixture.prediction_result === 'Correct' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'"
+                                                  x-text="fixture.prediction_result"></span>
+                                        </td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function dashboard() {
+            return {
+                loading: true,
+                leagues: [],
+                totalLeagues: 0,
+                averageHitRate: '0%',
+                averageConfidence: '0%',
+                averageEV: '0%',
+                lastUpdated: 'Loading...',
+                showLeagueModal: false,
+                selectedLeague: {},
+
+                async loadData() {
+                    try {
+                        // Load overview data
+                        const overviewResponse = await fetch('/api/overview');
+                        const overviewData = await overviewResponse.json();
+                        
+                        if (overviewData.success) {
+                            this.leagues = overviewData.data;
+                            this.totalLeagues = overviewData.total_leagues;
+                            this.lastUpdated = new Date(overviewData.last_updated).toLocaleString();
+                            
+                            // Calculate averages
+                            if (this.leagues.length > 0) {
+                                const avgHitRate = this.leagues.reduce((sum, league) => sum + league.hit_rate, 0) / this.leagues.length;
+                                const avgConfidence = this.leagues.reduce((sum, league) => sum + league.avg_confidence, 0) / this.leagues.length;
+                                const avgEV = this.leagues.reduce((sum, league) => sum + league.avg_expected_value, 0) / this.leagues.length;
+                                
+                                this.averageHitRate = avgHitRate.toFixed(1) + '%';
+                                this.averageConfidence = avgConfidence.toFixed(1) + '%';
+                                this.averageEV = (avgEV * 100).toFixed(1) + '%';
+                            }
+                            
+                            // Load charts
+                            await this.loadCharts();
+                        }
+                        
+                        this.loading = false;
+                    } catch (error) {
+                        console.error('Error loading data:', error);
+                        this.loading = false;
+                    }
+                },
+
+                async loadCharts() {
+                    try {
+                        // Load accuracy chart
+                        const accuracyResponse = await fetch('/api/charts/accuracy');
+                        const accuracyData = await accuracyResponse.json();
+                        if (accuracyData.success && accuracyData.chart) {
+                            Plotly.newPlot('accuracyChart', JSON.parse(accuracyData.chart).data, JSON.parse(accuracyData.chart).layout);
+                        }
+
+                        // Load confidence chart
+                        const confidenceResponse = await fetch('/api/charts/confidence');
+                        const confidenceData = await confidenceResponse.json();
+                        if (confidenceData.success && confidenceData.chart) {
+                            Plotly.newPlot('confidenceChart', JSON.parse(confidenceData.chart).data, JSON.parse(confidenceData.chart).layout);
+                        }
+                    } catch (error) {
+                        console.error('Error loading charts:', error);
+                    }
+                },
+
+                async viewLeagueDetails(leagueId) {
+                    try {
+                        const response = await fetch(`/api/league/${leagueId}`);
+                        const data = await response.json();
+                        
+                        if (data.success) {
+                            this.selectedLeague = data.data;
+                            this.showLeagueModal = true;
+                        }
+                    } catch (error) {
+                        console.error('Error loading league details:', error);
+                    }
+                }
+            }
+        }
+    </script>
+</body>
+</html>

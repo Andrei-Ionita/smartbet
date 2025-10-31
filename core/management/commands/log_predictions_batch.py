@@ -93,7 +93,8 @@ class Command(BaseCommand):
                         variance=prediction_data.get('ensemble_info', {}).get('variance') if prediction_data.get('ensemble_info') else None,
                         ensemble_strategy=prediction_data.get('ensemble_info', {}).get('strategy', 'consensus_ensemble') if prediction_data.get('ensemble_info') else 'consensus_ensemble',
                         
-                        recommendation_score=prediction_data.get('score')
+                        recommendation_score=prediction_data.get('score'),
+                        is_recommended=prediction_data.get('is_recommended', False)  # Mark as recommended if explicitly set
                     )
                     
                     logged_count += 1

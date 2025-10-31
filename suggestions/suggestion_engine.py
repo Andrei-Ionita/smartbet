@@ -39,7 +39,7 @@ def get_top_recommendations(
         min_confidence: Minimum confidence level ('LOW', 'MEDIUM', 'HIGH', 'VERY_HIGH')
         league_ids: Optional list of league IDs to filter by
         date_from: Optional start date for matches (defaults to now)
-        date_to: Optional end date for matches (defaults to 7 days from now)
+        date_to: Optional end date for matches (defaults to 14 days from now)
         bookmaker: Bookmaker to use for odds data
         
     Returns:
@@ -58,7 +58,7 @@ def get_top_recommendations(
         date_from = timezone.now()
     
     if date_to is None:
-        date_to = date_from + timedelta(days=7)
+        date_to = date_from + timedelta(days=14)
     
     # Build base query for match scores
     scores_query = MatchScoreModel.objects.select_related('match').filter(

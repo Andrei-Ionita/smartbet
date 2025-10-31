@@ -3,14 +3,16 @@
 import { useState } from 'react'
 import PerformanceDashboard from '../components/PerformanceDashboard'
 import PredictionAccuracyTracker from '../components/PredictionAccuracyTracker'
-import { Activity, BarChart3, Settings, TrendingUp, Target } from 'lucide-react'
+import RecommendedPredictionsTable from '../components/RecommendedPredictionsTable'
+import { Activity, BarChart3, Settings, TrendingUp, Target, Award } from 'lucide-react'
 
 export default function MonitoringPage() {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'accuracy' | 'analytics' | 'settings'>('dashboard')
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'accuracy' | 'recommended' | 'analytics' | 'settings'>('dashboard')
 
   const tabs = [
     { id: 'dashboard', label: 'Performance', icon: Activity },
     { id: 'accuracy', label: 'Prediction Accuracy', icon: Target },
+    { id: 'recommended', label: 'Recommended Predictions', icon: Award },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings }
   ]
@@ -127,6 +129,12 @@ export default function MonitoringPage() {
           {activeTab === 'accuracy' && (
             <div className="space-y-6">
               <PredictionAccuracyTracker />
+            </div>
+          )}
+
+          {activeTab === 'recommended' && (
+            <div className="space-y-6">
+              <RecommendedPredictionsTable />
             </div>
           )}
 

@@ -193,10 +193,13 @@ CORS_ALLOW_METHODS = [
     'PUT',
 ]
 
-# Allow preflight requests
+# CORS settings for frontend integration
+CORS_ALLOW_ALL_ORIGINS = True  # For development only
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3001",
+]
+CORS_ALLOW_CREDENTIALS = True
 CORS_PREFLIGHT_MAX_AGE = 86400
-
-# Reddit API Configuration for Sentiment Analysis
-REDDIT_CLIENT_ID = 'Tl6PL8QbrVeUxOoyORZO3g'
-REDDIT_CLIENT_SECRET = 'IMPK4KWi8ruQ13N3lcBC8Ahmyptxcw'
-REDDIT_USER_AGENT = 'SmartBet Sentiment Analyzer v1.0'

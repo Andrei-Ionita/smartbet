@@ -139,7 +139,7 @@ def fetch_fixture_odds(fixture_id: int) -> Optional[Dict]:
     
     return odds_data
 
-def fetch_league_odds(league_id: int, days_ahead: int = 7) -> List[Dict]:
+def fetch_league_odds(league_id: int, days_ahead: int = 14) -> List[Dict]:
     """
     Fetch odds for all fixtures in a league.
     
@@ -355,11 +355,11 @@ def generate_demo_odds() -> int:
     """
     logger.info("Generating demo odds data for testing...")
     
-    # Get upcoming matches in the next 7 days
+    # Get upcoming matches in the next 14 days
     now = timezone.now()
     upcoming_matches = Match.objects.filter(
         kickoff__gte=now,
-        kickoff__lte=now + timedelta(days=7)
+        kickoff__lte=now + timedelta(days=14)
     )[:10]  # Limit to 10 matches
     
     if not upcoming_matches.exists():

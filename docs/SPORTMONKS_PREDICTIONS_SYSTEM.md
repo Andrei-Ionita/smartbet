@@ -247,7 +247,7 @@ FINAL PREDICTION:
 ### Filtering Strategy
 - Skip matches below 55% confidence
 - Prioritize ensemble averages over single models
-- Only show upcoming matches (next 7 days)
+- Only show upcoming matches (next 14 days)
 - Sort by ranking score (confidence + EV)
 
 ---

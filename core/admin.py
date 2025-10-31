@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PredictionLog, PerformanceSnapshot, MatchSentiment
+from .models import PredictionLog, PerformanceSnapshot
 
 
 @admin.register(PredictionLog)
@@ -81,31 +81,3 @@ class PerformanceSnapshotAdmin(admin.ModelAdmin):
     )
 
 
-@admin.register(MatchSentiment)
-class MatchSentimentAdmin(admin.ModelAdmin):
-    list_display = ('fixture_id', 'home_team', 'away_team', 'league', 'match_date', 
-                    'trap_level', 'trap_score', 'public_attention_ratio', 'total_mentions')
-    list_filter = ('trap_level', 'league', 'match_date', 'analysis_version')
-    search_fields = ('home_team', 'away_team', 'league', 'fixture_id')
-    readonly_fields = ('scraped_at', 'updated_at')
-    date_hierarchy = 'match_date'
-    ordering = ['-match_date', '-trap_score']
-    
-    fieldsets = (
-        ('Match Information', {
-            'fields': ('fixture_id', 'home_team', 'away_team', 'league', 'match_date')
-        }),
-        ('Sentiment Analysis', {
-            'fields': ('home_mentions_count', 'away_mentions_count', 'total_mentions',
-                      'home_sentiment_score', 'away_sentiment_score', 'public_attention_ratio')
-        }),
-        ('Trap Detection', {
-            'fields': ('trap_score', 'trap_level', 'alert_message', 'recommendation', 
-                      'confidence_divergence')
-        }),
-        ('Metadata', {
-            'fields': ('data_sources', 'top_keywords', 'analysis_version', 
-                      'scraped_at', 'updated_at'),
-            'classes': ('collapse',)
-        }),
-    )

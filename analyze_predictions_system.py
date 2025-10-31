@@ -138,7 +138,7 @@ class PredictionsAnalyzer:
         print("OK: League Filter: Correctly filtering to 5 target leagues")
 
         # 6. Time Window Issue
-        print("OK: Time Window: Correctly filtering to next 7 days")
+        print("OK: Time Window: Correctly filtering to next 14 days")
 
     def analyze_league_coverage(self):
         """Analyze league coverage and data availability"""

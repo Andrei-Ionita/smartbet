@@ -118,13 +118,13 @@ def premium_predictions_list(request):
     Query params: 
     - league (optional): Filter by league
     - limit (optional): Limit number of results (default: 10)
-    - days_ahead (optional): Look ahead N days (default: 7)
+    - days_ahead (optional): Look ahead N days (default: 14)
     """
     try:
         # Get query parameters
         league = request.GET.get('league')
         limit = int(request.GET.get('limit', 10))
-        days_ahead = int(request.GET.get('days_ahead', 7))
+        days_ahead = int(request.GET.get('days_ahead', 14))
         
         # Date range
         now = timezone.now()

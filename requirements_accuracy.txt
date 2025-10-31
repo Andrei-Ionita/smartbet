@@ -1,0 +1,19 @@
+# Prediction Accuracy Tracking System Requirements
+# All dependencies for real data analysis
+
+# Core dependencies
+requests>=2.31.0
+pandas>=2.0.0
+# Note: sqlite3, json, datetime are built-in Python modules
+
+# Web dashboard
+Flask>=2.3.0
+plotly>=5.15.0
+
+# Data visualization
+plotly>=5.15.0
+
+# Environment variables
+python-dotenv>=1.0.0
+
+# Note: sqlite3, json, datetime are built-in Python modules

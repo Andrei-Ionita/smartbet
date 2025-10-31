@@ -8,8 +8,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.http import JsonResponse
 from django.views.decorators.cache import never_cache
 from django.utils.decorators import method_decorator
-from .models import Match, OddsSnapshot, MatchScoreModel, League, Team
-from .serializers import MatchSerializer, MatchScoreModelSerializer, PredictionSerializer
+from .models import PredictionLog, PerformanceSnapshot
+from .serializers import PredictionLogSerializer
 from django.utils import timezone
 import random
 import hashlib

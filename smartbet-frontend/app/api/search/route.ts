@@ -116,42 +116,38 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Check cache first
-    const cacheKey = getCacheKey('search', { query, league, limit })
-    const cachedData = getFromCache(cacheKey)
-    if (cachedData) {
-      console.log(`🎯 Cache HIT for search: "${query}"`)
-      return NextResponse.json(cachedData)
+    console.log(`🔍 Searching for: "${query}" - using real SportMonks data only`)
+
+    // Only use real SportMonks data - no test data fallback
+    const token = process.env.SPORTMONKS_API_TOKEN
+    if (!token) {
+      console.error('❌ SPORTMONKS_API_TOKEN not found in environment')
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        query: query,
+        league: league,
+        message: 'API configuration error - no real data available'
+      }, { status: 500 })
     }
 
-    console.log(`🚀 Cache MISS - Searching for: "${query}"`)
-
-    // Calculate date range for next 3 days (minimal for fast search)
-    const now = new Date()
-    const threeDaysFromNow = new Date(now.getTime() + 3 * 24 * 60 * 60 * 1000)
-    const startDate = now.toISOString().split('T')[0]
-    const endDate = threeDaysFromNow.toISOString().split('T')[0]
-
-    console.log(`Searching for: "${query}" in league: "${league}"`)
-
-    // Search through all leagues or specific league (keeping all 27 leagues)
-    const leaguesToSearch = league ? [parseInt(league)] : SUPPORTED_LEAGUE_IDS
-    const allResults: SearchResult[] = []
+    console.log('✅ Using real SportMonks data only - no test data')
     
-    // Add timeout protection for search
-    const searchStartTime = Date.now()
-    const MAX_SEARCH_TIME = 8000 // 8 seconds max
+    // Calculate date range for next 7 days (wider range for better coverage)
+    const now = new Date()
+    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
+    const startDate = now.toISOString().split('T')[0]
+    const endDate = sevenDaysFromNow.toISOString().split('T')[0]
 
-    for (const leagueId of leaguesToSearch) {
-      // Check if we're taking too long
-      if (Date.now() - searchStartTime > MAX_SEARCH_TIME) {
-        console.log(`Search timeout reached, stopping at league ${leagueId}`)
-        break
-      }
+    // Search through key leagues first (faster)
+    const keyLeagues = [8, 564, 384, 82, 301] // Premier League, La Liga, Serie A, Bundesliga, Ligue 1
+    const allResults: SearchResult[] = []
+
+    for (const leagueId of keyLeagues) {
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
-          api_token: getApiToken(),
+          api_token: token,
           include: 'participants;league;metadata;predictions;odds',
           filters: `fixtureLeagues:${leagueId}`,
           per_page: '50',
@@ -164,21 +160,15 @@ export async function GET(request: NextRequest) {
 
         // Filter fixtures by search query
         const matchingFixtures = fixtures.filter((fixture: any) => {
-          // Correctly map home/away teams using meta.location
           const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
           const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
-          const leagueName = fixture.league?.name?.toLowerCase() || ''
           const searchTerm = query.toLowerCase()
 
-          return homeTeam.includes(searchTerm) || 
-                 awayTeam.includes(searchTerm) || 
-                 leagueName.includes(searchTerm) ||
-                 `${homeTeam} vs ${awayTeam}`.includes(searchTerm)
+          return homeTeam.includes(searchTerm) || awayTeam.includes(searchTerm)
         })
 
         // Convert to search results
         const results = matchingFixtures.map((fixture: any) => {
-          // Correctly map home/away teams using meta.location
           const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
           const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
           
@@ -200,56 +190,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort by relevance (exact team name matches first, then partial matches)
-    const searchTerm = query.toLowerCase()
-    const sortedResults = allResults.sort((a, b) => {
-      const aHome = a.home_team.toLowerCase()
-      const aAway = a.away_team.toLowerCase()
-      const bHome = b.home_team.toLowerCase()
-      const bAway = b.away_team.toLowerCase()
-
-      // Exact team name matches
-      const aExactMatch = aHome === searchTerm || aAway === searchTerm
-      const bExactMatch = bHome === searchTerm || bAway === searchTerm
-
-      if (aExactMatch && !bExactMatch) return -1
-      if (!aExactMatch && bExactMatch) return 1
-
-      // Team name starts with search term
-      const aStartsWith = aHome.startsWith(searchTerm) || aAway.startsWith(searchTerm)
-      const bStartsWith = bHome.startsWith(searchTerm) || bAway.startsWith(searchTerm)
-
-      if (aStartsWith && !bStartsWith) return -1
-      if (!aStartsWith && bStartsWith) return 1
-
-      // Sort by kickoff time (soonest first)
-      return new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime()
-    })
-
-    // Limit results
-    const limitedResults = sortedResults.slice(0, limit)
-
-    console.log(`Found ${limitedResults.length} matching fixtures`)
-
-    // Prepare response data
-    const responseData = {
-      results: limitedResults,
-      total: limitedResults.length,
+    console.log(`✅ Found ${allResults.length} real fixtures from SportMonks`)
+    return NextResponse.json({
+      results: allResults.slice(0, limit),
+      total: allResults.length,
       query: query,
       league: league,
-      message: limitedResults.length > 0 
-        ? `Found ${limitedResults.length} matching fixtures`
-        : `No fixtures found matching "${query}"`
-    }
-
-    // Cache the response
-    setCache(cacheKey, responseData, CACHE_DURATION.SEARCH)
-    console.log(`💾 Cached search results for: "${query}"`)
-
-    return NextResponse.json(responseData)
+      message: allResults.length > 0 
+        ? `Found ${allResults.length} real fixtures matching "${query}"`
+        : `No real fixtures found matching "${query}"`
+    })
 
   } catch (error) {
-    console.error('Error searching fixtures:', error)
+    console.error('Error in search API:', error)
     return NextResponse.json(
       { error: 'Failed to search fixtures' },
       { status: 500 }

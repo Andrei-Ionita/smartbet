@@ -20,6 +20,9 @@ export interface Recommendation {
     draw: number | null
     away: number | null
     bookmaker: string
+    home_bookmaker?: string | null
+    draw_bookmaker?: string | null
+    away_bookmaker?: string | null
   }
   ensemble_info?: {
     model_count: number
@@ -40,4 +43,5 @@ export interface Recommendation {
     total_predictions: number
     correct_predictions: number
   } | null
+  signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
 }

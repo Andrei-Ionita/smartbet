@@ -226,19 +226,21 @@ export default function HomePage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold text-primary-600">{data.recommendations.length}</div>
-                    <div className="text-sm text-primary-700">High-Confidence Picks</div>
+                    <div className="text-sm text-primary-700">Top 10 Best Bets</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">{data.confidence_threshold}%+</div>
                     <div className="text-sm text-green-700">Confidence Threshold</div>
                   </div>
                   <div>
-                    <div className="text-2xl font-bold text-blue-600">{data.debug_info?.total_fixtures_found || 0}</div>
+                    <div className="text-2xl font-bold text-blue-600">{data.fixtures_analyzed || 0}</div>
                     <div className="text-sm text-blue-700">Total Fixtures</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-purple-600">
-                      {data.debug_info?.highest_confidence ? Math.round(data.debug_info.highest_confidence) : 0}%
+                      {data.recommendations.length > 0 
+                        ? Math.max(...data.recommendations.map((r: any) => r.confidence)).toFixed(0) + '%'
+                        : '0%'}
                     </div>
                     <div className="text-sm text-purple-700">Highest Confidence</div>
                   </div>
@@ -246,7 +248,7 @@ export default function HomePage() {
               </div>
 
               {/* Recommendations Grid */}
-            <div className="grid gap-6 sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
               {data.recommendations.map((recommendation: Recommendation) => (
                 <RecommendationCard
                   key={recommendation.fixture_id}
@@ -296,7 +298,7 @@ export default function HomePage() {
                   ? 'AI Predictions Not Available'
                   : data.status === 'no_fixtures_found'
                   ? 'No Upcoming Fixtures'
-                  : 'No High-Confidence Predictions'}
+                  : 'No Top Quality Bets Available'}
               </h3>
               <p className="text-amber-700 mb-6 max-w-md mx-auto">
                 {data.status_details || 'We\'re working to bring you the best predictions. Please check back soon.'}

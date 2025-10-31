@@ -4,7 +4,6 @@ import { useState } from 'react'
 import { Recommendation } from '../../src/types/recommendation'
 import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator } from 'lucide-react'
 import BettingCalculatorModal from './BettingCalculatorModal'
-import { SentimentWidget } from './sentiment'
 
 interface RecommendationCardProps {
   recommendation: Recommendation
@@ -35,8 +34,8 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
   const getEVBadgeText = () => {
     if (recommendation.ev === null) return ''
-    if (recommendation.ev > 0) return `EV +${(recommendation.ev * 100).toFixed(1)}%`
-    return `EV ${(recommendation.ev * 100).toFixed(1)}%`
+    if (recommendation.ev > 0) return `EV +${recommendation.ev.toFixed(1)}%`
+    return `EV ${recommendation.ev.toFixed(1)}%`
   }
 
   const getOutcomeColor = (outcome: string) => {
@@ -62,24 +61,40 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
   // Calculate Kelly Criterion for optimal stake sizing
   const calculateKellyStake = (probability: number, odds: number, bankroll: number = 1000) => {
-    if (!odds || odds <= 0) return 0
+    if (!odds || odds <= 0 || !probability || probability <= 0) {
+      return 0
+    }
+    
     const b = odds - 1 // Net odds received on the wager
-    const p = probability / 100 // Probability of winning
+    const p = probability // Probability of winning (already as decimal 0-1)
     const q = 1 - p // Probability of losing
     const kelly = (b * p - q) / b
-    return Math.max(0, Math.min(kelly * bankroll, bankroll * 0.25)) // Cap at 25% of bankroll
+    
+    // Only return positive Kelly values (profitable bets)
+    if (kelly <= 0) {
+      return 0
+    }
+    
+    // Apply Kelly fraction to bankroll with reasonable cap
+    const kellyStake = kelly * bankroll
+    
+    // Cap at 40% of bankroll for safety, allowing more realistic variation
+    return Math.min(kellyStake, bankroll * 0.40)
   }
 
-  // Get risk level based on confidence and EV
+  // Get risk level based on confidence and EV - adjusted for "best bets" context
   const getRiskLevel = () => {
     const confidence = recommendation.confidence
     const ev = recommendation.ev || 0
     
-    // Primary risk based on prediction confidence (72% should be Low Risk)
-    if (confidence >= 70) return { level: 'Low Risk', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
-    if (confidence >= 60) return { level: 'Medium Risk', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: AlertTriangle }
-    if (confidence >= 50) return { level: 'High Risk', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: AlertTriangle }
-    return { level: 'Very High Risk', color: 'text-red-600', bgColor: 'bg-red-100', icon: AlertTriangle }
+    // Since these are filtered "best bets" with high EV, adjust risk assessment
+    // High EV + decent confidence = Good opportunity, not high risk
+    if (confidence >= 70 && ev >= 15) return { level: 'Low Risk', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
+    if (confidence >= 60 && ev >= 10) return { level: 'Medium Risk', color: 'text-yellow-600', bgColor: 'bg-yellow-100', icon: AlertTriangle }
+    if (confidence >= 55 && ev >= 5) return { level: 'Good Value', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: CheckCircle }
+    if (ev >= 20) return { level: 'High Value', color: 'text-green-600', bgColor: 'bg-green-100', icon: CheckCircle }
+    if (ev >= 10) return { level: 'Good Value', color: 'text-blue-600', bgColor: 'bg-blue-100', icon: CheckCircle }
+    return { level: 'Moderate Risk', color: 'text-orange-600', bgColor: 'bg-orange-100', icon: AlertTriangle }
   }
 
   // Visual probability bar component
@@ -96,14 +111,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         ></div>
       </div>
     </div>
-  )
+  );
 
   return (
-    <div className="group bg-white/90 backdrop-blur-sm rounded-2xl border border-gray-200/50 p-6 hover:shadow-xl transition-all duration-300 hover:border-primary-300 hover:-translate-y-1">
+    <div className="group bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/60 p-5 hover:shadow-lg transition-all duration-300 hover:border-primary-300 hover:-translate-y-1 h-full">
       {/* Header */}
-      <div className="flex justify-between items-start mb-6">
+      <div className="flex justify-between items-start mb-4">
         <div className="flex-1">
-          <div className="flex items-center gap-3 mb-3">
+          <div className="flex items-center gap-2 mb-2">
             <span className="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
               {recommendation.league}
             </span>
@@ -111,7 +126,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               {formatKickoff(recommendation.kickoff)}
             </span>
           </div>
-          <h3 className="text-xl font-bold text-gray-900 group-hover:text-primary-600 transition-colors">
+          <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight">
             {recommendation.home_team} vs {recommendation.away_team}
           </h3>
         </div>
@@ -133,80 +148,83 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <div className="flex-1 bg-gray-200 rounded-full h-4 shadow-inner">
             <div
               className="bg-gradient-to-r from-primary-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm"
-              style={{ width: `${recommendation.confidence > 1 ? recommendation.confidence : recommendation.confidence * 100}%` }}
-              aria-label={`Confidence: ${recommendation.confidence > 1 ? Math.round(recommendation.confidence) : Math.round(recommendation.confidence * 100)}%`}
+              style={{ width: `${recommendation.confidence}%` }}
+              aria-label={`Confidence: ${Math.round(recommendation.confidence)}%`}
             />
           </div>
           <span className="text-lg font-bold text-gray-700 min-w-[3rem] text-right">
-            {recommendation.confidence > 1 ? Math.round(recommendation.confidence) : Math.round(recommendation.confidence * 100)}%
+            {Math.round(recommendation.confidence)}%
           </span>
         </div>
         
-        {/* EV Badge - Only show if EV is available */}
-        {recommendation.ev !== null && (
-          <div className="flex items-center gap-3 mb-4">
-            <span className="bg-green-100 text-green-800 text-sm px-4 py-2 rounded-xl font-semibold">
-              ✅ GOOD BET
-            </span>
-            <span className={`text-sm px-4 py-2 rounded-xl font-semibold ${getEVBadgeColor()}`}>
-              {getEVBadgeText()}
-            </span>
-            <span className="text-sm text-gray-500 font-medium" title="EV = probability × odds − 1">
-              Expected Value
-            </span>
+        {/* Key Betting Metrics */}
+        <div className="mb-4">
+          <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
+            <div className="text-center">
+              <div className="text-2xl font-bold text-green-600">+{(recommendation.ev || 0).toFixed(1)}%</div>
+              <div className="text-xs text-green-700">Expected Value</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence)}%</div>
+              <div className="text-xs text-blue-700">Confidence</div>
+            </div>
+            <div className="text-center">
+              <div className="text-2xl font-bold text-purple-600">{
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data.home?.toFixed(2) :
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data.draw?.toFixed(2) :
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data.away?.toFixed(2) : 'N/A'
+              }</div>
+              <div className="text-xs text-purple-700">Best Odds</div>
+            </div>
           </div>
-        )}
+          
+        </div>
         
-        {/* Compact Odds Display */}
+        {/* Quick Odds Comparison */}
         {recommendation.odds_data && (
-          <div className="flex items-center gap-4 mb-4">
-            <div className="flex items-center gap-2">
-              <span className="text-xs text-gray-500 font-medium">Odds:</span>
-              <div className="flex gap-3">
-                <span className={`text-sm font-semibold ${
-                  recommendation.predicted_outcome === 'Home' ? 'text-blue-700 bg-blue-100 px-2 py-1 rounded' : 'text-blue-600'
-                }`}>
-                  H: {recommendation.odds_data.home ? recommendation.odds_data.home.toFixed(2) : 'N/A'}
-                </span>
-                <span className={`text-sm font-semibold ${
-                  recommendation.predicted_outcome === 'Draw' ? 'text-gray-700 bg-gray-100 px-2 py-1 rounded' : 'text-gray-600'
-                }`}>
-                  D: {recommendation.odds_data.draw ? recommendation.odds_data.draw.toFixed(2) : 'N/A'}
-                </span>
-                <span className={`text-sm font-semibold ${
-                  recommendation.predicted_outcome === 'Away' ? 'text-purple-700 bg-purple-100 px-2 py-1 rounded' : 'text-purple-600'
-                }`}>
-                  A: {recommendation.odds_data.away ? recommendation.odds_data.away.toFixed(2) : 'N/A'}
-                </span>
-              </div>
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Home' ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+              <div className="text-xs text-gray-600 mb-1">Home</div>
+              <div className="text-lg font-bold text-blue-600">{recommendation.odds_data.home?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.home_bookmaker || 'Unknown'}</div>
+              {recommendation.predicted_outcome === 'Home' && <div className="text-xs text-blue-600 font-medium mt-1 px-2 py-0.5 bg-blue-100 rounded-full">RECOMMENDED</div>}
+            </div>
+            <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Draw' ? 'border-gray-500 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+              <div className="text-xs text-gray-600 mb-1">Draw</div>
+              <div className="text-lg font-bold text-gray-600">{recommendation.odds_data.draw?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.draw_bookmaker || 'Unknown'}</div>
+              {recommendation.predicted_outcome === 'Draw' && <div className="text-xs text-gray-600 font-medium mt-1 px-2 py-0.5 bg-gray-100 rounded-full">RECOMMENDED</div>}
+            </div>
+            <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Away' ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
+              <div className="text-xs text-gray-600 mb-1">Away</div>
+              <div className="text-lg font-bold text-purple-600">{recommendation.odds_data.away?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.away_bookmaker || 'Unknown'}</div>
+              {recommendation.predicted_outcome === 'Away' && <div className="text-xs text-purple-600 font-medium mt-1 px-2 py-0.5 bg-purple-100 rounded-full">RECOMMENDED</div>}
             </div>
           </div>
         )}
+        
       </div>
 
-      {/* Explanation */}
-      <p className="text-gray-600 mb-6 leading-relaxed">
-        {recommendation.explanation}
-      </p>
 
       {/* Enhanced Visual Probability Bars */}
-      <div className="mb-6">
-        <div className="space-y-3">
+      <div className="mb-4">
+        <div className="space-y-2">
           <ProbabilityBar 
             label="Home" 
-            percentage={recommendation.probabilities.home} 
+            percentage={Math.min(recommendation.probabilities.home * 100, 100)} 
             color="bg-blue-500" 
             isSelected={recommendation.predicted_outcome === 'Home'} 
           />
           <ProbabilityBar 
             label="Draw" 
-            percentage={recommendation.probabilities.draw} 
+            percentage={Math.min(recommendation.probabilities.draw * 100, 100)} 
             color="bg-gray-500" 
             isSelected={recommendation.predicted_outcome === 'Draw'} 
           />
           <ProbabilityBar 
             label="Away" 
-            percentage={recommendation.probabilities.away} 
+            percentage={Math.min(recommendation.probabilities.away * 100, 100)} 
             color="bg-purple-500" 
             isSelected={recommendation.predicted_outcome === 'Away'} 
           />
@@ -226,9 +244,17 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 )
               })()}
-              <div className={`px-3 py-1 rounded-full ${getPredictionStrength(recommendation.probabilities).bgColor}`}>
-                <span className={`text-sm font-medium ${getPredictionStrength(recommendation.probabilities).color}`}>
-                  {getPredictionStrength(recommendation.probabilities).label} Signal
+              <div className={`px-3 py-1 rounded-full ${
+                recommendation.signal_quality === 'Strong' ? 'bg-green-100' :
+                recommendation.signal_quality === 'Good' ? 'bg-blue-100' :
+                recommendation.signal_quality === 'Moderate' ? 'bg-yellow-100' : 'bg-red-100'
+              }`}>
+                <span className={`text-sm font-medium ${
+                  recommendation.signal_quality === 'Strong' ? 'text-green-700' :
+                  recommendation.signal_quality === 'Good' ? 'text-blue-700' :
+                  recommendation.signal_quality === 'Moderate' ? 'text-yellow-700' : 'text-red-700'
+                }`}>
+                  {recommendation.signal_quality || 'Weak'} Signal
                 </span>
               </div>
             </div>
@@ -273,118 +299,139 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             </div>
           )}
 
-      {/* Expanded Details */}
+      {/* Expanded Betting Details */}
       {isExpanded && (
         <div className="border-t border-gray-200 pt-6 mb-6">
-          <h4 className="text-lg font-bold text-gray-900 mb-4">Advanced Analytics</h4>
-          <div className="grid grid-cols-2 gap-4">
+          <h4 className="text-lg font-bold text-gray-900 mb-4">Betting Analysis</h4>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-xl p-4">
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Kelly Criterion</h5>
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">💰 Recommended Stake</h5>
               <div className="space-y-2">
-                {recommendation.odds_data && recommendation.odds_data.home && (
-                  <div className="text-xs">
-                    <span className="text-gray-600">Optimal Stake (Home): </span>
-                    <span className="font-mono font-semibold">
-                      ${calculateKellyStake(recommendation.probabilities.home, recommendation.odds_data.home).toFixed(2)}
-                    </span>
+                {recommendation.odds_data && 
+                 ((recommendation.predicted_outcome.toLowerCase() === 'home' && recommendation.odds_data.home) ||
+                  (recommendation.predicted_outcome.toLowerCase() === 'draw' && recommendation.odds_data.draw) ||
+                  (recommendation.predicted_outcome.toLowerCase() === 'away' && recommendation.odds_data.away)) && (
+                  <div className="bg-white rounded-lg p-3 border border-gray-200">
+                    <div className="text-xs text-gray-600 mb-1">Optimal Bet Size (Kelly Criterion)</div>
+                    <div className="text-lg font-bold text-green-600">
+                      ${(() => {
+                        const outcome = recommendation.predicted_outcome.toLowerCase()
+                        const probability = recommendation.probabilities[outcome as keyof typeof recommendation.probabilities]
+                        const odds = outcome === 'home' ? recommendation.odds_data.home! :
+                                    outcome === 'draw' ? recommendation.odds_data.draw! :
+                                    recommendation.odds_data.away!
+                        
+                        return calculateKellyStake(probability, odds).toFixed(2)
+                      })()}
+                    </div>
+                    <div className="text-xs text-gray-500">Based on $1000 bankroll</div>
                   </div>
                 )}
-                {recommendation.odds_data && recommendation.odds_data.draw && (
-                  <div className="text-xs">
-                    <span className="text-gray-600">Optimal Stake (Draw): </span>
-                    <span className="font-mono font-semibold">
-                      ${calculateKellyStake(recommendation.probabilities.draw, recommendation.odds_data.draw).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {recommendation.odds_data && recommendation.odds_data.away && (
-                  <div className="text-xs">
-                    <span className="text-gray-600">Optimal Stake (Away): </span>
-                    <span className="font-mono font-semibold">
-                      ${calculateKellyStake(recommendation.probabilities.away, recommendation.odds_data.away).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-            <div className="bg-gray-50 rounded-xl p-4">
-              <h5 className="text-sm font-semibold text-gray-700 mb-2">Model Insights</h5>
-              <div className="space-y-2 text-xs text-gray-600">
-                <div>• {recommendation.explanation}</div>
-                {recommendation.debug_info && (
-                  <div>• Model consensus: {recommendation.debug_info.consensus?.toFixed(1)}%</div>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          {/* Odds Display */}
-          {recommendation.odds_data && (
-            <div className="mt-6">
-              <h4 className="text-lg font-bold text-gray-900 mb-4">Betting Odds</h4>
-              <div className="grid grid-cols-3 gap-4">
-                <div className={`text-center rounded-xl p-4 ${
-                  recommendation.predicted_outcome === 'Home' ? 'bg-blue-100 border-2 border-blue-300' : 'bg-blue-50'
-                }`}>
-                  <div className="text-sm text-gray-600 mb-2 font-medium">Home</div>
-                  <div className={`text-xl font-bold ${
-                    recommendation.predicted_outcome === 'Home' ? 'text-blue-700' : 'text-blue-600'
+                <div className="bg-white rounded-lg p-3 border border-gray-200">
+                  <div className="text-xs text-gray-600 mb-1">Risk Assessment</div>
+                  <div className={`text-sm font-semibold ${
+                    (() => {
+                      const risk = getRiskLevel()
+                      return risk.color
+                    })()
                   }`}>
-                    {recommendation.odds_data.home ? recommendation.odds_data.home.toFixed(2) : 'N/A'}
+                    {(() => {
+                      const risk = getRiskLevel()
+                      return risk.level
+                    })()}
                   </div>
-                  {recommendation.predicted_outcome === 'Home' && (
-                    <div className="text-xs text-blue-700 font-semibold mt-1">PREDICTED</div>
-                  )}
-                </div>
-                <div className={`text-center rounded-xl p-4 ${
-                  recommendation.predicted_outcome === 'Draw' ? 'bg-gray-100 border-2 border-gray-300' : 'bg-gray-50'
-                }`}>
-                  <div className="text-sm text-gray-600 mb-2 font-medium">Draw</div>
-                  <div className={`text-xl font-bold ${
-                    recommendation.predicted_outcome === 'Draw' ? 'text-gray-700' : 'text-gray-600'
-                  }`}>
-                    {recommendation.odds_data.draw ? recommendation.odds_data.draw.toFixed(2) : 'N/A'}
+                  <div className="text-xs text-gray-500">
+                    {(() => {
+                      const confidence = recommendation.confidence
+                      const ev = recommendation.ev || 0
+                      if (confidence >= 70 && ev >= 15) return 'High confidence with excellent value'
+                      if (confidence >= 60 && ev >= 10) return 'Good confidence with solid value'
+                      if (confidence >= 55 && ev >= 5) return 'Decent confidence with good value'
+                      if (ev >= 20) return 'High value opportunity'
+                      if (ev >= 10) return 'Good value opportunity'
+                      return 'Moderate confidence bet'
+                    })()}
                   </div>
-                  {recommendation.predicted_outcome === 'Draw' && (
-                    <div className="text-xs text-gray-700 font-semibold mt-1">PREDICTED</div>
-                  )}
-                </div>
-                <div className={`text-center rounded-xl p-4 ${
-                  recommendation.predicted_outcome === 'Away' ? 'bg-purple-100 border-2 border-purple-300' : 'bg-purple-50'
-                }`}>
-                  <div className="text-sm text-gray-600 mb-2 font-medium">Away</div>
-                  <div className={`text-xl font-bold ${
-                    recommendation.predicted_outcome === 'Away' ? 'text-purple-700' : 'text-purple-600'
-                  }`}>
-                    {recommendation.odds_data.away ? recommendation.odds_data.away.toFixed(2) : 'N/A'}
-                  </div>
-                  {recommendation.predicted_outcome === 'Away' && (
-                    <div className="text-xs text-purple-700 font-semibold mt-1">PREDICTED</div>
-                  )}
                 </div>
               </div>
-              <div className="mt-3 text-center">
-                <span className="text-sm text-gray-500">
-                  Source: {recommendation.odds_data.bookmaker}
-                </span>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4 border border-blue-100">
+              <h5 className="text-sm font-semibold text-blue-800 mb-3 flex items-center gap-2">
+                <span className="text-lg">📊</span>
+                Quick Insights
+              </h5>
+              
+              {/* Key Betting Information */}
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Prediction Summary</div>
+                  <div className="text-sm text-gray-700 leading-relaxed">
+                    {recommendation.explanation}
+                  </div>
+                </div>
+                
+                <div className="grid grid-cols-2 gap-3">
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Prediction Strength</div>
+                  <div className={`text-sm font-semibold ${
+                    recommendation.debug_info?.variance === 'Low' ? 'text-green-600' :
+                    recommendation.debug_info?.variance === 'Medium' ? 'text-yellow-600' : 'text-red-600'
+                  }`}>
+                    {recommendation.debug_info?.variance === 'Low' ? 'High Confidence' :
+                     recommendation.debug_info?.variance === 'Medium' ? 'Medium Confidence' : 'Low Confidence'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {recommendation.debug_info?.model_consensus ? 
+                      `Variance: ${(recommendation.debug_info.model_consensus.variance * 100).toFixed(2)}%` :
+                      'Model agreement analysis'
+                    }
+                  </div>
+                </div>
+                  
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Market Consensus</div>
+                  <div className="text-sm font-semibold text-blue-600">
+                    {recommendation.debug_info?.prediction_agreement || 'Unknown Agreement'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {recommendation.debug_info?.model_consensus ? 
+                      `Consensus: ${(recommendation.debug_info.model_consensus.home * 100).toFixed(1)}% Home` :
+                      'Multiple model analysis'
+                    }
+                  </div>
+                </div>
+                </div>
+                
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Betting Edge</div>
+                  <div className="text-sm font-semibold text-green-600">
+                    {recommendation.ev && recommendation.ev > 0 ? `+${recommendation.ev.toFixed(1)}% Edge` : 'Negative Edge'}
+                  </div>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {recommendation.ev && recommendation.ev > 20 ? 'Excellent Value' : 
+                     recommendation.ev && recommendation.ev > 10 ? 'Good Value' : 
+                     recommendation.ev && recommendation.ev > 0 ? 'Marginal Value' : 'Poor Value'} • Kelly: ${(() => {
+                       const probability = recommendation.predicted_outcome === 'Home' ? recommendation.probabilities.home :
+                                        recommendation.predicted_outcome === 'Draw' ? recommendation.probabilities.draw :
+                                        recommendation.probabilities.away
+                       const odds = recommendation.predicted_outcome === 'Home' ? recommendation.odds_data.home :
+                                   recommendation.predicted_outcome === 'Draw' ? recommendation.odds_data.draw :
+                                   recommendation.odds_data.away
+                       if (!odds || !probability) return '0'
+                       const kelly = ((odds * probability) - 1) / (odds - 1)
+                       const stake = Math.min(kelly * 1000, 400)
+                       return stake.toFixed(0)
+                     })()}
+                  </div>
+                </div>
               </div>
             </div>
-          )}
-
-          {/* Sentiment Analysis Widget */}
-          <div className="mt-6">
-            <SentimentWidget
-              matchId={recommendation.fixture_id}
-              homeTeam={recommendation.home_team}
-              awayTeam={recommendation.away_team}
-              league={recommendation.league}
-            />
           </div>
         </div>
       )}
 
       {/* Actions */}
-      <div className="flex justify-between items-center">
+      <div className="flex justify-between items-center mt-4">
         <button
           onClick={() => onViewDetails(recommendation.fixture_id)}
           className="group inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
@@ -393,9 +440,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
         </button>
         
-            <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg font-medium ${getPredictionStrength(recommendation.probabilities).bgColor} ${getPredictionStrength(recommendation.probabilities).color}`}>
+            <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg font-medium ${
+              recommendation.signal_quality === 'Strong' ? 'bg-green-100 text-green-700' :
+              recommendation.signal_quality === 'Good' ? 'bg-blue-100 text-blue-700' :
+              recommendation.signal_quality === 'Moderate' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
+            }`}>
               <TrendingUp className="h-4 w-4" />
-              <span>{getPredictionStrength(recommendation.probabilities).label}</span>
+              <span>{recommendation.signal_quality || 'Weak'}</span>
             </div>
       </div>
 

@@ -323,47 +323,40 @@ export default function ExplorePage() {
                 kickoff: selectedFixture.kickoff,
                 predicted_outcome: selectedFixture.predicted_outcome ? 
                   selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) as 'Home' | 'Draw' | 'Away' : 'Home',
-                confidence: selectedFixture.prediction_confidence,
+                confidence: selectedFixture.confidence || 0,
                 odds: selectedFixture.odds_data ? 
-                  (selectedFixture.ev_analysis.best_bet === 'home' ? selectedFixture.odds_data.home :
-                   selectedFixture.ev_analysis.best_bet === 'draw' ? selectedFixture.odds_data.draw :
-                   selectedFixture.ev_analysis.best_bet === 'away' ? selectedFixture.odds_data.away : null) : null,
-                ev: selectedFixture.ev_analysis.best_ev,
+                  (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data.home :
+                   selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data.draw :
+                   selectedFixture.odds_data.away) : null,
+                ev: selectedFixture.expected_value || 0,
                 score: 0,
                 explanation: (() => {
                   const outcome = selectedFixture.predicted_outcome ? 
                     selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home'
-                  const confidence = selectedFixture.prediction_confidence
-                  const strength = selectedFixture.prediction_strength.toLowerCase()
-                  const modelCount = selectedFixture.ensemble_info.model_count
+                  const confidence = selectedFixture.confidence || 0
                   
-                  let explanation = `SmartBet AI predicts a ${outcome} win with ${confidence}% confidence using ${modelCount} AI models with ${strength} prediction strength.`
+                  let explanation = `SmartBet AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
                   
                   // Add odds and EV information if available
-                  if (selectedFixture.odds_data && selectedFixture.ev_analysis.best_ev) {
-                    const bestBet = selectedFixture.ev_analysis.best_bet
-                    const odds = bestBet === 'home' ? selectedFixture.odds_data.home :
-                                bestBet === 'draw' ? selectedFixture.odds_data.draw :
+                  if (selectedFixture.odds_data && selectedFixture.expected_value) {
+                    const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data.home :
+                                selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data.draw :
                                 selectedFixture.odds_data.away
-                    const ev = selectedFixture.ev_analysis.best_ev
+                    const ev = selectedFixture.expected_value
                     
                     if (odds && ev > 0) {
-                      explanation += ` Best betting opportunity: ${bestBet} at ${odds.toFixed(2)} odds (+${Math.round(ev * 100)}% EV).`
+                      explanation += ` Best odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
                     }
                   }
                   
                   return explanation
                 })(),
-                probabilities: selectedFixture.predictions,
+                probabilities: selectedFixture.probabilities,
                 odds_data: selectedFixture.odds_data,
-                debug_info: {
-                  total_predictions: 0,
-                  valid_predictions: selectedFixture.ensemble_info.model_count,
-                  strategy: selectedFixture.ensemble_info.strategy,
-                  consensus: selectedFixture.ensemble_info.consensus,
-                  variance: selectedFixture.ensemble_info.variance,
-                  model_count: selectedFixture.ensemble_info.model_count
-                }
+                debug_info: selectedFixture.debug_info,
+                ensemble_info: selectedFixture.ensemble_info,
+                league_accuracy: null,
+                signal_quality: selectedFixture.signal_quality
               }}
               onViewDetails={handleViewDetails}
             />

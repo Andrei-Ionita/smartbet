@@ -57,7 +57,7 @@ https://api.sportmonks.com/v3/football/fixtures/upcoming/markets/1
 - `per_page`: `100` (maximum coverage)
 
 ### **Filtering Logic:**
-1. **Time Window:** Next 7 days only
+1. **Time Window:** Next 14 days
 2. **Confidence Threshold:** 55% minimum
 3. **League Coverage:** All 27 leagues
 4. **Selection:** Top 10 highest confidence predictions
