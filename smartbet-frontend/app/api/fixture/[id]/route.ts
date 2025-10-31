@@ -149,7 +149,14 @@ export async function GET(
         }
         
         // Extract odds with individual bookmaker names
-        const odds = {
+        const odds: {
+          home: number | null
+          draw: number | null
+          away: number | null
+          home_bookmaker: string | null
+          draw_bookmaker: string | null
+          away_bookmaker: string | null
+        } = {
           home: null,
           draw: null,
           away: null,
