@@ -154,7 +154,15 @@ export async function GET(request: NextRequest) {
 
             // Extract odds with specific bookmaker information for each outcome
             const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
-            let oddsData = null
+            let oddsData: {
+              home: number | null
+              draw: number | null
+              away: number | null
+              bookmaker: string
+              home_bookmaker: string | null
+              draw_bookmaker: string | null
+              away_bookmaker: string | null
+            } | null = null
             
             if (x12Odds.length > 0) {
               // Helper function to get bookmaker name from odds entry
@@ -258,7 +266,8 @@ export async function GET(request: NextRequest) {
             const confidence = maxProb * 100
 
             // Calculate expected value (proper EV calculation)
-            const odds = oddsData?.[predictedOutcome] || 1
+            const oddsValue: number | null | undefined = oddsData?.[predictedOutcome as keyof typeof oddsData] as number | null | undefined
+            const odds: number = (oddsValue && typeof oddsValue === 'number' && !isNaN(oddsValue)) ? oddsValue : 1
             const expectedValue = (maxProb * odds) - 1
 
             // Only include recommendations with positive expected value AND minimum 55% confidence
