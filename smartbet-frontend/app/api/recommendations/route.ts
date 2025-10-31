@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
             }
             
             // Analyze all X12 predictions to get consensus and variance
-            const allX12Predictions = x12Predictions.map(pred => ({
+            const allX12Predictions = x12Predictions.map((pred: any) => ({
               type_id: pred.type_id,
               predictions: pred.predictions,
               home: normalizeProbability(pred.predictions.home || 0),
@@ -126,18 +126,18 @@ export async function GET(request: NextRequest) {
             }))
             
             // Calculate consensus from all predictions
-            const consensusHome = allX12Predictions.reduce((sum, pred) => sum + pred.home, 0) / allX12Predictions.length
-            const consensusDraw = allX12Predictions.reduce((sum, pred) => sum + pred.draw, 0) / allX12Predictions.length
-            const consensusAway = allX12Predictions.reduce((sum, pred) => sum + pred.away, 0) / allX12Predictions.length
+            const consensusHome = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.home, 0) / allX12Predictions.length
+            const consensusDraw = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.draw, 0) / allX12Predictions.length
+            const consensusAway = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.away, 0) / allX12Predictions.length
             
             // Calculate variance to measure prediction agreement
-            const homeVariance = allX12Predictions.reduce((sum, pred) => sum + Math.pow(pred.home - consensusHome, 2), 0) / allX12Predictions.length
-            const drawVariance = allX12Predictions.reduce((sum, pred) => sum + Math.pow(pred.draw - consensusDraw, 2), 0) / allX12Predictions.length
-            const awayVariance = allX12Predictions.reduce((sum, pred) => sum + Math.pow(pred.away - consensusAway, 2), 0) / allX12Predictions.length
+            const homeVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.home - consensusHome, 2), 0) / allX12Predictions.length
+            const drawVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.draw - consensusDraw, 2), 0) / allX12Predictions.length
+            const awayVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.away - consensusAway, 2), 0) / allX12Predictions.length
             const totalVariance = (homeVariance + drawVariance + awayVariance) / 3
             
             // Use the prediction with highest confidence (most decisive)
-            const bestPred = allX12Predictions.reduce((best, current) => {
+            const bestPred = allX12Predictions.reduce((best: any, current: any) => {
               const currentMax = Math.max(current.home, current.draw, current.away)
               const bestMax = Math.max(best.home, best.draw, best.away)
               return currentMax > bestMax ? current : best
@@ -199,7 +199,14 @@ export async function GET(request: NextRequest) {
               }
               
               // Extract odds with individual bookmaker names
-              const odds = {
+              const odds: {
+                home: number | null
+                draw: number | null
+                away: number | null
+                home_bookmaker: string | null
+                draw_bookmaker: string | null
+                away_bookmaker: string | null
+              } = {
                 home: null,
                 draw: null,
                 away: null,
