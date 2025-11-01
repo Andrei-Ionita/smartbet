@@ -323,25 +323,25 @@ export default function ExplorePage() {
                 kickoff: selectedFixture.kickoff,
                 predicted_outcome: selectedFixture.predicted_outcome ? 
                   selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) as 'Home' | 'Draw' | 'Away' : 'Home',
-                confidence: selectedFixture.confidence || 0,
+                confidence: selectedFixture.prediction_confidence || 0,
                 odds: selectedFixture.odds_data ? 
-                  (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data.home :
-                   selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data.draw :
-                   selectedFixture.odds_data.away) : null,
+                  (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
+                   selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                   selectedFixture.odds_data?.away) : null,
                 ev: selectedFixture.expected_value || 0,
                 score: 0,
                 explanation: (() => {
                   const outcome = selectedFixture.predicted_outcome ? 
                     selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home'
-                  const confidence = selectedFixture.confidence || 0
+                  const confidence = selectedFixture.prediction_confidence || 0
                   
                   let explanation = `SmartBet AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
                   
                   // Add odds and EV information if available
                   if (selectedFixture.odds_data && selectedFixture.expected_value) {
-                    const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data.home :
-                                selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data.draw :
-                                selectedFixture.odds_data.away
+                    const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
+                                selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                                selectedFixture.odds_data?.away
                     const ev = selectedFixture.expected_value
                     
                     if (odds && ev > 0) {
