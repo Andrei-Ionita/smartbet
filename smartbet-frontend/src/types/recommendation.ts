@@ -31,12 +31,20 @@ export interface Recommendation {
     strategy: string
   }
   debug_info?: {
-    total_predictions: number
-    valid_predictions: number
-    strategy: string
-    consensus: number
-    variance: number
-    model_count: number
+    total_predictions?: number
+    valid_predictions?: number
+    strategy?: string
+    consensus?: string
+    variance?: string | number
+    model_count?: number
+    confidence_score?: number
+    prediction_agreement?: string
+    model_consensus?: {
+      home: number
+      draw: number
+      away: number
+      variance: number
+    }
   }
   league_accuracy?: {
     accuracy_percent: number
