@@ -350,11 +350,11 @@ export default function ExplorePage() {
                   }
                   
                   return explanation
-                })(),
-                probabilities: selectedFixture.probabilities,
-                odds_data: selectedFixture.odds_data,
-                debug_info: selectedFixture.debug_info,
-                ensemble_info: selectedFixture.ensemble_info,
+                 })(),
+                 probabilities: selectedFixture.predictions,
+                 odds_data: selectedFixture.odds_data,
+                 debug_info: selectedFixture.debug_info,
+                 ensemble_info: selectedFixture.ensemble_info,
                 league_accuracy: null,
                 signal_quality: selectedFixture.signal_quality
               }}
