@@ -170,9 +170,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             </div>
             <div className="text-center">
               <div className="text-2xl font-bold text-purple-600">{
-                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data.home?.toFixed(2) :
-                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data.draw?.toFixed(2) :
-                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data.away?.toFixed(2) : 'N/A'
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data?.home?.toFixed(2) :
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data?.draw?.toFixed(2) :
+                recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data?.away?.toFixed(2) : 'N/A'
               }</div>
               <div className="text-xs text-purple-700">Best Odds</div>
             </div>
@@ -185,20 +185,20 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Home' ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Home</div>
-              <div className="text-lg font-bold text-blue-600">{recommendation.odds_data.home?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.home_bookmaker || 'Unknown'}</div>
+              <div className="text-lg font-bold text-blue-600">{recommendation.odds_data?.home?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.home_bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Home' && <div className="text-xs text-blue-600 font-medium mt-1 px-2 py-0.5 bg-blue-100 rounded-full">RECOMMENDED</div>}
             </div>
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Draw' ? 'border-gray-500 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Draw</div>
-              <div className="text-lg font-bold text-gray-600">{recommendation.odds_data.draw?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.draw_bookmaker || 'Unknown'}</div>
+              <div className="text-lg font-bold text-gray-600">{recommendation.odds_data?.draw?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.draw_bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Draw' && <div className="text-xs text-gray-600 font-medium mt-1 px-2 py-0.5 bg-gray-100 rounded-full">RECOMMENDED</div>}
             </div>
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Away' ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Away</div>
-              <div className="text-lg font-bold text-purple-600">{recommendation.odds_data.away?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data.away_bookmaker || 'Unknown'}</div>
+              <div className="text-lg font-bold text-purple-600">{recommendation.odds_data?.away?.toFixed(2) || 'N/A'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.away_bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Away' && <div className="text-xs text-purple-600 font-medium mt-1 px-2 py-0.5 bg-purple-100 rounded-full">RECOMMENDED</div>}
             </div>
           </div>
@@ -308,18 +308,18 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               <h5 className="text-sm font-semibold text-gray-700 mb-3">💰 Recommended Stake</h5>
               <div className="space-y-2">
                 {recommendation.odds_data && 
-                 ((recommendation.predicted_outcome.toLowerCase() === 'home' && recommendation.odds_data.home) ||
-                  (recommendation.predicted_outcome.toLowerCase() === 'draw' && recommendation.odds_data.draw) ||
-                  (recommendation.predicted_outcome.toLowerCase() === 'away' && recommendation.odds_data.away)) && (
+                 ((recommendation.predicted_outcome.toLowerCase() === 'home' && recommendation.odds_data?.home) ||
+                  (recommendation.predicted_outcome.toLowerCase() === 'draw' && recommendation.odds_data?.draw) ||
+                  (recommendation.predicted_outcome.toLowerCase() === 'away' && recommendation.odds_data?.away)) && (
                   <div className="bg-white rounded-lg p-3 border border-gray-200">
                     <div className="text-xs text-gray-600 mb-1">Optimal Bet Size (Kelly Criterion)</div>
                     <div className="text-lg font-bold text-green-600">
                       ${(() => {
                         const outcome = recommendation.predicted_outcome.toLowerCase()
                         const probability = recommendation.probabilities[outcome as keyof typeof recommendation.probabilities]
-                        const odds = outcome === 'home' ? recommendation.odds_data.home! :
-                                    outcome === 'draw' ? recommendation.odds_data.draw! :
-                                    recommendation.odds_data.away!
+                        const odds = outcome === 'home' ? recommendation.odds_data?.home! :
+                                    outcome === 'draw' ? recommendation.odds_data?.draw! :
+                                    recommendation.odds_data?.away!
                         
                         return calculateKellyStake(probability, odds).toFixed(2)
                       })()}
@@ -414,9 +414,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                        const probability = recommendation.predicted_outcome === 'Home' ? recommendation.probabilities.home :
                                         recommendation.predicted_outcome === 'Draw' ? recommendation.probabilities.draw :
                                         recommendation.probabilities.away
-                       const odds = recommendation.predicted_outcome === 'Home' ? recommendation.odds_data.home :
-                                   recommendation.predicted_outcome === 'Draw' ? recommendation.odds_data.draw :
-                                   recommendation.odds_data.away
+                       const odds = recommendation.predicted_outcome === 'Home' ? recommendation.odds_data?.home :
+                                   recommendation.predicted_outcome === 'Draw' ? recommendation.odds_data?.draw :
+                                   recommendation.odds_data?.away
                        if (!odds || !probability) return '0'
                        const kelly = ((odds * probability) - 1) / (odds - 1)
                        const stake = Math.min(kelly * 1000, 400)
