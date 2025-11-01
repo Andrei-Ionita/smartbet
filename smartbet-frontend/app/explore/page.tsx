@@ -328,7 +328,7 @@ export default function ExplorePage() {
                   (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
                    selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
                    selectedFixture.odds_data?.away) : null,
-                ev: selectedFixture.expected_value || 0,
+                ev: selectedFixture.ev_analysis?.best_ev || 0,
                 score: 0,
                 explanation: (() => {
                   const outcome = selectedFixture.predicted_outcome ? 
@@ -338,11 +338,11 @@ export default function ExplorePage() {
                   let explanation = `SmartBet AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
                   
                   // Add odds and EV information if available
-                  if (selectedFixture.odds_data && selectedFixture.expected_value) {
+                  if (selectedFixture.odds_data && selectedFixture.ev_analysis?.best_ev) {
                     const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
                                 selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
                                 selectedFixture.odds_data?.away
-                    const ev = selectedFixture.expected_value
+                    const ev = selectedFixture.ev_analysis.best_ev
                     
                     if (odds && ev > 0) {
                       explanation += ` Best odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
