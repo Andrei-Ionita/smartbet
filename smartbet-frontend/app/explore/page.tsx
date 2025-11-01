@@ -44,12 +44,25 @@ interface FixtureAnalysis {
     best_ev: number | null
   }
   prediction_strength: string
-  ensemble_info: {
+  ensemble_info?: {
     model_count: number
     consensus: number
     variance: number
     strategy: string
   }
+  debug_info?: {
+    consensus?: string
+    variance?: string | number
+    confidence_score?: number
+    prediction_agreement?: string
+    model_consensus?: {
+      home: number
+      draw: number
+      away: number
+      variance: number
+    }
+  }
+  signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
 }
 
 const LEAGUES = [
