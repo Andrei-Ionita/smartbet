@@ -242,7 +242,7 @@ export async function GET(request: NextRequest) {
               
               // Determine the primary bookmaker (most common or first available)
               const bookmakers = [odds.home_bookmaker, odds.draw_bookmaker, odds.away_bookmaker].filter(Boolean)
-              const primaryBookmaker = bookmakers.length > 0 ? bookmakers[0] : 'Multiple Bookmakers'
+              const primaryBookmaker: string = bookmakers.length > 0 && typeof bookmakers[0] === 'string' ? bookmakers[0] : 'Multiple Bookmakers'
               
               // Create odds data with bookmaker information
               oddsData = {
