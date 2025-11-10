@@ -2,15 +2,18 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Search, Activity } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User } from 'lucide-react'
+import { useAuth } from '../app/contexts/AuthContext'
 
 export default function Navigation() {
   const pathname = usePathname()
+  const { user, logout, isAuthenticated } = useAuth()
 
   const navItems = [
     { href: '/', label: 'Home', icon: Trophy },
     { href: '/explore', label: 'Explore', icon: Search },
     { href: '/monitoring', label: 'Monitoring', icon: Activity },
+    { href: '/bankroll', label: 'Bankroll', icon: Wallet },
   ]
 
   return (
@@ -42,6 +45,41 @@ export default function Navigation() {
                 </Link>
               )
             })}
+          </div>
+          
+          {/* Auth Section */}
+          <div className="flex items-center gap-3">
+            {isAuthenticated && user ? (
+              <>
+                <div className="hidden md:flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
+                  <User className="h-4 w-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">{user.username}</span>
+                </div>
+                <button
+                  onClick={logout}
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <LogOut className="h-4 w-4" />
+                  <span className="hidden md:inline">Logout</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <Link
+                  href="/login"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+                >
+                  <LogIn className="h-4 w-4" />
+                  <span>Login</span>
+                </Link>
+                <Link
+                  href="/register"
+                  className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                >
+                  <span>Sign Up</span>
+                </Link>
+              </>
+            )}
           </div>
           
           {/* Mobile menu button */}

@@ -31,7 +31,53 @@ export async function GET(request: NextRequest) {
       const data = await response.json()
       console.log(`✅ Django API returned ${data.count || 0} recommended predictions`)
       
-      return NextResponse.json(data)
+      // Transform Django response to match frontend expectations
+      const transformedData = {
+        ...data,
+        confidence_threshold: 55, // Default threshold used by Django
+        fixtures_analyzed: data.count || 0,
+        data: data.data.map((item: any) => {
+          // Get the odds for the predicted outcome
+          let outcomeOdds = null
+          if (item.predicted_outcome === 'Home' || item.predicted_outcome === 'home') {
+            outcomeOdds = item.odds_home
+          } else if (item.predicted_outcome === 'Draw' || item.predicted_outcome === 'draw') {
+            outcomeOdds = item.odds_draw
+          } else if (item.predicted_outcome === 'Away' || item.predicted_outcome === 'away') {
+            outcomeOdds = item.odds_away
+          }
+
+          return {
+            ...item,
+            // Map Django fields to frontend expected fields
+            // Convert percentages to decimals (Django returns 0-100, frontend expects 0-1)
+            confidence: item.confidence / 100,
+            ev: item.expected_value ? item.expected_value / 100 : null,
+            odds: outcomeOdds,
+            score: item.confidence, // Keep as percentage for score
+            explanation: item.explanation || 'No explanation available',
+            probabilities: item.probabilities ? {
+              home: item.probabilities.home / 100,
+              draw: item.probabilities.draw / 100,
+              away: item.probabilities.away / 100
+            } : undefined,
+            odds_data: {
+              home: item.odds_home,
+              draw: item.odds_draw,
+              away: item.odds_away,
+              bookmaker: item.bookmaker || 'Unknown'
+            },
+            ensemble_info: {
+              model_count: item.model_count || 0,
+              consensus: item.consensus ? item.consensus / 100 : 0,
+              variance: item.variance || 0,
+              strategy: 'ensemble'
+            }
+          }
+        })
+      }
+      
+      return NextResponse.json(transformedData)
       
     } catch (djangoError) {
       console.error('❌ Django backend error:', djangoError)

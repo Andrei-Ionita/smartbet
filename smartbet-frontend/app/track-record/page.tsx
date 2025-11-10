@@ -1,376 +1,462 @@
-'use client'
+'use client';
 
-import { useState, useEffect } from 'react'
-import { 
-  Trophy, 
-  TrendingUp, 
-  Target, 
-  DollarSign,
-  CheckCircle,
-  XCircle,
-  Clock,
-  BarChart3,
-  Award,
-  Shield,
-  Zap,
-  Activity
-} from 'lucide-react'
-import useSWR from 'swr'
+import React, { useEffect, useState } from 'react';
+import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
 
-const fetcher = (url: string) => fetch(url).then(res => res.json())
+interface PredictionWithResult {
+  fixture_id: number;
+  home_team: string;
+  away_team: string;
+  league: string;
+  kickoff: string;
+  predicted_outcome: string;
+  confidence: number;
+  expected_value: number;
+  odds: {
+    home: number;
+    draw: number;
+    away: number;
+  };
+  actual_outcome: string | null;
+  actual_score: string | null;
+  was_correct: boolean | null;
+  profit_loss: number | null;
+  prediction_logged_at: string;
+  status: string;
+}
 
-interface PerformanceData {
+interface AccuracyStats {
   overall: {
-    total_predictions: number
-    correct_predictions: number
-    accuracy_percent: number
-    total_profit_loss: number
-    roi_percent: number
-    average_confidence: number
-  }
+    total_predictions: number;
+    correct_predictions: number;
+    incorrect_predictions: number;
+    accuracy_percent: number;
+  };
   by_outcome: {
-    [key: string]: {
-      total: number
-      correct: number
-      accuracy_percent: number
-    }
-  }
-  by_confidence_level: {
-    [key: string]: {
-      total: number
-      correct: number
-      accuracy_percent: number
-      roi_percent: number
-    }
-  }
-  by_league: Array<{
-    league: string
-    total: number
-    correct: number
-    accuracy_percent: number
-  }>
-  recent_predictions: Array<{
-    fixture_id: number
-    home_team: string
-    away_team: string
-    league: string
-    kickoff: string
-    predicted_outcome: string
-    actual_outcome: string
-    confidence: number
-    was_correct: boolean
-    profit_loss: number
-    score: string
-  }>
+    home: { total: number; correct: number; accuracy: number };
+    draw: { total: number; correct: number; accuracy: number };
+    away: { total: number; correct: number; accuracy: number };
+  };
+}
+
+interface ROIStats {
+  total_bets: number;
+  total_staked: number;
+  total_profit_loss: number;
+  roi_percent: number;
+  wins: number;
+  losses: number;
+  win_rate: number;
 }
 
 export default function TrackRecordPage() {
-  const { data, error, isLoading } = useSWR('/api/performance', fetcher, {
-    refreshInterval: 60000, // Refresh every 60 seconds
-  })
+  const [predictions, setPredictions] = useState<PredictionWithResult[]>([]);
+  const [accuracyStats, setAccuracyStats] = useState<AccuracyStats | null>(null);
+  const [roiStats, setROIStats] = useState<ROIStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [updating, setUpdating] = useState(false);
+  const [filterLeague, setFilterLeague] = useState('all');
+  const [filterStatus, setFilterStatus] = useState('completed');
+  const [leagues, setLeagues] = useState<string[]>([]);
 
-  const stats: PerformanceData | null = data?.data || null
+  useEffect(() => {
+    loadData();
+  }, [filterStatus]);
 
-  const getAccuracyColor = (accuracy: number) => {
-    if (accuracy >= 65) return 'text-green-600 bg-green-100'
-    if (accuracy >= 55) return 'text-yellow-600 bg-yellow-100'
-    return 'text-red-600 bg-red-100'
-  }
+  const loadData = async () => {
+    try {
+      setLoading(true);
 
-  const getROIColor = (roi: number) => {
-    if (roi > 10) return 'text-green-600'
-    if (roi > 0) return 'text-yellow-600'
-    return 'text-red-600'
+      // Fetch predictions
+      const showAll = filterStatus === 'all';
+      const predictionsResponse = await fetch(
+        `http://localhost:8000/api/transparency/recent/?limit=100&show_all=${showAll}`
+      );
+      const predictionsData = await predictionsResponse.json();
+
+      if (predictionsData.success) {
+        setPredictions(predictionsData.predictions);
+        
+        // Extract unique leagues
+        const uniqueLeagues = [...new Set(predictionsData.predictions.map((p: PredictionWithResult) => p.league))];
+        setLeagues(uniqueLeagues as string[]);
+      }
+
+      // Fetch accuracy stats
+      const statsResponse = await fetch('http://localhost:8000/api/transparency/dashboard/');
+      const statsData = await statsResponse.json();
+
+      if (statsData.success) {
+        setAccuracyStats(statsData.stats.overall_accuracy);
+        setROIStats(statsData.stats.roi_simulation);
+      }
+    } catch (error) {
+      console.error('Failed to load track record:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUpdateResults = async () => {
+    setUpdating(true);
+    try {
+      const response = await fetch('http://localhost:8000/api/transparency/update-results/', {
+        method: 'POST',
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        alert(`✅ Updated ${data.stats.updated} predictions!\nAccuracy: ${data.stats.accuracy || 'N/A'}%`);
+        loadData(); // Reload data
+      } else {
+        alert(`❌ ${data.error}`);
+      }
+    } catch (error) {
+      alert('Failed to update results');
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  };
+
+  const filteredPredictions = predictions.filter((pred) => {
+    if (filterLeague !== 'all' && pred.league !== filterLeague) return false;
+    return true;
+  });
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 p-4">
+        <div className="max-w-7xl mx-auto">
+          <div className="animate-pulse space-y-4">
+            <div className="h-12 bg-gray-200 rounded w-1/3"></div>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-32 bg-gray-200 rounded"></div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50 py-8 px-4">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="text-center mb-12">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <Shield className="h-12 w-12 text-blue-600" />
-            <h1 className="text-4xl md:text-5xl font-bold text-gray-900">
-              Track Record
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200">
+        <div className="max-w-7xl mx-auto px-4 py-6">
+          <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+              <Trophy className="h-8 w-8 text-blue-600" />
+              <span>Our Track Record</span>
             </h1>
+            <p className="text-gray-600 mt-2">
+              Performance of our <strong>recommended bets</strong> - the fixtures we told you to bet on
+            </p>
+            <p className="text-sm text-blue-600 mt-1">
+              💎 Only our top picks are shown here (55%+ confidence, positive EV)
+            </p>
           </div>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Transparent, verifiable performance tracking. Every prediction timestamped before matches start.
-          </p>
-          <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
-            <Clock className="h-4 w-4" />
-            <span>Updated in real-time as matches complete</span>
+            <button
+              onClick={handleUpdateResults}
+              disabled={updating}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
+            >
+              <RefreshCw className={`h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
+              <span>{updating ? 'Updating...' : 'Update Results'}</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* Key Stats */}
+        {accuracyStats && roiStats && (
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+            {/* Overall Accuracy */}
+            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
+              <p className="text-sm opacity-90 mb-2">Overall Accuracy</p>
+              <p className="text-4xl font-bold mb-2">
+                {accuracyStats.overall.accuracy_percent}%
+              </p>
+              <p className="text-sm opacity-90">
+                {accuracyStats.overall.correct_predictions}/{accuracyStats.overall.total_predictions} correct
+              </p>
+            </div>
+
+            {/* Win Rate */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <p className="text-sm text-gray-600 mb-2">Win Rate</p>
+              <p className="text-4xl font-bold text-gray-900 mb-2">
+                {roiStats.win_rate}%
+              </p>
+              <p className="text-sm text-gray-600">
+                {roiStats.wins}W - {roiStats.losses}L
+              </p>
+            </div>
+
+            {/* ROI */}
+            <div className={`rounded-lg border-2 p-6 ${
+              roiStats.roi_percent >= 0 
+                ? 'bg-green-50 border-green-200' 
+                : 'bg-red-50 border-red-200'
+            }`}>
+              <p className="text-sm text-gray-700 mb-2">ROI ($10/bet)</p>
+              <p className={`text-4xl font-bold mb-2 ${
+                roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
+              }`}>
+                {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
+              </p>
+              <p className="text-sm text-gray-700">
+                {roiStats.roi_percent >= 0 ? '+' : ''}${roiStats.total_profit_loss.toFixed(2)} total
+              </p>
+            </div>
+
+            {/* Total Predictions */}
+            <div className="bg-white rounded-lg border border-gray-200 p-6">
+              <p className="text-sm text-gray-600 mb-2">Total Tracked</p>
+              <p className="text-4xl font-bold text-gray-900 mb-2">
+                {roiStats.total_bets}
+              </p>
+              <p className="text-sm text-gray-600">
+                Predictions logged
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Outcome Breakdown */}
+        {accuracyStats && (
+          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
+            <h2 className="text-xl font-bold text-gray-900 mb-4">Accuracy by Prediction Type</h2>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="text-center p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Home Wins</p>
+                <p className="text-3xl font-bold text-blue-600 mb-1">
+                  {accuracyStats.by_outcome.home.accuracy}%
+                </p>
+                <p className="text-xs text-gray-600">
+                  {accuracyStats.by_outcome.home.correct}/{accuracyStats.by_outcome.home.total}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Draws</p>
+                <p className="text-3xl font-bold text-gray-600 mb-1">
+                  {accuracyStats.by_outcome.draw.accuracy}%
+                </p>
+                <p className="text-xs text-gray-600">
+                  {accuracyStats.by_outcome.draw.correct}/{accuracyStats.by_outcome.draw.total}
+                </p>
+              </div>
+              <div className="text-center p-4 bg-purple-50 rounded-lg">
+                <p className="text-sm text-gray-600 mb-2">Away Wins</p>
+                <p className="text-3xl font-bold text-purple-600 mb-1">
+                  {accuracyStats.by_outcome.away.accuracy}%
+                </p>
+                <p className="text-xs text-gray-600">
+                  {accuracyStats.by_outcome.away.correct}/{accuracyStats.by_outcome.away.total}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Filters */}
+        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
+          <div className="flex items-center gap-4 flex-wrap">
+            <div className="flex items-center gap-2">
+              <Filter className="h-4 w-4 text-gray-600" />
+              <span className="text-sm font-medium text-gray-700">Filters:</span>
+            </div>
+            
+            <select
+              value={filterLeague}
+              onChange={(e) => setFilterLeague(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="all">All Leagues</option>
+              {leagues.map((league) => (
+                <option key={league} value={league}>{league}</option>
+              ))}
+            </select>
+
+            <select
+              value={filterStatus}
+              onChange={(e) => setFilterStatus(e.target.value)}
+              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
+            >
+              <option value="completed">Completed Only</option>
+              <option value="all">All (Including Pending)</option>
+            </select>
+
+            <span className="text-sm text-gray-600 ml-auto">
+              Showing {filteredPredictions.length} predictions
+            </span>
           </div>
         </div>
 
-        {/* Loading State */}
-        {isLoading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-          </div>
-        )}
-
-        {/* Error State */}
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-xl p-6 text-center">
-            <XCircle className="h-12 w-12 text-red-600 mx-auto mb-4" />
-            <p className="text-red-800 font-medium">Error loading performance data</p>
-          </div>
-        )}
-
-        {/* No Data Yet */}
-        {!isLoading && !error && stats && stats.overall.total_predictions === 0 && (
-          <div className="bg-white rounded-2xl shadow-lg p-12 text-center">
-            <Activity className="h-16 w-16 text-gray-400 mx-auto mb-6" />
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">
-              Track Record Coming Soon
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto mb-6">
-              We're starting to track all predictions with verifiable timestamps. 
-              As matches complete over the next few days, you'll see our complete performance history here.
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-3xl mx-auto mt-8">
-              <div className="bg-blue-50 rounded-xl p-6">
-                <CheckCircle className="h-8 w-8 text-blue-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-2">Predictions Logged</h3>
-                <p className="text-sm text-gray-600">Timestamped before matches</p>
-              </div>
-              <div className="bg-purple-50 rounded-xl p-6">
-                <Target className="h-8 w-8 text-purple-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-2">Results Tracked</h3>
-                <p className="text-sm text-gray-600">Automatically collected</p>
-              </div>
-              <div className="bg-green-50 rounded-xl p-6">
-                <BarChart3 className="h-8 w-8 text-green-600 mx-auto mb-3" />
-                <h3 className="font-semibold text-gray-900 mb-2">Performance Calculated</h3>
-                <p className="text-sm text-gray-600">Honest, transparent metrics</p>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Data Available */}
-        {!isLoading && !error && stats && stats.overall.total_predictions > 0 && (
-          <div className="space-y-8">
-            {/* Overall Stats - Hero Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-2xl shadow-lg p-6 border-2 border-blue-200">
-                <div className="flex items-center justify-between mb-4">
-                  <Trophy className="h-10 w-10 text-blue-600" />
-                  <span className={`px-3 py-1 rounded-full text-sm font-bold ${getAccuracyColor(stats.overall.accuracy_percent)}`}>
-                    {stats.overall.accuracy_percent}%
-                  </span>
-                </div>
-                <h3 className="text-gray-600 text-sm font-medium mb-2">Overall Accuracy</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  {stats.overall.correct_predictions}/{stats.overall.total_predictions}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  {stats.overall.total_predictions} predictions tracked
-                </p>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <DollarSign className="h-10 w-10 text-green-600" />
-                  <span className={`text-2xl font-bold ${getROIColor(stats.overall.roi_percent)}`}>
-                    {stats.overall.roi_percent > 0 ? '+' : ''}{stats.overall.roi_percent}%
-                  </span>
-                </div>
-                <h3 className="text-gray-600 text-sm font-medium mb-2">Return on Investment</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  ${stats.overall.total_profit_loss > 0 ? '+' : ''}{stats.overall.total_profit_loss}
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Based on $10 stakes
-                </p>
-              </div>
-
-              <div className="bg-white rounded-2xl shadow-lg p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <Target className="h-10 w-10 text-purple-600" />
-                  <Award className="h-8 w-8 text-purple-600" />
-                </div>
-                <h3 className="text-gray-600 text-sm font-medium mb-2">Avg Confidence</h3>
-                <p className="text-3xl font-bold text-gray-900">
-                  {stats.overall.average_confidence.toFixed(1)}%
-                </p>
-                <p className="text-sm text-gray-500 mt-2">
-                  Prediction strength
-                </p>
-              </div>
-            </div>
-
-            {/* By Outcome */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <BarChart3 className="h-7 w-7 text-blue-600" />
-                Performance by Outcome
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(stats.by_outcome).map(([outcome, data]) => (
-                  <div key={outcome} className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 capitalize">{outcome} Predictions</h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Total:</span>
-                        <span className="font-bold text-gray-900">{data.total}</span>
+        {/* Predictions Table */}
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Match</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predicted</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Result</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Confidence</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">EV</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">P/L ($10)</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-200">
+                {filteredPredictions.map((pred) => (
+                  <tr key={pred.fixture_id} className="hover:bg-gray-50">
+                    <td className="px-6 py-4">
+                      <div>
+                        <p className="text-sm font-medium text-gray-900">
+                          {pred.home_team} vs {pred.away_team}
+                        </p>
+                        <p className="text-xs text-gray-500">{pred.league}</p>
+                        {pred.actual_score && (
+                          <p className="text-xs text-gray-600 font-mono mt-1">
+                            Score: {pred.actual_score}
+                          </p>
+                        )}
                       </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Correct:</span>
-                        <span className="font-bold text-green-600">{data.correct}</span>
-                      </div>
-                      <div className="pt-3 border-t border-gray-200">
-                        <div className="flex justify-between items-center">
-                          <span className="text-gray-600 font-medium">Accuracy:</span>
-                          <span className={`font-bold px-3 py-1 rounded-full ${getAccuracyColor(data.accuracy_percent)}`}>
-                            {data.accuracy_percent}%
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* By Confidence Level */}
-            <div className="bg-white rounded-2xl shadow-lg p-8">
-              <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                <Zap className="h-7 w-7 text-yellow-600" />
-                Performance by Confidence Level
-              </h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {Object.entries(stats.by_confidence_level).map(([level, data]) => (
-                  <div key={level} className="bg-gray-50 rounded-xl p-6">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4 capitalize">
-                      {level === 'high' && '70%+ Confidence'}
-                      {level === 'medium' && '60-70% Confidence'}
-                      {level === 'low' && 'Below 60% Confidence'}
-                    </h3>
-                    <div className="space-y-3">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Accuracy:</span>
-                        <span className={`font-bold px-3 py-1 rounded-full ${getAccuracyColor(data.accuracy_percent)}`}>
-                          {data.accuracy_percent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">ROI:</span>
-                        <span className={`font-bold ${getROIColor(data.roi_percent)}`}>
-                          {data.roi_percent > 0 ? '+' : ''}{data.roi_percent}%
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">Sample:</span>
-                        <span className="font-medium text-gray-900">{data.total} predictions</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* By League */}
-            {stats.by_league.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                  <Trophy className="h-7 w-7 text-yellow-600" />
-                  Top Performing Leagues
-                </h2>
-                <div className="space-y-4">
-                  {stats.by_league.map((league, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gray-50 rounded-xl hover:bg-gray-100 transition-colors">
-                      <div className="flex items-center gap-4">
-                        <div className="text-2xl font-bold text-gray-400 w-8">#{index + 1}</div>
-                        <div>
-                          <h3 className="font-semibold text-gray-900">{league.league}</h3>
-                          <p className="text-sm text-gray-600">{league.correct} correct out of {league.total} predictions</p>
-                        </div>
-                      </div>
-                      <span className={`px-4 py-2 rounded-full font-bold ${getAccuracyColor(league.accuracy_percent)}`}>
-                        {league.accuracy_percent}%
+                    </td>
+                    <td className="px-6 py-4">
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                        pred.predicted_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
+                        pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                        'bg-purple-100 text-purple-800'
+                      }`}>
+                        {pred.predicted_outcome}
                       </span>
-                    </div>
-                  ))}
-                </div>
+                    </td>
+                    <td className="px-6 py-4">
+                      {pred.actual_outcome ? (
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
+                          pred.actual_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
+                          pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                          'bg-purple-100 text-purple-800'
+                        }`}>
+                          {pred.actual_outcome}
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                          <Clock className="h-3 w-3" />
+                          Pending
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      {pred.was_correct === true && (
+                        <CheckCircle className="h-5 w-5 text-green-600 inline" />
+                      )}
+                      {pred.was_correct === false && (
+                        <XCircle className="h-5 w-5 text-red-600 inline" />
+                      )}
+                      {pred.was_correct === null && (
+                        <Clock className="h-5 w-5 text-yellow-600 inline" />
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-sm font-medium text-gray-900">
+                        {pred.confidence.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <span className="text-sm font-medium text-green-600">
+                        +{pred.expected_value.toFixed(1)}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      {pred.profit_loss !== null ? (
+                        <span className={`text-sm font-bold ${
+                          pred.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
+                        }`}>
+                          {pred.profit_loss >= 0 ? '+' : ''}${pred.profit_loss.toFixed(2)}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-gray-400">-</span>
+                      )}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-600">
+                      {formatDate(pred.kickoff)}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+
+            {filteredPredictions.length === 0 && (
+              <div className="text-center py-12 text-gray-500">
+                No predictions found
               </div>
             )}
-
-            {/* Recent Predictions */}
-            {stats.recent_predictions.length > 0 && (
-              <div className="bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
-                  <Activity className="h-7 w-7 text-blue-600" />
-                  Recent Predictions
-                </h2>
-                <div className="space-y-4">
-                  {stats.recent_predictions.map((pred, index) => (
-                    <div key={index} className="p-4 bg-gray-50 rounded-xl">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            {pred.was_correct ? (
-                              <CheckCircle className="h-6 w-6 text-green-600 flex-shrink-0" />
-                            ) : (
-                              <XCircle className="h-6 w-6 text-red-600 flex-shrink-0" />
-                            )}
-                            <div>
-                              <h3 className="font-semibold text-gray-900">
-                                {pred.home_team} vs {pred.away_team}
-                              </h3>
-                              <p className="text-sm text-gray-600">{pred.league}</p>
-                            </div>
-                          </div>
-                          <div className="ml-9 grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div>
-                              <span className="text-gray-600">Predicted:</span>
-                              <span className="ml-2 font-medium">{pred.predicted_outcome}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Actual:</span>
-                              <span className="ml-2 font-medium">{pred.actual_outcome}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Score:</span>
-                              <span className="ml-2 font-medium">{pred.score || 'N/A'}</span>
-                            </div>
-                            <div>
-                              <span className="text-gray-600">Confidence:</span>
-                              <span className="ml-2 font-medium">{pred.confidence}%</span>
-                            </div>
-                          </div>
-                        </div>
-                        <div className={`text-right ml-4 ${pred.profit_loss && pred.profit_loss > 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          <div className="font-bold">
-                            {pred.profit_loss && pred.profit_loss > 0 ? '+' : ''}${pred.profit_loss?.toFixed(2) || '0.00'}
-                          </div>
-                          <div className="text-xs text-gray-500">P/L</div>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Trust Badge */}
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-lg p-8 text-white text-center">
-              <Shield className="h-16 w-16 mx-auto mb-4 opacity-90" />
-              <h2 className="text-2xl font-bold mb-4">100% Transparent Tracking</h2>
-              <p className="text-blue-100 max-w-2xl mx-auto mb-6">
-                Every prediction is timestamped before matches start and results are automatically collected. 
-                We can't fake our results - what you see is what we predicted.
-              </p>
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm px-6 py-3 rounded-full">
-                <CheckCircle className="h-5 w-5" />
-                <span className="font-medium">Verifiable Track Record</span>
-              </div>
-            </div>
           </div>
-        )}
+        </div>
+
+        {/* Transparency Notice */}
+        <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-6">
+          <h3 className="font-semibold text-blue-900 mb-3 text-lg">🔒 Our Transparency Commitment</h3>
+          
+          <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
+            <h4 className="font-semibold text-blue-900 mb-2">📋 What We Track</h4>
+            <p className="text-sm text-blue-800">
+              We track <strong>only the predictions we recommend to you</strong> - the "best bets" 
+              shown on our homepage (top 10 daily picks with 55%+ confidence and positive EV).
+            </p>
+            <p className="text-sm text-blue-800 mt-2">
+              <strong>Why?</strong> Because we believe in accountability. We don't track thousands 
+              of predictions we never told you about - we track what we actually recommend.
+            </p>
+          </div>
+
+          <ul className="space-y-2 text-sm text-blue-800">
+            <li className="flex items-start gap-2">
+              <span className="text-green-600 font-bold">✓</span>
+              <span><strong>Timestamped BEFORE kickoff:</strong> All predictions logged before matches start - impossible to fake</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-green-600 font-bold">✓</span>
+              <span><strong>Third-party verified:</strong> Results fetched from SportMonks API - we cannot manipulate them</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-green-600 font-bold">✓</span>
+              <span><strong>Never deleted:</strong> Historical data is permanent - we show both wins and losses</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-green-600 font-bold">✓</span>
+              <span><strong>Complete history:</strong> Every recommendation we made is here - you can audit everything</span>
+            </li>
+            <li className="flex items-start gap-2">
+              <span className="text-green-600 font-bold">✓</span>
+              <span><strong>Real-time updates:</strong> Click "Update Results" to fetch the latest match outcomes</span>
+            </li>
+          </ul>
+
+          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-xs text-yellow-900">
+              <strong>Note:</strong> We only track our <strong>recommended bets</strong> (the ones we show on the homepage). 
+              This is honest accountability - we're measured by what we actually tell you to bet on, not by cherry-picking 
+              from thousands of unpublished predictions.
+            </p>
+          </div>
+        </div>
       </div>
     </div>
-  )
+  );
 }
-

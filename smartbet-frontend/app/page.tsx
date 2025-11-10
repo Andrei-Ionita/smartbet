@@ -35,6 +35,14 @@ export default function HomePage() {
   const [selectedLeague, setSelectedLeague] = useState('')
   const router = useRouter()
 
+  // Get session_id from localStorage for personalized recommendations
+  const getSessionId = () => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('smartbet_session_id') || ''
+    }
+    return ''
+  }
+
   // Enhanced fetcher with error handling
   const enhancedFetcher = async (url: string) => {
     try {
@@ -49,8 +57,14 @@ export default function HomePage() {
     }
   }
 
-  // Fetch recommendations with SWR
-  const { data, error, isLoading, mutate } = useSWR('/api/recommendations', enhancedFetcher, {
+  // Build API URL with session_id for personalized stake recommendations
+  const sessionId = getSessionId()
+  const apiUrl = sessionId 
+    ? `/api/recommendations/?session_id=${sessionId}`
+    : '/api/recommendations/'
+
+  // Fetch recommendations with SWR - using Django backend
+  const { data, error, isLoading, mutate } = useSWR(apiUrl, enhancedFetcher, {
     refreshInterval: 60000, // Refresh every 60 seconds
     revalidateOnFocus: true,
     errorRetryCount: 3,
@@ -221,12 +235,21 @@ export default function HomePage() {
 
           {data && data.recommendations && data.recommendations.length > 0 && (
             <>
+              {/* Transparency Notice */}
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
+                <p className="text-sm text-center text-blue-900">
+                  🔍 <strong>100% Transparent:</strong> These recommendations are logged & tracked on our{' '}
+                  <a href="/track-record" className="underline font-semibold hover:text-blue-700">public track record</a>
+                  {' '}• All predictions timestamped before kickoff • Real results verified via SportMonks API
+                </p>
+              </div>
+
               {/* Stats Summary */}
               <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-6 mb-8 border border-primary-200">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold text-primary-600">{data.recommendations.length}</div>
-                    <div className="text-sm text-primary-700">Top 10 Best Bets</div>
+                    <div className="text-sm text-primary-700">Top Picks Today</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">{data.confidence_threshold}%+</div>
@@ -239,7 +262,7 @@ export default function HomePage() {
                   <div>
                     <div className="text-2xl font-bold text-purple-600">
                       {data.recommendations.length > 0 
-                        ? Math.max(...data.recommendations.map((r: any) => r.confidence)).toFixed(0) + '%'
+                        ? (Math.max(...data.recommendations.map((r: any) => r.confidence)) * 100).toFixed(0) + '%'
                         : '0%'}
                     </div>
                     <div className="text-sm text-purple-700">Highest Confidence</div>

@@ -34,6 +34,13 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 
+# Production
+staticfiles/
+.env
+.env.local
+.env.production
+.env.*.local
+
 # Node.js
 node_modules/
 npm-debug.log*
@@ -70,3 +77,24 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# ML Model files (we use SportMonks predictions, not internal models)
+*.pkl
+*.h5
+*.pt
+*.pth
+*.joblib
+*.model
+**/models/*.pkl
+**/production_model/
+**/premium_model/
+**/improved_models/
+**training_data*.csv
+**training_dataset*.csv
+**validation_*.csv
+**holdout_*.csv
+feature_importance*.csv
+LOCKED_PRODUCTION/
+model_development/
+validators/
+predictor/

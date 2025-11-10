@@ -1,0 +1,50 @@
+services:
+  # Django Backend API
+  - type: web
+    name: smartbet-backend
+    runtime: python
+    plan: free  # Start with free tier, upgrade to Starter ($7/mo) for always-on
+    buildCommand: "./build.sh"
+    startCommand: "gunicorn smartbet.wsgi:application"
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11
+      - key: DEBUG
+        value: False
+      - key: DJANGO_SECRET_KEY
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: smartbet-db
+          property: connectionString
+      - key: ALLOWED_HOSTS
+        sync: false  # Set manually in Render dashboard
+      - key: FRONTEND_URL
+        sync: false  # Set manually in Render dashboard (frontend URL)
+      - key: SPORTMONKS_TOKEN
+        sync: false  # Set from your .env
+      - key: SPORTMONKS_API_TOKEN
+        sync: false  # Set from your .env
+    healthCheckPath: /api/health/
+
+  # Next.js Frontend (Static Site)
+  - type: web
+    name: smartbet-frontend
+    runtime: node
+    plan: free  # Start with free tier, upgrade to Starter ($7/mo) for always-on
+    buildCommand: "cd frontend && npm install && npm run build"
+    startCommand: "cd frontend && npm start"
+    envVars:
+      - key: NODE_VERSION
+        value: 20.11.0
+      - key: NEXT_PUBLIC_API_URL
+        sync: false  # Set to backend URL after backend is deployed
+
+# PostgreSQL Database
+databases:
+  - name: smartbet-db
+    plan: free  # Free tier: 90-day expiration, 1GB storage
+    databaseName: smartbet
+    user: smartbet
+    ipAllowList: []  # Allow all IPs (required for free tier)
+

@@ -159,6 +159,7 @@ export default function ExplorePage() {
   const handleFixtureSelect = async (fixtureId: number) => {
     setIsLoadingFixture(true)
     try {
+      // Use Next.js API (fetches from SportMonks directly for ANY fixture)
       const response = await fetch(`/api/fixture/${fixtureId}`)
       
       if (!response.ok) {
@@ -166,10 +167,17 @@ export default function ExplorePage() {
       }
       
       const data = await response.json()
-      setSelectedFixture(data.fixture)
+      
+      // Next.js API returns in 'fixture' field
+      if (data.fixture) {
+        console.log('Fixture loaded successfully:', data.fixture.fixture_id)
+        setSelectedFixture(data.fixture)
+      } else {
+        console.error('No fixture data in response', data)
+      }
     } catch (error) {
       console.error('Error fetching fixture:', error)
-      // You could show an error toast here
+      alert(`Failed to load fixture: ${error}`)
     } finally {
       setIsLoadingFixture(false)
     }
@@ -336,12 +344,11 @@ export default function ExplorePage() {
                 kickoff: selectedFixture.kickoff,
                 predicted_outcome: selectedFixture.predicted_outcome ? 
                   selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) as 'Home' | 'Draw' | 'Away' : 'Home',
-                confidence: selectedFixture.prediction_confidence || 0,
-                odds: selectedFixture.odds_data ? 
-                  (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                   selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                   selectedFixture.odds_data?.away) : null,
-                ev: selectedFixture.ev_analysis?.best_ev || 0,
+                confidence: (selectedFixture as any).confidence || 0,
+                odds: (selectedFixture as any).predicted_outcome?.toLowerCase() === 'home' ? (selectedFixture as any).odds_home :
+                      (selectedFixture as any).predicted_outcome?.toLowerCase() === 'draw' ? (selectedFixture as any).odds_draw :
+                      (selectedFixture as any).odds_away,
+                ev: (selectedFixture as any).expected_value || 0,
                 score: 0,
                 explanation: (() => {
                   const outcome = selectedFixture.predicted_outcome ? 
@@ -364,12 +371,28 @@ export default function ExplorePage() {
                   
                   return explanation
                  })(),
-                 probabilities: selectedFixture.predictions,
-                 odds_data: selectedFixture.odds_data,
-                 debug_info: selectedFixture.debug_info,
-                 ensemble_info: selectedFixture.ensemble_info,
+                 probabilities: (selectedFixture as any).probabilities || {
+                   home: 0,
+                   draw: 0,
+                   away: 0
+                 },
+                 odds_data: {
+                   home: (selectedFixture as any).odds_home || null,
+                   draw: (selectedFixture as any).odds_draw || null,
+                   away: (selectedFixture as any).odds_away || null,
+                   bookmaker: (selectedFixture as any).bookmaker || 'Unknown'
+                 },
+                 bookmaker: (selectedFixture as any).bookmaker || 'Unknown',
+                 stake_recommendation: (selectedFixture as any).stake_recommendation,
+                 debug_info: (selectedFixture as any).debug_info || {},
+                 ensemble_info: (selectedFixture as any).ensemble_info || {
+                   model_count: (selectedFixture as any).model_count || 0,
+                   consensus: (selectedFixture as any).consensus || 0,
+                   variance: (selectedFixture as any).variance || 0,
+                   strategy: (selectedFixture as any).ensemble_strategy || 'balanced'
+                 },
                 league_accuracy: null,
-                signal_quality: selectedFixture.signal_quality
+                signal_quality: (selectedFixture as any).signal_quality || 'Moderate'
               }}
               onViewDetails={handleViewDetails}
             />

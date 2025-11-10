@@ -274,15 +274,15 @@ export async function GET(request: NextRequest) {
             // Also require minimum EV of 10% for quality recommendations
             if (expectedValue > 0 && confidence >= 55 && expectedValue >= 0.10) {
               allRecommendations.push({
-          fixture_id: fixture.id,
+                fixture_id: fixture.id,
                 home_team: homeTeam,
                 away_team: awayTeam,
                 league: league.name,
-          kickoff: fixture.starting_at,
+                kickoff: fixture.starting_at,
                 predicted_outcome: predictedOutcome.charAt(0).toUpperCase() + predictedOutcome.slice(1),
-                confidence: confidence,
-                expected_value: expectedValue * 100,
-                ev: expectedValue * 100,
+                confidence: confidence / 100,  // Convert percentage to decimal (55.13 -> 0.5513)
+                expected_value: expectedValue,  // Already a decimal
+                ev: expectedValue,  // Already a decimal
                 probabilities: predictionData,
                 odds_data: oddsData,
                 explanation: `Model predicts ${predictedOutcome} win with ${confidence.toFixed(1)}% confidence. Expected value: ${(expectedValue * 100).toFixed(1)}%`,
@@ -299,17 +299,35 @@ export async function GET(request: NextRequest) {
                   }
                 },
                 ev_analysis: {
-                  best_ev: expectedValue,
+                  best_ev: expectedValue, // Store as decimal to match ev field
                   recommended_stake: 0, // Will be calculated by frontend using Kelly Criterion
                   risk_level: confidence > 70 ? 'Low' : confidence > 60 ? 'Medium' : 'High'
                 },
-                prediction_confidence: confidence,
-                prediction_strength: confidence > 70 ? 'Strong' : confidence > 60 ? 'Moderate' : 'Weak',
+                prediction_confidence: confidence / 100,  // Convert to decimal
+                prediction_strength: (() => {
+                  // Calculate prediction gap (difference between top 2 probabilities)
+                  const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
+                  const gap = (probs[0] - probs[1]) * 100 // Gap in percentage points
+                  
+                  // Strong signal: high confidence OR large gap
+                  if (confidence >= 70 || gap >= 15) return 'Strong'
+                  // Moderate signal: decent confidence OR moderate gap
+                  if (confidence >= 55 || gap >= 8) return 'Moderate'
+                  // Weak signal: low confidence AND small gap
+                  return 'Weak'
+                })(),
                 signal_quality: (() => {
-                  // Simple signal quality based on confidence
-                  if (confidence >= 70) return 'Strong'
-                  if (confidence >= 60) return 'Good' 
-                  if (confidence >= 50) return 'Moderate'
+                  // Calculate prediction gap for better assessment
+                  const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
+                  const gap = (probs[0] - probs[1]) * 100
+                  
+                  // Strong: clear leader with good confidence
+                  if (confidence >= 70 || (confidence >= 60 && gap >= 12)) return 'Strong'
+                  // Good: decent confidence with some separation
+                  if (confidence >= 60 || (confidence >= 50 && gap >= 10)) return 'Good'
+                  // Moderate: reasonable prediction
+                  if (confidence >= 50 || gap >= 7) return 'Moderate'
+                  // Weak: close match or low confidence
                   return 'Weak'
                 })(),
                 ensemble_info: {
@@ -342,7 +360,7 @@ export async function GET(request: NextRequest) {
       
       // Quality bonuses - heavily favor high confidence
       const qualityBonus = rec.confidence >= 70 ? 0.5 : rec.confidence >= 65 ? 0.3 : rec.confidence >= 60 ? 0.2 : 0
-      const evBonus = rec.expected_value >= 0.3 ? 0.2 : rec.expected_value >= 0.15 ? 0.1 : 0
+      const evBonus = rec.expected_value >= 30 ? 0.2 : rec.expected_value >= 15 ? 0.1 : 0 // expected_value is percentage
       
       return {
         ...rec,
@@ -380,6 +398,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recommendations: top10Recommendations,
       total: top10Recommendations.length,
+      confidence_threshold: 55, // Minimum confidence required for recommendations
       leagues_covered: keyLeagues.length,
       fixtures_analyzed: totalFixtures,
       fixtures_with_predictions: fixturesWithPredictions,

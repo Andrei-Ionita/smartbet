@@ -9,8 +9,11 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import timedelta
 import json
+import os
+import requests
 
-from .models import PredictionLog
+from .models import PredictionLog, UserBankroll
+from .bankroll_utils import calculate_stake_amount
 
 
 def generate_model_explanation(prediction):
@@ -119,11 +122,13 @@ def get_recommendations(request):
     Query params:
     - league (optional): Filter by league
     - limit (optional): Limit number of results (default: 10)
+    - session_id (optional): Include personalized stake recommendations
     """
     try:
         # Get query parameters
         league = request.GET.get('league', '').strip()
         limit = int(request.GET.get('limit', 10))
+        session_id = request.GET.get('session_id', '').strip()
         
         # Build queryset for future predictions
         now = timezone.now()
@@ -142,6 +147,15 @@ def get_recommendations(request):
         
         # Limit results
         predictions = queryset[:limit]
+        
+        # Check if user has bankroll for stake recommendations
+        user_bankroll = None
+        if session_id:
+            try:
+                user_bankroll = UserBankroll.objects.get(session_id=session_id)
+                user_bankroll.check_and_reset_limits()
+            except UserBankroll.DoesNotExist:
+                pass
         
         # Convert to frontend format
         recommendations = []
@@ -205,14 +219,71 @@ def get_recommendations(request):
                     'strategy': pred.ensemble_strategy
                 }
             }
+            
+            # Add stake recommendation if user has bankroll
+            if user_bankroll:
+                try:
+                    # Get odds for predicted outcome
+                    predicted_odds = None
+                    if pred.predicted_outcome.lower() == 'home':
+                        predicted_odds = pred.odds_home
+                        win_probability = pred.probability_home
+                    elif pred.predicted_outcome.lower() == 'draw':
+                        predicted_odds = pred.odds_draw
+                        win_probability = pred.probability_draw
+                    elif pred.predicted_outcome.lower() == 'away':
+                        predicted_odds = pred.odds_away
+                        win_probability = pred.probability_away
+                    
+                    if predicted_odds and win_probability:
+                        stake_calc = calculate_stake_amount(
+                            bankroll=user_bankroll.current_bankroll,
+                            strategy=user_bankroll.staking_strategy,
+                            win_probability=win_probability,
+                            odds=predicted_odds,
+                            confidence=pred.confidence * 100,  # Convert to percentage
+                            fixed_amount=user_bankroll.fixed_stake_amount,
+                            fixed_percentage=user_bankroll.fixed_stake_percentage,
+                            max_stake_percentage=user_bankroll.max_stake_percentage
+                        )
+                        
+                        recommendation['stake_recommendation'] = {
+                            'recommended_stake': float(stake_calc['recommended_stake']),
+                            'stake_percentage': stake_calc['stake_percentage'],
+                            'currency': user_bankroll.currency,
+                            'strategy': stake_calc['strategy'],
+                            'risk_level': stake_calc['risk_level'],
+                            'risk_explanation': stake_calc['risk_explanation'],
+                            'warnings': stake_calc['warnings']
+                        }
+                except Exception as e:
+                    # Don't fail the whole request if stake calc fails
+                    recommendation['stake_recommendation'] = {
+                        'error': str(e)
+                    }
+            
             recommendations.append(recommendation)
         
-        return JsonResponse({
+        response_data = {
             'success': True,
-            'data': recommendations,
+            'recommendations': recommendations,  # Frontend expects this field
+            'data': recommendations,  # Keep for backwards compatibility
             'count': len(recommendations),
+            'total': len(recommendations),  # Frontend also checks this
             'message': f'Found {len(recommendations)} recommendations'
-        })
+        }
+        
+        # Add bankroll summary if available
+        if user_bankroll:
+            response_data['bankroll_summary'] = {
+                'current_bankroll': float(user_bankroll.current_bankroll),
+                'currency': user_bankroll.currency,
+                'is_daily_limit_reached': user_bankroll.is_daily_limit_reached,
+                'is_weekly_limit_reached': user_bankroll.is_weekly_limit_reached,
+                'risk_profile': user_bankroll.risk_profile
+            }
+        
+        return JsonResponse(response_data)
         
     except Exception as e:
         return JsonResponse({
@@ -229,10 +300,20 @@ def get_fixture_details(request, fixture_id):
     """
     Get detailed information for a specific fixture
     
-    GET /api/fixture/{fixture_id}/
+    GET /api/fixture/{fixture_id}/?session_id=xxx (optional)
     """
     try:
         prediction = PredictionLog.objects.get(fixture_id=fixture_id)
+        session_id = request.GET.get('session_id', '').strip()
+        
+        # Check if user has bankroll for stake recommendations
+        user_bankroll = None
+        if session_id:
+            try:
+                user_bankroll = UserBankroll.objects.get(session_id=session_id)
+                user_bankroll.check_and_reset_limits()
+            except UserBankroll.DoesNotExist:
+                pass
         
         fixture_data = {
             'fixture_id': prediction.fixture_id,
@@ -269,6 +350,46 @@ def get_fixture_details(request, fixture_id):
             'profit_loss_10': prediction.profit_loss_10,
             'roi_percent': prediction.roi_percent
         }
+        
+        # Add stake recommendation if user has bankroll
+        if user_bankroll:
+            try:
+                # Get odds for predicted outcome
+                predicted_odds = None
+                if prediction.predicted_outcome.lower() == 'home':
+                    predicted_odds = prediction.odds_home
+                    win_probability = prediction.probability_home
+                elif prediction.predicted_outcome.lower() == 'draw':
+                    predicted_odds = prediction.odds_draw
+                    win_probability = prediction.probability_draw
+                elif prediction.predicted_outcome.lower() == 'away':
+                    predicted_odds = prediction.odds_away
+                    win_probability = prediction.probability_away
+                
+                if predicted_odds and win_probability:
+                    stake_calc = calculate_stake_amount(
+                        bankroll=user_bankroll.current_bankroll,
+                        strategy=user_bankroll.staking_strategy,
+                        win_probability=win_probability,
+                        odds=predicted_odds,
+                        confidence=prediction.confidence * 100,
+                        fixed_amount=user_bankroll.fixed_stake_amount,
+                        fixed_percentage=user_bankroll.fixed_stake_percentage,
+                        max_stake_percentage=user_bankroll.max_stake_percentage
+                    )
+                    
+                    fixture_data['stake_recommendation'] = {
+                        'recommended_stake': float(stake_calc['recommended_stake']),
+                        'stake_percentage': stake_calc['stake_percentage'],
+                        'currency': user_bankroll.currency,
+                        'strategy': stake_calc['strategy'],
+                        'risk_level': stake_calc['risk_level'],
+                        'risk_explanation': stake_calc['risk_explanation'],
+                        'warnings': stake_calc['warnings']
+                    }
+            except Exception as e:
+                # Don't fail the whole request if stake calc fails
+                fixture_data['stake_recommendation'] = {'error': str(e)}
         
         return JsonResponse({
             'success': True,
@@ -655,4 +776,209 @@ def search_fixtures(request):
             'error': str(e),
             'data': [],
             'count': 0
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def update_fixture_results(request):
+    """
+    Update fixture results for pending predictions from SportMonks API.
+    
+    POST /api/update-fixture-results/
+    """
+    try:
+        # Get SportMonks API token
+        api_token = os.getenv('SPORTMONKS_API_TOKEN') or os.getenv('SPORTMONKS_TOKEN')
+        if not api_token:
+            print("WARNING: SportMonks API token not found in environment")
+            print("Please ensure SPORTMONKS_API_TOKEN is set in .env file")
+            # Don't fail - just skip the update
+            return JsonResponse({
+                'success': True,
+                'updated_count': 0,
+                'skipped_count': 0,
+                'error_count': 0,
+                'total_checked': 0,
+                'message': 'Skipped - API token not configured'
+            })
+        
+        # Get pending predictions from last 7 days
+        cutoff_date = timezone.now() - timedelta(days=7)
+        pending_predictions = PredictionLog.objects.filter(
+            kickoff__gte=cutoff_date,
+            kickoff__lte=timezone.now(),
+            actual_outcome__isnull=True
+        ).order_by('kickoff')[:50]  # Limit to 50 to avoid rate limits
+        
+        print(f"\n{'='*60}")
+        print(f"🔄 Updating fixture results")
+        print(f"📅 Checking fixtures from last 7 days")
+        print(f"📊 Found {pending_predictions.count()} pending predictions")
+        print(f"{'='*60}\n")
+        
+        updated_count = 0
+        skipped_count = 0
+        error_count = 0
+        
+        updated_fixtures = []
+        error_details = []
+        
+        for i, prediction in enumerate(pending_predictions, 1):
+            try:
+                print(f"[{i}/{pending_predictions.count()}] Checking: {prediction.home_team} vs {prediction.away_team} (ID: {prediction.fixture_id})")
+                
+                # Fetch fixture data from SportMonks
+                url = f"https://api.sportmonks.com/v3/football/fixtures/{prediction.fixture_id}"
+                params = {
+                    'api_token': api_token,
+                    'include': 'participants;scores;state',
+                    'timezone': 'UTC'
+                }
+                
+                response = requests.get(url, params=params, timeout=30)
+                response.raise_for_status()
+                
+                data = response.json()
+                fixture_data = data.get('data')
+                
+                if not fixture_data:
+                    print(f"  ⚠️ No fixture data returned")
+                    skipped_count += 1
+                    continue
+                
+                # Get match status
+                state = fixture_data.get('state', {})
+                match_status = state.get('short_name', 'UNKNOWN')
+                
+                print(f"  Status: {match_status}")
+                
+                # Only process finished matches
+                if match_status not in ['FT', 'AET', 'APEN']:
+                    print(f"  ⏸️ Skipped - Match not finished (status: {match_status})")
+                    skipped_count += 1
+                    continue
+                
+                # Get scores - SportMonks API v3 format
+                scores = fixture_data.get('scores', [])
+                if not scores:
+                    print(f"No scores found for fixture {prediction.fixture_id}")
+                    skipped_count += 1
+                    continue
+                
+                # Find full-time scores
+                home_score = None
+                away_score = None
+                
+                # Get participants mapping
+                participants = fixture_data.get('participants', [])
+                home_participant_id = None
+                away_participant_id = None
+                
+                for participant in participants:
+                    location = participant.get('meta', {}).get('location')
+                    if location == 'home':
+                        home_participant_id = participant.get('id')
+                    elif location == 'away':
+                        away_participant_id = participant.get('id')
+                
+                print(f"Fixture {prediction.fixture_id}: home_id={home_participant_id}, away_id={away_participant_id}")
+                
+                # Look for final/current scores
+                for score in scores:
+                    description = (score.get('description') or '').upper()
+                    type_id = score.get('type_id')
+                    participant_id = score.get('participant_id')
+                    
+                    # Check if this is a final score (CURRENT, FT, or type_id 1525)
+                    if description in ['CURRENT', 'FT', 'FULLTIME', 'FINAL'] or type_id == 1525:
+                        score_data = score.get('score', {})
+                        goals = score_data.get('goals', 0)
+                        
+                        # Try different score formats
+                        if goals is None:
+                            goals = score_data.get('participant', 0)
+                        if goals is None:
+                            goals = score_data.get('value', 0)
+                        
+                        if participant_id == home_participant_id:
+                            home_score = int(goals) if goals is not None else None
+                            print(f"  Found home score: {home_score}")
+                        elif participant_id == away_participant_id:
+                            away_score = int(goals) if goals is not None else None
+                            print(f"  Found away score: {away_score}")
+                
+                if home_score is None or away_score is None:
+                    print(f"Could not extract scores for fixture {prediction.fixture_id}: home={home_score}, away={away_score}")
+                    print(f"Scores data: {scores}")
+                    skipped_count += 1
+                    continue
+                
+                # Determine outcome
+                if home_score > away_score:
+                    outcome = 'home'
+                elif away_score > home_score:
+                    outcome = 'away'
+                else:
+                    outcome = 'draw'
+                
+                # Update prediction
+                prediction.actual_outcome = outcome
+                prediction.actual_score_home = home_score
+                prediction.actual_score_away = away_score
+                prediction.match_status = match_status
+                
+                # Calculate performance
+                prediction.calculate_performance()
+                prediction.save()
+                
+                updated_count += 1
+                updated_fixtures.append({
+                    'fixture_id': prediction.fixture_id,
+                    'match': f"{prediction.home_team} vs {prediction.away_team}",
+                    'score': f"{home_score}-{away_score}",
+                    'predicted': prediction.predicted_outcome,
+                    'actual': outcome,
+                    'correct': prediction.was_correct
+                })
+                
+                print(f"✅ Updated: {prediction.home_team} vs {prediction.away_team} ({home_score}-{away_score})")
+                print(f"   Predicted: {prediction.predicted_outcome} | Actual: {outcome} | {'✓ CORRECT' if prediction.was_correct else '✗ INCORRECT'}\n")
+                
+            except Exception as e:
+                error_count += 1
+                error_msg = str(e)
+                error_details.append({
+                    'fixture_id': prediction.fixture_id,
+                    'match': f"{prediction.home_team} vs {prediction.away_team}",
+                    'error': error_msg
+                })
+                print(f"❌ Error updating fixture {prediction.fixture_id} ({prediction.home_team} vs {prediction.away_team}): {e}")
+                import traceback
+                traceback.print_exc()
+                continue
+        
+        print(f"\n{'='*60}")
+        print(f"✅ Update complete!")
+        print(f"   Updated: {updated_count}")
+        print(f"   Skipped: {skipped_count} (not finished yet)")
+        print(f"   Errors: {error_count}")
+        print(f"{'='*60}\n")
+        
+        return JsonResponse({
+            'success': True,
+            'updated_count': updated_count,
+            'skipped_count': skipped_count,
+            'error_count': error_count,
+            'total_checked': pending_predictions.count(),
+            'message': f'Updated {updated_count} fixture results',
+            'updated_fixtures': updated_fixtures[:10],  # Return first 10 for debugging
+            'errors': error_details[:5] if error_details else []  # Return first 5 errors
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'updated_count': 0
         }, status=500)

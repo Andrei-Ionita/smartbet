@@ -57,10 +57,25 @@ export default function RecommendedPredictionsTable() {
   const [error, setError] = useState<string | null>(null)
   const [includePending, setIncludePending] = useState(true)
 
-  const fetchPredictions = async () => {
+  const fetchPredictions = async (forceUpdate = false) => {
     try {
       setIsRefreshing(true)
       setError(null)
+      
+      // First, trigger result updates for pending fixtures (optional, only on manual refresh or when forced)
+      if (forceUpdate || isLoading) {
+        try {
+          console.log('🔄 Triggering fixture result updates...')
+          const updateResponse = await fetch('/api/django/update-results', { method: 'POST' })
+          const updateData = await updateResponse.json()
+          if (updateData.updated_count > 0) {
+            console.log(`✅ Updated ${updateData.updated_count} fixture results`)
+          }
+        } catch (updateErr) {
+          console.warn('⚠️ Could not update results, continuing anyway:', updateErr)
+          // Don't fail the whole operation if update fails
+        }
+      }
       
       // Call Django API through Next.js API route
       const response = await fetch(`/api/django/recommended-predictions?include_pending=${includePending}`)
@@ -83,6 +98,27 @@ export default function RecommendedPredictionsTable() {
 
   useEffect(() => {
     fetchPredictions()
+    
+    // Auto-refresh every 2 minutes to catch new results
+    const refreshInterval = setInterval(() => {
+      console.log('🔄 Auto-refreshing predictions...')
+      fetchPredictions()
+    }, 120000) // 2 minutes
+    
+    return () => clearInterval(refreshInterval)
+  }, [includePending])
+  
+  // Refresh when tab becomes visible
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('👁️ Tab became visible, refreshing predictions...')
+        fetchPredictions()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [includePending])
 
   const formatDate = (dateString: string) => {
@@ -157,7 +193,7 @@ export default function RecommendedPredictionsTable() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Predictions</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={fetchPredictions}
+            onClick={() => fetchPredictions(true)}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Try Again
@@ -250,7 +286,7 @@ export default function RecommendedPredictionsTable() {
         </div>
         
         <button
-          onClick={fetchPredictions}
+          onClick={() => fetchPredictions(true)}
           disabled={isRefreshing}
           className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >

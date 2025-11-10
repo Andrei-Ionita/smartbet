@@ -214,7 +214,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
               <div>
                 <span className="text-gray-600">Expected Value:</span>
                 <span className="ml-2 font-semibold">
-                  {recommendation.ev ? `${(recommendation.ev * 100).toFixed(1)}%` : 'N/A'}
+                  {recommendation.ev ? `${recommendation.ev.toFixed(1)}%` : 'N/A'}
                 </span>
               </div>
             </div>

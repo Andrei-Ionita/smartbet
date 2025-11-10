@@ -34,8 +34,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
   const getEVBadgeText = () => {
     if (recommendation.ev === null) return ''
-    if (recommendation.ev > 0) return `EV +${recommendation.ev.toFixed(1)}%`
-    return `EV ${recommendation.ev.toFixed(1)}%`
+    const evPercent = recommendation.ev * 100
+    if (evPercent > 0) return `EV +${evPercent.toFixed(1)}%`
+    return `EV ${evPercent.toFixed(1)}%`
   }
 
   const getOutcomeColor = (outcome: string) => {
@@ -48,15 +49,15 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
   }
 
   const getPredictionStrength = (probabilities: { home: number; draw: number; away: number }) => {
-    const probs = [probabilities.home, probabilities.draw, probabilities.away]
+    const probs = [probabilities.home * 100, probabilities.draw * 100, probabilities.away * 100]
     const sortedProbs = [...probs].sort((a, b) => b - a)
     const gap = sortedProbs[0] - sortedProbs[1]
     
     // Convert gap to user-friendly strength indicator
-    if (gap >= 60) return { label: 'Very Strong', color: 'text-green-700', bgColor: 'bg-green-100' }
-    if (gap >= 40) return { label: 'Strong', color: 'text-blue-700', bgColor: 'bg-blue-100' }
-    if (gap >= 20) return { label: 'Moderate', color: 'text-yellow-700', bgColor: 'bg-yellow-100' }
-    return { label: 'Low', color: 'text-red-700', bgColor: 'bg-red-100' }
+    if (gap >= 30) return { label: 'Very Strong', color: 'text-green-700', bgColor: 'bg-green-100' }
+    if (gap >= 20) return { label: 'Strong', color: 'text-blue-700', bgColor: 'bg-blue-100' }
+    if (gap >= 10) return { label: 'Moderate', color: 'text-yellow-700', bgColor: 'bg-yellow-100' }
+    return { label: 'Weak', color: 'text-red-700', bgColor: 'bg-red-100' }
   }
 
   // Calculate Kelly Criterion for optimal stake sizing
@@ -84,8 +85,8 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
   // Get risk level based on confidence and EV - adjusted for "best bets" context
   const getRiskLevel = () => {
-    const confidence = recommendation.confidence
-    const ev = recommendation.ev || 0
+    const confidence = recommendation.confidence * 100 // Convert to percentage
+    const ev = (recommendation.ev || 0) * 100 // Convert to percentage
     
     // Since these are filtered "best bets" with high EV, adjust risk assessment
     // High EV + decent confidence = Good opportunity, not high risk
@@ -148,12 +149,12 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <div className="flex-1 bg-gray-200 rounded-full h-4 shadow-inner">
             <div
               className="bg-gradient-to-r from-primary-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm"
-              style={{ width: `${recommendation.confidence}%` }}
-              aria-label={`Confidence: ${Math.round(recommendation.confidence)}%`}
+              style={{ width: `${recommendation.confidence * 100}%` }}
+              aria-label={`Confidence: ${Math.round(recommendation.confidence * 100)}%`}
             />
           </div>
           <span className="text-lg font-bold text-gray-700 min-w-[3rem] text-right">
-            {Math.round(recommendation.confidence)}%
+            {Math.round(recommendation.confidence * 100)}%
           </span>
         </div>
         
@@ -161,11 +162,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         <div className="mb-4">
           <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
             <div className="text-center">
-              <div className="text-2xl font-bold text-green-600">+{(recommendation.ev || 0).toFixed(1)}%</div>
+              <div className="text-2xl font-bold text-green-600">+{((recommendation.ev || 0) * 100).toFixed(1)}%</div>
               <div className="text-xs text-green-700">Expected Value</div>
             </div>
             <div className="text-center">
-              <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence)}%</div>
+              <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence * 100)}%</div>
               <div className="text-xs text-blue-700">Confidence</div>
             </div>
             <div className="text-center">
@@ -179,6 +180,76 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           </div>
           
         </div>
+
+        {/* Risk Warnings */}
+        {(recommendation.confidence * 100 < 60 || (recommendation.ev || 0) * 100 < 10 || 
+          recommendation.predicted_outcome === 'Draw') && (
+          <div className="mb-4 p-3 bg-orange-50 border-2 border-orange-300 rounded-lg">
+            <div className="flex items-start gap-2">
+              <span className="text-orange-600 text-lg">⚠️</span>
+              <div className="flex-1">
+                <p className="text-sm font-semibold text-orange-900 mb-1">Risk Factors Present</p>
+                <ul className="text-xs text-orange-800 space-y-1">
+                  {recommendation.confidence * 100 < 60 && (
+                    <li>• Lower confidence ({(recommendation.confidence * 100).toFixed(1)}%) - higher uncertainty</li>
+                  )}
+                  {(recommendation.ev || 0) * 100 < 10 && (
+                    <li>• Low expected value ({((recommendation.ev || 0) * 100).toFixed(1)}%) - small edge</li>
+                  )}
+                  {recommendation.predicted_outcome === 'Draw' && (
+                    <li>• Draw prediction - historically harder to predict accurately</li>
+                  )}
+                </ul>
+                <p className="text-xs text-orange-900 mt-2 font-medium">
+                  💡 Consider: Reduced stake, skip if uncertain, or wait for higher quality bets
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Personalized Stake Recommendation */}
+        {recommendation.stake_recommendation && (
+          <div className="mb-4 p-4 bg-gradient-to-r from-purple-50 to-blue-50 rounded-xl border-2 border-purple-300">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Calculator className="h-5 w-5 text-purple-600" />
+                <span className="font-semibold text-purple-900">Recommended Stake</span>
+              </div>
+              <span className={`px-3 py-1 rounded-full text-xs font-medium ${
+                recommendation.stake_recommendation.risk_level === 'low' ? 'bg-green-100 text-green-700' :
+                recommendation.stake_recommendation.risk_level === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                'bg-orange-100 text-orange-700'
+              }`}>
+                {recommendation.stake_recommendation.risk_level} risk
+              </span>
+            </div>
+            <div className="flex items-baseline gap-2 mb-2">
+              <span className="text-3xl font-bold text-purple-900">
+                {recommendation.stake_recommendation.currency} ${recommendation.stake_recommendation.recommended_stake.toFixed(2)}
+              </span>
+              <span className="text-sm text-purple-700">
+                ({recommendation.stake_recommendation.stake_percentage.toFixed(1)}% of bankroll)
+              </span>
+            </div>
+            <p className="text-xs text-purple-700 mb-2">
+              {recommendation.stake_recommendation.risk_explanation}
+            </p>
+            {recommendation.stake_recommendation.warnings.length > 0 && (
+              <div className="mt-2 pt-2 border-t border-purple-200">
+                {recommendation.stake_recommendation.warnings.map((warning, idx) => (
+                  <p key={idx} className="text-xs text-orange-700 flex items-start gap-1">
+                    <AlertTriangle className="h-3 w-3 mt-0.5 flex-shrink-0" />
+                    <span>{warning}</span>
+                  </p>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-purple-600 mt-2 italic">
+              Using {recommendation.stake_recommendation.strategy.replace('_', ' ')} strategy
+            </p>
+          </div>
+        )}
         
         {/* Quick Odds Comparison */}
         {recommendation.odds_data && (
@@ -186,19 +257,19 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Home' ? 'border-blue-500 bg-blue-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Home</div>
               <div className="text-lg font-bold text-blue-600">{recommendation.odds_data?.home?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.home_bookmaker || 'Unknown'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Home' && <div className="text-xs text-blue-600 font-medium mt-1 px-2 py-0.5 bg-blue-100 rounded-full">RECOMMENDED</div>}
             </div>
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Draw' ? 'border-gray-500 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Draw</div>
               <div className="text-lg font-bold text-gray-600">{recommendation.odds_data?.draw?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.draw_bookmaker || 'Unknown'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Draw' && <div className="text-xs text-gray-600 font-medium mt-1 px-2 py-0.5 bg-gray-100 rounded-full">RECOMMENDED</div>}
             </div>
             <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Away' ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
               <div className="text-xs text-gray-600 mb-1">Away</div>
               <div className="text-lg font-bold text-purple-600">{recommendation.odds_data?.away?.toFixed(2) || 'N/A'}</div>
-              <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.away_bookmaker || 'Unknown'}</div>
+              <div className="text-xs text-gray-500 mt-1">{recommendation.bookmaker || 'Unknown'}</div>
               {recommendation.predicted_outcome === 'Away' && <div className="text-xs text-purple-600 font-medium mt-1 px-2 py-0.5 bg-purple-100 rounded-full">RECOMMENDED</div>}
             </div>
           </div>
@@ -208,28 +279,30 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
 
       {/* Enhanced Visual Probability Bars */}
-      <div className="mb-4">
-        <div className="space-y-2">
-          <ProbabilityBar 
-            label="Home" 
-            percentage={Math.min(recommendation.probabilities.home * 100, 100)} 
-            color="bg-blue-500" 
-            isSelected={recommendation.predicted_outcome === 'Home'} 
-          />
-          <ProbabilityBar 
-            label="Draw" 
-            percentage={Math.min(recommendation.probabilities.draw * 100, 100)} 
-            color="bg-gray-500" 
-            isSelected={recommendation.predicted_outcome === 'Draw'} 
-          />
-          <ProbabilityBar 
-            label="Away" 
-            percentage={Math.min(recommendation.probabilities.away * 100, 100)} 
-            color="bg-purple-500" 
-            isSelected={recommendation.predicted_outcome === 'Away'} 
-          />
+      {recommendation.probabilities && (
+        <div className="mb-4">
+          <div className="space-y-2">
+            <ProbabilityBar 
+              label="Home" 
+              percentage={Math.min(recommendation.probabilities.home * 100, 100)} 
+              color="bg-blue-500" 
+              isSelected={recommendation.predicted_outcome === 'Home'} 
+            />
+            <ProbabilityBar 
+              label="Draw" 
+              percentage={Math.min(recommendation.probabilities.draw * 100, 100)} 
+              color="bg-gray-500" 
+              isSelected={recommendation.predicted_outcome === 'Draw'} 
+            />
+            <ProbabilityBar 
+              label="Away" 
+              percentage={Math.min(recommendation.probabilities.away * 100, 100)} 
+              color="bg-purple-500" 
+              isSelected={recommendation.predicted_outcome === 'Away'} 
+            />
+          </div>
         </div>
-      </div>
+      )}
 
           {/* Risk Level & Quick Actions */}
           <div className="flex items-center justify-between mb-6">
@@ -315,6 +388,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                     <div className="text-xs text-gray-600 mb-1">Optimal Bet Size (Kelly Criterion)</div>
                     <div className="text-lg font-bold text-green-600">
                       ${(() => {
+                        if (!recommendation.probabilities) return '0.00'
                         const outcome = recommendation.predicted_outcome.toLowerCase()
                         const probability = recommendation.probabilities[outcome as keyof typeof recommendation.probabilities]
                         const odds = outcome === 'home' ? recommendation.odds_data?.home! :
@@ -411,6 +485,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                     {recommendation.ev && recommendation.ev > 20 ? 'Excellent Value' : 
                      recommendation.ev && recommendation.ev > 10 ? 'Good Value' : 
                      recommendation.ev && recommendation.ev > 0 ? 'Marginal Value' : 'Poor Value'} • Kelly: ${(() => {
+                       if (!recommendation.probabilities) return '0'
                        const probability = recommendation.predicted_outcome === 'Home' ? recommendation.probabilities.home :
                                         recommendation.predicted_outcome === 'Draw' ? recommendation.probabilities.draw :
                                         recommendation.probabilities.away

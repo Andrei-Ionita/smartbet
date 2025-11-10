@@ -1,9 +1,12 @@
 """
-Core models for SmartBet - Prediction Tracking Only
+Core models for SmartBet - Prediction Tracking & Bankroll Management
 """
 
 from django.db import models
+from django.contrib.auth.models import User
 from django.utils import timezone
+from django.core.validators import MinValueValidator, MaxValueValidator
+from decimal import Decimal
 import json
 
 
@@ -155,5 +158,368 @@ class PerformanceSnapshot(models.Model):
     
     def __str__(self):
         return f"Performance on {self.snapshot_date}: {self.accuracy_percent}% accuracy"
+
+
+class UserBankroll(models.Model):
+    """
+    User's bankroll management settings and current state.
+    Tracks total bankroll, limits, and risk preferences.
+    """
+    # User Identification - support both authenticated users and anonymous sessions
+    user = models.OneToOneField(User, on_delete=models.CASCADE, null=True, blank=True, related_name='bankroll')
+    session_id = models.CharField(max_length=100, null=True, blank=True, db_index=True)  # For anonymous users
+    user_email = models.EmailField(null=True, blank=True)  # Optional for registered users
+    
+    # Bankroll Settings
+    initial_bankroll = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.01'))],
+        help_text="Starting bankroll amount"
+    )
+    current_bankroll = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2,
+        validators=[MinValueValidator(Decimal('0.00'))],
+        help_text="Current available bankroll"
+    )
+    currency = models.CharField(max_length=3, default='USD')
+    
+    # Risk Management Settings
+    daily_loss_limit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Maximum loss allowed per day"
+    )
+    weekly_loss_limit = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="Maximum loss allowed per week"
+    )
+    max_stake_percentage = models.FloatField(
+        default=5.0,
+        validators=[MinValueValidator(0.1), MaxValueValidator(25.0)],
+        help_text="Maximum percentage of bankroll to stake on single bet"
+    )
+    
+    # Staking Strategy
+    STAKING_STRATEGIES = [
+        ('kelly', 'Kelly Criterion'),
+        ('kelly_fractional', 'Fractional Kelly (1/4)'),
+        ('fixed_percentage', 'Fixed Percentage'),
+        ('fixed_amount', 'Fixed Amount'),
+        ('confidence_scaled', 'Confidence Scaled'),
+    ]
+    staking_strategy = models.CharField(
+        max_length=20, 
+        choices=STAKING_STRATEGIES, 
+        default='kelly_fractional'
+    )
+    fixed_stake_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="For fixed_amount strategy"
+    )
+    fixed_stake_percentage = models.FloatField(
+        null=True, 
+        blank=True,
+        validators=[MinValueValidator(0.1), MaxValueValidator(10.0)],
+        help_text="For fixed_percentage strategy"
+    )
+    
+    # Risk Profile
+    RISK_PROFILES = [
+        ('conservative', 'Conservative'),
+        ('balanced', 'Balanced'),
+        ('aggressive', 'Aggressive'),
+    ]
+    risk_profile = models.CharField(
+        max_length=20, 
+        choices=RISK_PROFILES, 
+        default='balanced'
+    )
+    
+    # Limits Status
+    is_daily_limit_reached = models.BooleanField(default=False)
+    is_weekly_limit_reached = models.BooleanField(default=False)
+    daily_loss_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00')
+    )
+    weekly_loss_amount = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        default=Decimal('0.00')
+    )
+    last_daily_reset = models.DateField(default=timezone.now)
+    last_weekly_reset = models.DateField(default=timezone.now)
+    
+    # Statistics
+    total_bets_placed = models.IntegerField(default=0)
+    total_wagered = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    total_profit_loss = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    roi_percent = models.FloatField(default=0.0)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "User Bankroll"
+        verbose_name_plural = "User Bankrolls"
+        constraints = [
+            models.CheckConstraint(
+                check=models.Q(user__isnull=False) | models.Q(session_id__isnull=False),
+                name='user_or_session_required'
+            )
+        ]
+    
+    def __str__(self):
+        if self.user:
+            return f"Bankroll for {self.user.username} - {self.currency} {self.current_bankroll}"
+        return f"Bankroll for {self.session_id[:8]}... - {self.currency} {self.current_bankroll}"
+    
+    def check_and_reset_limits(self):
+        """Check if daily/weekly limits need to be reset."""
+        today = timezone.now().date()
+        
+        # Reset daily limit if new day
+        if self.last_daily_reset < today:
+            self.daily_loss_amount = Decimal('0.00')
+            self.is_daily_limit_reached = False
+            self.last_daily_reset = today
+        
+        # Reset weekly limit if new week (Monday)
+        days_since_monday = today.weekday()
+        week_start = today - timezone.timedelta(days=days_since_monday)
+        if self.last_weekly_reset < week_start:
+            self.weekly_loss_amount = Decimal('0.00')
+            self.is_weekly_limit_reached = False
+            self.last_weekly_reset = week_start
+        
+        self.save()
+    
+    def can_place_bet(self, stake_amount):
+        """Check if user can place a bet with given stake."""
+        self.check_and_reset_limits()
+        
+        if stake_amount > self.current_bankroll:
+            return False, "Insufficient bankroll"
+        
+        if self.is_daily_limit_reached:
+            return False, "Daily loss limit reached"
+        
+        if self.is_weekly_limit_reached:
+            return False, "Weekly loss limit reached"
+        
+        # Check if stake would exceed max stake percentage
+        max_stake = (float(self.current_bankroll) * self.max_stake_percentage) / 100
+        if stake_amount > max_stake:
+            return False, f"Stake exceeds maximum ({self.max_stake_percentage}% of bankroll)"
+        
+        return True, "OK"
+    
+    def update_bankroll(self, profit_loss, stake_amount):
+        """Update bankroll after bet settles."""
+        self.current_bankroll += Decimal(str(profit_loss))
+        self.total_profit_loss += Decimal(str(profit_loss))
+        self.total_wagered += Decimal(str(stake_amount))
+        
+        # Update loss tracking
+        if profit_loss < 0:
+            self.daily_loss_amount += abs(Decimal(str(profit_loss)))
+            self.weekly_loss_amount += abs(Decimal(str(profit_loss)))
+            
+            # Check if limits reached
+            if self.daily_loss_limit and self.daily_loss_amount >= self.daily_loss_limit:
+                self.is_daily_limit_reached = True
+            
+            if self.weekly_loss_limit and self.weekly_loss_amount >= self.weekly_loss_limit:
+                self.is_weekly_limit_reached = True
+        
+        # Calculate ROI
+        if self.total_wagered > 0:
+            self.roi_percent = (float(self.total_profit_loss) / float(self.total_wagered)) * 100
+        
+        self.save()
+
+
+class BankrollTransaction(models.Model):
+    """
+    Individual betting transactions linked to user's bankroll.
+    Tracks stakes, outcomes, and P/L.
+    """
+    bankroll = models.ForeignKey(
+        UserBankroll, 
+        on_delete=models.CASCADE, 
+        related_name='transactions'
+    )
+    prediction_log = models.ForeignKey(
+        PredictionLog, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True,
+        related_name='bankroll_transactions'
+    )
+    
+    # Transaction Details
+    TRANSACTION_TYPES = [
+        ('bet_placed', 'Bet Placed'),
+        ('bet_won', 'Bet Won'),
+        ('bet_lost', 'Bet Lost'),
+        ('bet_void', 'Bet Void'),
+        ('deposit', 'Deposit'),
+        ('withdrawal', 'Withdrawal'),
+    ]
+    transaction_type = models.CharField(max_length=20, choices=TRANSACTION_TYPES)
+    
+    # Bet Details (if applicable)
+    fixture_id = models.IntegerField(null=True, blank=True, db_index=True)
+    match_description = models.CharField(max_length=200, blank=True)
+    selected_outcome = models.CharField(max_length=10, blank=True)  # 'Home', 'Draw', 'Away'
+    odds = models.FloatField(null=True, blank=True)
+    stake_amount = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    potential_return = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('0.00'))
+    actual_return = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    profit_loss = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    # Bankroll State
+    bankroll_before = models.DecimalField(max_digits=10, decimal_places=2)
+    bankroll_after = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    
+    # Staking Info
+    recommended_stake = models.DecimalField(
+        max_digits=10, 
+        decimal_places=2, 
+        null=True, 
+        blank=True,
+        help_text="What SmartBet recommended"
+    )
+    staking_strategy_used = models.CharField(max_length=20, blank=True)
+    
+    # Status
+    STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('settled_won', 'Settled - Won'),
+        ('settled_lost', 'Settled - Lost'),
+        ('settled_void', 'Settled - Void'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+    settled_at = models.DateTimeField(null=True, blank=True)
+    
+    # Notes
+    notes = models.TextField(blank=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['bankroll', 'transaction_type']),
+            models.Index(fields=['bankroll', 'status']),
+            models.Index(fields=['fixture_id']),
+        ]
+        verbose_name = "Bankroll Transaction"
+        verbose_name_plural = "Bankroll Transactions"
+    
+    def __str__(self):
+        return f"{self.transaction_type} - {self.stake_amount} on {self.match_description}"
+    
+    def settle(self, won=True, void=False):
+        """Settle a pending bet."""
+        if self.status != 'pending':
+            return
+        
+        if void:
+            self.status = 'settled_void'
+            self.actual_return = self.stake_amount
+            self.profit_loss = Decimal('0.00')
+            self.transaction_type = 'bet_void'
+        elif won:
+            self.status = 'settled_won'
+            self.actual_return = Decimal(str(self.stake_amount)) * Decimal(str(self.odds))
+            self.profit_loss = self.actual_return - Decimal(str(self.stake_amount))
+            self.transaction_type = 'bet_won'
+        else:
+            self.status = 'settled_lost'
+            self.actual_return = Decimal('0.00')
+            self.profit_loss = -Decimal(str(self.stake_amount))
+            self.transaction_type = 'bet_lost'
+        
+        self.settled_at = timezone.now()
+        self.bankroll_after = self.bankroll_before + (self.profit_loss or Decimal('0.00'))
+        
+        # Update associated bankroll
+        if self.profit_loss:
+            self.bankroll.update_bankroll(
+                profit_loss=float(self.profit_loss),
+                stake_amount=float(self.stake_amount)
+            )
+        
+        self.save()
+
+
+class StakeRecommendation(models.Model):
+    """
+    Stake recommendations for predictions based on bankroll and strategy.
+    Generated when user views a prediction.
+    """
+    bankroll = models.ForeignKey(
+        UserBankroll, 
+        on_delete=models.CASCADE, 
+        related_name='stake_recommendations'
+    )
+    prediction_log = models.ForeignKey(
+        PredictionLog, 
+        on_delete=models.CASCADE, 
+        related_name='stake_recommendations'
+    )
+    
+    # Recommendation Details
+    recommended_stake_amount = models.DecimalField(max_digits=10, decimal_places=2)
+    recommended_stake_percentage = models.FloatField()
+    strategy_used = models.CharField(max_length=20)
+    
+    # Kelly Criterion Specifics
+    kelly_percentage = models.FloatField(null=True, blank=True)
+    kelly_full_stake = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
+    kelly_fraction_used = models.FloatField(default=0.25)  # Default 1/4 Kelly
+    
+    # Risk Assessment
+    RISK_LEVELS = [
+        ('low', 'Low Risk'),
+        ('medium', 'Medium Risk'),
+        ('high', 'High Risk'),
+    ]
+    risk_level = models.CharField(max_length=10, choices=RISK_LEVELS)
+    risk_explanation = models.TextField()
+    
+    # Warnings
+    has_warnings = models.BooleanField(default=False)
+    warnings = models.JSONField(default=list, blank=True)
+    
+    # Context at time of recommendation
+    bankroll_snapshot = models.DecimalField(max_digits=10, decimal_places=2)
+    max_stake_allowed = models.DecimalField(max_digits=10, decimal_places=2)
+    
+    # Timestamps
+    created_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = "Stake Recommendation"
+        verbose_name_plural = "Stake Recommendations"
+    
+    def __str__(self):
+        return f"Stake: {self.recommended_stake_amount} for {self.prediction_log}"
 
 

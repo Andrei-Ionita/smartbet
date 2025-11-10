@@ -67,6 +67,8 @@ export async function GET(
     if (x12Predictions.length > 0) {
       const bestPred = x12Predictions[0] // Use first prediction
       
+      console.log('🔍 Raw prediction data:', JSON.stringify(bestPred.predictions, null, 2))
+      
       // Smart conversion: if values are > 1, they're percentages and need division by 100
       // If values are <= 1, they're already decimals
       const normalizeProbability = (value: number) => {
@@ -80,6 +82,8 @@ export async function GET(
         draw: normalizeProbability(bestPred.predictions.draw || 0),
         away: normalizeProbability(bestPred.predictions.away || 0)
       }
+      
+      console.log('📊 Normalized prediction data:', predictionData)
     }
 
     // Extract odds if available
@@ -202,7 +206,13 @@ export async function GET(
     // Calculate additional metrics like in recommendations API
     let predictedOutcome: 'home' | 'draw' | 'away' = 'home'
     let confidence = 0
-    let expectedValue = 0
+    let evAnalysis = {
+      home: null as number | null,
+      draw: null as number | null,
+      away: null as number | null,
+      best_bet: null as 'home' | 'draw' | 'away' | null,
+      best_ev: null as number | null
+    }
     let signalQuality: 'Strong' | 'Good' | 'Moderate' | 'Weak' = 'Weak'
     
     if (predictionData) {
@@ -213,21 +223,66 @@ export async function GET(
       predictedOutcome = ['home', 'draw', 'away'][maxIndex] as 'home' | 'draw' | 'away'
       confidence = maxProb * 100
       
-      // Calculate expected value for the predicted outcome
+      // Calculate expected value for all outcomes
       if (oddsData) {
-        const odds = predictedOutcome === 'home' ? oddsData.home :
-                     predictedOutcome === 'draw' ? oddsData.draw : oddsData.away
-        if (odds && maxProb > 0) {
-          // EV = (Probability × Odds) - 1, then convert to percentage
-          const rawEV = (maxProb * odds) - 1
-          expectedValue = rawEV * 100
+        console.log('💰 Calculating EV with odds:', oddsData)
+        console.log('📊 Using probabilities:', predictionData)
+        
+        // Calculate EV for home
+        if (oddsData.home && predictionData.home > 0) {
+          const rawEV = (predictionData.home * oddsData.home) - 1
+          evAnalysis.home = rawEV * 100
+          console.log(`🏠 Home EV: prob=${predictionData.home}, odds=${oddsData.home}, rawEV=${rawEV}, EV%=${evAnalysis.home}`)
+        }
+        
+        // Calculate EV for draw
+        if (oddsData.draw && predictionData.draw > 0) {
+          const rawEV = (predictionData.draw * oddsData.draw) - 1
+          evAnalysis.draw = rawEV * 100
+          console.log(`🤝 Draw EV: prob=${predictionData.draw}, odds=${oddsData.draw}, rawEV=${rawEV}, EV%=${evAnalysis.draw}`)
+        }
+        
+        // Calculate EV for away
+        if (oddsData.away && predictionData.away > 0) {
+          const rawEV = (predictionData.away * oddsData.away) - 1
+          evAnalysis.away = rawEV * 100
+          console.log(`✈️ Away EV: prob=${predictionData.away}, odds=${oddsData.away}, rawEV=${rawEV}, EV%=${evAnalysis.away}`)
+        }
+        
+        // Determine best bet (highest EV)
+        const evValues = [
+          { outcome: 'home' as const, ev: evAnalysis.home },
+          { outcome: 'draw' as const, ev: evAnalysis.draw },
+          { outcome: 'away' as const, ev: evAnalysis.away }
+        ]
+        
+        const validEvs = evValues.filter(v => v.ev !== null && v.ev > 0)
+        if (validEvs.length > 0) {
+          const bestBet = validEvs.reduce((max, current) => 
+            (current.ev! > max.ev!) ? current : max
+          )
+          evAnalysis.best_bet = bestBet.outcome
+          evAnalysis.best_ev = bestBet.ev
+          
+          console.log('🎯 Best bet:', bestBet)
           
           // Safety check: cap unrealistic EV values
-          if (expectedValue > 1000) {
-            console.warn('Unrealistic EV detected:', { maxProb, odds, expectedValue })
-            expectedValue = Math.min(expectedValue, 100) // Cap at 100%
+          if (evAnalysis.best_ev && evAnalysis.best_ev > 100) {
+            console.warn('⚠️ Unrealistic EV detected - capping:', {
+              original: evAnalysis.best_ev,
+              predictionData,
+              oddsData,
+              evAnalysis
+            })
+            evAnalysis.best_ev = Math.min(evAnalysis.best_ev, 50)
+            // Also cap individual EVs
+            if (evAnalysis.home && evAnalysis.home > 100) evAnalysis.home = Math.min(evAnalysis.home, 50)
+            if (evAnalysis.draw && evAnalysis.draw > 100) evAnalysis.draw = Math.min(evAnalysis.draw, 50)
+            if (evAnalysis.away && evAnalysis.away > 100) evAnalysis.away = Math.min(evAnalysis.away, 50)
           }
         }
+        
+        console.log('📈 Final EV Analysis:', evAnalysis)
       }
       
       // Determine signal quality
@@ -246,12 +301,14 @@ export async function GET(
         league: fixture.league?.name || 'Unknown',
         kickoff: fixture.starting_at,
         predicted_outcome: predictedOutcome,
-        confidence: confidence,
-        probabilities: predictionData || { home: 0, draw: 0, away: 0 },
+        prediction_confidence: confidence,
+        predictions: predictionData || { home: 0, draw: 0, away: 0 },
         odds_data: oddsData,
-        expected_value: expectedValue,
+        ev_analysis: evAnalysis,
         signal_quality: signalQuality,
+        prediction_strength: signalQuality,
         ensemble_info: {
+          model_count: 1,
           prediction_consensus: confidence / 100,
           strategy: confidence >= 70 ? 'conservative' : confidence >= 50 ? 'balanced' : 'aggressive',
           consensus: confidence / 100,

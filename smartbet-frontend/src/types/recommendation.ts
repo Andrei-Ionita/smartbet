@@ -10,7 +10,17 @@ export interface Recommendation {
   ev: number | null
   score: number
   explanation: string
-  probabilities: {
+  bookmaker?: string
+  stake_recommendation?: {
+    recommended_stake: number
+    stake_percentage: number
+    currency: string
+    strategy: string
+    risk_level: string
+    risk_explanation: string
+    warnings: string[]
+  }
+  probabilities?: {
     home: number
     draw: number
     away: number
