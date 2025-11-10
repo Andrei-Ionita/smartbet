@@ -98,3 +98,37 @@ LOCKED_PRODUCTION/
 model_development/
 validators/
 predictor/
+
+# Test coverage reports
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+*.cover
+.pytest_cache/
+.tox/
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Frontend build artifacts
+smartbet-frontend/.next/
+smartbet-frontend/out/
+smartbet-frontend/build/
+smartbet-frontend/dist/
+smartbet-frontend/.turbo/
+
+# Database backups
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Sensitive data exports
+*.csv.backup
+exports/
+backups/
