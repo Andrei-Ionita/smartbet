@@ -707,27 +707,143 @@ def mark_recommended_by_fixture_ids(request):
 @require_http_methods(["GET"])
 def search_fixtures(request):
     """
-    Search fixtures by team names or league
-    
+    Search fixtures by team names or league - QUERIES SPORTMONKS API DIRECTLY
+
     GET /api/search/
     Query params:
-    - q: Search query
-    - league (optional): Filter by league
+    - q: Search query (team name)
+    - league (optional): Filter by league ID
+    - limit (optional): Limit results (default: 20)
     """
     try:
         query = request.GET.get('q', '').strip()
-        league = request.GET.get('league', '').strip()
-        
+        league_filter = request.GET.get('league', '').strip()
+        limit = int(request.GET.get('limit', 20))
+
         if not query:
             return JsonResponse({
                 'success': False,
                 'error': 'Search query is required'
             }, status=400)
-        
+
+        # Get SportMonks API token
+        api_token = os.getenv('SPORTMONKS_API_TOKEN') or os.getenv('SPORTMONKS_TOKEN')
+        if not api_token:
+            # Fallback to database search if no API token
+            return search_fixtures_from_database(request, query, league_filter, limit)
+
+        # Search SportMonks API for upcoming fixtures
+        print(f"🔍 Searching SportMonks for: {query}")
+
+        # Calculate date range (next 14 days)
+        now = timezone.now()
+        start_date = now.strftime("%Y-%m-%d")
+        end_date = (now + timedelta(days=14)).strftime("%Y-%m-%d")
+
+        # Supported league IDs (27 leagues)
+        supported_leagues = [8, 9, 24, 27, 72, 82, 181, 208, 244, 271, 301, 384, 387,
+                            390, 444, 453, 462, 486, 501, 564, 567, 570, 573, 591, 600, 609, 1371]
+
+        # Build API request
+        url = "https://api.sportmonks.com/v3/football/fixtures"
+        params = {
+            'api_token': api_token,
+            'include': 'participants;league;predictions',
+            'filters': f'fixtureLeagues:{",".join(map(str, supported_leagues))};fixtureStartDateBetween:{start_date},{end_date}',
+            'per_page': '100'  # Get more results to filter by team name
+        }
+
+        try:
+            response = requests.get(url, params=params, timeout=10)
+
+            if response.status_code == 200:
+                data = response.json()
+                fixtures_data = data.get('data', [])
+
+                # Filter fixtures by team name (case-insensitive)
+                matching_fixtures = []
+                query_lower = query.lower()
+
+                for fixture in fixtures_data:
+                    participants = fixture.get('participants', [])
+                    if len(participants) < 2:
+                        continue
+
+                    home_team = next((p for p in participants if p.get('meta', {}).get('location') == 'home'), None)
+                    away_team = next((p for p in participants if p.get('meta', {}).get('location') == 'away'), None)
+
+                    if not home_team or not away_team:
+                        continue
+
+                    home_name = home_team.get('name', '')
+                    away_name = away_team.get('name', '')
+                    league_name = fixture.get('league', {}).get('name', 'Unknown')
+                    league_id = fixture.get('league', {}).get('id', 0)
+
+                    # Check if team name matches
+                    if query_lower in home_name.lower() or query_lower in away_name.lower():
+                        # Apply league filter if specified
+                        if league_filter and str(league_id) != league_filter:
+                            continue
+
+                        # Check if fixture has predictions
+                        predictions = fixture.get('predictions', [])
+                        has_predictions = len([p for p in predictions if p.get('type_id') in [233, 237, 238]]) > 0
+
+                        matching_fixtures.append({
+                            'fixture_id': fixture.get('id'),
+                            'home_team': home_name,
+                            'away_team': away_name,
+                            'league': league_name,
+                            'kickoff': fixture.get('starting_at', ''),
+                            'has_predictions': has_predictions,
+                            'has_odds': False  # We don't fetch odds in search to keep it fast
+                        })
+
+                # Sort by kickoff time and limit
+                matching_fixtures.sort(key=lambda x: x['kickoff'])
+                matching_fixtures = matching_fixtures[:limit]
+
+                print(f"✅ Found {len(matching_fixtures)} matching fixtures")
+
+                return JsonResponse({
+                    'success': True,
+                    'results': matching_fixtures,
+                    'data': matching_fixtures,
+                    'count': len(matching_fixtures),
+                    'query': query,
+                    'message': f'Found {len(matching_fixtures)} upcoming fixtures'
+                })
+
+            else:
+                print(f"⚠️ SportMonks API error: {response.status_code}")
+                # Fallback to database search
+                return search_fixtures_from_database(request, query, league_filter, limit)
+
+        except requests.exceptions.Timeout:
+            print("⏱️ SportMonks API timeout - falling back to database search")
+            return search_fixtures_from_database(request, query, league_filter, limit)
+        except Exception as e:
+            print(f"❌ SportMonks API error: {str(e)}")
+            return search_fixtures_from_database(request, query, league_filter, limit)
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'error': str(e),
+            'results': [],
+            'data': [],
+            'count': 0
+        }, status=500)
+
+
+def search_fixtures_from_database(request, query, league_filter, limit):
+    """Fallback: Search fixtures already in database"""
+    try:
         # Build queryset
         now = timezone.now()
         end_date = now + timedelta(days=14)
-        
+
         queryset = PredictionLog.objects.filter(
             kickoff__gte=now,
             kickoff__lte=end_date
@@ -739,14 +855,14 @@ def search_fixtures(request):
         ).filter(
             away_team__icontains=query
         )
-        
+
         # Filter by league if specified
-        if league:
-            queryset = queryset.filter(league__icontains=league)
-        
+        if league_filter:
+            queryset = queryset.filter(league__icontains=league_filter)
+
         # Order by kickoff time
-        fixtures = queryset.order_by('kickoff')[:20]
-        
+        fixtures = queryset.order_by('kickoff')[:limit]
+
         # Convert to frontend format
         results = []
         for pred in fixtures:
@@ -756,24 +872,25 @@ def search_fixtures(request):
                 'away_team': pred.away_team,
                 'league': pred.league,
                 'kickoff': pred.kickoff.isoformat(),
-                'predicted_outcome': pred.predicted_outcome.capitalize() if pred.predicted_outcome else 'Home',
-                'confidence': pred.confidence,
-                'expected_value': pred.expected_value
+                'has_predictions': True,  # All DB entries have predictions
+                'has_odds': bool(pred.odds_home or pred.odds_draw or pred.odds_away)
             }
             results.append(result)
-        
+
         return JsonResponse({
             'success': True,
-            'results': results,  # Frontend expects 'results' not 'data'
-            'data': results,     # Keep both for compatibility
+            'results': results,
+            'data': results,
             'count': len(results),
-            'query': query
+            'query': query,
+            'message': f'Found {len(results)} fixtures (database search)'
         })
-        
+
     except Exception as e:
         return JsonResponse({
             'success': False,
             'error': str(e),
+            'results': [],
             'data': [],
             'count': 0
         }, status=500)
