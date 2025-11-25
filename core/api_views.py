@@ -744,21 +744,37 @@ def search_fixtures(request):
         supported_leagues = [8, 9, 24, 27, 72, 82, 181, 208, 244, 271, 301, 384, 387,
                             390, 444, 453, 462, 486, 501, 564, 567, 570, 573, 591, 600, 609, 1371]
 
-        # Build API request
-        url = "https://api.sportmonks.com/v3/football/fixtures"
+        # Build API request using the /between endpoint for date filtering
+        url = f"https://api.sportmonks.com/v3/football/fixtures/between/{start_date}/{end_date}"
         params = {
             'api_token': api_token,
             'include': 'participants;league;predictions',
-            'filters': f'fixtureLeagues:{",".join(map(str, supported_leagues))};fixtureStartDateBetween:{start_date},{end_date}',
-            'per_page': '100'  # Get more results to filter by team name
+            'filters': f'fixtureLeagues:{",".join(map(str, supported_leagues))}',
+            'per_page': '200'  # Get more results to filter by team name
         }
+
+        print(f"📅 Date range: {start_date} to {end_date}")
+        print(f"🌐 SportMonks API URL: {url}")
+        print(f"📋 Filters: {params['filters']}")
 
         try:
             response = requests.get(url, params=params, timeout=10)
+            print(f"📡 SportMonks response status: {response.status_code}")
 
             if response.status_code == 200:
                 data = response.json()
                 fixtures_data = data.get('data', [])
+
+                print(f"📊 SportMonks returned {len(fixtures_data)} total fixtures")
+
+                # Debug: Show first few fixtures to see what we're getting
+                if fixtures_data and len(fixtures_data) > 0:
+                    print(f"🔍 Sample fixtures (showing first 3):")
+                    for i, f in enumerate(fixtures_data[:3]):
+                        parts = f.get('participants', [])
+                        home = next((p for p in parts if p.get('meta', {}).get('location') == 'home'), {}).get('name', '?')
+                        away = next((p for p in parts if p.get('meta', {}).get('location') == 'away'), {}).get('name', '?')
+                        print(f"  {i+1}. {home} vs {away} - {f.get('starting_at', '?')}")
 
                 # Filter fixtures by team name (case-insensitive)
                 matching_fixtures = []
@@ -789,6 +805,8 @@ def search_fixtures(request):
                         # Check if fixture has predictions
                         predictions = fixture.get('predictions', [])
                         has_predictions = len([p for p in predictions if p.get('type_id') in [233, 237, 238]]) > 0
+
+                        print(f"  ✓ Match found: {home_name} vs {away_name} ({league_name}) - {fixture.get('starting_at', '')}")
 
                         matching_fixtures.append({
                             'fixture_id': fixture.get('id'),
@@ -840,20 +858,22 @@ def search_fixtures(request):
 def search_fixtures_from_database(request, query, league_filter, limit):
     """Fallback: Search fixtures already in database"""
     try:
+        from django.db.models import Q
+
+        print("⚠️ Using database fallback search")
+
         # Build queryset
         now = timezone.now()
         end_date = now + timedelta(days=14)
 
+        print(f"📅 Searching database for fixtures between {now} and {end_date}")
+
+        # Use Q objects for proper OR logic with date filtering
         queryset = PredictionLog.objects.filter(
             kickoff__gte=now,
             kickoff__lte=end_date
         ).filter(
-            home_team__icontains=query
-        ) | PredictionLog.objects.filter(
-            kickoff__gte=now,
-            kickoff__lte=end_date
-        ).filter(
-            away_team__icontains=query
+            Q(home_team__icontains=query) | Q(away_team__icontains=query)
         )
 
         # Filter by league if specified
@@ -862,6 +882,8 @@ def search_fixtures_from_database(request, query, league_filter, limit):
 
         # Order by kickoff time
         fixtures = queryset.order_by('kickoff')[:limit]
+
+        print(f"📊 Database search found {len(fixtures)} fixtures")
 
         # Convert to frontend format
         results = []

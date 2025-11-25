@@ -40,6 +40,19 @@ export interface Recommendation {
     variance: number
     strategy: string
   }
+  prediction_info?: {
+    source: string
+    confidence_level: string
+    reliability_score: number
+    data_quality: string
+    confidence_interval?: {
+      point_estimate: number
+      lower_bound: number
+      upper_bound: number
+      interval_width: number
+      interpretation: string
+    }
+  }
   debug_info?: {
     total_predictions?: number
     valid_predictions?: number
@@ -62,4 +75,13 @@ export interface Recommendation {
     correct_predictions: number
   } | null
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
+  market_indicators?: {
+    market_favorite: string
+    market_implied_prob: string
+    bookmaker_margin: string
+    volume_estimate: string
+    ai_vs_market: string
+    value_opportunity: string
+    odds_efficiency: string
+  }
 }

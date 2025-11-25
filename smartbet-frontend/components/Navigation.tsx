@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 
 export default function Navigation() {
@@ -11,6 +11,7 @@ export default function Navigation() {
 
   const navItems = [
     { href: '/', label: 'Home', icon: Trophy },
+    ...(isAuthenticated ? [{ href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard }] : []),
     { href: '/explore', label: 'Explore', icon: Search },
     { href: '/monitoring', label: 'Monitoring', icon: Activity },
     { href: '/bankroll', label: 'Bankroll', icon: Wallet },
@@ -24,21 +25,20 @@ export default function Navigation() {
             <Trophy className="h-8 w-8 text-primary-600" />
             <span className="text-xl font-bold text-gray-900">SmartBet</span>
           </Link>
-          
+
           <div className="hidden md:flex space-x-8">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
-              
+
               return (
                 <Link
                   key={item.href}
                   href={item.href}
-                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${
-                    isActive
+                  className={`flex items-center space-x-2 px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 ${isActive
                       ? 'bg-primary-100 text-primary-700'
                       : 'text-gray-600 hover:text-gray-900 hover:bg-gray-100'
-                  }`}
+                    }`}
                 >
                   <Icon className="h-4 w-4" />
                   <span>{item.label}</span>
@@ -46,7 +46,7 @@ export default function Navigation() {
               )
             })}
           </div>
-          
+
           {/* Auth Section */}
           <div className="flex items-center gap-3">
             {isAuthenticated && user ? (
@@ -81,7 +81,7 @@ export default function Navigation() {
               </>
             )}
           </div>
-          
+
           {/* Mobile menu button */}
           <div className="md:hidden">
             <button className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100">
@@ -94,4 +94,4 @@ export default function Navigation() {
       </div>
     </nav>
   )
-} 
+}

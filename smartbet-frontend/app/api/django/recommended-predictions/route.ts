@@ -50,16 +50,16 @@ export async function GET(request: NextRequest) {
           return {
             ...item,
             // Map Django fields to frontend expected fields
-            // Convert percentages to decimals (Django returns 0-100, frontend expects 0-1)
-            confidence: item.confidence / 100,
-            ev: item.expected_value ? item.expected_value / 100 : null,
+            // Django returns 0-100 percentages, frontend expects 0-100 for display
+            confidence: item.confidence,
+            ev: item.expected_value,
             odds: outcomeOdds,
-            score: item.confidence, // Keep as percentage for score
+            score: item.confidence, 
             explanation: item.explanation || 'No explanation available',
             probabilities: item.probabilities ? {
-              home: item.probabilities.home / 100,
-              draw: item.probabilities.draw / 100,
-              away: item.probabilities.away / 100
+              home: item.probabilities.home,
+              draw: item.probabilities.draw,
+              away: item.probabilities.away
             } : undefined,
             odds_data: {
               home: item.odds_home,
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
             },
             ensemble_info: {
               model_count: item.model_count || 0,
-              consensus: item.consensus ? item.consensus / 100 : 0,
+              consensus: item.consensus || 0,
               variance: item.variance || 0,
               strategy: 'ensemble'
             }

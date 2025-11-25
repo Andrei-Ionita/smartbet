@@ -78,12 +78,42 @@ export async function GET(
       }
       
       predictionData = {
-        home: normalizeProbability(bestPred.predictions.home || 0),
-        draw: normalizeProbability(bestPred.predictions.draw || 0),
-        away: normalizeProbability(bestPred.predictions.away || 0)
+        home: normalizeProbability(bestPred.predictions.home || 0) * 100, // Convert to percentage for consistency
+        draw: normalizeProbability(bestPred.predictions.draw || 0) * 100,
+        away: normalizeProbability(bestPred.predictions.away || 0) * 100
       }
-      
-      console.log('📊 Normalized prediction data:', predictionData)
+
+      console.log('📊 Normalized prediction data (as percentages):', predictionData)
+
+      // Validate that probabilities sum to approximately 100%
+      const total = predictionData.home + predictionData.draw + predictionData.away
+      const tolerance = 5 // Allow 5% deviation
+
+      if (Math.abs(total - 100) > tolerance) {
+        console.warn(`⚠️ Fixture ${fixture.id}: Probabilities don't sum to 100%`, {
+          home: predictionData.home.toFixed(2),
+          draw: predictionData.draw.toFixed(2),
+          away: predictionData.away.toFixed(2),
+          total: total.toFixed(2),
+          deviation: (total - 100).toFixed(2)
+        })
+
+        // Normalize probabilities to sum to exactly 100%
+        const factor = 100 / total
+        predictionData.home *= factor
+        predictionData.draw *= factor
+        predictionData.away *= factor
+
+        const newTotal = predictionData.home + predictionData.draw + predictionData.away
+        console.log('✅ Normalized to sum to 100%:', {
+          home: predictionData.home.toFixed(2),
+          draw: predictionData.draw.toFixed(2),
+          away: predictionData.away.toFixed(2),
+          total: newTotal.toFixed(2)
+        })
+      } else {
+        console.log(`✅ Probabilities sum correctly: ${total.toFixed(2)}%`)
+      }
     }
 
     // Extract odds if available
@@ -200,6 +230,27 @@ export async function GET(
           draw_bookmaker: odds.draw_bookmaker,
           away_bookmaker: odds.away_bookmaker
         }
+
+        // Validate odds are in reasonable range (1.01 to 1000)
+        const validateOdds = (odds: number | null, label: string): boolean => {
+          if (!odds) return false
+          if (odds < 1.01 || odds > 1000) {
+            console.warn(`⚠️ Fixture ${fixture.id}: Suspicious ${label} odds: ${odds}`)
+            return false
+          }
+          return true
+        }
+
+        const validHome = validateOdds(oddsData.home, 'home')
+        const validDraw = validateOdds(oddsData.draw, 'draw')
+        const validAway = validateOdds(oddsData.away, 'away')
+
+        if (!validHome && !validDraw && !validAway) {
+          console.warn(`⚠️ Fixture ${fixture.id}: All odds are invalid - discarding odds data`)
+          oddsData = null
+        } else {
+          console.log(`✅ Odds validation passed: Home=${validHome}, Draw=${validDraw}, Away=${validAway}`)
+        }
       }
     }
 
@@ -216,37 +267,40 @@ export async function GET(
     let signalQuality: 'Strong' | 'Good' | 'Moderate' | 'Weak' = 'Weak'
     
     if (predictionData) {
-      // Determine predicted outcome
+      // Determine predicted outcome (predictionData is now in percentage format)
       const probs = [predictionData.home, predictionData.draw, predictionData.away]
       const maxProb = Math.max(...probs)
       const maxIndex = probs.indexOf(maxProb)
       predictedOutcome = ['home', 'draw', 'away'][maxIndex] as 'home' | 'draw' | 'away'
-      confidence = maxProb * 100
+      confidence = maxProb // Already a percentage
       
       // Calculate expected value for all outcomes
       if (oddsData) {
         console.log('💰 Calculating EV with odds:', oddsData)
-        console.log('📊 Using probabilities:', predictionData)
-        
-        // Calculate EV for home
+        console.log('📊 Using probabilities (as percentages):', predictionData)
+
+        // Calculate EV for home (convert percentage to decimal for calculation)
         if (oddsData.home && predictionData.home > 0) {
-          const rawEV = (predictionData.home * oddsData.home) - 1
+          const probDecimal = predictionData.home / 100
+          const rawEV = (probDecimal * oddsData.home) - 1
           evAnalysis.home = rawEV * 100
-          console.log(`🏠 Home EV: prob=${predictionData.home}, odds=${oddsData.home}, rawEV=${rawEV}, EV%=${evAnalysis.home}`)
+          console.log(`🏠 Home EV: prob=${probDecimal}, odds=${oddsData.home}, rawEV=${rawEV}, EV%=${evAnalysis.home}`)
         }
-        
+
         // Calculate EV for draw
         if (oddsData.draw && predictionData.draw > 0) {
-          const rawEV = (predictionData.draw * oddsData.draw) - 1
+          const probDecimal = predictionData.draw / 100
+          const rawEV = (probDecimal * oddsData.draw) - 1
           evAnalysis.draw = rawEV * 100
-          console.log(`🤝 Draw EV: prob=${predictionData.draw}, odds=${oddsData.draw}, rawEV=${rawEV}, EV%=${evAnalysis.draw}`)
+          console.log(`🤝 Draw EV: prob=${probDecimal}, odds=${oddsData.draw}, rawEV=${rawEV}, EV%=${evAnalysis.draw}`)
         }
-        
+
         // Calculate EV for away
         if (oddsData.away && predictionData.away > 0) {
-          const rawEV = (predictionData.away * oddsData.away) - 1
+          const probDecimal = predictionData.away / 100
+          const rawEV = (probDecimal * oddsData.away) - 1
           evAnalysis.away = rawEV * 100
-          console.log(`✈️ Away EV: prob=${predictionData.away}, odds=${oddsData.away}, rawEV=${rawEV}, EV%=${evAnalysis.away}`)
+          console.log(`✈️ Away EV: prob=${probDecimal}, odds=${oddsData.away}, rawEV=${rawEV}, EV%=${evAnalysis.away}`)
         }
         
         // Determine best bet (highest EV)
@@ -292,6 +346,47 @@ export async function GET(
       else signalQuality = 'Weak'
     }
 
+    // Calculate market indicators
+    let marketIndicators = null
+    if (predictionData && oddsData) {
+      const impliedProbs = {
+        home: oddsData.home ? (100 / oddsData.home) : 0,
+        draw: oddsData.draw ? (100 / oddsData.draw) : 0,
+        away: oddsData.away ? (100 / oddsData.away) : 0
+      }
+      const totalImplied = impliedProbs.home + impliedProbs.draw + impliedProbs.away
+      const bookmakerMargin = totalImplied - 100
+
+      // Determine favorite based on odds
+      const favorites = [
+        { outcome: 'Home', odds: oddsData.home, implied: impliedProbs.home },
+        { outcome: 'Draw', odds: oddsData.draw, implied: impliedProbs.draw },
+        { outcome: 'Away', odds: oddsData.away, implied: impliedProbs.away }
+      ].sort((a, b) => (b.implied || 0) - (a.implied || 0))
+
+      const marketFavorite = favorites[0].outcome.toLowerCase()
+
+      // Compare AI prediction vs market
+      const aiVsMarket = predictedOutcome === marketFavorite ?
+        'Agreement' : 'Disagreement'
+
+      // Estimate volume based on odds tightness (lower margin = higher volume)
+      const volumeEstimate = bookmakerMargin < 5 ? 'High' :
+                            bookmakerMargin < 8 ? 'Medium' : 'Low'
+
+      marketIndicators = {
+        market_favorite: favorites[0].outcome,
+        market_implied_prob: favorites[0].implied?.toFixed(1) + '%',
+        bookmaker_margin: bookmakerMargin.toFixed(2) + '%',
+        volume_estimate: volumeEstimate,
+        ai_vs_market: aiVsMarket,
+        value_opportunity: aiVsMarket === 'Disagreement' ? 'Potential arbitrage' : 'Market aligned',
+        odds_efficiency: bookmakerMargin < 5 ? 'Efficient' : 'Less efficient'
+      }
+
+      console.log('📊 Market Indicators:', marketIndicators)
+    }
+
     // Prepare response data with rich structure like recommendations API
     const responseData = {
       fixture: {
@@ -307,23 +402,39 @@ export async function GET(
         ev_analysis: evAnalysis,
         signal_quality: signalQuality,
         prediction_strength: signalQuality,
+        market_indicators: marketIndicators,
+        prediction_info: {
+          source: 'SportMonks AI',
+          confidence_level: confidence >= 70 ? 'High' : confidence >= 60 ? 'Good' : confidence >= 50 ? 'Moderate' : 'Low',
+          reliability_score: confidence / 100,
+          data_quality: (predictionData && oddsData) ? 'Complete' : predictionData ? 'Predictions Only' : 'Limited',
+          // Confidence intervals - wider for lower confidence predictions
+          confidence_interval: {
+            point_estimate: confidence,
+            lower_bound: Math.max(0, confidence - (confidence >= 70 ? 5 : confidence >= 60 ? 7 : 10)),
+            upper_bound: Math.min(100, confidence + (confidence >= 70 ? 5 : confidence >= 60 ? 7 : 10)),
+            interval_width: confidence >= 70 ? 10 : confidence >= 60 ? 14 : 20,
+            interpretation: confidence >= 70 ? 'Narrow interval indicates high certainty' :
+                           confidence >= 60 ? 'Moderate interval indicates good confidence' :
+                           'Wide interval reflects higher uncertainty'
+          }
+        },
+        // Keep ensemble_info for backwards compatibility with existing code
         ensemble_info: {
           model_count: 1,
-          prediction_consensus: confidence / 100,
-          strategy: confidence >= 70 ? 'conservative' : confidence >= 50 ? 'balanced' : 'aggressive',
           consensus: confidence / 100,
-          variance: confidence >= 70 ? 0.1 : confidence >= 50 ? 0.2 : 0.3
+          variance: confidence >= 70 ? 0.1 : confidence >= 50 ? 0.2 : 0.3,
+          strategy: confidence >= 70 ? 'conservative' : confidence >= 50 ? 'balanced' : 'aggressive'
         },
         debug_info: {
-          consensus: confidence > 70 ? 'High' : confidence > 50 ? 'Medium' : 'Low',
-          variance: confidence > 70 ? 'Low' : confidence > 50 ? 'Medium' : 'High',
+          confidence_category: confidence > 70 ? 'High' : confidence > 50 ? 'Medium' : 'Low',
+          prediction_strength: confidence > 70 ? 'Strong' : confidence > 50 ? 'Moderate' : 'Weak',
           confidence_score: confidence,
-          prediction_agreement: confidence > 70 ? 'High Agreement' : confidence > 50 ? 'Medium Agreement' : 'Low Agreement',
-          model_consensus: {
-            home: predictionData?.home || 0,
-            draw: predictionData?.draw || 0,
-            away: predictionData?.away || 0,
-            variance: confidence >= 70 ? 0.1 : confidence >= 50 ? 0.2 : 0.3
+          certainty_level: confidence > 70 ? 'High Certainty' : confidence > 50 ? 'Moderate Certainty' : 'Low Certainty',
+          probabilities_decimal: {
+            home: (predictionData?.home || 0) / 100, // Convert percentage to decimal
+            draw: (predictionData?.draw || 0) / 100,
+            away: (predictionData?.away || 0) / 100
           }
         },
         has_predictions: x12Predictions.length > 0,

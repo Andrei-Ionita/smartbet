@@ -61,7 +61,7 @@ export default function RecommendedPredictionsTable() {
     try {
       setIsRefreshing(true)
       setError(null)
-      
+
       // First, trigger result updates for pending fixtures (optional, only on manual refresh or when forced)
       if (forceUpdate || isLoading) {
         try {
@@ -76,11 +76,11 @@ export default function RecommendedPredictionsTable() {
           // Don't fail the whole operation if update fails
         }
       }
-      
+
       // Call Django API through Next.js API route
       const response = await fetch(`/api/django/recommended-predictions?include_pending=${includePending}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setPredictions(data.data || [])
         setSummary(data.summary || null)
@@ -98,16 +98,16 @@ export default function RecommendedPredictionsTable() {
 
   useEffect(() => {
     fetchPredictions()
-    
+
     // Auto-refresh every 2 minutes to catch new results
     const refreshInterval = setInterval(() => {
       console.log('🔄 Auto-refreshing predictions...')
       fetchPredictions()
     }, 120000) // 2 minutes
-    
+
     return () => clearInterval(refreshInterval)
   }, [includePending])
-  
+
   // Refresh when tab becomes visible
   useEffect(() => {
     const handleVisibilityChange = () => {
@@ -116,16 +116,16 @@ export default function RecommendedPredictionsTable() {
         fetchPredictions()
       }
     }
-    
+
     document.addEventListener('visibilitychange', handleVisibilityChange)
     return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
   }, [includePending])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleDateString('en-US', { 
-      month: 'short', 
-      day: 'numeric', 
+    return date.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit'
@@ -154,7 +154,7 @@ export default function RecommendedPredictionsTable() {
         </span>
       )
     }
-    
+
     if (wasCorrect === true) {
       return (
         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-800">
@@ -170,7 +170,7 @@ export default function RecommendedPredictionsTable() {
         </span>
       )
     }
-    
+
     return null
   }
 
@@ -217,7 +217,7 @@ export default function RecommendedPredictionsTable() {
               <Award className="h-8 w-8 text-primary-600" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -230,7 +230,7 @@ export default function RecommendedPredictionsTable() {
               <CheckCircle2 className="h-8 w-8 text-blue-600" />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -247,7 +247,7 @@ export default function RecommendedPredictionsTable() {
               <TrendingUp className={`h-8 w-8 ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
             </div>
           </div>
-          
+
           <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
             <div className="flex items-center justify-between">
               <div>
@@ -284,7 +284,7 @@ export default function RecommendedPredictionsTable() {
             <span className="text-sm font-medium text-gray-700">Include Pending Matches</span>
           </label>
         </div>
-        
+
         <button
           onClick={() => fetchPredictions(true)}
           disabled={isRefreshing}
@@ -333,7 +333,7 @@ export default function RecommendedPredictionsTable() {
                         {pred.predicted_outcome}
                       </span>
                       {pred.expected_value !== null && (
-                        <div className="text-xs text-gray-500 mt-1">EV: {pred.expected_value}%</div>
+                        <div className="text-xs text-gray-500 mt-1">EV: {pred.expected_value.toFixed(2)}%</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
@@ -344,7 +344,7 @@ export default function RecommendedPredictionsTable() {
                             style={{ width: `${pred.confidence}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm text-gray-900">{pred.confidence}%</span>
+                        <span className="text-sm text-gray-900">{pred.confidence.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">

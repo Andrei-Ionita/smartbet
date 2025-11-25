@@ -26,8 +26,14 @@ from core.models import PredictionLog
 
 
 def get_overall_stats():
-    """Get overall performance statistics."""
-    total = PredictionLog.objects.filter(actual_outcome__isnull=False).count()
+    """Get overall performance statistics (filtered for confidence >= 60%)."""
+    # Filter for confidence >= 0.60 (Medium and High confidence)
+    base_query = PredictionLog.objects.filter(
+        actual_outcome__isnull=False,
+        confidence__gte=0.60
+    )
+    
+    total = base_query.count()
     
     if total == 0:
         return {
@@ -39,20 +45,18 @@ def get_overall_stats():
             'average_confidence': 0.0
         }
     
-    correct = PredictionLog.objects.filter(was_correct=True).count()
+    correct = base_query.filter(was_correct=True).count()
     accuracy = (correct / total) * 100 if total > 0 else 0
     
     # Financial metrics
-    total_pl = PredictionLog.objects.filter(
+    total_pl = base_query.filter(
         profit_loss_10__isnull=False
     ).aggregate(Sum('profit_loss_10'))['profit_loss_10__sum'] or 0
     
     roi = (total_pl / (total * 10)) * 100 if total > 0 else 0
     
     # Average confidence
-    avg_confidence = PredictionLog.objects.filter(
-        actual_outcome__isnull=False
-    ).aggregate(Avg('confidence'))['confidence__avg'] or 0
+    avg_confidence = base_query.aggregate(Avg('confidence'))['confidence__avg'] or 0
     
     return {
         'total_predictions': total,
@@ -107,8 +111,8 @@ def get_by_confidence_level_stats():
     
     for level_name, min_conf, max_conf in levels:
         predictions = PredictionLog.objects.filter(
-            confidence__gte=min_conf,
-            confidence__lt=max_conf,
+            confidence__gte=min_conf / 100.0,
+            confidence__lt=max_conf / 100.0,
             actual_outcome__isnull=False
         )
         

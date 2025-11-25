@@ -2,13 +2,13 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { 
-  Trophy, 
-  TrendingUp, 
-  Shield, 
-  Zap, 
-  AlertCircle, 
-  RefreshCw, 
+import {
+  Trophy,
+  TrendingUp,
+  Shield,
+  Zap,
+  AlertCircle,
+  RefreshCw,
   Star,
   Users,
   Target,
@@ -18,7 +18,6 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react'
-// Removed mockData import - using real data from API
 import RecommendationCard from './components/RecommendationCard'
 import EmptyState from './components/EmptyState'
 import RecommendationSkeleton from './components/RecommendationSkeleton'
@@ -59,7 +58,7 @@ export default function HomePage() {
 
   // Build API URL with session_id for personalized stake recommendations
   const sessionId = getSessionId()
-  const apiUrl = sessionId 
+  const apiUrl = sessionId
     ? `/api/recommendations/?session_id=${sessionId}`
     : '/api/recommendations/'
 
@@ -104,7 +103,7 @@ export default function HomePage() {
               <Trophy className="h-16 w-16 text-primary-600" />
             </div>
           </div>
-          
+
           <div className="space-y-4 mb-8">
             <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-gray-900 via-primary-600 to-blue-600 bg-clip-text text-transparent">
               SmartBet
@@ -115,17 +114,17 @@ export default function HomePage() {
             </div>
             {/* Live Accuracy Badge */}
             {performanceData?.data?.overall?.total_predictions > 0 && (
-              <div 
+              <div
                 onClick={() => router.push('/track-record')}
                 className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105"
               >
                 <Shield className="h-5 w-5" />
                 <div className="text-left">
-                  <div className="text-sm font-medium opacity-90">Verified Track Record</div>
+                  <div className="text-sm font-medium opacity-90">Verified Smart Picks</div>
                   <div className="text-lg font-bold">
                     {performanceData.data.overall.accuracy_percent}% Accuracy
-                    <span className="text-sm font-normal opacity-90 ml-2">
-                      ({performanceData.data.overall.correct_predictions}/{performanceData.data.overall.total_predictions} matches)
+                    <span className="text-sm font-normal opacity-90 ml-2 block text-xs">
+                      (&gt;60% confidence models)
                     </span>
                   </div>
                 </div>
@@ -133,29 +132,29 @@ export default function HomePage() {
               </div>
             )}
           </div>
-          
+
           <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-            Get data-driven insights and betting recommendations with confidence scores, 
+            Get data-driven insights and betting recommendations with confidence scores,
             expected value analysis, and real-time market intelligence across top European leagues.
           </p>
 
           {/* Performance Stats */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-                  <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
-                  <div className="text-sm text-gray-600">Confidence Threshold</div>
+              <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
+              <div className="text-sm text-gray-600">Confidence Threshold</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-                  <div className="text-2xl font-bold text-green-600 mb-1">27</div>
-                  <div className="text-sm text-gray-600">Leagues Covered</div>
+              <div className="text-2xl font-bold text-green-600 mb-1">27</div>
+              <div className="text-sm text-gray-600">Leagues Covered</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-                  <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
-                  <div className="text-sm text-gray-600">Days Ahead</div>
+              <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
+              <div className="text-sm text-gray-600">Days Ahead</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-                  <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
-                  <div className="text-sm text-gray-600">AI Ensemble</div>
+              <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
+              <div className="text-sm text-gray-600">AI Ensemble</div>
             </div>
           </div>
 
@@ -201,7 +200,7 @@ export default function HomePage() {
               Hand-picked predictions with the highest confidence scores and expected value
             </p>
           </div>
-          
+
           {isLoading && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {Array.from({ length: 6 }).map((_, i) => (
@@ -212,24 +211,24 @@ export default function HomePage() {
 
           {error && (
             <ErrorBoundary>
-            <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-              <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
-                <AlertCircle className="h-8 w-8 text-red-500" />
-              </div>
-              <h3 className="text-xl font-semibold text-red-900 mb-3">
-                Unable to Load Recommendations
-              </h3>
-              <p className="text-red-700 mb-6 max-w-md mx-auto">
-                  {error.message.includes('HTTP') 
-                    ? `Server error: ${error.message}` 
+              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
+                <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
+                  <AlertCircle className="h-8 w-8 text-red-500" />
+                </div>
+                <h3 className="text-xl font-semibold text-red-900 mb-3">
+                  Unable to Load Recommendations
+                </h3>
+                <p className="text-red-700 mb-6 max-w-md mx-auto">
+                  {error.message.includes('HTTP')
+                    ? `Server error: ${error.message}`
                     : 'We\'re experiencing some technical difficulties. Please try again in a moment.'}
                 </p>
-                <RetryButton 
+                <RetryButton
                   onRetry={handleRetry}
                   text="Try Again"
                   className="bg-red-600 hover:bg-red-700"
                 />
-            </div>
+              </div>
             </ErrorBoundary>
           )}
 
@@ -261,7 +260,7 @@ export default function HomePage() {
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-purple-600">
-                      {data.recommendations.length > 0 
+                      {data.recommendations.length > 0
                         ? (Math.max(...data.recommendations.map((r: any) => r.confidence)) * 100).toFixed(0) + '%'
                         : '0%'}
                     </div>
@@ -271,15 +270,15 @@ export default function HomePage() {
               </div>
 
               {/* Recommendations Grid */}
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-              {data.recommendations.map((recommendation: Recommendation) => (
-                <RecommendationCard
-                  key={recommendation.fixture_id}
-                  recommendation={recommendation}
-                  onViewDetails={handleViewDetails}
-                />
-              ))}
-            </div>
+              <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
+                {data.recommendations.map((recommendation: Recommendation) => (
+                  <RecommendationCard
+                    key={recommendation.fixture_id}
+                    recommendation={recommendation}
+                    onViewDetails={handleViewDetails}
+                  />
+                ))}
+              </div>
 
               {/* League Diversity Info */}
               {data.debug_info?.top_5_predictions && (
@@ -320,8 +319,8 @@ export default function HomePage() {
                 {data.status === 'no_predictions_available'
                   ? 'AI Predictions Not Available'
                   : data.status === 'no_fixtures_found'
-                  ? 'No Upcoming Fixtures'
-                  : 'No Top Quality Bets Available'}
+                    ? 'No Upcoming Fixtures'
+                    : 'No Top Quality Bets Available'}
               </h3>
               <p className="text-amber-700 mb-6 max-w-md mx-auto">
                 {data.status_details || 'We\'re working to bring you the best predictions. Please check back soon.'}
@@ -365,7 +364,7 @@ export default function HomePage() {
               Our advanced AI system combines machine learning with real-time market data to deliver superior predictions
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
               <div className="bg-gradient-to-br from-primary-500 to-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
@@ -376,7 +375,7 @@ export default function HomePage() {
                 Advanced ML models trained on millions of historical matches with real-time market analysis and player statistics
               </p>
             </div>
-            
+
             <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
               <div className="bg-gradient-to-br from-green-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Shield className="h-8 w-8 text-white" />
@@ -386,7 +385,7 @@ export default function HomePage() {
                 Confidence thresholds and expected value calculations help you make informed decisions with proper bankroll management
               </p>
             </div>
-            
+
             <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
               <div className="bg-gradient-to-br from-purple-500 to-pink-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="h-8 w-8 text-white" />
@@ -409,7 +408,7 @@ export default function HomePage() {
               Select from our supported European leagues to get tailored predictions
             </p>
           </div>
-          
+
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             {[
               { id: 'premier-league', name: 'Premier League', country: 'England', status: 'PRODUCTION' },
@@ -443,20 +442,18 @@ export default function HomePage() {
               <button
                 key={league.id}
                 onClick={() => setSelectedLeague(league.name)}
-                className={`group p-6 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${
-                  selectedLeague === league.name
-                    ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-blue-50 shadow-lg'
-                    : 'border-gray-200 hover:border-primary-300 hover:bg-white/80 hover:shadow-lg'
-                }`}
+                className={`group p-6 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${selectedLeague === league.name
+                  ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-blue-50 shadow-lg'
+                  : 'border-gray-200 hover:border-primary-300 hover:bg-white/80 hover:shadow-lg'
+                  }`}
               >
                 <div className="text-center">
                   <div className="font-semibold text-gray-900 mb-1">{league.name}</div>
                   <div className="text-sm text-gray-500 mb-3">{league.country}</div>
-                  <div className={`text-xs px-3 py-1 rounded-full font-medium ${
-                    league.status === 'PRODUCTION' 
-                      ? 'bg-green-100 text-green-700' 
-                      : 'bg-yellow-100 text-yellow-700'
-                  }`}>
+                  <div className={`text-xs px-3 py-1 rounded-full font-medium ${league.status === 'PRODUCTION'
+                    ? 'bg-green-100 text-green-700'
+                    : 'bg-yellow-100 text-yellow-700'
+                    }`}>
                     {league.status}
                   </div>
                 </div>
@@ -475,7 +472,7 @@ export default function HomePage() {
               Our AI analyzes multiple data points to deliver the most accurate predictions
             </p>
           </div>
-          
+
           <div className="grid md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="bg-gradient-to-br from-blue-500 to-purple-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
@@ -486,7 +483,7 @@ export default function HomePage() {
                 Confidence scores from SportMonks Predictions API with advanced ML models
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="bg-gradient-to-br from-green-500 to-teal-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <Target className="h-8 w-8 text-white" />
@@ -496,7 +493,7 @@ export default function HomePage() {
                 Expected value calculations when odds are available for optimal betting decisions
               </p>
             </div>
-            
+
             <div className="text-center">
               <div className="bg-gradient-to-br from-orange-500 to-red-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
                 <CheckCircle className="h-8 w-8 text-white" />
@@ -570,15 +567,15 @@ export default function HomePage() {
           <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
             <span className="flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                  <span>27 Leagues Covered</span>
+              <span>27 Leagues Covered</span>
             </span>
-                <span>Consensus Ensemble</span>
-                <span>3 AI Models</span>
+            <span>Consensus Ensemble</span>
+            <span>3 AI Models</span>
             <span>60s Refresh Rate</span>
-                <span>14-Day Window</span>
+            <span>14-Day Window</span>
           </div>
         </div>
       </div>
     </div>
   )
-} 
+}

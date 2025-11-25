@@ -132,18 +132,39 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('✅ Using real SportMonks data only - no test data')
-    
-    // Calculate date range for next 7 days (wider range for better coverage)
-    const now = new Date()
-    const sevenDaysFromNow = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000)
-    const startDate = now.toISOString().split('T')[0]
-    const endDate = sevenDaysFromNow.toISOString().split('T')[0]
 
-    // Search through key leagues first (faster)
-    const keyLeagues = [8, 564, 384, 82, 301] // Premier League, La Liga, Serie A, Bundesliga, Ligue 1
+    // Calculate date range for next 14 days
+    const now = new Date()
+    const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
+    const startDate = now.toISOString().split('T')[0]
+    const endDate = fourteenDaysFromNow.toISOString().split('T')[0]
+
+    console.log(`📅 Searching fixtures between ${startDate} and ${endDate}`)
+
+    // Check cache first
+    const cacheKey = getCacheKey('search', { query, league, startDate, endDate })
+    const cachedResults = getFromCache(cacheKey)
+    if (cachedResults) {
+      console.log(`💾 Returning cached search results for "${query}"`)
+      return NextResponse.json(cachedResults)
+    }
+
+    // Filter leagues if specific league requested
+    const leaguesToSearch = league
+      ? SUPPORTED_LEAGUE_IDS.filter(id => id === parseInt(league))
+      : SUPPORTED_LEAGUE_IDS
+
+    console.log(`🔍 Searching ${leaguesToSearch.length} leagues for "${query}"`)
+
     const allResults: SearchResult[] = []
 
-    for (const leagueId of keyLeagues) {
+    // Search leagues in order, stop early if we have enough results
+    for (const leagueId of leaguesToSearch) {
+      // Early termination if we already have plenty of results
+      if (allResults.length >= limit * 2) {
+        console.log(`⚡ Early termination - found ${allResults.length} results`)
+        break
+      }
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
@@ -185,21 +206,33 @@ export async function GET(request: NextRequest) {
 
         allResults.push(...results)
 
+        if (results.length > 0) {
+          console.log(`  ✅ League ${leagueId}: Found ${results.length} matching fixtures`)
+        }
+
       } catch (error) {
-        console.log(`Error searching league ${leagueId}: ${error}`)
+        console.log(`  ❌ League ${leagueId}: ${error}`)
       }
     }
 
-    console.log(`✅ Found ${allResults.length} real fixtures from SportMonks`)
-    return NextResponse.json({
+    // Sort by kickoff time (earliest first)
+    allResults.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
+
+    const responseData = {
       results: allResults.slice(0, limit),
       total: allResults.length,
       query: query,
       league: league,
-      message: allResults.length > 0 
-        ? `Found ${allResults.length} real fixtures matching "${query}"`
-        : `No real fixtures found matching "${query}"`
-    })
+      message: allResults.length > 0
+        ? `Found ${allResults.length} fixtures matching "${query}"`
+        : `No fixtures found matching "${query}" in the next 14 days`
+    }
+
+    // Cache the results for 5 minutes
+    setCache(cacheKey, responseData, CACHE_DURATION.SEARCH)
+
+    console.log(`✅ Returning ${responseData.results.length} fixtures (cached)`)
+    return NextResponse.json(responseData)
 
   } catch (error) {
     console.error('Error in search API:', error)

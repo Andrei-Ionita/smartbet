@@ -4,6 +4,7 @@ const nextConfig = {
   images: {
     domains: ['localhost'],
   },
+  output: 'standalone',
   // API routes configuration
   async headers() {
     return [
@@ -19,4 +20,4 @@ const nextConfig = {
   },
 };
 
-export default nextConfig; 
+export default nextConfig;
