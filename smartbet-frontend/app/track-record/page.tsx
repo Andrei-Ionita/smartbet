@@ -76,9 +76,9 @@ export default function TrackRecordPage() {
 
       if (predictionsData.success) {
         setPredictions(predictionsData.predictions);
-        
+
         // Extract unique leagues
-        const uniqueLeagues = [...new Set(predictionsData.predictions.map((p: PredictionWithResult) => p.league))];
+        const uniqueLeagues = Array.from(new Set(predictionsData.predictions.map((p: PredictionWithResult) => p.league)));
         setLeagues(uniqueLeagues as string[]);
       }
 
@@ -154,18 +154,18 @@ export default function TrackRecordPage() {
       <div className="bg-white border-b border-gray-200">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-              <Trophy className="h-8 w-8 text-blue-600" />
-              <span>Our Track Record</span>
-            </h1>
-            <p className="text-gray-600 mt-2">
-              Performance of our <strong>recommended bets</strong> - the fixtures we told you to bet on
-            </p>
-            <p className="text-sm text-blue-600 mt-1">
-              💎 Only our top picks are shown here (55%+ confidence, positive EV)
-            </p>
-          </div>
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                <Trophy className="h-8 w-8 text-blue-600" />
+                <span>Our Track Record</span>
+              </h1>
+              <p className="text-gray-600 mt-2">
+                Performance of our <strong>recommended bets</strong> - the fixtures we told you to bet on
+              </p>
+              <p className="text-sm text-blue-600 mt-1">
+                💎 Only our top picks are shown here (55%+ confidence, positive EV)
+              </p>
+            </div>
             <button
               onClick={handleUpdateResults}
               disabled={updating}
@@ -205,15 +205,13 @@ export default function TrackRecordPage() {
             </div>
 
             {/* ROI */}
-            <div className={`rounded-lg border-2 p-6 ${
-              roiStats.roi_percent >= 0 
-                ? 'bg-green-50 border-green-200' 
+            <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
+                ? 'bg-green-50 border-green-200'
                 : 'bg-red-50 border-red-200'
-            }`}>
-              <p className="text-sm text-gray-700 mb-2">ROI ($10/bet)</p>
-              <p className={`text-4xl font-bold mb-2 ${
-                roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
               }`}>
+              <p className="text-sm text-gray-700 mb-2">ROI ($10/bet)</p>
+              <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
+                }`}>
                 {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
               </p>
               <p className="text-sm text-gray-700">
@@ -277,7 +275,7 @@ export default function TrackRecordPage() {
               <Filter className="h-4 w-4 text-gray-600" />
               <span className="text-sm font-medium text-gray-700">Filters:</span>
             </div>
-            
+
             <select
               value={filterLeague}
               onChange={(e) => setFilterLeague(e.target.value)}
@@ -337,21 +335,19 @@ export default function TrackRecordPage() {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                        pred.predicted_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
-                        pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
-                        'bg-purple-100 text-purple-800'
-                      }`}>
+                      <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${pred.predicted_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
+                          pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                            'bg-purple-100 text-purple-800'
+                        }`}>
                         {pred.predicted_outcome}
                       </span>
                     </td>
                     <td className="px-6 py-4">
                       {pred.actual_outcome ? (
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                          pred.actual_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
-                          pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
-                          'bg-purple-100 text-purple-800'
-                        }`}>
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${pred.actual_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
+                            pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                              'bg-purple-100 text-purple-800'
+                          }`}>
                           {pred.actual_outcome}
                         </span>
                       ) : (
@@ -384,9 +380,8 @@ export default function TrackRecordPage() {
                     </td>
                     <td className="px-6 py-4 text-right">
                       {pred.profit_loss !== null ? (
-                        <span className={`text-sm font-bold ${
-                          pred.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <span className={`text-sm font-bold ${pred.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
                           {pred.profit_loss >= 0 ? '+' : ''}${pred.profit_loss.toFixed(2)}
                         </span>
                       ) : (
@@ -412,15 +407,15 @@ export default function TrackRecordPage() {
         {/* Transparency Notice */}
         <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-6">
           <h3 className="font-semibold text-blue-900 mb-3 text-lg">🔒 Our Transparency Commitment</h3>
-          
+
           <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
             <h4 className="font-semibold text-blue-900 mb-2">📋 What We Track</h4>
             <p className="text-sm text-blue-800">
-              We track <strong>only the predictions we recommend to you</strong> - the "best bets" 
+              We track <strong>only the predictions we recommend to you</strong> - the "best bets"
               shown on our homepage (top 10 daily picks with 55%+ confidence and positive EV).
             </p>
             <p className="text-sm text-blue-800 mt-2">
-              <strong>Why?</strong> Because we believe in accountability. We don't track thousands 
+              <strong>Why?</strong> Because we believe in accountability. We don't track thousands
               of predictions we never told you about - we track what we actually recommend.
             </p>
           </div>
@@ -450,8 +445,8 @@ export default function TrackRecordPage() {
 
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-xs text-yellow-900">
-              <strong>Note:</strong> We only track our <strong>recommended bets</strong> (the ones we show on the homepage). 
-              This is honest accountability - we're measured by what we actually tell you to bet on, not by cherry-picking 
+              <strong>Note:</strong> We only track our <strong>recommended bets</strong> (the ones we show on the homepage).
+              This is honest accountability - we're measured by what we actually tell you to bet on, not by cherry-picking
               from thousands of unpublished predictions.
             </p>
           </div>
