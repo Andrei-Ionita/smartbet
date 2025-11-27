@@ -63,10 +63,17 @@ interface FixtureAnalysis {
     }
   }
   prediction_info?: {
-    home_win_prob: number
-    draw_prob: number
-    away_win_prob: number
-    confidence_score: number
+    source: string
+    confidence_level: string
+    reliability_score: number
+    data_quality: string
+    confidence_interval?: {
+      point_estimate: number
+      lower_bound: number
+      upper_bound: number
+      interval_width: number
+      interpretation: string
+    }
   }
   market_indicators?: {
     market_favorite: string
@@ -432,19 +439,7 @@ export default function ExplorePage() {
                 odds_data: selectedFixture.odds_data,
                 bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
                 ensemble_info: selectedFixture.ensemble_info,
-                prediction_info: selectedFixture.prediction_info ? {
-                  source: 'SportMonks AI',
-                  confidence_level: selectedFixture.prediction_info.confidence_score > 0.7 ? 'High' : 'Medium',
-                  reliability_score: selectedFixture.prediction_info.confidence_score,
-                  data_quality: 'High',
-                  confidence_interval: {
-                    point_estimate: selectedFixture.prediction_info.confidence_score,
-                    lower_bound: Math.max(0, selectedFixture.prediction_info.confidence_score - 0.1),
-                    upper_bound: Math.min(1, selectedFixture.prediction_info.confidence_score + 0.1),
-                    interval_width: 0.2,
-                    interpretation: 'Standard deviation based on historical accuracy'
-                  }
-                } : undefined,
+                prediction_info: selectedFixture.prediction_info,
                 market_indicators: selectedFixture.market_indicators,
                 debug_info: selectedFixture.debug_info,
                 signal_quality: selectedFixture.signal_quality,
