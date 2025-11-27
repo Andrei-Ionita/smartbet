@@ -418,18 +418,6 @@ export default function ExplorePage() {
                 probabilities: selectedFixture.predictions ? {
                   home: selectedFixture.predictions.home / 100,
                   draw: selectedFixture.predictions.draw / 100,
-                  away: selectedFixture.predictions.away / 100
-                } : undefined,
-                odds_data: selectedFixture.odds_data,
-                bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
-                ensemble_info: selectedFixture.ensemble_info,
-                prediction_info: selectedFixture.prediction_info,
-                market_indicators: selectedFixture.market_indicators,
-                debug_info: selectedFixture.debug_info,
-                signal_quality: selectedFixture.signal_quality,
-                league_accuracy: null
-              }}
-              onViewDetails={handleViewDetails}
             />
           </div>
         )}
