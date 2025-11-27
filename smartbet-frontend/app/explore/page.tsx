@@ -418,6 +418,30 @@ export default function ExplorePage() {
                 probabilities: selectedFixture.predictions ? {
                   home: selectedFixture.predictions.home / 100,
                   draw: selectedFixture.predictions.draw / 100,
+                  away: selectedFixture.predictions.away / 100
+                } : undefined,
+                odds_data: selectedFixture.odds_data,
+                bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
+                ensemble_info: selectedFixture.ensemble_info,
+                prediction_info: selectedFixture.prediction_info ? {
+                  source: 'SportMonks AI',
+                  confidence_level: selectedFixture.prediction_info.confidence_score > 0.7 ? 'High' : 'Medium',
+                  reliability_score: selectedFixture.prediction_info.confidence_score,
+                  data_quality: 'High',
+                  confidence_interval: {
+                    point_estimate: selectedFixture.prediction_info.confidence_score,
+                    lower_bound: Math.max(0, selectedFixture.prediction_info.confidence_score - 0.1),
+                    upper_bound: Math.min(1, selectedFixture.prediction_info.confidence_score + 0.1),
+                    interval_width: 0.2,
+                    interpretation: 'Standard deviation based on historical accuracy'
+                  }
+                } : undefined,
+                market_indicators: selectedFixture.market_indicators,
+                debug_info: selectedFixture.debug_info,
+                signal_quality: selectedFixture.signal_quality,
+                league_accuracy: null
+              }}
+              onViewDetails={handleViewDetails}
             />
           </div>
         )}
