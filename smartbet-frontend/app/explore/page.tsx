@@ -68,6 +68,15 @@ interface FixtureAnalysis {
     away_win_prob: number
     confidence_score: number
   }
+  market_indicators?: {
+    market_favorite: string
+    market_implied_prob: string
+    bookmaker_margin: string
+    volume_estimate: string
+    ai_vs_market: string
+    value_opportunity: string
+    odds_efficiency: string
+  }
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
 }
 
