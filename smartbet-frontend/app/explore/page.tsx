@@ -62,6 +62,12 @@ interface FixtureAnalysis {
       variance: number
     }
   }
+  prediction_info?: {
+    home_win_prob: number
+    draw_prob: number
+    away_win_prob: number
+    confidence_score: number
+  }
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
 }
 
@@ -163,13 +169,13 @@ export default function ExplorePage() {
     try {
       // Use Next.js API (fetches from SportMonks - can get ANY fixture)
       const response = await fetch(`/api/fixture/${fixtureId}`)
-      
+
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`)
       }
-      
+
       const data = await response.json()
-      
+
       // Next.js API returns in 'fixture' field
       if (data.fixture) {
         console.log('Fixture loaded successfully:', data.fixture.fixture_id)
@@ -204,7 +210,7 @@ export default function ExplorePage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
-        
+
         {/* Header */}
         <div className="text-center mb-12">
           <div className="relative inline-block mb-6">
@@ -213,7 +219,7 @@ export default function ExplorePage() {
               <Search className="h-16 w-16 text-primary-600" />
             </div>
           </div>
-          
+
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-primary-600 to-blue-600 bg-clip-text text-transparent mb-4">
             Explore Fixtures
           </h1>
@@ -235,7 +241,7 @@ export default function ExplorePage() {
                 className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
               />
             </div>
-            
+
             <div className="md:w-64">
               <select
                 value={selectedLeague}
@@ -336,7 +342,7 @@ export default function ExplorePage() {
               <Calendar className="h-5 w-5 text-primary-600" />
               <h2 className="text-xl font-bold text-gray-900">Fixture Analysis</h2>
             </div>
-            
+
             <RecommendationCard
               recommendation={{
                 fixture_id: selectedFixture.fixture_id,
@@ -344,13 +350,13 @@ export default function ExplorePage() {
                 away_team: selectedFixture.away_team,
                 league: selectedFixture.league,
                 kickoff: selectedFixture.kickoff,
-                predicted_outcome: selectedFixture.predicted_outcome ? 
+                predicted_outcome: selectedFixture.predicted_outcome ?
                   selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) as 'Home' | 'Draw' | 'Away' : 'Home',
                 confidence: (selectedFixture.prediction_confidence || 0) / 100, // Next.js API returns percentage
-                odds: selectedFixture.odds_data ? 
+                odds: selectedFixture.odds_data ?
                   (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                   selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                   selectedFixture.odds_data?.away) : null,
+                    selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                      selectedFixture.odds_data?.away) : null,
                 ev: (selectedFixture.ev_analysis?.best_ev || 0) / 100, // Next.js API returns percentage
                 score: 0,
                 explanation: (() => {
@@ -375,8 +381,8 @@ export default function ExplorePage() {
                   // Add odds and EV information if available
                   if (selectedFixture.odds_data && ev) {
                     const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                                selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                                selectedFixture.odds_data?.away
+                      selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                        selectedFixture.odds_data?.away
 
                     if (odds && ev > 0) {
                       explanation += ` Best odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
@@ -408,20 +414,20 @@ export default function ExplorePage() {
                   }
 
                   return explanation
-                 })(),
-                 probabilities: selectedFixture.predictions ? {
-                   home: selectedFixture.predictions.home / 100,
-                   draw: selectedFixture.predictions.draw / 100,
-                   away: selectedFixture.predictions.away / 100
-                 } : undefined,
-                 odds_data: selectedFixture.odds_data,
-                 bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
-                 ensemble_info: selectedFixture.ensemble_info,
-                 prediction_info: selectedFixture.prediction_info,
-                 market_indicators: selectedFixture.market_indicators,
-                 debug_info: selectedFixture.debug_info,
-                 signal_quality: selectedFixture.signal_quality,
-                 league_accuracy: null
+                })(),
+                probabilities: selectedFixture.predictions ? {
+                  home: selectedFixture.predictions.home / 100,
+                  draw: selectedFixture.predictions.draw / 100,
+                  away: selectedFixture.predictions.away / 100
+                } : undefined,
+                odds_data: selectedFixture.odds_data,
+                bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
+                ensemble_info: selectedFixture.ensemble_info,
+                prediction_info: selectedFixture.prediction_info,
+                market_indicators: selectedFixture.market_indicators,
+                debug_info: selectedFixture.debug_info,
+                signal_quality: selectedFixture.signal_quality,
+                league_accuracy: null
               }}
               onViewDetails={handleViewDetails}
             />
