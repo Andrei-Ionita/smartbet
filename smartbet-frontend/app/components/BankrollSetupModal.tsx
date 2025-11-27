@@ -74,25 +74,26 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
     try {
       // Generate session ID
       const sessionId = `user_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      
+
       // Calculate suggested limits based on risk profile
       const initialAmount = parseFloat(formData.initialBankroll);
       let dailyLimit = formData.dailyLossLimit;
       let weeklyLimit = formData.weeklyLossLimit;
 
       if (!dailyLimit) {
-        const dailyPct = formData.riskProfile === 'conservative' ? 0.05 : 
-                         formData.riskProfile === 'balanced' ? 0.10 : 0.20;
+        const dailyPct = formData.riskProfile === 'conservative' ? 0.05 :
+          formData.riskProfile === 'balanced' ? 0.10 : 0.20;
         dailyLimit = (initialAmount * dailyPct).toFixed(2);
       }
 
       if (!weeklyLimit) {
-        const weeklyPct = formData.riskProfile === 'conservative' ? 0.15 : 
-                          formData.riskProfile === 'balanced' ? 0.25 : 0.40;
+        const weeklyPct = formData.riskProfile === 'conservative' ? 0.15 :
+          formData.riskProfile === 'balanced' ? 0.25 : 0.40;
         weeklyLimit = (initialAmount * weeklyPct).toFixed(2);
       }
 
-      const response = await fetch('http://localhost:8000/api/bankroll/create/', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/bankroll/create/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -189,11 +190,10 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                     key={profile.value}
                     type="button"
                     onClick={() => setFormData({ ...formData, riskProfile: profile.value })}
-                    className={`p-3 border-2 rounded-lg text-left transition-all ${
-                      formData.riskProfile === profile.value
+                    className={`p-3 border-2 rounded-lg text-left transition-all ${formData.riskProfile === profile.value
                         ? 'border-blue-500 bg-blue-50'
                         : 'border-gray-200 hover:border-gray-300'
-                    }`}
+                      }`}
                   >
                     <div className="text-2xl mb-1">{profile.emoji}</div>
                     <div className="font-medium text-sm">{profile.label}</div>

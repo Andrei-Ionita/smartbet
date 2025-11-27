@@ -69,8 +69,9 @@ export default function TrackRecordPage() {
 
       // Fetch predictions
       const showAll = filterStatus === 'all';
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const predictionsResponse = await fetch(
-        `http://localhost:8000/api/transparency/recent/?limit=100&show_all=${showAll}`
+        `${apiUrl}/api/transparency/recent/?limit=100&show_all=${showAll}`
       );
       const predictionsData = await predictionsResponse.json();
 
@@ -83,7 +84,7 @@ export default function TrackRecordPage() {
       }
 
       // Fetch accuracy stats
-      const statsResponse = await fetch('http://localhost:8000/api/transparency/dashboard/');
+      const statsResponse = await fetch(`${apiUrl}/api/transparency/dashboard/`);
       const statsData = await statsResponse.json();
 
       if (statsData.success) {
@@ -100,7 +101,8 @@ export default function TrackRecordPage() {
   const handleUpdateResults = async () => {
     setUpdating(true);
     try {
-      const response = await fetch('http://localhost:8000/api/transparency/update-results/', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/transparency/update-results/`, {
         method: 'POST',
       });
       const data = await response.json();
@@ -206,8 +208,8 @@ export default function TrackRecordPage() {
 
             {/* ROI */}
             <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
-                ? 'bg-green-50 border-green-200'
-                : 'bg-red-50 border-red-200'
+              ? 'bg-green-50 border-green-200'
+              : 'bg-red-50 border-red-200'
               }`}>
               <p className="text-sm text-gray-700 mb-2">ROI ($10/bet)</p>
               <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
@@ -336,8 +338,8 @@ export default function TrackRecordPage() {
                     </td>
                     <td className="px-6 py-4">
                       <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${pred.predicted_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
-                          pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
-                            'bg-purple-100 text-purple-800'
+                        pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                          'bg-purple-100 text-purple-800'
                         }`}>
                         {pred.predicted_outcome}
                       </span>
@@ -345,8 +347,8 @@ export default function TrackRecordPage() {
                     <td className="px-6 py-4">
                       {pred.actual_outcome ? (
                         <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${pred.actual_outcome === 'Home' ? 'bg-blue-100 text-blue-800' :
-                            pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
-                              'bg-purple-100 text-purple-800'
+                          pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
+                            'bg-purple-100 text-purple-800'
                           }`}>
                           {pred.actual_outcome}
                         </span>

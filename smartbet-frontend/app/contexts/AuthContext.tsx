@@ -33,18 +33,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const storedToken = localStorage.getItem('smartbet_access_token');
     const storedUser = localStorage.getItem('smartbet_user');
-    
+
     if (storedToken && storedUser) {
       setAccessToken(storedToken);
       setUser(JSON.parse(storedUser));
     }
-    
+
     setIsLoading(false);
   }, []);
 
   const login = async (username: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/login/', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/auth/login/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -62,10 +63,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('smartbet_access_token', data.tokens.access);
       localStorage.setItem('smartbet_refresh_token', data.tokens.refresh);
       localStorage.setItem('smartbet_user', JSON.stringify(data.user));
-      
+
       // Remove old session_id if exists
       localStorage.removeItem('smartbet_session_id');
-      
+
       setAccessToken(data.tokens.access);
       setUser(data.user);
 
@@ -77,7 +78,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const register = async (username: string, email: string, password: string) => {
     try {
-      const response = await fetch('http://localhost:8000/api/auth/register/', {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/auth/register/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -95,10 +97,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('smartbet_access_token', data.tokens.access);
       localStorage.setItem('smartbet_refresh_token', data.tokens.refresh);
       localStorage.setItem('smartbet_user', JSON.stringify(data.user));
-      
+
       // Remove old session_id if exists
       localStorage.removeItem('smartbet_session_id');
-      
+
       setAccessToken(data.tokens.access);
       setUser(data.user);
 
@@ -114,7 +116,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('smartbet_refresh_token');
     localStorage.removeItem('smartbet_user');
     localStorage.removeItem('smartbet_bankroll');
-    
+
     setAccessToken(null);
     setUser(null);
 

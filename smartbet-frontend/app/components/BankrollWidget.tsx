@@ -33,13 +33,14 @@ export default function BankrollWidget() {
   const loadBankroll = async () => {
     try {
       const sessionId = localStorage.getItem('smartbet_session_id');
-      
+
       if (!sessionId) {
         setLoading(false);
         return;
       }
 
-      const response = await fetch(`http://localhost:8000/api/bankroll/${sessionId}/`);
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/bankroll/${sessionId}/`);
       const data = await response.json();
 
       if (response.ok && data.bankroll) {
@@ -128,11 +129,10 @@ export default function BankrollWidget() {
         {/* Profit/Loss */}
         <div className="mt-3 flex items-center gap-2">
           <span
-            className={`inline-flex items-center px-2 py-1 rounded text-sm font-medium ${
-              isProfitable
+            className={`inline-flex items-center px-2 py-1 rounded text-sm font-medium ${isProfitable
                 ? 'bg-green-400 bg-opacity-30 text-white'
                 : 'bg-red-400 bg-opacity-30 text-white'
-            }`}
+              }`}
           >
             {isProfitable ? '↑' : '↓'} {formatCurrency(Math.abs(profitLoss), bankroll.currency)}
             <span className="ml-1 opacity-90">({profitLossPercentage.toFixed(1)}%)</span>
@@ -147,9 +147,8 @@ export default function BankrollWidget() {
       <div className="p-4 grid grid-cols-2 gap-4">
         <div>
           <p className="text-xs text-gray-500 mb-1">ROI</p>
-          <p className={`text-lg font-semibold ${
-            bankroll.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'
-          }`}>
+          <p className={`text-lg font-semibold ${bankroll.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'
+            }`}>
             {bankroll.roi_percent.toFixed(1)}%
           </p>
         </div>
