@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/mark-recommended/', api_views.mark_recommended_by_fixture_ids, name='mark_recommended'),
     path('api/fixture/<int:fixture_id>/', api_views.get_fixture_details, name='get_fixture_details'),
     path('api/search/', api_views.search_fixtures, name='search_fixtures'),
+    path('api/fix-performance/', api_views.fix_performance_metrics, name='fix_performance_metrics'),
     path('api/update-fixture-results/', api_views.update_fixture_results, name='update_fixture_results'),
     
     # Bankroll Management API

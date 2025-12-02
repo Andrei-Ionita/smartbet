@@ -19,11 +19,12 @@ class AccuracyCalculator:
     
     def get_overall_accuracy(self) -> Dict:
         """
-        Get overall accuracy across all completed predictions.
+        Get overall accuracy across all completed predictions with > 60% confidence.
         """
         completed = PredictionLog.objects.filter(
             actual_outcome__isnull=False,
-            was_correct__isnull=False
+            was_correct__isnull=False,
+            confidence__gte=0.60  # Only high confidence bets
         )
         
         total = completed.count()
@@ -84,8 +85,7 @@ class AccuracyCalculator:
             (0.70, 1.00, '70-100%', 'Very High'),
             (0.65, 0.70, '65-70%', 'High'),
             (0.60, 0.65, '60-65%', 'Medium-High'),
-            (0.55, 0.60, '55-60%', 'Medium'),
-            (0.50, 0.55, '50-55%', 'Low'),
+            # Removed lower confidence ranges as we only track > 60%
         ]
         
         results = []
@@ -109,12 +109,12 @@ class AccuracyCalculator:
     
     def get_accuracy_by_league(self) -> List[Dict]:
         """
-        Get accuracy breakdown by league.
-        Shows which leagues have best prediction accuracy.
+        Get accuracy breakdown by league for high confidence bets.
         """
         completed = PredictionLog.objects.filter(
             actual_outcome__isnull=False,
-            was_correct__isnull=False
+            was_correct__isnull=False,
+            confidence__gte=0.60  # Only high confidence bets
         )
         
         # Get unique leagues
@@ -148,18 +148,13 @@ class AccuracyCalculator:
     
     def get_roi_simulation(self, stake_per_bet: float = 10.0) -> Dict:
         """
-        Calculate theoretical ROI if user followed all recommendations.
-        
-        Args:
-            stake_per_bet: Stake amount per bet (default $10)
-        
-        Returns:
-            Dictionary with ROI calculations
+        Calculate theoretical ROI if user followed all high-confidence recommendations.
         """
         completed = PredictionLog.objects.filter(
             actual_outcome__isnull=False,
-            is_recommended=True,  # Only recommendations shown to users
-            profit_loss_10__isnull=False
+            is_recommended=True,
+            profit_loss_10__isnull=False,
+            confidence__gte=0.60  # Only high confidence bets
         )
         
         total_bets = completed.count()
@@ -192,19 +187,14 @@ class AccuracyCalculator:
     
     def get_performance_over_time(self, days: int = 30) -> List[Dict]:
         """
-        Get accuracy performance over time periods.
-        
-        Args:
-            days: Number of days to look back
-        
-        Returns:
-            List of daily/weekly performance data
+        Get accuracy performance over time periods for high confidence bets.
         """
         cutoff_date = timezone.now() - timedelta(days=days)
         
         completed = PredictionLog.objects.filter(
             actual_outcome__isnull=False,
-            kickoff__gte=cutoff_date
+            kickoff__gte=cutoff_date,
+            confidence__gte=0.60  # Only high confidence bets
         ).order_by('kickoff')
         
         # Group by week

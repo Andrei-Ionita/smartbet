@@ -34,7 +34,7 @@ def public_accuracy_dashboard(request):
         stats['last_updated'] = timezone.now().isoformat()
         stats['methodology'] = {
             'what_we_track': 'Only our recommended bets - the top picks we show to users',
-            'selection_criteria': 'Minimum 55% confidence AND positive Expected Value',
+            'selection_criteria': 'Minimum 60% confidence AND positive Expected Value',
             'frequency': 'Top 10 best value bets updated daily',
             'data_source': 'Real match results from SportMonks API',
             'verification': 'Third-party API - results cannot be manipulated',
@@ -97,7 +97,7 @@ def accuracy_summary(request):
                 },
                 'methodology': {
                     'what_we_track': 'Only our recommended bets (top picks shown to users)',
-                    'criteria': 'Minimum 55% confidence + Positive Expected Value',
+                    'criteria': 'Minimum 60% confidence + Positive Expected Value',
                     'frequency': 'Top 10 recommendations updated daily',
                     'verification': 'Results fetched from SportMonks API',
                     'transparency': 'All predictions timestamped before matches start'

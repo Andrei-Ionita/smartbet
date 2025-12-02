@@ -85,15 +85,19 @@ class PredictionLog(models.Model):
     def calculate_performance(self):
         """Calculate performance metrics after match completes."""
         if self.actual_outcome and self.predicted_outcome:
-            self.was_correct = (self.predicted_outcome == self.actual_outcome)
+            # Case-insensitive comparison
+            predicted = self.predicted_outcome.lower()
+            actual = self.actual_outcome.lower()
+            
+            self.was_correct = (predicted == actual)
             
             # Calculate P/L for $10 stake on predicted outcome
             if self.was_correct:
-                if self.predicted_outcome == 'Home' and self.odds_home:
+                if predicted == 'home' and self.odds_home:
                     self.profit_loss_10 = 10 * (self.odds_home - 1)
-                elif self.predicted_outcome == 'Draw' and self.odds_draw:
+                elif predicted == 'draw' and self.odds_draw:
                     self.profit_loss_10 = 10 * (self.odds_draw - 1)
-                elif self.predicted_outcome == 'Away' and self.odds_away:
+                elif predicted == 'away' and self.odds_away:
                     self.profit_loss_10 = 10 * (self.odds_away - 1)
             else:
                 self.profit_loss_10 = -10

@@ -576,7 +576,7 @@ def log_recommendations(request):
                 prob_away = prob_away / 100
             
             odds_data = rec.get('odds_data', {})
-            predicted_outcome = rec.get('predicted_outcome', 'Home').lower()
+            predicted_outcome = rec.get('predicted_outcome', 'Home').capitalize()
             
             # Check if exists
             existing = PredictionLog.objects.filter(fixture_id=fixture_id).first()
@@ -697,6 +697,34 @@ def mark_recommended_by_fixture_ids(request):
     except Exception as e:
         import traceback
         traceback.print_exc()
+        return JsonResponse({
+            'success': False,
+            'error': str(e)
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def fix_performance_metrics(request):
+    """
+    Temporary endpoint to recalculate performance metrics for all predictions.
+    Fixes the issue where profit_loss was not calculated due to case sensitivity.
+    """
+    try:
+        predictions = PredictionLog.objects.filter(actual_outcome__isnull=False)
+        count = predictions.count()
+        updated = 0
+        
+        for pred in predictions:
+            pred.calculate_performance()
+            updated += 1
+            
+        return JsonResponse({
+            'success': True,
+            'message': f'Recalculated metrics for {updated}/{count} predictions',
+            'updated_count': updated
+        })
+    except Exception as e:
         return JsonResponse({
             'success': False,
             'error': str(e)
@@ -1055,11 +1083,11 @@ def update_fixture_results(request):
                 
                 # Determine outcome
                 if home_score > away_score:
-                    outcome = 'home'
+                    outcome = 'Home'
                 elif away_score > home_score:
-                    outcome = 'away'
+                    outcome = 'Away'
                 else:
-                    outcome = 'draw'
+                    outcome = 'Draw'
                 
                 # Update prediction
                 prediction.actual_outcome = outcome
