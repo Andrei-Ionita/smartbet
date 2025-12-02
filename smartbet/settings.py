@@ -77,8 +77,8 @@ if os.getenv('DATABASE_URL'):
         database_url = database_url.replace('railwaypostgresql://', 'postgresql://', 1)
 
     DATABASES = {
-        'default': dj_database_url.config(
-            default=database_url,
+        'default': dj_database_url.parse(
+            database_url,
             conn_max_age=600,
             conn_health_checks=True,
         )
