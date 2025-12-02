@@ -13,9 +13,8 @@ pip install -r requirements.txt
 echo "📁 Collecting static files..."
 python manage.py collectstatic --no-input
 
-# Run database migrations
-echo "🗄️  Running database migrations..."
-python manage.py migrate --no-input
+# NOTE: Database migrations should NOT run during build phase on Railway
+# because the build environment cannot access the private database network.
+# Migrations will be run as part of the start command in Procfile.
 
 echo "✅ Build completed successfully!"
-
