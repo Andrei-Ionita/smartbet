@@ -6,6 +6,7 @@ from pathlib import Path
 import os
 from dotenv import load_dotenv
 import dj_database_url
+import sys
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -72,17 +73,36 @@ WSGI_APPLICATION = 'smartbet.wsgi.application'
 # Database
 if os.getenv('DATABASE_URL'):
     database_url = os.getenv('DATABASE_URL')
-    # Fix for Railway's private networking URL scheme
-    if database_url and database_url.startswith('railwaypostgresql://'):
-        database_url = database_url.replace('railwaypostgresql://', 'postgresql://', 1)
+    
+    # Debug logging for deployment
+    if not DEBUG:
+        masked_url = database_url.replace(database_url.split('@')[0].split(':')[-1], '****') if '@' in database_url else '****'
+        print(f"DEBUG: Original DATABASE_URL: {masked_url}", file=sys.stderr)
 
-    DATABASES = {
-        'default': dj_database_url.parse(
-            database_url,
-            conn_max_age=600,
-            conn_health_checks=True,
-        )
-    }
+    # Fix for Railway's private networking URL scheme
+    # Handle both railwaypostgresql:// and potentially other variations
+    if 'railwaypostgresql://' in database_url:
+        database_url = database_url.replace('railwaypostgresql://', 'postgresql://')
+        if not DEBUG:
+            print("DEBUG: Replaced railwaypostgresql:// with postgresql://", file=sys.stderr)
+
+    try:
+        DATABASES = {
+            'default': dj_database_url.parse(
+                database_url,
+                conn_max_age=600,
+                conn_health_checks=True,
+            )
+        }
+    except Exception as e:
+        print(f"ERROR: Failed to parse DATABASE_URL: {e}", file=sys.stderr)
+        # Fallback to empty or sqlite to allow build to proceed if possible (though likely will fail later)
+        DATABASES = {
+            'default': {
+                'ENGINE': 'django.db.backends.sqlite3',
+                'NAME': BASE_DIR / 'db.sqlite3',
+            }
+        }
 else:
     DATABASES = {
         'default': {
