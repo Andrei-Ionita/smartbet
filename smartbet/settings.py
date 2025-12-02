@@ -5,8 +5,8 @@ Django settings for smartbet project.
 from pathlib import Path
 import os
 from dotenv import load_dotenv
-import dj_database_url
 import sys
+import urllib.parse
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -72,31 +72,47 @@ WSGI_APPLICATION = 'smartbet.wsgi.application'
 
 # Database
 if os.getenv('DATABASE_URL'):
-    database_url = os.getenv('DATABASE_URL')
-    
-    # Debug logging for deployment
-    if not DEBUG:
-        masked_url = database_url.replace(database_url.split('@')[0].split(':')[-1], '****') if '@' in database_url else '****'
-        print(f"DEBUG: Original DATABASE_URL: {masked_url}", file=sys.stderr)
-
-    # Fix for Railway's private networking URL scheme
-    # Handle both railwaypostgresql:// and potentially other variations
-    if 'railwaypostgresql://' in database_url:
-        database_url = database_url.replace('railwaypostgresql://', 'postgresql://')
-        if not DEBUG:
-            print("DEBUG: Replaced railwaypostgresql:// with postgresql://", file=sys.stderr)
-
     try:
+        database_url = os.getenv('DATABASE_URL')
+        
+        # Debug logging
+        if not DEBUG:
+            # Mask password for safety
+            try:
+                parsed_debug = urllib.parse.urlparse(database_url)
+                masked_debug = database_url.replace(parsed_debug.password, '****') if parsed_debug.password else database_url
+                print(f"DEBUG: Parsing DATABASE_URL: {masked_debug}", file=sys.stderr)
+            except:
+                print("DEBUG: Could not mask URL for logging", file=sys.stderr)
+
+        # Handle Railway's custom scheme
+        if 'railwaypostgresql://' in database_url:
+            database_url = database_url.replace('railwaypostgresql://', 'postgresql://')
+            if not DEBUG:
+                print("DEBUG: Replaced railwaypostgresql:// scheme", file=sys.stderr)
+
+        # Manual parsing using urllib
+        url = urllib.parse.urlparse(database_url)
+        path = url.path[1:]
+        
         DATABASES = {
-            'default': dj_database_url.parse(
-                database_url,
-                conn_max_age=600,
-                conn_health_checks=True,
-            )
+            'default': {
+                'ENGINE': 'django.db.backends.postgresql',
+                'NAME': path,
+                'USER': url.username,
+                'PASSWORD': url.password,
+                'HOST': url.hostname,
+                'PORT': url.port,
+                'CONN_MAX_AGE': 600,
+            }
         }
+        
+        if not DEBUG:
+            print(f"DEBUG: Database config created for NAME: {path}, HOST: {url.hostname}", file=sys.stderr)
+            
     except Exception as e:
-        print(f"ERROR: Failed to parse DATABASE_URL: {e}", file=sys.stderr)
-        # Fallback to empty or sqlite to allow build to proceed if possible (though likely will fail later)
+        print(f"ERROR: Failed to manually parse DATABASE_URL: {e}", file=sys.stderr)
+        # Fallback to sqlite to prevent build crash (though runtime will fail)
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
