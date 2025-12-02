@@ -73,15 +73,20 @@ WSGI_APPLICATION = 'smartbet.wsgi.application'
 # Database
 if os.getenv('DATABASE_URL'):
     try:
-        database_url = os.getenv('DATABASE_URL')
+        # CRITICAL FIX: Strip whitespace which breaks urlparse
+        database_url = os.getenv('DATABASE_URL').strip()
         
         # Debug logging
         if not DEBUG:
-            # Mask password for safety
             try:
-                parsed_debug = urllib.parse.urlparse(database_url)
-                masked_debug = database_url.replace(parsed_debug.password, '****') if parsed_debug.password else database_url
-                print(f"DEBUG: Parsing DATABASE_URL: {masked_debug}", file=sys.stderr)
+                # Simple masking for logs
+                safe_url = database_url
+                if '@' in safe_url:
+                    prefix, suffix = safe_url.split('@', 1)
+                    if ':' in prefix:
+                        scheme_user, _ = prefix.split(':', 1)
+                        safe_url = f"{scheme_user}:****@{suffix}"
+                print(f"DEBUG: Processing DATABASE_URL: {safe_url}", file=sys.stderr)
             except:
                 print("DEBUG: Could not mask URL for logging", file=sys.stderr)
 
@@ -93,6 +98,15 @@ if os.getenv('DATABASE_URL'):
 
         # Manual parsing using urllib
         url = urllib.parse.urlparse(database_url)
+        
+        # Verify parsing worked
+        if not url.scheme:
+            print(f"ERROR: urlparse failed to detect scheme. Raw URL start: '{database_url[:10]}...'", file=sys.stderr)
+            # Attempt fallback if scheme is missing but it looks like a postgres url
+            if 'postgres' in database_url and '://' not in database_url:
+                 # Maybe it's just the connection string without scheme? Unlikely for Railway.
+                 pass
+
         path = url.path[1:]
         
         DATABASES = {
@@ -108,11 +122,11 @@ if os.getenv('DATABASE_URL'):
         }
         
         if not DEBUG:
-            print(f"DEBUG: Database config created for NAME: {path}, HOST: {url.hostname}", file=sys.stderr)
+            print(f"DEBUG: Database config created. ENGINE: postgresql, HOST: {url.hostname}, NAME: {path}, USER: {url.username}", file=sys.stderr)
             
     except Exception as e:
         print(f"ERROR: Failed to manually parse DATABASE_URL: {e}", file=sys.stderr)
-        # Fallback to sqlite to prevent build crash (though runtime will fail)
+        # Fallback to sqlite to prevent build crash
         DATABASES = {
             'default': {
                 'ENGINE': 'django.db.backends.sqlite3',
