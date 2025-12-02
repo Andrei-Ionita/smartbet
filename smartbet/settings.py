@@ -71,9 +71,14 @@ WSGI_APPLICATION = 'smartbet.wsgi.application'
 
 # Database
 if os.getenv('DATABASE_URL'):
+    database_url = os.getenv('DATABASE_URL')
+    # Fix for Railway's private networking URL scheme
+    if database_url and database_url.startswith('railwaypostgresql://'):
+        database_url = database_url.replace('railwaypostgresql://', 'postgresql://', 1)
+
     DATABASES = {
         'default': dj_database_url.config(
-            default=os.getenv('DATABASE_URL'),
+            default=database_url,
             conn_max_age=600,
             conn_health_checks=True,
         )
