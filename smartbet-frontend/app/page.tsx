@@ -239,7 +239,7 @@ export default function HomePage() {
                 <p className="text-sm text-center text-blue-900">
                   🔍 <strong>100% Transparent:</strong> These recommendations are logged & tracked on our{' '}
                   <a href="/track-record" className="underline font-semibold hover:text-blue-700">public track record</a>
-                  {' '}• All predictions timestamped before kickoff • Real results verified via SportMonks API
+                  {' '}• All predictions timestamped before kickoff • Real results verified by 3rd party sources
                 </p>
               </div>
 
@@ -480,7 +480,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Data Analysis</h3>
               <p className="text-gray-600">
-                Confidence scores from SportMonks Predictions API with advanced ML models
+                Confidence scores from premium data providers with advanced ML models
               </p>
             </div>
 
@@ -557,7 +557,7 @@ export default function HomePage() {
                 <Users className="h-6 w-6 text-purple-600" />
               </div>
               <div className="font-semibold text-gray-900 mb-2">Data Sources</div>
-              <div className="text-sm text-gray-600">SportMonks Predictions API • Updates every 60 seconds</div>
+              <div className="text-sm text-gray-600">Premium Data Sources • Updates every 60 seconds</div>
             </div>
           </div>
         </div>
