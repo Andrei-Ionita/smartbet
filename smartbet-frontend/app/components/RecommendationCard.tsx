@@ -702,20 +702,18 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       {/* Actions */}
       <div className="flex justify-between items-center mt-4">
         <button
-          onClick={() => onViewDetails(recommendation.fixture_id)}
+          onClick={() => setIsExpanded(!isExpanded)}
           className="group inline-flex items-center gap-2 bg-primary-600 hover:bg-primary-700 text-white px-4 py-2 rounded-xl font-semibold transition-all duration-200 hover:scale-105"
         >
-          View Details
-          <ExternalLink className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
+          {isExpanded ? 'Hide Analysis' : 'View Analysis'}
+          {isExpanded ? (
+            <ChevronUp className="h-4 w-4 transition-transform" />
+          ) : (
+            <ChevronDown className="h-4 w-4 transition-transform" />
+          )}
         </button>
 
-        <div className={`flex items-center gap-2 text-sm px-3 py-2 rounded-lg font-medium ${recommendation.signal_quality === 'Strong' ? 'bg-green-100 text-green-700' :
-          recommendation.signal_quality === 'Good' ? 'bg-blue-100 text-blue-700' :
-            recommendation.signal_quality === 'Moderate' ? 'bg-yellow-100 text-yellow-700' : 'bg-red-100 text-red-700'
-          }`}>
-          <TrendingUp className="h-4 w-4" />
-          <span>{recommendation.signal_quality || 'Weak'}</span>
-        </div>
+
       </div>
 
       {/* Betting Calculator Modal */}

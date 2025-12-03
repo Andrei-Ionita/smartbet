@@ -1,18 +1,16 @@
-'use client'
-
 import { useState } from 'react'
-import PerformanceDashboard from '../components/PerformanceDashboard'
+import ModelPerformanceDashboard from '../components/ModelPerformanceDashboard'
 import PredictionAccuracyTracker from '../components/PredictionAccuracyTracker'
 import RecommendedPredictionsTable from '../components/RecommendedPredictionsTable'
-import { Activity, BarChart3, Settings, TrendingUp, Target, Award } from 'lucide-react'
+import { BarChart3, Settings, TrendingUp, Target, Award, ShieldCheck } from 'lucide-react'
 
 export default function MonitoringPage() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'accuracy' | 'recommended' | 'analytics' | 'settings'>('dashboard')
 
   const tabs = [
-    { id: 'dashboard', label: 'Performance', icon: Activity },
-    { id: 'accuracy', label: 'Prediction Accuracy', icon: Target },
-    { id: 'recommended', label: 'Recommended Predictions', icon: Award },
+    { id: 'dashboard', label: 'Model Performance', icon: ShieldCheck },
+    { id: 'accuracy', label: 'Detailed Accuracy', icon: Target },
+    { id: 'recommended', label: 'Recommendation History', icon: Award },
     { id: 'analytics', label: 'Analytics', icon: BarChart3 },
     { id: 'settings', label: 'Settings', icon: Settings }
   ]
@@ -27,8 +25,8 @@ export default function MonitoringPage() {
               <TrendingUp className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-3xl font-bold text-gray-900">Performance Monitoring</h1>
-              <p className="text-gray-600">Real-time system performance and analytics</p>
+              <h1 className="text-3xl font-bold text-gray-900">Model Performance Center</h1>
+              <p className="text-gray-600">Transparent tracking of our AI prediction accuracy and ROI</p>
             </div>
           </div>
         </div>
@@ -42,11 +40,10 @@ export default function MonitoringPage() {
                 <button
                   key={tab.id}
                   onClick={() => setActiveTab(tab.id as any)}
-                  className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${
-                    activeTab === tab.id
-                      ? 'bg-primary-100 text-primary-700 shadow-sm'
-                      : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
-                  }`}
+                  className={`flex items-center gap-2 px-4 py-3 rounded-xl font-medium transition-all duration-200 ${activeTab === tab.id
+                    ? 'bg-primary-100 text-primary-700 shadow-sm'
+                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    }`}
                 >
                   <Icon className="h-4 w-4" />
                   {tab.label}
@@ -60,68 +57,14 @@ export default function MonitoringPage() {
         <div className="space-y-8">
           {activeTab === 'dashboard' && (
             <div className="space-y-8">
-              <PerformanceDashboard />
-              
-              {/* Quick Stats */}
-              <div className="grid md:grid-cols-3 gap-6">
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">System Health</h3>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">API Status</span>
-                      <span className="flex items-center gap-2 text-green-600">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        Healthy
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Cache Status</span>
-                      <span className="flex items-center gap-2 text-green-600">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        Active
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600">Rate Limiting</span>
-                      <span className="flex items-center gap-2 text-green-600">
-                        <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-                        Normal
-                      </span>
-                    </div>
-                  </div>
-                </div>
+              <ModelPerformanceDashboard />
 
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h3>
-                  <div className="space-y-3">
-                    <div className="text-sm">
-                      <div className="text-gray-900 font-medium">Homepage loaded</div>
-                      <div className="text-gray-500">2 minutes ago</div>
-                    </div>
-                    <div className="text-sm">
-                      <div className="text-gray-900 font-medium">Search performed</div>
-                      <div className="text-gray-500">5 minutes ago</div>
-                    </div>
-                    <div className="text-sm">
-                      <div className="text-gray-900 font-medium">Fixture analyzed</div>
-                      <div className="text-gray-500">8 minutes ago</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
-                  <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance Tips</h3>
-                  <div className="space-y-3 text-sm">
-                    <div className="p-3 bg-blue-50 rounded-lg">
-                      <div className="font-medium text-blue-900">Cache Optimization</div>
-                      <div className="text-blue-700">Increase cache duration for better performance</div>
-                    </div>
-                    <div className="p-3 bg-green-50 rounded-lg">
-                      <div className="font-medium text-green-900">Batch Requests</div>
-                      <div className="text-green-700">Using smart batching reduces API calls</div>
-                    </div>
-                  </div>
-                </div>
+              <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Why We Track Performance</h3>
+                <p className="text-gray-600 max-w-2xl mx-auto">
+                  Transparency is our core value. We believe you should know exactly how our models perform before you place a bet.
+                  That's why we track every single recommendation we make, win or lose.
+                </p>
               </div>
             </div>
           )}
