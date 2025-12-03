@@ -1,3 +1,5 @@
+'use client'
+
 import { useState } from 'react'
 import ModelPerformanceDashboard from '../components/ModelPerformanceDashboard'
 import PredictionAccuracyTracker from '../components/PredictionAccuracyTracker'
