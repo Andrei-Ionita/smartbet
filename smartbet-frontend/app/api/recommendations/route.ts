@@ -39,13 +39,13 @@ export async function GET(request: NextRequest) {
         error: 'API configuration error - no real data available'
       }, { status: 500 })
     }
-    
+
     // Calculate date range for next 14 days
     const now = new Date()
     const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
     const startDate = now.toISOString().split('T')[0]
     const endDate = fourteenDaysFromNow.toISOString().split('T')[0]
-    
+
     // All 27 leagues covered by subscription
     const keyLeagues = [
       { id: 8, name: 'Premier League' },
@@ -65,7 +65,8 @@ export async function GET(request: NextRequest) {
       { id: 444, name: 'Eliteserien' },
       { id: 453, name: 'Ekstraklasa' },
       { id: 462, name: 'Liga Portugal' },
-      { id: 486, name: 'Premier League (Romanian)' },
+      { id: 283, name: 'Romanian SuperLiga' },
+      { id: 486, name: 'Russian Premier League' },
       { id: 501, name: 'Premiership' },
       { id: 564, name: 'La Liga' },
       { id: 567, name: 'La Liga 2' },
@@ -83,16 +84,16 @@ export async function GET(request: NextRequest) {
 
     for (const league of keyLeagues) {
       try {
-            const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
-    const params = new URLSearchParams({
+        const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
+        const params = new URLSearchParams({
           api_token: token,
-              include: 'participants;league;metadata;predictions;odds;odds.bookmaker',
+          include: 'participants;league;metadata;predictions;odds;odds.bookmaker',
           filters: `fixtureLeagues:${league.id}`,
-              per_page: '50',
-              page: '1',
-              timezone: 'Europe/Bucharest'
-            })
-            
+          per_page: '50',
+          page: '1',
+          timezone: 'Europe/Bucharest'
+        })
+
         const data = await apiClient.request(`${url}?${params}`)
         const fixtures = data.data || []
         totalFixtures += fixtures.length
@@ -101,13 +102,13 @@ export async function GET(request: NextRequest) {
         for (const fixture of fixtures) {
           const predictions = fixture.predictions || []
           const x12Predictions = predictions.filter((p: any) => [233, 237, 238].includes(p.type_id))
-          
+
           if (x12Predictions.length > 0 && fixture.odds && fixture.odds.length > 0) {
             fixturesWithPredictions++
-            
+
             const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
             const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
-            
+
             // Smart conversion: if values are > 1, they're percentages and need division by 100
             // If values are <= 1, they're already decimals
             const normalizeProbability = (value: number) => {
@@ -115,7 +116,7 @@ export async function GET(request: NextRequest) {
               if (value > 1) return value / 100  // Convert percentage to decimal
               return value  // Already a decimal
             }
-            
+
             // Analyze all X12 predictions to get consensus and variance
             const allX12Predictions = x12Predictions.map((pred: any) => ({
               type_id: pred.type_id,
@@ -124,28 +125,28 @@ export async function GET(request: NextRequest) {
               draw: normalizeProbability(pred.predictions.draw || 0),
               away: normalizeProbability(pred.predictions.away || 0)
             }))
-            
+
             // Calculate consensus from all predictions
             const consensusHome = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.home, 0) / allX12Predictions.length
             const consensusDraw = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.draw, 0) / allX12Predictions.length
             const consensusAway = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.away, 0) / allX12Predictions.length
-            
+
             // Calculate variance to measure prediction agreement
             const homeVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.home - consensusHome, 2), 0) / allX12Predictions.length
             const drawVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.draw - consensusDraw, 2), 0) / allX12Predictions.length
             const awayVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.away - consensusAway, 2), 0) / allX12Predictions.length
             const totalVariance = (homeVariance + drawVariance + awayVariance) / 3
-            
+
             // Use the prediction with highest confidence (most decisive)
             const bestPred = allX12Predictions.reduce((best: any, current: any) => {
               const currentMax = Math.max(current.home, current.draw, current.away)
               const bestMax = Math.max(best.home, best.draw, best.away)
               return currentMax > bestMax ? current : best
             })
-            
+
             // Convert SportMonks predictions to decimals - handle different possible formats
             const rawPredictions = bestPred.predictions
-            
+
             const predictionData = {
               home: normalizeProbability(rawPredictions.home || 0),
               draw: normalizeProbability(rawPredictions.draw || 0),
@@ -163,7 +164,7 @@ export async function GET(request: NextRequest) {
               draw_bookmaker: string | null
               away_bookmaker: string | null
             } | null = null
-            
+
             if (x12Odds.length > 0) {
               // Helper function to get bookmaker name from odds entry
               const getBookmakerName = (odd: any) => {
@@ -171,23 +172,23 @@ export async function GET(request: NextRequest) {
                 if (odd.bookmaker && odd.bookmaker.name) {
                   return odd.bookmaker.name
                 }
-                
+
                 // Try to get bookmaker name from odds entry directly
                 if (odd.bookmaker_name) return odd.bookmaker_name
                 if (odd.provider) return odd.provider
                 if (odd.source) return odd.source
-                
+
                 // Try to get bookmaker from metadata using bookmaker_id
                 if (odd.bookmaker_id) {
                   const bookmakerMeta = data.meta?.bookmakers?.find((bm: any) => bm.id === odd.bookmaker_id)
                   if (bookmakerMeta) return bookmakerMeta.name
                 }
-                
+
                 // Fallback: use a common bookmaker name based on ID patterns
                 // Based on the debug output, we can see bookmaker IDs like 1, 2, 14, 16, 26, 29, 32, 35, 38, 64
                 const bookmakerMap: { [key: number]: string } = {
                   1: 'Bet365',
-                  2: 'Betfair', 
+                  2: 'Betfair',
                   14: 'William Hill',
                   16: 'Paddy Power',
                   26: 'Ladbrokes',
@@ -197,15 +198,15 @@ export async function GET(request: NextRequest) {
                   38: 'Betway',
                   64: '888Sport'
                 }
-                
+
                 if (odd.bookmaker_id && bookmakerMap[odd.bookmaker_id]) {
                   return bookmakerMap[odd.bookmaker_id]
                 }
-                
+
                 // Final fallback
                 return `Bookmaker ${odd.bookmaker_id || 'Unknown'}`
               }
-              
+
               // Extract odds with individual bookmaker names
               const odds: {
                 home: number | null
@@ -222,12 +223,12 @@ export async function GET(request: NextRequest) {
                 draw_bookmaker: null,
                 away_bookmaker: null
               }
-              
+
               // Process each odds entry and assign to the correct outcome
               for (const odd of x12Odds) {
                 const bookmakerName = getBookmakerName(odd)
                 const oddValue = parseFloat(odd.value)
-                
+
                 if (odd.label.toLowerCase() === 'home') {
                   odds.home = oddValue
                   odds.home_bookmaker = bookmakerName
@@ -239,11 +240,11 @@ export async function GET(request: NextRequest) {
                   odds.away_bookmaker = bookmakerName
                 }
               }
-              
+
               // Determine the primary bookmaker (most common or first available)
               const bookmakers = [odds.home_bookmaker, odds.draw_bookmaker, odds.away_bookmaker].filter(Boolean)
               const primaryBookmaker: string = bookmakers.length > 0 && typeof bookmakers[0] === 'string' ? bookmakers[0] : 'Multiple Bookmakers'
-              
+
               // Create odds data with bookmaker information
               oddsData = {
                 home: odds.home,
@@ -308,7 +309,7 @@ export async function GET(request: NextRequest) {
                   // Calculate prediction gap (difference between top 2 probabilities)
                   const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
                   const gap = (probs[0] - probs[1]) * 100 // Gap in percentage points
-                  
+
                   // Strong signal: high confidence OR large gap
                   if (confidence >= 70 || gap >= 15) return 'Strong'
                   // Moderate signal: decent confidence OR moderate gap
@@ -320,7 +321,7 @@ export async function GET(request: NextRequest) {
                   // Calculate prediction gap for better assessment
                   const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
                   const gap = (probs[0] - probs[1]) * 100
-                  
+
                   // Strong: clear leader with good confidence
                   if (confidence >= 70 || (confidence >= 60 && gap >= 12)) return 'Strong'
                   // Good: decent confidence with some separation
@@ -350,18 +351,18 @@ export async function GET(request: NextRequest) {
     const scoredRecommendations = allRecommendations.map(rec => {
       // Revenue component: Expected value weighted by confidence
       const revenueScore = rec.expected_value * (rec.confidence / 100)
-      
+
       // Risk component: Inverse of confidence (lower confidence = higher risk)
       const riskScore = 1 - (rec.confidence / 100)
-      
+
       // Combined score: Revenue - Risk (higher is better)
       // Weight risk more heavily for better quality control
       const combinedScore = revenueScore - (riskScore * 0.8)
-      
+
       // Quality bonuses - heavily favor high confidence
       const qualityBonus = rec.confidence >= 70 ? 0.5 : rec.confidence >= 65 ? 0.3 : rec.confidence >= 60 ? 0.2 : 0
       const evBonus = rec.expected_value >= 30 ? 0.2 : rec.expected_value >= 15 ? 0.1 : 0 // expected_value is percentage
-      
+
       return {
         ...rec,
         revenue_vs_risk_score: combinedScore + qualityBonus + evBonus,
@@ -382,7 +383,7 @@ export async function GET(request: NextRequest) {
     // Log these recommendations to the database automatically
     // This ensures they're tracked for accuracy monitoring
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    
+
     // Fire and forget - log recommendations to database (non-blocking)
     fetch(`${djangoBaseUrl}/api/log-recommendations/`, {
       method: 'POST',

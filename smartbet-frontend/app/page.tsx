@@ -429,7 +429,7 @@ export default function HomePage() {
               { id: 'eliteserien', name: 'Eliteserien', country: 'Norway', status: 'PRODUCTION' },
               { id: 'ekstraklasa', name: 'Ekstraklasa', country: 'Poland', status: 'PRODUCTION' },
               { id: 'liga-portugal', name: 'Liga Portugal', country: 'Portugal', status: 'PRODUCTION' },
-              { id: 'premier-league-ro', name: 'Premier League', country: 'Romania', status: 'PRODUCTION' },
+              { id: 'superliga-ro', name: 'Romanian SuperLiga', country: 'Romania', status: 'PRODUCTION' },
               { id: 'premiership', name: 'Premiership', country: 'Scotland', status: 'PRODUCTION' },
               { id: 'la-liga-2', name: 'La Liga 2', country: 'Spain', status: 'PRODUCTION' },
               { id: 'copa-del-rey', name: 'Copa Del Rey', country: 'Spain', status: 'PRODUCTION' },

@@ -33,13 +33,13 @@ function getCacheKey(endpoint: string, params: Record<string, any> = {}): string
 function getFromCache(key: string): any | null {
   const cached = cache.get(key)
   if (!cached) return null
-  
+
   const now = Date.now()
   if (now - cached.timestamp > cached.duration) {
     cache.delete(key)
     return null
   }
-  
+
   return cached.data
 }
 
@@ -72,6 +72,7 @@ const SUPPORTED_LEAGUE_IDS = [
   208,   // Pro League
   244,   // 1. HNL
   271,   // Superliga
+  283,   // Romanian SuperLiga
   301,   // Ligue 1
   384,   // Serie A
   387,   // Serie B
@@ -79,7 +80,7 @@ const SUPPORTED_LEAGUE_IDS = [
   444,   // Eliteserien
   453,   // Ekstraklasa
   462,   // Liga Portugal
-  486,   // Premier League (Romanian)
+  486,   // Russian Premier League
   501,   // Premiership
   564,   // La Liga
   567,   // La Liga 2
@@ -192,7 +193,7 @@ export async function GET(request: NextRequest) {
         const results = matchingFixtures.map((fixture: any) => {
           const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
           const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
-          
+
           return {
             fixture_id: fixture.id,
             home_team: homeTeam,
