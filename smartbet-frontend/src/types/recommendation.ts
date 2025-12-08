@@ -84,4 +84,56 @@ export interface Recommendation {
     value_opportunity: string
     odds_efficiency: string
   }
+
+  // New Enhanced Data Features
+  teams_data?: {
+    home: {
+      id: number
+      name: string
+      logo_path?: string
+      form?: string // "W,L,W,D,W"
+      position?: number // League position
+      points?: number
+      matches_played?: number
+      goals_scored?: number
+      goals_conceded?: number
+      injuries?: Array<{
+        player_name: string
+        reason: string
+        type: 'Missing' | 'Questionable'
+      }>
+    }
+    away: {
+      id: number
+      name: string
+      logo_path?: string
+      form?: string
+      position?: number
+      points?: number
+      matches_played?: number
+      goals_scored?: number
+      goals_conceded?: number
+      injuries?: Array<{
+        player_name: string
+        reason: string
+        type: 'Missing' | 'Questionable'
+      }>
+    }
+  }
+
+  h2h_data?: {
+    total_played: number
+    home_wins: number
+    away_wins: number
+    draws: number
+    last_5_results: Array<'Home' | 'Away' | 'Draw'>
+    summary_text?: string // "Home won 3 of last 5 meetings"
+  }
+
+  lineups_data?: {
+    status: 'Confirmed' | 'Predicted' | 'Unavailable'
+    home_formation?: string
+    away_formation?: string
+    key_players_missing?: boolean
+  }
 }

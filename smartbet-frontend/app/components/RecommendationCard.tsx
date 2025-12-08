@@ -173,8 +173,20 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               {formatKickoff(recommendation.kickoff)}
             </span>
           </div>
-          <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight">
-            {recommendation.home_team} vs {recommendation.away_team}
+          <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight flex items-center gap-2">
+            <span className="flex items-center gap-1">
+              {recommendation.teams_data?.home.position && (
+                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">#{recommendation.teams_data.home.position}</span>
+              )}
+              {recommendation.home_team}
+            </span>
+            <span className="text-gray-400 text-sm">vs</span>
+            <span className="flex items-center gap-1">
+              {recommendation.away_team}
+              {recommendation.teams_data?.away.position && (
+                <span className="text-xs font-normal text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded">#{recommendation.teams_data.away.position}</span>
+              )}
+            </span>
           </h3>
         </div>
         <button
@@ -188,9 +200,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
       {/* Prediction */}
       <div className="mb-6">
+        {/* ... (Prediction Bar Code Remains same) ... */}
         {recommendation.confidence > 0 ? (
           <>
             <div className="flex items-center gap-4 mb-4">
+              {/* ... */}
               <span className={`text-lg font-bold px-4 py-2 rounded-xl ${getOutcomeColor(recommendation.predicted_outcome)} bg-gray-50`}>
                 {recommendation.predicted_outcome}
               </span>
@@ -216,6 +230,89 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 {Math.round(recommendation.confidence * 100)}%
               </span>
             </div>
+
+            {/* NEW: Team Analysis Section (Form, H2H, Injuries) */}
+            {(recommendation.teams_data || recommendation.h2h_data || recommendation.lineups_data) && (
+              <div className="mb-4 grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* 1. Recent Form */}
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Recent Form</div>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[80px]">{recommendation.home_team}</span>
+                      <div className="flex gap-0.5">
+                        {/* Only show if form data is available */}
+                        {recommendation.teams_data?.home.form ? recommendation.teams_data.home.form.split(',').map((res, i) => (
+                          <span key={i} className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded ${res === 'W' ? 'bg-green-100 text-green-700' :
+                              res === 'L' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                            }`}>{res}</span>
+                        )) : <span className="text-xs text-gray-400">N/A</span>}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm font-medium text-gray-700 truncate max-w-[80px]">{recommendation.away_team}</span>
+                      <div className="flex gap-0.5">
+                        {recommendation.teams_data?.away.form ? recommendation.teams_data.away.form.split(',').map((res, i) => (
+                          <span key={i} className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded ${res === 'W' ? 'bg-green-100 text-green-700' :
+                              res === 'L' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                            }`}>{res}</span>
+                        )) : <span className="text-xs text-gray-400">N/A</span>}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Head-to-Head */}
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Head-to-Head</div>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <span className="text-gray-600">Last {recommendation.h2h_data?.total_played || 5}</span>
+                    <span className="font-medium text-gray-900">{recommendation.h2h_data?.summary_text || 'Data loading...'}</span>
+                  </div>
+                  <div className="flex h-2 rounded-full overflow-hidden bg-gray-200 w-full mt-2">
+                    <div className="bg-blue-500 h-full" style={{ width: `${((recommendation.h2h_data?.home_wins || 0) / (recommendation.h2h_data?.total_played || 1)) * 100}%` }} />
+                    <div className="bg-gray-400 h-full" style={{ width: `${((recommendation.h2h_data?.draws || 0) / (recommendation.h2h_data?.total_played || 1)) * 100}%` }} />
+                    <div className="bg-purple-500 h-full" style={{ width: `${((recommendation.h2h_data?.away_wins || 0) / (recommendation.h2h_data?.total_played || 1)) * 100}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[10px] text-gray-500 mt-1">
+                    <span>Home Win</span>
+                    <span>Draw</span>
+                    <span>Away Win</span>
+                  </div>
+                </div>
+
+                {/* 3. Team News */}
+                <div className="bg-gray-50 rounded-lg p-3 border border-gray-200">
+                  <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide flex justify-between">
+                    <span>Status</span>
+                    <span className={`px-1.5 py-0.5 rounded text-[10px] ${recommendation.lineups_data?.status === 'Confirmed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>{recommendation.lineups_data?.status || 'Predicted'}</span>
+                  </div>
+
+                  {/* Injuries List */}
+                  {(recommendation.teams_data?.home.injuries?.length || 0) > 0 || (recommendation.teams_data?.away.injuries?.length || 0) > 0 ? (
+                    <div className="space-y-1 overflow-y-auto max-h-[60px] pr-1 scrollbar-thin">
+                      {[...(recommendation.teams_data?.home.injuries || []), ...(recommendation.teams_data?.away.injuries || [])].slice(0, 2).map((inj, i) => (
+                        <div key={i} className="flex items-center gap-1.5 text-xs text-red-600">
+                          <AlertTriangle className="h-3 w-3 flex-shrink-0" />
+                          <span className="truncate">{inj.player_name} ({inj.type})</span>
+                        </div>
+                      ))}
+                      {((recommendation.teams_data?.home.injuries?.length || 0) + (recommendation.teams_data?.away.injuries?.length || 0)) > 2 && (
+                        <div className="text-[10px] text-gray-400 pl-4">+ more missing players</div>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-xs text-green-600 flex items-center gap-1 mt-2">
+                      <CheckCircle className="h-3 w-3" />
+                      No major injuries reported
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
 
             {/* Key Betting Metrics */}
             <div className="mb-4">
