@@ -8,8 +8,8 @@ export const runtime = 'nodejs'
 const apiClient = {
   async request(url: string) {
     const controller = new AbortController()
-    // 5 second timeout for external API calls
-    const timeoutId = setTimeout(() => controller.abort(), 5000)
+    // 10 second timeout for external API calls to avoid AbortError on slow responses
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
     try {
       const response = await fetch(url, { signal: controller.signal })
       clearTimeout(timeoutId)
@@ -144,11 +144,6 @@ export async function GET(request: NextRequest) {
             const consensusDraw = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.draw, 0) / allX12Predictions.length
             const consensusAway = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.away, 0) / allX12Predictions.length
 
-            const homeVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.home - consensusHome, 2), 0) / allX12Predictions.length
-            const drawVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.draw - consensusDraw, 2), 0) / allX12Predictions.length
-            const awayVariance = allX12Predictions.reduce((sum: number, pred: any) => sum + Math.pow(pred.away - consensusAway, 2), 0) / allX12Predictions.length
-            const totalVariance = (homeVariance + drawVariance + awayVariance) / 3
-
             const bestPred = allX12Predictions.reduce((best: any, current: any) => {
               const currentMax = Math.max(current.home, current.draw, current.away)
               const bestMax = Math.max(best.home, best.draw, best.away)
@@ -215,15 +210,27 @@ export async function GET(request: NextRequest) {
                 probabilities: predictionData,
                 odds_data: oddsData,
                 explanation: `Model predicts ${predictedOutcome} win`,
-                // ... other metadata fields simplified ...
                 debug_info: { confidence_score: confidence },
-                revenue_vs_risk_score: 0 // Will be calculated
+                revenue_vs_risk_score: 0, // Will be calculated
+                // Adjusted Signal Quality Logic: Retained as it is purely computational, not data-dependent
+                signal_quality: (() => {
+                  const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
+                  const gap = (probs[0] - probs[1]) * 100
+
+                  // Strong: >65% confidence OR (>55% and >10% gap)
+                  if (confidence >= 65 || (confidence >= 55 && gap >= 10)) return 'Strong'
+                  // Good: >55% conf OR (>45% and >5% gap)
+                  if (confidence >= 55 || (confidence >= 45 && gap >= 5)) return 'Good'
+                  // Moderate: >45% conf
+                  if (confidence >= 45) return 'Moderate'
+                  return 'Weak'
+                })()
               })
             }
           }
         }
       } catch (error) {
-        console.log(`Error fetching league ${league.name}: ${error}`)
+        console.error(`Error fetching league ${league.name}: ${error}`)
       }
     }
 
@@ -243,125 +250,17 @@ export async function GET(request: NextRequest) {
       ...rec, is_recommended: true
     }))
 
-    // ENRICHMENT
-    console.log(`🚀 Enriching top ${top10Recommendations.length} recommendations...`)
-
-    // Helper function
-    const enrichRecommendation = async (rec: any) => {
-      try {
-        if (!rec.home_id || !rec.away_id) return rec
-
-        const fixtureUrl = `https://api.sportmonks.com/v3/football/fixtures/${rec.fixture_id}`
-        const fixtureParams = new URLSearchParams({
-          api_token: token,
-          include: 'participants;lineups;lineups.player;injuries;injuries.player'
-        })
-
-        const h2hUrl = `https://api.sportmonks.com/v3/football/head-to-head/${rec.home_id}/${rec.away_id}`
-        const h2hParams = new URLSearchParams({
-          api_token: token,
-          include: 'participants',
-          limit: '5'
-        })
-
-        let fixtureData = null
-        let h2hData = []
-
-        try {
-          const fixtureRes = await apiClient.request(`${fixtureUrl}?${fixtureParams}`)
-          fixtureData = fixtureRes.data
-        } catch (e: any) {
-          console.error(`Failed to fetch fixture ${rec.fixture_id}: ${e.message}`)
-        }
-
-        try {
-          const h2hRes = await apiClient.request(`${h2hUrl}?${h2hParams}`)
-          h2hData = h2hRes.data || []
-        } catch (e: any) {
-          console.error(`Failed to fetch H2H for ${rec.fixture_id}: ${e.message}`)
-        }
-
-        if (!fixtureData) return rec
-
-        // Process Data
-        const homeTeam = fixtureData?.participants?.find((p: any) => p.meta?.location === 'home')
-        const awayTeam = fixtureData?.participants?.find((p: any) => p.meta?.location === 'away')
-
-        const processInjuries = (teamId: number) => {
-          return fixtureData?.injuries
-            ?.filter((inj: any) => inj.team_id === teamId)
-            .map((inj: any) => ({
-              player_name: inj.player?.name || inj.player_name || 'Unknown',
-              reason: inj.reason || 'Unknown',
-              type: 'Missing'
-            })) || []
-        }
-
-        const teams_data = {
-          home: {
-            id: rec.home_id,
-            name: rec.home_team,
-            logo_path: homeTeam?.image_path,
-            form: homeTeam?.form || 'N/A', // Assuming form is here? SportMonks participants might not have form in fixture include. 
-            // Actually form requires 'participants;participants.form'? No, stand-alone call usually.
-            // For now, if form is missing, frontend handles it.
-            position: 0, // Placeholder
-            injuries: processInjuries(rec.home_id)
-          },
-          away: {
-            id: rec.away_id,
-            name: rec.away_team,
-            logo_path: awayTeam?.image_path,
-            form: awayTeam?.form || 'N/A',
-            position: 0,
-            injuries: processInjuries(rec.away_id)
-          }
-        }
-
-        const lineups_data = {
-          status: fixtureData?.lineups?.length > 0 ? 'Confirmed' : 'Predicted',
-          home_formation: fixtureData?.lineups?.find((l: any) => l.team_id === rec.home_id)?.formation || 'Unknown',
-          away_formation: fixtureData?.lineups?.find((l: any) => l.team_id === rec.away_id)?.formation || 'Unknown'
-        }
-
-        const h2h_data = {
-          total_played: h2hData.length,
-          home_wins: 0, away_wins: 0, draws: 0, last_5_results: [] as any[], summary_text: ''
-        }
-
-        h2hData.forEach((match: any) => {
-          const homeWinner = match?.participants?.find((p: any) => p.meta?.location === 'home' && p.meta?.winner)
-          const awayWinner = match?.participants?.find((p: any) => p.meta?.location === 'away' && p.meta?.winner)
-
-          if (homeWinner && homeWinner.id === rec.home_id) {
-            h2h_data.home_wins++; h2h_data.last_5_results.push('Home')
-          } else if (awayWinner && awayWinner.id === rec.away_id) {
-            h2h_data.away_wins++; h2h_data.last_5_results.push('Away')
-          } else {
-            h2h_data.draws++; h2h_data.last_5_results.push('Draw')
-          }
-        })
-
-        h2h_data.summary_text = `${rec.home_team} won ${h2h_data.home_wins}, ${rec.away_team} won ${h2h_data.away_wins} of last ${h2hData.length} meetings`
-
-        return { ...rec, teams_data, lineups_data, h2h_data }
-
-      } catch (error: any) {
-        console.error(`enrich failed: ${error.message}`)
-        return rec
-      }
-    }
-
-    const enrichedRecommendations = []
-    for (const rec of top10Recommendations) {
-      enrichedRecommendations.push(await enrichRecommendation(rec))
-    }
-
-    // Log logic omitted for brevity/safety
+    // Log logic
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    fetch(`${djangoBaseUrl}/api/log-recommendations/`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ recommendations: top10Recommendations }),
+    }).catch(() => { })
 
     return NextResponse.json({
-      recommendations: enrichedRecommendations,
-      total: enrichedRecommendations.length,
+      recommendations: top10Recommendations,
+      total: top10Recommendations.length,
       message: 'Success'
     })
 
