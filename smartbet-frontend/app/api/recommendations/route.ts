@@ -261,6 +261,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       recommendations: top10Recommendations,
       total: top10Recommendations.length,
+      leagues_covered: keyLeagues.length,
+      fixtures_analyzed: totalFixtures,
+      fixtures_with_predictions: fixturesWithPredictions,
+      confidence_threshold: 55,
+      lastUpdated: new Date().toISOString(),
       message: 'Success'
     })
 
