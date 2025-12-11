@@ -229,7 +229,50 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
 
 
-            {/* Key Betting Metrics */}
+            {/* Recent Form Section */}
+            {(recommendation.teams_data?.home?.form || recommendation.teams_data?.away?.form) && (
+              <div className="mb-4 bg-gray-50 rounded-lg p-3 border border-gray-200">
+                <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">Recent Form</div>
+                <div className="space-y-2">
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 truncate max-w-[100px]">{recommendation.home_team}</span>
+                    <div className="flex gap-0.5">
+                      {(() => {
+                        const formRaw = recommendation.teams_data?.home?.form
+                        const formArray = (Array.isArray(formRaw) ? formRaw : typeof formRaw === 'string' ? formRaw.split('') : []) as string[]
+                        return formArray.length > 0 ? formArray.slice(0, 5).map((item: any, i: number) => {
+                          const res = typeof item === 'object' && item?.form ? item.form : item
+                          return (
+                            <span key={i} className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded ${res === 'W' ? 'bg-green-100 text-green-700' :
+                              res === 'L' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>{res}</span>
+                          )
+                        }) : <span className="text-xs text-gray-400">N/A</span>
+                      })()}
+                    </div>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-sm font-medium text-gray-700 truncate max-w-[100px]">{recommendation.away_team}</span>
+                    <div className="flex gap-0.5">
+                      {(() => {
+                        const formRaw = recommendation.teams_data?.away?.form
+                        const formArray = (Array.isArray(formRaw) ? formRaw : typeof formRaw === 'string' ? formRaw.split('') : []) as string[]
+                        return formArray.length > 0 ? formArray.slice(0, 5).map((item: any, i: number) => {
+                          const res = typeof item === 'object' && item?.form ? item.form : item
+                          return (
+                            <span key={i} className={`w-5 h-5 flex items-center justify-center text-[10px] font-bold rounded ${res === 'W' ? 'bg-green-100 text-green-700' :
+                              res === 'L' ? 'bg-red-100 text-red-700' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>{res}</span>
+                          )
+                        }) : <span className="text-xs text-gray-400">N/A</span>
+                      })()}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             <div className="mb-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
                 <div className="text-center">

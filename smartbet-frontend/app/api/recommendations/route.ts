@@ -110,7 +110,12 @@ export async function GET(request: NextRequest) {
         totalFixtures += fixtures.length
 
         // Process fixtures with predictions and odds
+        let hasLogged = false
         for (const fixture of fixtures) {
+          if (!hasLogged) {
+            console.log('🔍 Sample Participant Data:', JSON.stringify(fixture.participants?.[0], null, 2))
+            hasLogged = true
+          }
           const predictions = fixture.predictions || []
           const x12Predictions = predictions.filter((p: any) => [233, 237, 238].includes(p.type_id))
 
@@ -201,6 +206,7 @@ export async function GET(request: NextRequest) {
                 away_team: awayTeam,
                 home_id: homeId,
                 away_id: awayId,
+                season_id: fixture.season_id,
                 league: league.name,
                 kickoff: fixture.starting_at,
                 predicted_outcome: predictedOutcome.charAt(0).toUpperCase() + predictedOutcome.slice(1),
@@ -246,9 +252,63 @@ export async function GET(request: NextRequest) {
 
     scoredRecommendations.sort((a, b) => b.revenue_vs_risk_score - a.revenue_vs_risk_score)
 
-    const top10Recommendations = scoredRecommendations.slice(0, 10).map(rec => ({
+    let top10Recommendations = scoredRecommendations.slice(0, 10).map(rec => ({
       ...rec, is_recommended: true
     }))
+
+    // --- ENRICHMENT: Fetch Standings for Form Data ---
+    try {
+      // 1. Get unique season IDs from the top 10
+      const seasonIds = Array.from(new Set(top10Recommendations.map(rec => rec.season_id).filter(id => !!id)))
+
+      if (seasonIds.length > 0) {
+        console.log(`Examples of Season IDs: ${seasonIds.join(', ')}`)
+
+        // 2. Fetch standings for each season in parallel
+        const standingsPromises = seasonIds.map(seasonId =>
+          apiClient.request(`https://api.sportmonks.com/v3/football/standings/seasons/${seasonId}?api_token=${token}&include=form`)
+            .then(res => ({ seasonId, data: res.data || [] }))
+            .catch(err => {
+              console.error(`Failed to fetch standings for season ${seasonId}: ${err.message}`)
+              return { seasonId, data: [] }
+            })
+        )
+
+        const standingsResults = await Promise.all(standingsPromises)
+
+        // 3. Create a map of TeamID -> Form String
+        const formMap = new Map<number, string>()
+
+        standingsResults.forEach(result => {
+          result.data.forEach((standing: any) => {
+            if (standing.participant_id && standing.form) {
+              formMap.set(standing.participant_id, standing.form)
+            }
+          })
+        })
+
+        // 4. Enrich recommendations
+        top10Recommendations = top10Recommendations.map(rec => {
+          const homeForm = formMap.get(rec.home_id) || null
+          const awayForm = formMap.get(rec.away_id) || null
+
+          if (homeForm || awayForm) {
+            return {
+              ...rec,
+              teams_data: {
+                home: { form: homeForm, ...rec.teams_data?.home },
+                away: { form: awayForm, ...rec.teams_data?.away }
+              }
+            }
+          }
+          return rec
+        })
+      }
+    } catch (enrichError) {
+      console.error(`Form enrichment failed: ${enrichError}`)
+      // Continue without enrichment
+    }
+    // ------------------------------------------------
 
     // Log logic
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
