@@ -7,11 +7,11 @@ export const runtime = 'nodejs'
 export async function POST(request: NextRequest) {
   try {
     // Get Django backend URL from environment variable or use default
-    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
     const djangoUrl = `${djangoBaseUrl}/api/update-fixture-results/`
-    
+
     console.log(`🔄 Triggering fixture result updates from Django: ${djangoUrl}`)
-    
+
     try {
       const response = await fetch(djangoUrl, {
         method: 'POST',
@@ -20,19 +20,19 @@ export async function POST(request: NextRequest) {
         },
         cache: 'no-store', // Always fetch fresh data
       })
-      
+
       if (!response.ok) {
         throw new Error(`Django API error: ${response.status} ${response.statusText}`)
       }
-      
+
       const data = await response.json()
       console.log(`✅ Result update completed:`, data)
-      
+
       return NextResponse.json(data)
-      
+
     } catch (djangoError) {
       console.error('❌ Django backend error:', djangoError)
-      
+
       // Return error response
       return NextResponse.json(
         {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
         { status: 503 }
       )
     }
-    
+
   } catch (error) {
     console.error('❌ Error in update-results API:', error)
     return NextResponse.json(

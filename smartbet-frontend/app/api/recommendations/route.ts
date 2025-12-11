@@ -311,7 +311,7 @@ export async function GET(request: NextRequest) {
     // ------------------------------------------------
 
     // Log logic
-    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
     fetch(`${djangoBaseUrl}/api/log-recommendations/`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

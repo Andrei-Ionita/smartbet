@@ -9,20 +9,20 @@ export async function GET(request: NextRequest) {
     const session_id = searchParams.get('session_id') || ''
     const league = searchParams.get('league') || ''
     const limit = searchParams.get('limit') || '10'
-    
+
     // Get Django backend URL from environment variable or use default
-    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
-    
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
+
     // Build Django URL with query params
     const params = new URLSearchParams()
     if (session_id) params.append('session_id', session_id)
     if (league) params.append('league', league)
     params.append('limit', limit)
-    
+
     const djangoUrl = `${djangoBaseUrl}/api/recommendations/?${params.toString()}`
-    
+
     console.log(`🔍 Fetching FUTURE recommendations from Django: ${djangoUrl}`)
-    
+
     try {
       const response = await fetch(djangoUrl, {
         headers: {
@@ -30,14 +30,14 @@ export async function GET(request: NextRequest) {
         },
         cache: 'no-store', // Always fetch fresh data
       })
-      
+
       if (!response.ok) {
         throw new Error(`Django API error: ${response.status} ${response.statusText}`)
       }
-      
+
       const data = await response.json()
       console.log(`✅ Django API returned ${data.count || 0} future recommendations`)
-      
+
       // Transform Django response to match frontend expectations
       const transformedData = {
         ...data,
@@ -79,12 +79,12 @@ export async function GET(request: NextRequest) {
           }
         }) : []
       }
-      
+
       return NextResponse.json(transformedData)
-      
+
     } catch (djangoError) {
       console.error('❌ Django backend error:', djangoError)
-      
+
       // Return error response
       return NextResponse.json(
         {
@@ -96,7 +96,7 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       )
     }
-    
+
   } catch (error) {
     console.error('❌ Error in recommendations API:', error)
     return NextResponse.json(

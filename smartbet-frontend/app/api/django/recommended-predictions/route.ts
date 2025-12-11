@@ -9,13 +9,13 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const limit = searchParams.get('limit') || '50'
     const includePending = searchParams.get('include_pending') || 'true'
-    
+
     // Get Django backend URL from environment variable or use default
-    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
     const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?limit=${limit}&include_pending=${includePending}`
-    
+
     console.log(`🔍 Fetching recommended predictions from Django: ${djangoUrl}`)
-    
+
     try {
       const response = await fetch(djangoUrl, {
         headers: {
@@ -23,14 +23,14 @@ export async function GET(request: NextRequest) {
         },
         cache: 'no-store', // Always fetch fresh data
       })
-      
+
       if (!response.ok) {
         throw new Error(`Django API error: ${response.status} ${response.statusText}`)
       }
-      
+
       const data = await response.json()
       console.log(`✅ Django API returned ${data.count || 0} recommended predictions`)
-      
+
       // Transform Django response to match frontend expectations
       const transformedData = {
         ...data,
@@ -54,7 +54,7 @@ export async function GET(request: NextRequest) {
             confidence: item.confidence,
             ev: item.expected_value,
             odds: outcomeOdds,
-            score: item.confidence, 
+            score: item.confidence,
             explanation: item.explanation || 'No explanation available',
             probabilities: item.probabilities ? {
               home: item.probabilities.home,
@@ -76,17 +76,17 @@ export async function GET(request: NextRequest) {
           }
         })
       }
-      
+
       return NextResponse.json(transformedData)
-      
+
     } catch (djangoError) {
       console.error('❌ Django backend error:', djangoError)
-      
+
       // Return error response
       return NextResponse.json(
         {
           success: false,
-          error: `Django backend unavailable: ${djangoError instanceof Error ? djangoError.message : String(djangoError)}`,
+          error: `Django backend unavailable (Target: ${djangoUrl}): ${djangoError instanceof Error ? djangoError.message : String(djangoError)}`,
           data: [],
           summary: null,
           count: 0,
@@ -94,7 +94,7 @@ export async function GET(request: NextRequest) {
         { status: 503 }
       )
     }
-    
+
   } catch (error) {
     console.error('❌ Error in recommended-predictions API:', error)
     return NextResponse.json(
