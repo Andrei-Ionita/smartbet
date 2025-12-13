@@ -5,10 +5,22 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 // Simplified inline apiClient implementation
+// Robust apiClient implementation with Timeout
 const apiClient = {
   async request(url: string) {
-    const response = await fetch(url)
-    return response.json()
+    const controller = new AbortController()
+    // 30 second timeout for external API calls
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+      if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
+      return response.json()
+    } catch (e: any) {
+      clearTimeout(timeoutId)
+      console.error(`API Request failed: ${url} - ${e.message}`)
+      throw e
+    }
   }
 }
 
@@ -58,17 +70,17 @@ export async function GET(
     // Extract fixture data
     const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
     const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
-    
+
     // Extract predictions if available
     const predictions = fixture.predictions || []
     const x12Predictions = predictions.filter((p: any) => [233, 237, 238].includes(p.type_id))
-    
+
     let predictionData = null
     if (x12Predictions.length > 0) {
       const bestPred = x12Predictions[0] // Use first prediction
-      
+
       console.log('🔍 Raw prediction data:', JSON.stringify(bestPred.predictions, null, 2))
-      
+
       // Smart conversion: if values are > 1, they're percentages and need division by 100
       // If values are <= 1, they're already decimals
       const normalizeProbability = (value: number) => {
@@ -76,7 +88,7 @@ export async function GET(
         if (value > 1) return value / 100  // Convert percentage to decimal
         return value  // Already a decimal
       }
-      
+
       predictionData = {
         home: normalizeProbability(bestPred.predictions.home || 0) * 100, // Convert to percentage for consistency
         draw: normalizeProbability(bestPred.predictions.draw || 0) * 100,
@@ -124,7 +136,7 @@ export async function GET(
         // Get bookmaker name from the first odds entry
         const firstOdd = x12Odds[0]
         let bookmakerName = 'Unknown'
-        
+
         // Try multiple possible field names for bookmaker
         if (firstOdd.bookmaker_name) {
           bookmakerName = firstOdd.bookmaker_name
@@ -141,29 +153,29 @@ export async function GET(
             bookmakerName = bookmakerMeta.name
           }
         }
-        
+
         // Helper function to get bookmaker name from odds entry
         const getBookmakerName = (odd: any) => {
           // First try to get bookmaker from the odds.bookmaker include
           if (odd.bookmaker && odd.bookmaker.name) {
             return odd.bookmaker.name
           }
-          
+
           // Try to get bookmaker name from odds entry directly
           if (odd.bookmaker_name) return odd.bookmaker_name
           if (odd.provider) return odd.provider
           if (odd.source) return odd.source
-          
+
           // Try to get bookmaker from metadata using bookmaker_id
           if (odd.bookmaker_id) {
             const bookmakerMeta = data.meta?.bookmakers?.find((bm: any) => bm.id === odd.bookmaker_id)
             if (bookmakerMeta) return bookmakerMeta.name
           }
-          
+
           // Fallback: use a common bookmaker name based on ID patterns
           const bookmakerMap: { [key: number]: string } = {
             1: 'Bet365',
-            2: 'Betfair', 
+            2: 'Betfair',
             14: 'William Hill',
             16: 'Paddy Power',
             26: 'Ladbrokes',
@@ -173,15 +185,15 @@ export async function GET(
             38: 'Betway',
             64: '888Sport'
           }
-          
+
           if (odd.bookmaker_id && bookmakerMap[odd.bookmaker_id]) {
             return bookmakerMap[odd.bookmaker_id]
           }
-          
+
           // Final fallback
           return `Bookmaker ${odd.bookmaker_id || 'Unknown'}`
         }
-        
+
         // Extract odds with individual bookmaker names
         const odds: {
           home: number | null
@@ -198,12 +210,12 @@ export async function GET(
           draw_bookmaker: null,
           away_bookmaker: null
         }
-        
+
         // Process each odds entry and assign to the correct outcome
         for (const odd of x12Odds) {
           const bookmakerName = getBookmakerName(odd)
           const oddValue = parseFloat(odd.value)
-          
+
           if (odd.label.toLowerCase() === 'home') {
             odds.home = oddValue
             odds.home_bookmaker = bookmakerName
@@ -215,11 +227,11 @@ export async function GET(
             odds.away_bookmaker = bookmakerName
           }
         }
-        
+
         // Determine the primary bookmaker (most common or first available)
         const bookmakers = [odds.home_bookmaker, odds.draw_bookmaker, odds.away_bookmaker].filter(Boolean)
         const primaryBookmaker = bookmakers.length > 0 ? bookmakers[0] : 'Multiple Bookmakers'
-        
+
         // Create odds data with bookmaker information
         oddsData = {
           home: odds.home,
@@ -265,7 +277,7 @@ export async function GET(
       best_ev: null as number | null
     }
     let signalQuality: 'Strong' | 'Good' | 'Moderate' | 'Weak' = 'Weak'
-    
+
     if (predictionData) {
       // Determine predicted outcome (predictionData is now in percentage format)
       const probs = [predictionData.home, predictionData.draw, predictionData.away]
@@ -273,7 +285,7 @@ export async function GET(
       const maxIndex = probs.indexOf(maxProb)
       predictedOutcome = ['home', 'draw', 'away'][maxIndex] as 'home' | 'draw' | 'away'
       confidence = maxProb // Already a percentage
-      
+
       // Calculate expected value for all outcomes
       if (oddsData) {
         console.log('💰 Calculating EV with odds:', oddsData)
@@ -302,24 +314,24 @@ export async function GET(
           evAnalysis.away = rawEV * 100
           console.log(`✈️ Away EV: prob=${probDecimal}, odds=${oddsData.away}, rawEV=${rawEV}, EV%=${evAnalysis.away}`)
         }
-        
+
         // Determine best bet (highest EV)
         const evValues = [
           { outcome: 'home' as const, ev: evAnalysis.home },
           { outcome: 'draw' as const, ev: evAnalysis.draw },
           { outcome: 'away' as const, ev: evAnalysis.away }
         ]
-        
+
         const validEvs = evValues.filter(v => v.ev !== null && v.ev > 0)
         if (validEvs.length > 0) {
-          const bestBet = validEvs.reduce((max, current) => 
+          const bestBet = validEvs.reduce((max, current) =>
             (current.ev! > max.ev!) ? current : max
           )
           evAnalysis.best_bet = bestBet.outcome
           evAnalysis.best_ev = bestBet.ev
-          
+
           console.log('🎯 Best bet:', bestBet)
-          
+
           // Safety check: cap unrealistic EV values
           if (evAnalysis.best_ev && evAnalysis.best_ev > 100) {
             console.warn('⚠️ Unrealistic EV detected - capping:', {
@@ -335,10 +347,10 @@ export async function GET(
             if (evAnalysis.away && evAnalysis.away > 100) evAnalysis.away = Math.min(evAnalysis.away, 50)
           }
         }
-        
+
         console.log('📈 Final EV Analysis:', evAnalysis)
       }
-      
+
       // Determine signal quality
       if (confidence >= 70) signalQuality = 'Strong'
       else if (confidence >= 60) signalQuality = 'Good'
@@ -372,7 +384,7 @@ export async function GET(
 
       // Estimate volume based on odds tightness (lower margin = higher volume)
       const volumeEstimate = bookmakerMargin < 5 ? 'High' :
-                            bookmakerMargin < 8 ? 'Medium' : 'Low'
+        bookmakerMargin < 8 ? 'Medium' : 'Low'
 
       marketIndicators = {
         market_favorite: favorites[0].outcome,
@@ -415,8 +427,8 @@ export async function GET(
             upper_bound: Math.min(100, confidence + (confidence >= 70 ? 5 : confidence >= 60 ? 7 : 10)),
             interval_width: confidence >= 70 ? 10 : confidence >= 60 ? 14 : 20,
             interpretation: confidence >= 70 ? 'Narrow interval indicates high certainty' :
-                           confidence >= 60 ? 'Moderate interval indicates good confidence' :
-                           'Wide interval reflects higher uncertainty'
+              confidence >= 60 ? 'Moderate interval indicates good confidence' :
+                'Wide interval reflects higher uncertainty'
           }
         },
         // Keep ensemble_info for backwards compatibility with existing code
@@ -441,6 +453,43 @@ export async function GET(
         has_odds: fixture.odds && fixture.odds.length > 0
       },
       lastUpdated: new Date().toISOString()
+    }
+
+    // --- ENRICHMENT: Fetch Standings for Form Data ---
+    try {
+      if (fixture.season_id) {
+        console.log(`🔍 Fetching standings for season ${fixture.season_id} to get form data`)
+        const standingsUrl = `https://api.sportmonks.com/v3/football/standings/seasons/${fixture.season_id}?api_token=${getApiToken()}&include=form`
+        const standingsRes = await apiClient.request(standingsUrl)
+        const standingsData = standingsRes.data || []
+
+        let homeForm = null
+        let awayForm = null
+
+        const homeId = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.id
+        const awayId = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.id
+
+        if (homeId && awayId) {
+          standingsData.forEach((standing: any) => {
+            if (standing.participant_id === homeId && standing.form) homeForm = standing.form
+            if (standing.participant_id === awayId && standing.form) awayForm = standing.form
+          })
+
+          if (homeForm || awayForm) {
+            console.log(`✅ Found form data: Home=${homeForm}, Away=${awayForm}`)
+            // @ts-ignore
+            responseData.fixture.teams_data = {
+              home: { form: homeForm },
+              away: { form: awayForm }
+            }
+          } else {
+            console.log('⚠️ No form data found in standings for these teams')
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error(`❌ Failed to fetch form data: ${err.message}`)
+      // Don't fail the request, just skip form data
     }
 
     return NextResponse.json(responseData)

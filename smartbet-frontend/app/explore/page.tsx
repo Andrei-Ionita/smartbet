@@ -85,6 +85,10 @@ interface FixtureAnalysis {
     odds_efficiency: string
   }
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
+  teams_data?: {
+    home: { form: string }
+    away: { form: string }
+  }
 }
 
 const LEAGUES = [
@@ -444,7 +448,8 @@ export default function ExplorePage() {
                 market_indicators: selectedFixture.market_indicators,
                 debug_info: selectedFixture.debug_info,
                 signal_quality: selectedFixture.signal_quality,
-                league_accuracy: null
+                league_accuracy: null,
+                teams_data: selectedFixture.teams_data
               }}
               onViewDetails={handleViewDetails}
             />
