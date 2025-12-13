@@ -85,10 +85,7 @@ interface FixtureAnalysis {
     odds_efficiency: string
   }
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
-  teams_data?: {
-    home: { form: string }
-    away: { form: string }
-  }
+  teams_data?: any // Relaxed type for Explore page to avoid full mock requirement
 }
 
 const LEAGUES = [
