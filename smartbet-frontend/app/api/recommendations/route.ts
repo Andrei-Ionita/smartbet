@@ -9,7 +9,7 @@ const apiClient = {
   async request(url: string) {
     const controller = new AbortController()
     // 10 second timeout for external API calls to avoid AbortError on slow responses
-    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    const timeoutId = setTimeout(() => controller.abort(), 30000)
     try {
       const response = await fetch(url, { signal: controller.signal })
       clearTimeout(timeoutId)
@@ -286,6 +286,7 @@ export async function GET(request: NextRequest) {
             }
           })
         })
+        console.log(`✅ Enrichment: Found form data for ${formMap.size} teams`)
 
         // 4. Enrich recommendations
         top10Recommendations = top10Recommendations.map(rec => {
