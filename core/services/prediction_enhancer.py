@@ -172,6 +172,9 @@ class PredictionEnhancer:
     def should_recommend(self, prediction: Dict, strict_mode: bool = False) -> tuple[bool, str]:
         """
         Determine if prediction meets quality standards.
+        Now supports 'Two-Track' System:
+        1. Safe Bets: High confidence (>60%), decent odds
+        2. Value Bets: Moderate confidence (>35%), High EV (>10%)
         
         Args:
             prediction: Prediction dictionary
@@ -187,45 +190,37 @@ class PredictionEnhancer:
         
         # Strict mode (recommended for better accuracy)
         if strict_mode:
-            # Criterion 1: Higher confidence threshold
-            if confidence < 0.60:
-                return False, f"Confidence too low ({confidence*100:.1f}% < 60%)"
+            # Absolute floor for any prediction
+            if confidence < 0.35:
+                 return False, f"Confidence too low ({confidence*100:.1f}% < 35%)"
             
-            # Criterion 2: Meaningful EV
-            if ev < 0.15:
-                return False, f"Expected value too low ({ev*100:.1f}% < 15%)"
+            # Track 1: Safe Bets (Standard)
+            if confidence >= 0.60:
+                # Still check for garbage odds
+                if predicted_odds < 1.3:
+                    return False, "Odds too low (< 1.30) - no value"
+                return True, "Meets Safe Bet criteria"
+
+            # Track 2: Value Bets (High EV, Moderate Confidence)
+            # This is where Draws and Underdogs live
+            if ev >= 0.10: # Requires 10% edge
+                if predicted_odds > 4.5:
+                     return False, "Odds too extreme (> 4.50) - lottery ticket"
+                return True, "Meets Value Bet criteria"
             
-            # Criterion 3: Avoid extreme odds
-            if predicted_odds > 3.5:
-                return False, f"Odds too high ({predicted_odds:.2f}) - high variance"
-            
-            # Criterion 4: Avoid very low odds (overpriced favorites)
-            if predicted_odds < 1.4:
-                return False, f"Odds too low ({predicted_odds:.2f}) - minimal value"
-            
-            # Criterion 5: Be extra careful with draws
-            if predicted_outcome == 'draw' and confidence < 0.65:
-                return False, "Draw prediction requires 65%+ confidence"
-            
-            # Criterion 6: Require clear probability dominance
-            probs = prediction.get('probabilities', {})
-            sorted_probs = sorted([probs.get('home', 0), probs.get('draw', 0), probs.get('away', 0)], reverse=True)
-            if len(sorted_probs) >= 2:
-                gap = sorted_probs[0] - sorted_probs[1]
-                if gap < 0.15:
-                    return False, f"Probabilities too close ({gap*100:.1f}% gap) - no clear winner"
-            
-            return True, "Meets strict quality criteria"
+            # If neither track matched
+            return False, "Does not meet Safe (>60%) or Value (>10% EV) criteria"
         
-        # Normal mode (current)
+        # Normal mode (legacy fallback)
         else:
-            if confidence >= 0.55 and ev > 0:
+            if confidence >= 0.50 and ev > 0:
                 return True, "Meets standard criteria"
             return False, "Below minimum standards"
     
     def add_contextual_info(self, prediction: Dict) -> Dict:
         """
         Add contextual information to help users make better decisions.
+        Tags predictions as 'Safe' or 'Value'.
         """
         # Add quality score
         prediction['quality_score'] = self.calculate_quality_score(prediction)
@@ -233,30 +228,30 @@ class PredictionEnhancer:
         # Add risk warnings
         prediction['risk_warnings'] = self.get_risk_warnings(prediction)
         
-        # Add recommendation strength
-        quality_score = prediction['quality_score']
-        if quality_score >= 75:
-            prediction['recommendation_strength'] = 'Strong'
-            prediction['recommendation_color'] = 'green'
-        elif quality_score >= 60:
-            prediction['recommendation_strength'] = 'Moderate'
-            prediction['recommendation_color'] = 'yellow'
-        else:
-            prediction['recommendation_strength'] = 'Weak'
-            prediction['recommendation_color'] = 'orange'
-        
-        # Add betting advice
+        # Classification: Safe vs Value
         confidence = prediction.get('confidence', 0)
-        quality_score = prediction['quality_score']
+        ev = prediction.get('expected_value', 0) or 0
         
-        if quality_score >= 75 and confidence >= 0.65:
-            advice = "✅ High quality pick - standard stake recommended"
-        elif quality_score >= 60:
-            advice = "⚠️ Moderate quality - consider reduced stake"
-        elif len(prediction['risk_warnings']) > 2:
-            advice = "🚫 Multiple risk factors - skip or minimal stake"
+        if confidence >= 0.60:
+            prediction['bet_type'] = 'safe'
+            prediction['bet_label'] = '🛡️ Safe Pick'
+            prediction['recommendation_color'] = 'green'
+        elif ev >= 0.10:
+            prediction['bet_type'] = 'value'
+            prediction['bet_label'] = '💎 Value Bet'
+            prediction['recommendation_color'] = 'blue'
         else:
-            advice = "💡 Lower quality - advanced bettors only"
+            prediction['bet_type'] = 'speculative'
+            prediction['bet_label'] = '🎲 Speculative'
+            prediction['recommendation_color'] = 'orange'
+
+        # Add betting advice based on type
+        if prediction['bet_type'] == 'safe':
+            advice = "✅ High probability - standard stake recommended"
+        elif prediction['bet_type'] == 'value':
+            advice = "💎 High value opportunity - smaller stake recommended due to higher risk"
+        else:
+            advice = "⚠️ Speculative - minimal stake only"
         
         prediction['betting_advice'] = advice
         

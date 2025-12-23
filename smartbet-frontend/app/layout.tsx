@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import Navigation from '@/components/Navigation'
 import { AuthProvider } from './contexts/AuthContext'
+import { LanguageProvider } from './contexts/LanguageContext'
 import Footer from '@/components/Footer'
 
 const inter = Inter({ subsets: ['latin'] })
@@ -59,13 +60,15 @@ export default function RootLayout({
     <html lang="en">
       <body className={inter.className}>
         <AuthProvider>
-          <div className="min-h-screen bg-gray-50 flex flex-col">
-            <Navigation />
-            <main className="container mx-auto px-4 py-8 flex-grow">
-              {children}
-            </main>
-            <Footer />
-          </div>
+          <LanguageProvider>
+            <div className="min-h-screen bg-gray-50 flex flex-col">
+              <Navigation />
+              <main className="container mx-auto px-4 py-8 flex-grow">
+                {children}
+              </main>
+              <Footer />
+            </div>
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>

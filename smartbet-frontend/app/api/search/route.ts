@@ -108,12 +108,14 @@ export async function GET(request: NextRequest) {
     const query = searchParams.get('q') || ''
     const league = searchParams.get('league') || ''
     const limit = parseInt(searchParams.get('limit') || '20')
+    const mode = searchParams.get('mode') || 'search' // 'search' or 'browse'
 
-    if (!query.trim()) {
+    // Require either a search query OR a league selection
+    if (!query.trim() && !league) {
       return NextResponse.json({
         results: [],
         total: 0,
-        message: 'Please enter a search query'
+        message: 'Please enter a search query or select a league'
       })
     }
 
@@ -180,14 +182,16 @@ export async function GET(request: NextRequest) {
         const data = await apiClient.request(`${url}?${params}`)
         const fixtures = data.data || []
 
-        // Filter fixtures by search query
-        const matchingFixtures = fixtures.filter((fixture: any) => {
-          const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
-          const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
-          const searchTerm = query.toLowerCase()
+        // Filter fixtures by search query (only if query exists)
+        const matchingFixtures = query.trim()
+          ? fixtures.filter((fixture: any) => {
+            const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
+            const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
+            const searchTerm = query.toLowerCase()
 
-          return homeTeam.includes(searchTerm) || awayTeam.includes(searchTerm)
-        })
+            return homeTeam.includes(searchTerm) || awayTeam.includes(searchTerm)
+          })
+          : fixtures // Browse mode: return all fixtures for the league
 
         // Convert to search results
         const results = matchingFixtures.map((fixture: any) => {
@@ -224,9 +228,14 @@ export async function GET(request: NextRequest) {
       total: allResults.length,
       query: query,
       league: league,
+      mode: query.trim() ? 'search' : 'browse',
       message: allResults.length > 0
-        ? `Found ${allResults.length} fixtures matching "${query}"`
-        : `No fixtures found matching "${query}" in the next 14 days`
+        ? query.trim()
+          ? `Found ${allResults.length} fixtures matching "${query}"`
+          : `Found ${allResults.length} upcoming fixtures`
+        : query.trim()
+          ? `No fixtures found matching "${query}" in the next 14 days`
+          : `No upcoming fixtures found for this league`
     }
 
     // Cache the results for 5 minutes

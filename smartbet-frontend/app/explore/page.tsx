@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Search, Filter, Calendar, Trophy, TrendingUp } from 'lucide-react'
 import RecommendationCard from '../components/RecommendationCard'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { useLanguage } from '../contexts/LanguageContext'
 import ErrorBoundary from '../components/ErrorBoundary'
 import RetryButton from '../components/RetryButton'
 
@@ -127,19 +128,29 @@ export default function ExplorePage() {
   const [selectedFixture, setSelectedFixture] = useState<FixtureAnalysis | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchMessage, setSearchMessage] = useState('')
+  const [browseMode, setBrowseMode] = useState(false)
 
-  // Debounced search
+  // Debounced search or browse
   useEffect(() => {
     const timeoutId = setTimeout(() => {
       if (searchQuery.trim()) {
+        // Search mode: user typed a query
+        setBrowseMode(false)
         performSearch()
+      } else if (selectedLeague) {
+        // Browse mode: league selected, no query
+        setBrowseMode(true)
+        performBrowse()
       } else {
+        // Nothing selected
         setSearchResults([])
         setSearchMessage('')
+        setBrowseMode(false)
       }
     }, 500)
 
     return () => clearTimeout(timeoutId)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedLeague])
 
   const performSearch = async () => {
@@ -176,8 +187,38 @@ export default function ExplorePage() {
     }
   }
 
+  const performBrowse = async () => {
+    if (!selectedLeague) return
+
+    setIsSearching(true)
+    try {
+      const params = new URLSearchParams({
+        league: selectedLeague,
+        limit: '30',
+        mode: 'browse'
+      })
+
+      const response = await fetch(`/api/search?${params}`)
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      console.log('Browse results:', data)
+      setSearchResults(data.results || [])
+      setSearchMessage(data.message || '')
+    } catch (error) {
+      console.error('Browse error:', error)
+      setSearchResults([])
+      setSearchMessage(error instanceof Error ? error.message : 'Failed to load fixtures')
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
   const handleRetrySearch = () => {
-    performSearch()
+    browseMode ? performBrowse() : performSearch()
   }
 
   const [isLoadingFixture, setIsLoadingFixture] = useState(false)
@@ -225,6 +266,13 @@ export default function ExplorePage() {
     handleFixtureSelect(fixtureId)
   }
 
+  const { t } = useLanguage()
+
+  const handleSearch = async (e: React.FormEvent) => {
+    e.preventDefault()
+    performSearch()
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
@@ -239,107 +287,147 @@ export default function ExplorePage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-primary-600 to-blue-600 bg-clip-text text-transparent mb-4">
-            Explore Fixtures
+            {t('explore.title')}
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Search for any upcoming match and get detailed AI predictions, odds analysis, and betting recommendations
+            {t('explore.subtitle')}
           </p>
         </div>
 
         {/* Search Interface */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 mb-8">
-          <div className="flex flex-col md:flex-row gap-4 mb-6">
-            <div className="flex-1 relative">
-              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search by team name (e.g., 'Manchester City', 'Barcelona', 'Bayern')"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-12 pr-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-              />
-            </div>
-
-            <div className="md:w-64">
-              <select
-                value={selectedLeague}
-                onChange={(e) => setSelectedLeague(e.target.value)}
-                className="w-full px-4 py-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg"
-              >
-                {LEAGUES.map((league) => (
-                  <option key={league.id} value={league.id}>
-                    {league.name}
-                  </option>
-                ))}
-              </select>
+          <div className="space-y-4">
+            <div className="flex flex-col md:flex-row gap-4">
+              <div className="flex-1 relative">
+                <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t('explore.search.placeholder')}
+                  className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg shadow-sm transition-all"
+                />
+              </div>
+              <div className="relative min-w-[200px]">
+                <Filter className="absolute left-4 top-1/2 transform -translate-y-1/2 h-5 w-5 text-gray-400" />
+                <select
+                  value={selectedLeague}
+                  onChange={(e) => setSelectedLeague(e.target.value)}
+                  className="w-full pl-12 pr-10 py-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary-500 focus:border-transparent text-lg shadow-sm appearance-none bg-white transition-all cursor-pointer"
+                >
+                  {LEAGUES.map(league => (
+                    <option key={league.id} value={league.id}>
+                      {league.id === '' ? t('explore.search.allLeagues') : league.name}
+                    </option>
+                  ))}
+                </select>
+                <div className="absolute right-4 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                  <svg className="h-5 w-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </div>
+              </div>
+              {/* Loading indicator when searching/browsing */}
+              {isSearching && (
+                <div className="flex items-center justify-center px-4">
+                  <LoadingSpinner size="sm" />
+                </div>
+              )}
             </div>
           </div>
 
-          <div className="flex items-center gap-2 text-sm text-gray-500">
-            <Filter className="h-4 w-4" />
-            <span>Search across all 27 leagues • Real-time odds • AI predictions</span>
+          {/* Features Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-4 mt-6 text-sm text-gray-500">
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
+              <Trophy className="h-3.5 w-3.5" />
+              {t('explore.search.features.leagues')}
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
+              <TrendingUp className="h-3.5 w-3.5" />
+              {t('explore.search.features.odds')}
+            </span>
+            <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
+              <div className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></div>
+              {t('explore.search.features.predictions')}
+            </span>
           </div>
         </div>
-
-        {/* Search Results */}
-        {searchQuery && (
+        {/* Search Results or Browse Results */}
+        {(searchQuery || browseMode) && (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20 mb-8">
             <div className="flex items-center gap-2 mb-4">
               <Trophy className="h-5 w-5 text-primary-600" />
-              <h2 className="text-xl font-bold text-gray-900">Search Results</h2>
+              <h2 className="text-xl font-bold text-gray-900">
+                {browseMode ? t('explore.browse.title') : 'Search Results'}
+              </h2>
             </div>
 
             {isSearching ? (
               <LoadingSpinner size="lg" text="Searching fixtures..." />
+
             ) : searchResults.length > 0 ? (
-              <div className="space-y-3">
-                {searchResults.map((result) => (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
+                {searchResults.map((fixture) => (
                   <div
-                    key={result.fixture_id}
-                    onClick={() => handleFixtureSelect(result.fixture_id)}
-                    className="p-4 border border-gray-200 rounded-xl hover:border-primary-300 hover:bg-primary-50 cursor-pointer transition-all duration-200 hover:shadow-md"
+                    key={fixture.fixture_id}
+                    onClick={() => handleFixtureSelect(fixture.fixture_id)}
+                    className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-100 transition-all cursor-pointer group"
                   >
-                    <div className="flex justify-between items-center">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <span className="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
-                            {result.league}
-                          </span>
-                          <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium">
-                            {formatKickoff(result.kickoff)}
-                          </span>
-                          {result.has_predictions && (
-                            <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">
-                              AI Predictions
-                            </span>
-                          )}
-                          {result.has_odds && (
-                            <span className="text-xs bg-blue-100 text-blue-700 px-3 py-1 rounded-full font-medium">
-                              Live Odds
-                            </span>
-                          )}
-                        </div>
-                        <h3 className="text-lg font-bold text-gray-900">
-                          {result.home_team} vs {result.away_team}
-                        </h3>
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="text-xs font-semibold text-primary-600 px-2 py-1 bg-primary-50 rounded-lg">
+                        {fixture.league}
                       </div>
-                      <div className="flex items-center gap-2">
-                        <TrendingUp className="h-5 w-5 text-gray-400" />
-                        <span className="text-sm text-gray-500">Analyze</span>
+                      <div className="flex items-center text-xs text-gray-500">
+                        <Calendar className="w-3 h-3 mr-1" />
+                        {formatKickoff(fixture.kickoff)}
                       </div>
+                    </div>
+
+                    <div className="flex items-center justify-between gap-4 mb-4">
+                      <div className="text-right flex-1">
+                        <span className="font-bold text-gray-900 group-hover:text-primary-700 transition-colors">
+                          {fixture.home_team}
+                        </span>
+                      </div>
+                      <div className="px-2 text-gray-400 font-light text-sm">vs</div>
+                      <div className="text-left flex-1">
+                        <span className="font-bold text-gray-900 group-hover:text-primary-700 transition-colors">
+                          {fixture.away_team}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-center gap-2 pt-4 border-t border-gray-50">
+                      {fixture.has_predictions ? (
+                        <span className="text-xs font-medium text-green-600 flex items-center bg-green-50 px-2 py-1 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
+                          {t('explore.search.features.predictions')}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-400">Analysis Pending</span>
+                      )}
+                      {fixture.has_odds && (
+                        <span className="text-xs font-medium text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
+                          {t('explore.search.features.odds')}
+                        </span>
+                      )}
                     </div>
                   </div>
                 ))}
               </div>
-            ) : (
-              <div className="text-center py-8">
-                <Search className="h-12 w-12 text-gray-300 mx-auto mb-4" />
-                <p className="text-gray-600 mb-4">
-                  {searchMessage || 'No fixtures found matching your search'}
+            ) : searchMessage ? (
+              <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm">
+                <div className="text-5xl mb-4">🔍</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('explore.search.noResults')}</h3>
+                <p className="text-gray-500 max-w-sm mx-auto">
+                  {searchMessage === 'No matches found' ? t('explore.search.tryStandard') : searchMessage}
                 </p>
-                {searchMessage.includes('error') || searchMessage.includes('Error') || searchMessage.includes('HTTP') ? (
-                  <RetryButton onRetry={handleRetrySearch} text="Retry Search" />
-                ) : null}
+              </div>
+            ) : (
+              <div className="text-center py-20 opacity-50">
+                <Search className="h-12 w-12 mx-auto text-gray-300 mb-4" />
+                <p className="text-gray-500 font-medium">{t('explore.search.initialState')}</p>
               </div>
             )}
           </div>

@@ -28,11 +28,16 @@ import RetryButton from './components/RetryButton'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
+import { useLanguage } from '../app/contexts/LanguageContext'
+
+// ... (imports)
+
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 export default function HomePage() {
   const [selectedLeague, setSelectedLeague] = useState('')
   const router = useRouter()
+  const { t } = useLanguage()
 
   // Get session_id from localStorage for personalized recommendations
   const getSessionId = () => {
@@ -96,21 +101,28 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <div className="max-w-6xl mx-auto px-4 py-8">
         {/* Modern Hero Section */}
-        <div className="text-center mb-16">
-          <div className="relative inline-block mb-8">
-            <div className="absolute -inset-4 bg-gradient-to-r from-primary-500 to-blue-600 rounded-full blur opacity-20"></div>
-            <div className="relative bg-white p-6 rounded-full shadow-xl">
-              <Trophy className="h-16 w-16 text-primary-600" />
+        <div className="text-center mb-12">
+          <div className="relative inline-block mb-6">
+            <div className="absolute -inset-4 bg-blue-500/20 rounded-full blur-xl"></div>
+            <div className="relative bg-white p-6 rounded-full shadow-lg">
+              <Trophy className="h-16 w-16 text-blue-600" />
             </div>
           </div>
 
           <div className="space-y-4 mb-8">
-            <h1 className="text-5xl md:text-7xl font-bold bg-gradient-to-r from-gray-900 via-primary-600 to-blue-600 bg-clip-text text-transparent">
-              SmartBet
+            <h1 className="text-5xl md:text-7xl font-bold text-gray-900">
+              {t('landing.heroTitle') && (
+                <>
+                  {t('landing.heroTitle')} <br className="hidden md:block" />
+                </>
+              )}
+              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-500">
+                {t('landing.heroTitleHighlight')}
+              </span>
             </h1>
             <div className="flex items-center justify-center gap-2 text-primary-600 font-medium">
               <Sparkles className="h-5 w-5" />
-              <span>AI-Powered Football Predictions</span>
+              <span>{t('landing.heroSubtitle').split('.')[0]}...</span> {/* Abbreviated subtitle for tag */}
             </div>
             {/* Live Accuracy Badge */}
             {performanceData?.data?.overall?.total_predictions > 0 && (
@@ -122,7 +134,7 @@ export default function HomePage() {
                 <div className="text-left">
                   <div className="text-sm font-medium opacity-90">Verified Smart Picks</div>
                   <div className="text-lg font-bold">
-                    {performanceData.data.overall.accuracy_percent}% Accuracy
+                    {performanceData.data.overall.accuracy_percent}% {t('landing.stats.accuracy')}
                     <span className="text-sm font-normal opacity-90 ml-2 block text-xs">
                       (&gt;60% confidence models)
                     </span>
@@ -134,8 +146,7 @@ export default function HomePage() {
           </div>
 
           <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-            Get data-driven insights and betting recommendations with confidence scores,
-            expected value analysis, and real-time market intelligence across top European leagues.
+            {t('landing.heroSubtitle')}
           </p>
 
           {/* Performance Stats */}
@@ -146,7 +157,7 @@ export default function HomePage() {
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-green-600 mb-1">27</div>
-              <div className="text-sm text-gray-600">Leagues Covered</div>
+              <div className="text-sm text-gray-600">{t('landing.stats.coverage')}</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
@@ -164,7 +175,7 @@ export default function HomePage() {
               className="group bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
             >
               <span className="flex items-center gap-2">
-                Explore Predictions
+                {t('landing.exploreButton')}
                 <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
               </span>
             </button>
@@ -235,7 +246,7 @@ export default function HomePage() {
           {data && data.recommendations && data.recommendations.length > 0 && (
             <>
               {/* Transparency Notice */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg">
+              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg">
                 <p className="text-sm text-center text-blue-900">
                   🔍 <strong>100% Transparent:</strong> These recommendations are logged & tracked on our{' '}
                   <a href="/track-record" className="underline font-semibold hover:text-blue-700">public track record</a>
@@ -516,6 +527,23 @@ export default function HomePage() {
               Join thousands of users who trust SmartBet for their football predictions
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
+              {/* Fetch recommendations with SWR - using Django backend */}
+              {/* This code should be placed at the top level of the component, not inside JSX */}
+              {/* const { data, error, isLoading, mutate } = useSWR(apiUrl, enhancedFetcher, {
+                refreshInterval: 60000, // Refresh every 60 seconds
+                revalidateOnFocus: true,
+                errorRetryCount: 3,
+                errorRetryInterval: 2000,
+                shouldRetryOnError: true,
+              }) */}
+
+              {/* Fetch performance stats for live accuracy badge */}
+              {/* This code should be placed at the top level of the component, not inside JSX */}
+              {/* const { data: performanceData } = useSWR('/api/performance', fetcher, {
+                refreshInterval: 120000, // Refresh every 2 minutes
+              }) */}
+
+              {/* const handleExplorePredictions = () => { ... } */}
               <button
                 onClick={handleExplorePredictions}
                 className="bg-white text-primary-600 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"

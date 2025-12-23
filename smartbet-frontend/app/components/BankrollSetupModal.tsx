@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface BankrollSetupModalProps {
   isOpen: boolean;
@@ -9,6 +10,7 @@ interface BankrollSetupModalProps {
 }
 
 export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: BankrollSetupModalProps) {
+  const { t } = useLanguage();
   const [formData, setFormData] = useState({
     initialBankroll: '',
     currency: 'USD',
@@ -25,20 +27,20 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
   const riskProfiles = [
     {
       value: 'conservative',
-      label: 'Conservative',
-      description: 'Safest approach with small stakes and high confidence requirements',
+      label: t('bankroll.riskProfiles.conservative.label'),
+      description: t('bankroll.riskProfiles.conservative.description'),
       emoji: '🛡️',
     },
     {
       value: 'balanced',
-      label: 'Balanced',
-      description: 'Balanced approach suitable for most bettors',
+      label: t('bankroll.riskProfiles.balanced.label'),
+      description: t('bankroll.riskProfiles.balanced.description'),
       emoji: '⚖️',
     },
     {
       value: 'aggressive',
-      label: 'Aggressive',
-      description: 'Higher risk/reward for experienced bettors',
+      label: t('bankroll.riskProfiles.aggressive.label'),
+      description: t('bankroll.riskProfiles.aggressive.description'),
       emoji: '🚀',
     },
   ];
@@ -46,23 +48,23 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
   const stakingStrategies = [
     {
       value: 'kelly_fractional',
-      label: 'Fractional Kelly (1/4)',
-      description: 'Recommended: Safer version of Kelly Criterion',
+      label: t('bankroll.strategies.kelly_fractional.label'),
+      description: t('bankroll.strategies.kelly_fractional.description'),
     },
     {
       value: 'kelly',
-      label: 'Full Kelly Criterion',
-      description: 'Aggressive: Mathematical optimal but high variance',
+      label: t('bankroll.strategies.kelly.label'),
+      description: t('bankroll.strategies.kelly.description'),
     },
     {
       value: 'fixed_percentage',
-      label: 'Fixed Percentage',
-      description: 'Bet same % of bankroll every time',
+      label: t('bankroll.strategies.fixed_percentage.label'),
+      description: t('bankroll.strategies.fixed_percentage.description'),
     },
     {
       value: 'fixed_amount',
-      label: 'Fixed Amount',
-      description: 'Bet same dollar amount every time',
+      label: t('bankroll.strategies.fixed_amount.label'),
+      description: t('bankroll.strategies.fixed_amount.description'),
     },
   ];
 
@@ -136,10 +138,10 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
       <div className="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
         <div className="p-6">
           <h2 className="text-2xl font-bold text-gray-900 mb-2">
-            💰 Set Up Your Bankroll
+            💰 {t('bankroll.title')}
           </h2>
           <p className="text-gray-600 mb-6">
-            Manage your betting budget responsibly with our bankroll management system
+            {t('bankroll.subtitle')}
           </p>
 
           {error && (
@@ -152,7 +154,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
             {/* Initial Bankroll */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Initial Bankroll *
+                {t('bankroll.form.initialBankroll')} *
               </label>
               <div className="flex gap-2">
                 <select
@@ -175,14 +177,14 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                 />
               </div>
               <p className="mt-1 text-xs text-gray-500">
-                Amount you're willing to allocate for betting
+                {t('bankroll.form.initialBankrollHelp')}
               </p>
             </div>
 
             {/* Risk Profile */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Risk Profile *
+                {t('bankroll.form.riskProfile')} *
               </label>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                 {riskProfiles.map((profile) => (
@@ -191,8 +193,8 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                     type="button"
                     onClick={() => setFormData({ ...formData, riskProfile: profile.value })}
                     className={`p-3 border-2 rounded-lg text-left transition-all ${formData.riskProfile === profile.value
-                        ? 'border-blue-500 bg-blue-50'
-                        : 'border-gray-200 hover:border-gray-300'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 hover:border-gray-300'
                       }`}
                   >
                     <div className="text-2xl mb-1">{profile.emoji}</div>
@@ -206,7 +208,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
             {/* Staking Strategy */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Staking Strategy *
+                {t('bankroll.form.stakingStrategy')} *
               </label>
               <select
                 value={formData.stakingStrategy}
@@ -225,7 +227,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Daily Loss Limit (Optional)
+                  {t('bankroll.form.dailyLossLimit')}
                 </label>
                 <input
                   type="number"
@@ -233,16 +235,16 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                   value={formData.dailyLossLimit}
                   onChange={(e) => setFormData({ ...formData, dailyLossLimit: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Auto-calculated"
+                  placeholder={t('bankroll.form.autoCalculated')}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Max loss allowed per day
+                  {t('bankroll.form.dailyLossLimitHelp')}
                 </p>
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Weekly Loss Limit (Optional)
+                  {t('bankroll.form.weeklyLossLimit')}
                 </label>
                 <input
                   type="number"
@@ -250,10 +252,10 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                   value={formData.weeklyLossLimit}
                   onChange={(e) => setFormData({ ...formData, weeklyLossLimit: e.target.value })}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="Auto-calculated"
+                  placeholder={t('bankroll.form.autoCalculated')}
                 />
                 <p className="mt-1 text-xs text-gray-500">
-                  Max loss allowed per week
+                  {t('bankroll.form.weeklyLossLimitHelp')}
                 </p>
               </div>
             </div>
@@ -261,7 +263,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
             {/* Max Stake */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Stake per Bet (% of Bankroll) *
+                {t('bankroll.form.maxStake')} *
               </label>
               <input
                 type="number"
@@ -274,7 +276,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
               />
               <p className="mt-1 text-xs text-gray-500">
-                Maximum percentage of bankroll to stake on a single bet (1-25%)
+                {t('bankroll.form.maxStakeHelp')}
               </p>
             </div>
 
@@ -286,14 +288,14 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                 disabled={isSubmitting}
               >
-                Cancel
+                {t('bankroll.form.cancel')}
               </button>
               <button
                 type="submit"
                 disabled={isSubmitting}
                 className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
               >
-                {isSubmitting ? 'Creating...' : 'Create Bankroll'}
+                {isSubmitting ? t('bankroll.form.creating') : t('bankroll.form.create')}
               </button>
             </div>
           </form>

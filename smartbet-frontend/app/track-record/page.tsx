@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface PredictionWithResult {
   fixture_id: number;
@@ -120,8 +121,19 @@ export default function TrackRecordPage() {
     }
   };
 
+  // Helper for replacing placeholders
+  const formatString = (str: string, ...args: (string | number)[]) => {
+    return str.replace(/{(\d+)}/g, (match, number) => {
+      return typeof args[number] !== 'undefined' ? String(args[number]) : match;
+    });
+  };
+
+  const { t, language } = useLanguage()
+
+  // ... (rest of imports and logic)
+
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('en-US', {
+    return new Date(dateString).toLocaleDateString(language === 'ro' ? 'ro-RO' : 'en-US', {
       month: 'short',
       day: 'numeric',
       year: 'numeric',
@@ -159,13 +171,13 @@ export default function TrackRecordPage() {
             <div>
               <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
                 <Trophy className="h-8 w-8 text-blue-600" />
-                <span>Our Track Record</span>
+                <span>{t('trackRecord.title')}</span>
               </h1>
               <p className="text-gray-600 mt-2">
-                Performance of our <strong>recommended bets</strong> - the fixtures we told you to bet on
+                {t('trackRecord.subtitle')}
               </p>
               <p className="text-sm text-blue-600 mt-1">
-                💎 Only our top picks are shown here (55%+ confidence, positive EV)
+                {t('trackRecord.disclaimer')}
               </p>
             </div>
             <button
@@ -174,7 +186,7 @@ export default function TrackRecordPage() {
               className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400"
             >
               <RefreshCw className={`h-4 w-4 ${updating ? 'animate-spin' : ''}`} />
-              <span>{updating ? 'Updating...' : 'Update Results'}</span>
+              <span>{updating ? t('trackRecord.updating') : t('trackRecord.updateResults')}</span>
             </button>
           </div>
         </div>
@@ -185,19 +197,20 @@ export default function TrackRecordPage() {
         {accuracyStats && roiStats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
             {/* Overall Accuracy */}
-            <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-              <p className="text-sm opacity-90 mb-2">Overall Accuracy</p>
+            <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-white">
+              <p className="text-sm opacity-90 mb-2">{t('trackRecord.stats.overallAccuracy')}</p>
               <p className="text-4xl font-bold mb-2">
                 {accuracyStats.overall.accuracy_percent}%
               </p>
               <p className="text-sm opacity-90">
-                {accuracyStats.overall.correct_predictions}/{accuracyStats.overall.total_predictions} correct
+                {formatString('{0}/{1} correct', accuracyStats.overall.correct_predictions, accuracyStats.overall.total_predictions)}
+                {/* Note: 'correct' word hardcoded in logic above, simplified for now as numbers are universal */}
               </p>
             </div>
 
             {/* Win Rate */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <p className="text-sm text-gray-600 mb-2">Win Rate</p>
+              <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.winRate')}</p>
               <p className="text-4xl font-bold text-gray-900 mb-2">
                 {roiStats.win_rate}%
               </p>
@@ -211,7 +224,7 @@ export default function TrackRecordPage() {
               ? 'bg-green-50 border-green-200'
               : 'bg-red-50 border-red-200'
               }`}>
-              <p className="text-sm text-gray-700 mb-2">ROI ($10/bet)</p>
+              <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
               <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
                 }`}>
                 {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
@@ -223,12 +236,12 @@ export default function TrackRecordPage() {
 
             {/* Total Predictions */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <p className="text-sm text-gray-600 mb-2">Total Tracked</p>
+              <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.totalTracked')}</p>
               <p className="text-4xl font-bold text-gray-900 mb-2">
                 {roiStats.total_bets}
               </p>
               <p className="text-sm text-gray-600">
-                Predictions logged
+                {t('trackRecord.stats.predictionsLogged')}
               </p>
             </div>
           </div>
@@ -237,10 +250,10 @@ export default function TrackRecordPage() {
         {/* Outcome Breakdown */}
         {accuracyStats && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Accuracy by Prediction Type</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('trackRecord.stats.accuracyByType')}</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Home Wins</p>
+                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.homeWins')}</p>
                 <p className="text-3xl font-bold text-blue-600 mb-1">
                   {accuracyStats.by_outcome.home.accuracy}%
                 </p>
@@ -249,7 +262,7 @@ export default function TrackRecordPage() {
                 </p>
               </div>
               <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Draws</p>
+                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.draws')}</p>
                 <p className="text-3xl font-bold text-gray-600 mb-1">
                   {accuracyStats.by_outcome.draw.accuracy}%
                 </p>
@@ -258,7 +271,7 @@ export default function TrackRecordPage() {
                 </p>
               </div>
               <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">Away Wins</p>
+                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.awayWins')}</p>
                 <p className="text-3xl font-bold text-purple-600 mb-1">
                   {accuracyStats.by_outcome.away.accuracy}%
                 </p>
@@ -275,7 +288,7 @@ export default function TrackRecordPage() {
           <div className="flex items-center gap-4 flex-wrap">
             <div className="flex items-center gap-2">
               <Filter className="h-4 w-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">Filters:</span>
+              <span className="text-sm font-medium text-gray-700">{t('trackRecord.filters.label')}</span>
             </div>
 
             <select
@@ -283,7 +296,7 @@ export default function TrackRecordPage() {
               onChange={(e) => setFilterLeague(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
             >
-              <option value="all">All Leagues</option>
+              <option value="all">{t('trackRecord.filters.allLeagues')}</option>
               {leagues.map((league) => (
                 <option key={league} value={league}>{league}</option>
               ))}
@@ -294,12 +307,12 @@ export default function TrackRecordPage() {
               onChange={(e) => setFilterStatus(e.target.value)}
               className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
             >
-              <option value="completed">Completed Only</option>
-              <option value="all">All (Including Pending)</option>
+              <option value="completed">{t('trackRecord.filters.completedOnly')}</option>
+              <option value="all">{t('trackRecord.filters.all')}</option>
             </select>
 
             <span className="text-sm text-gray-600 ml-auto">
-              Showing {filteredPredictions.length} predictions
+              {formatString(t('trackRecord.filters.showing'), filteredPredictions.length)}
             </span>
           </div>
         </div>
@@ -310,14 +323,14 @@ export default function TrackRecordPage() {
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Match</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Predicted</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actual</th>
-                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">Result</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Confidence</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">EV</th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">P/L ($10)</th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.match')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.predicted')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.actual')}</th>
+                  <th className="px-6 py-3 text-center text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.result')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.confidence')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.ev')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.pl')}</th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.date')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -331,7 +344,7 @@ export default function TrackRecordPage() {
                         <p className="text-xs text-gray-500">{pred.league}</p>
                         {pred.actual_score && (
                           <p className="text-xs text-gray-600 font-mono mt-1">
-                            Score: {pred.actual_score}
+                            {t('trackRecord.table.score')} {pred.actual_score}
                           </p>
                         )}
                       </div>
@@ -341,7 +354,9 @@ export default function TrackRecordPage() {
                         pred.predicted_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
                           'bg-purple-100 text-purple-800'
                         }`}>
-                        {pred.predicted_outcome}
+                        {pred.predicted_outcome === 'Home' ? t('card.outcomes.home') :
+                          pred.predicted_outcome === 'Draw' ? t('card.outcomes.draw') :
+                            pred.predicted_outcome === 'Away' ? t('card.outcomes.away') : pred.predicted_outcome}
                       </span>
                     </td>
                     <td className="px-6 py-4">
@@ -350,12 +365,14 @@ export default function TrackRecordPage() {
                           pred.actual_outcome === 'Draw' ? 'bg-gray-100 text-gray-800' :
                             'bg-purple-100 text-purple-800'
                           }`}>
-                          {pred.actual_outcome}
+                          {pred.actual_outcome === 'Home' ? t('card.outcomes.home') :
+                            pred.actual_outcome === 'Draw' ? t('card.outcomes.draw') :
+                              pred.actual_outcome === 'Away' ? t('card.outcomes.away') : pred.actual_outcome}
                         </span>
                       ) : (
                         <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
                           <Clock className="h-3 w-3" />
-                          Pending
+                          {t('trackRecord.table.pending')}
                         </span>
                       )}
                     </td>
@@ -400,56 +417,52 @@ export default function TrackRecordPage() {
 
             {filteredPredictions.length === 0 && (
               <div className="text-center py-12 text-gray-500">
-                No predictions found
+                {t('trackRecord.table.noPredictions')}
               </div>
             )}
           </div>
         </div>
 
         {/* Transparency Notice */}
-        <div className="mt-8 bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-300 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900 mb-3 text-lg">🔒 Our Transparency Commitment</h3>
+        <div className="mt-8 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6">
+          <h3 className="font-semibold text-blue-900 mb-3 text-lg">{t('trackRecord.transparency.title')}</h3>
 
           <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-2">📋 What We Track</h4>
+            <h4 className="font-semibold text-blue-900 mb-2">{t('trackRecord.transparency.whatWeTrack')}</h4>
             <p className="text-sm text-blue-800">
-              We track <strong>only the predictions we recommend to you</strong> - the "best bets"
-              shown on our homepage (top 10 daily picks with 55%+ confidence and positive EV).
+              {t('trackRecord.transparency.whatWeTrackDesc')}
             </p>
             <p className="text-sm text-blue-800 mt-2">
-              <strong>Why?</strong> Because we believe in accountability. We don't track thousands
-              of predictions we never told you about - we track what we actually recommend.
+              <strong>{t('trackRecord.transparency.why')}</strong> {t('trackRecord.transparency.whyDesc')}
             </p>
           </div>
 
           <ul className="space-y-2 text-sm text-blue-800">
             <li className="flex items-start gap-2">
               <span className="text-green-600 font-bold">✓</span>
-              <span><strong>Timestamped BEFORE kickoff:</strong> All predictions logged before matches start - impossible to fake</span>
+              <span><strong>{t('trackRecord.transparency.points.timestamped')}:</strong> {t('trackRecord.transparency.points.timestampedDesc')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-green-600 font-bold">✓</span>
-              <span><strong>Third-party verified:</strong> Results fetched from SportMonks API - we cannot manipulate them</span>
+              <span><strong>{t('trackRecord.transparency.points.verified')}:</strong> {t('trackRecord.transparency.points.verifiedDesc')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-green-600 font-bold">✓</span>
-              <span><strong>Never deleted:</strong> Historical data is permanent - we show both wins and losses</span>
+              <span><strong>{t('trackRecord.transparency.points.permanent')}:</strong> {t('trackRecord.transparency.points.permanentDesc')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-green-600 font-bold">✓</span>
-              <span><strong>Complete history:</strong> Every recommendation we made is here - you can audit everything</span>
+              <span><strong>{t('trackRecord.transparency.points.history')}:</strong> {t('trackRecord.transparency.points.historyDesc')}</span>
             </li>
             <li className="flex items-start gap-2">
               <span className="text-green-600 font-bold">✓</span>
-              <span><strong>Real-time updates:</strong> Click "Update Results" to fetch the latest match outcomes</span>
+              <span><strong>{t('trackRecord.transparency.points.updates')}:</strong> {t('trackRecord.transparency.points.updatesDesc')}</span>
             </li>
           </ul>
 
           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
             <p className="text-xs text-yellow-900">
-              <strong>Note:</strong> We only track our <strong>recommended bets</strong> (the ones we show on the homepage).
-              This is honest accountability - we're measured by what we actually tell you to bet on, not by cherry-picking
-              from thousands of unpublished predictions.
+              <strong>{t('trackRecord.transparency.note')}</strong> {t('trackRecord.transparency.noteDesc')}
             </p>
           </div>
         </div>

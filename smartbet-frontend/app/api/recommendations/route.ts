@@ -163,6 +163,23 @@ export async function GET(request: NextRequest) {
               away: normalizeProbability(rawPredictions.away || 0)
             }
 
+            // Extract Form Data
+            // SportMonks returns form in various ways, check meta or direct property
+            const getForm = (p: any) => {
+              if (!p) return '?????'
+              // Check direct form property
+              if (p.form) return typeof p.form === 'string' ? p.form : JSON.stringify(p.form)
+              // Check meta form
+              if (p.meta?.form) return p.meta.form
+              // Check last 5 games if specific fields exist (fallback)
+              return '?????'
+            }
+
+            const teamsData = {
+              home: { form: getForm(homeParticipant) },
+              away: { form: getForm(awayParticipant) }
+            }
+
             const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
             let oddsData: any = null
 
@@ -199,6 +216,17 @@ export async function GET(request: NextRequest) {
             const oddsValue = oddsData?.[predictedOutcome] || 1
             const expectedValue = (maxProb * oddsValue) - 1
 
+            // PROBABILITY GAP FILTER: Skip weak predictions where outcomes are too close
+            // This filters out "coin flip" predictions like 35%/33%/32%
+            const sortedProbs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
+            const probabilityGap = sortedProbs[0] - sortedProbs[1]
+            const MIN_PROBABILITY_GAP = 0.12 // 12% minimum gap between 1st and 2nd outcome
+
+            if (probabilityGap < MIN_PROBABILITY_GAP) {
+              // Skip this fixture - prediction too uncertain
+              continue
+            }
+
             if (expectedValue > 0 && confidence >= 55 && expectedValue >= 0.10) {
               allRecommendations.push({
                 fixture_id: fixture.id,
@@ -215,8 +243,13 @@ export async function GET(request: NextRequest) {
                 ev: expectedValue,
                 probabilities: predictionData,
                 odds_data: oddsData,
+                teams_data: teamsData,
                 explanation: `Model predicts ${predictedOutcome} win`,
-                debug_info: { confidence_score: confidence },
+                debug_info: {
+                  confidence_score: confidence,
+                  probability_gap: probabilityGap,
+                  variance: probabilityGap >= 0.20 ? 'Low' : probabilityGap >= 0.15 ? 'Medium' : 'High'
+                },
                 revenue_vs_risk_score: 0, // Will be calculated
                 // Adjusted Signal Quality Logic: Retained as it is purely computational, not data-dependent
                 signal_quality: (() => {
@@ -262,14 +295,20 @@ export async function GET(request: NextRequest) {
       const seasonIds = Array.from(new Set(top10Recommendations.map(rec => rec.season_id).filter(id => !!id)))
 
       if (seasonIds.length > 0) {
-        console.log(`Examples of Season IDs: ${seasonIds.join(', ')}`)
+        console.error(`DEBUG: Enrichment Season IDs: ${seasonIds.join(', ')}`)
 
         // 2. Fetch standings for each season in parallel
         const standingsPromises = seasonIds.map(seasonId =>
           apiClient.request(`https://api.sportmonks.com/v3/football/standings/seasons/${seasonId}?api_token=${token}&include=form`)
-            .then(res => ({ seasonId, data: res.data || [] }))
+            .then(res => {
+              console.error(`DEBUG: Standings for ${seasonId}: Found ${res.data?.length || 0} entries`)
+              if (res.data?.length > 0) {
+                console.error(`DEBUG: Sample Form:`, JSON.stringify(res.data[0].form))
+              }
+              return { seasonId, data: res.data || [] }
+            })
             .catch(err => {
-              console.error(`Failed to fetch standings for season ${seasonId}: ${err.message}`)
+              console.error(`ERROR: Failed to fetch standings for season ${seasonId}: ${err.message}`)
               return { seasonId, data: [] }
             })
         )
@@ -277,32 +316,87 @@ export async function GET(request: NextRequest) {
         const standingsResults = await Promise.all(standingsPromises)
 
         // 3. Create a map of TeamID -> Form String
-        const formMap = new Map<number, string>()
+        const formMap = new Map<string, string>()
 
         standingsResults.forEach(result => {
+          if (result.data.length > 0) {
+            console.error(`DEBUG: First standing keys:`, Object.keys(result.data[0]))
+            if (!result.data[0].participant_id) console.error(`WARNING: participant_id missing in standing!`)
+          }
           result.data.forEach((standing: any) => {
             if (standing.participant_id && standing.form) {
-              formMap.set(standing.participant_id, standing.form)
+              // Normalize ID to string to ensure matching works
+              formMap.set(String(standing.participant_id), standing.form)
             }
           })
         })
         console.log(`✅ Enrichment: Found form data for ${formMap.size} teams`)
 
+        // 3.5 Fallback: Fetch specific team form for Cup matches (where standings failed)
+        const missingFormTeamIds = new Set<string>()
+        top10Recommendations.forEach(rec => {
+          if (!formMap.has(String(rec.home_id))) missingFormTeamIds.add(String(rec.home_id))
+          if (!formMap.has(String(rec.away_id))) missingFormTeamIds.add(String(rec.away_id))
+        })
+
+        if (missingFormTeamIds.size > 0) {
+          console.log(`⚠️ Enrichment: Fetching fallback form for ${missingFormTeamIds.size} teams (Cup/Non-League)`)
+          // Limit to 10 concurrent requests to be safe with rate limits
+          const idsToFetch = Array.from(missingFormTeamIds).slice(0, 10)
+
+          const teamPromises = idsToFetch.map(id =>
+            apiClient.request(`https://api.sportmonks.com/v3/football/teams/${id}?api_token=${token}&include=form`)
+              .then(res => {
+                // Determine form string from team response
+                let form = '?????'
+                if (res.data?.form) form = res.data.form
+                else if (Array.isArray(res.data?.form)) form = res.data.form.map((f: any) => f.result || '?').join('')
+
+                return { id: String(id), form }
+              })
+              .catch(err => {
+                console.error(`Failed to fetch team form ${id}: ${err.message}`)
+                return { id: String(id), form: null }
+              })
+          )
+
+          const teamResults = await Promise.all(teamPromises)
+          teamResults.forEach(res => {
+            if (res.form && res.form !== '?????') {
+              formMap.set(res.id, res.form)
+            }
+          })
+        }
+
         // 4. Enrich recommendations
         top10Recommendations = top10Recommendations.map(rec => {
-          const homeForm = formMap.get(rec.home_id) || null
-          const awayForm = formMap.get(rec.away_id) || null
+          const homeIdStr = String(rec.home_id)
+          const awayIdStr = String(rec.away_id)
 
-          if (homeForm || awayForm) {
-            return {
-              ...rec,
-              teams_data: {
-                home: { form: homeForm, ...rec.teams_data?.home },
-                away: { form: awayForm, ...rec.teams_data?.away }
-              }
+          const homeForm = formMap.get(homeIdStr) || null
+          const awayForm = formMap.get(awayIdStr) || null
+
+          // Handle existing form data (from initial logic or fallback fetch)
+          // We must treat '?????' as "no data"
+          const currentHomeForm = rec.teams_data?.home?.form
+          const currentAwayForm = rec.teams_data?.away?.form
+
+          // Logic: 
+          // 1. Enrich (Standings/Direct Fetch) -> if valid string
+          // 2. Initial -> if valid string (not '?????')
+          // 3. Last resort -> '?????' 
+          // Note: homeForm from map is already validated to be non-empty string in previous steps
+
+          const finalHomeForm = homeForm || (currentHomeForm !== '?????' ? currentHomeForm : null) || '?????'
+          const finalAwayForm = awayForm || (currentAwayForm !== '?????' ? currentAwayForm : null) || '?????'
+
+          return {
+            ...rec,
+            teams_data: {
+              home: { ...rec.teams_data?.home, form: finalHomeForm },
+              away: { ...rec.teams_data?.away, form: finalAwayForm }
             }
           }
-          return rec
         })
       }
     } catch (enrichError) {

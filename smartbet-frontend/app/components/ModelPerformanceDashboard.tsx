@@ -12,6 +12,7 @@ import {
     ArrowRight
 } from 'lucide-react'
 import Link from 'next/link'
+import { useLanguage } from '../contexts/LanguageContext'
 
 interface AccuracyStats {
     overall: {
@@ -28,9 +29,11 @@ interface ROIStats {
     win_rate: number;
     wins: number;
     losses: number;
+    win_rate_percent?: number; // Optional fallback
 }
 
 export default function ModelPerformanceDashboard() {
+    const { t } = useLanguage()
     const [accuracy, setAccuracy] = useState<AccuracyStats | null>(null)
     const [roi, setRoi] = useState<ROIStats | null>(null)
     const [loading, setLoading] = useState(true)
@@ -76,17 +79,17 @@ export default function ModelPerformanceDashboard() {
                     <div>
                         <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
                             <ShieldCheck className="h-6 w-6 text-blue-600" />
-                            Live Model Performance
+                            {t('dashboard.modelPerformance.title')}
                         </h2>
                         <p className="text-sm text-gray-600 mt-1">
-                            Real-time verification of our <strong>Recommended Bets</strong>. We track every pick we publish.
+                            {t('dashboard.modelPerformance.subtitle')}
                         </p>
                     </div>
                     <Link
                         href="/track-record"
                         className="group flex items-center gap-2 text-sm font-semibold text-blue-600 hover:text-blue-700 transition-colors"
                     >
-                        View Full Audit Log
+                        {t('dashboard.modelPerformance.viewAuditLog')}
                         <ArrowRight className="h-4 w-4 group-hover:translate-x-0.5 transition-transform" />
                     </Link>
                 </div>
@@ -101,7 +104,7 @@ export default function ModelPerformanceDashboard() {
                         <div className="p-2 bg-blue-100 rounded-lg">
                             <Target className="h-5 w-5 text-blue-600" />
                         </div>
-                        <span className="text-sm font-medium text-gray-600">Model Accuracy</span>
+                        <span className="text-sm font-medium text-gray-600">{t('trackRecord.stats.overallAccuracy')}</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                         <span className="text-3xl font-bold text-gray-900">{accuracy.overall.accuracy_percent}%</span>
@@ -122,7 +125,7 @@ export default function ModelPerformanceDashboard() {
                         <div className="p-2 bg-green-100 rounded-lg">
                             <TrendingUp className="h-5 w-5 text-green-600" />
                         </div>
-                        <span className="text-sm font-medium text-gray-600">Return on Investment</span>
+                        <span className="text-sm font-medium text-gray-600">{t('trackRecord.stats.roi')}</span>
                     </div>
                     <div className="flex items-baseline gap-2">
                         <span className={`text-3xl font-bold ${roi.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
@@ -160,11 +163,11 @@ export default function ModelPerformanceDashboard() {
                 <div className="flex items-center justify-center gap-6 text-xs text-gray-500">
                     <span className="flex items-center gap-1.5">
                         <Clock className="h-3.5 w-3.5" />
-                        Predictions logged before kickoff
+                        {t('trackRecord.transparency.points.timestamped')}
                     </span>
                     <span className="flex items-center gap-1.5">
                         <ShieldCheck className="h-3.5 w-3.5" />
-                        Outcomes verified by SportMonks
+                        {t('trackRecord.transparency.points.verified')}
                     </span>
                 </div>
             </div>

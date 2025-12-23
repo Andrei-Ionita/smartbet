@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import BankrollSetupModal from '../components/BankrollSetupModal';
+import { useLanguage } from '../contexts/LanguageContext';
 
 interface BankrollData {
   session_id: string;
@@ -54,6 +55,7 @@ interface StatsData {
 
 export default function BankrollPage() {
   const router = useRouter();
+  const { t } = useLanguage();
   const [bankroll, setBankroll] = useState<BankrollData | null>(null);
   const [stats, setStats] = useState<StatsData | null>(null);
   const [transactions, setTransactions] = useState<TransactionData[]>([]);
@@ -68,7 +70,7 @@ export default function BankrollPage() {
   const loadBankrollData = async () => {
     try {
       const sessionId = localStorage.getItem('smartbet_session_id');
-      
+
       if (!sessionId) {
         setShowSetupModal(true);
         setLoading(false);
@@ -158,10 +160,10 @@ export default function BankrollPage() {
           <div className="text-center">
             <div className="text-6xl mb-4">💰</div>
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              Set Up Your Bankroll
+              {t('bankroll.title')}
             </h1>
             <p className="text-gray-600 mb-6">
-              Manage your betting budget responsibly
+              {t('bankroll.subtitle')}
             </p>
             <button
               onClick={() => setShowSetupModal(true)}
@@ -196,7 +198,7 @@ export default function BankrollPage() {
           </button>
           <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
             <span>💰</span>
-            <span>Bankroll Management</span>
+            <span>{t('bankroll.page.title')}</span>
           </h1>
         </div>
       </div>
@@ -208,11 +210,10 @@ export default function BankrollPage() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${
-                activeTab === tab
-                  ? 'border-blue-600 text-blue-600'
-                  : 'border-transparent text-gray-600 hover:text-gray-900'
-              }`}
+              className={`px-4 py-2 font-medium text-sm border-b-2 transition-colors ${activeTab === tab
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-600 hover:text-gray-900'
+                }`}
             >
               {tab.charAt(0).toUpperCase() + tab.slice(1)}
             </button>
@@ -225,8 +226,8 @@ export default function BankrollPage() {
             {/* Main Stats */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {/* Current Bankroll */}
-              <div className="bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg p-6 text-white">
-                <p className="text-sm opacity-90 mb-2">Current Bankroll</p>
+              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-white">
+                <p className="text-sm opacity-90 mb-2">{t('bankroll.page.currentBalance')}</p>
                 <p className="text-4xl font-bold mb-2">
                   {formatCurrency(bankroll.current_bankroll, bankroll.currency)}
                 </p>
@@ -236,13 +237,11 @@ export default function BankrollPage() {
               </div>
 
               {/* Profit/Loss */}
-              <div className={`rounded-lg p-6 ${
-                isProfitable ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'
-              }`}>
-                <p className="text-sm text-gray-700 mb-2">Total Profit/Loss</p>
-                <p className={`text-4xl font-bold mb-2 ${
-                  isProfitable ? 'text-green-700' : 'text-red-700'
+              <div className={`rounded-lg p-6 ${isProfitable ? 'bg-green-50 border-2 border-green-200' : 'bg-red-50 border-2 border-red-200'
                 }`}>
+                <p className="text-sm text-gray-700 mb-2">{t('bankroll.page.totalProfit')}</p>
+                <p className={`text-4xl font-bold mb-2 ${isProfitable ? 'text-green-700' : 'text-red-700'
+                  }`}>
                   {isProfitable ? '+' : ''}{formatCurrency(profitLoss, bankroll.currency)}
                 </p>
                 <p className="text-sm text-gray-700">
@@ -252,14 +251,13 @@ export default function BankrollPage() {
 
               {/* ROI */}
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600 mb-2">Return on Investment</p>
-                <p className={`text-4xl font-bold mb-2 ${
-                  bankroll.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'
-                }`}>
+                <p className="text-sm text-gray-600 mb-2">{t('bankroll.page.roi')}</p>
+                <p className={`text-4xl font-bold mb-2 ${bankroll.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'
+                  }`}>
                   {bankroll.roi_percent.toFixed(1)}%
                 </p>
                 <p className="text-sm text-gray-600">
-                  {getRiskProfileEmoji(bankroll.risk_profile)} {bankroll.risk_profile} profile
+                  {getRiskProfileEmoji(bankroll.risk_profile)} {t(`bankroll.riskProfiles.${bankroll.risk_profile as any}.label` as any) || bankroll.risk_profile}
                 </p>
               </div>
             </div>
@@ -267,30 +265,29 @@ export default function BankrollPage() {
             {/* Performance Stats */}
             {stats && (
               <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <h2 className="text-xl font-bold text-gray-900 mb-4">Performance Statistics</h2>
+                <h2 className="text-xl font-bold text-gray-900 mb-4">{t('bankroll.page.stats.title')}</h2>
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Total Bets</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('bankroll.page.stats.totalBets')}</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.total_bets}</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Win Rate</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('bankroll.page.stats.winRate')}</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.win_rate.toFixed(1)}%</p>
                     <p className="text-xs text-gray-500 mt-1">{stats.wins}W - {stats.losses}L</p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Avg Profit/Bet</p>
-                    <p className={`text-2xl font-bold ${
-                      stats.avg_profit_per_bet >= 0 ? 'text-green-600' : 'text-red-600'
-                    }`}>
+                    <p className="text-sm text-gray-600 mb-1">{t('bankroll.page.stats.avgProfit')}</p>
+                    <p className={`text-2xl font-bold ${stats.avg_profit_per_bet >= 0 ? 'text-green-600' : 'text-red-600'
+                      }`}>
                       {formatCurrency(stats.avg_profit_per_bet, bankroll.currency)}
                     </p>
                   </div>
                   <div>
-                    <p className="text-sm text-gray-600 mb-1">Pending</p>
+                    <p className="text-sm text-gray-600 mb-1">{t('bankroll.page.stats.pending')}</p>
                     <p className="text-2xl font-bold text-gray-900">{stats.pending_bets}</p>
                     <p className="text-xs text-gray-500 mt-1">
-                      {formatCurrency(stats.pending_exposure, bankroll.currency)} at risk
+                      {formatCurrency(stats.pending_exposure, bankroll.currency)} {t('bankroll.page.stats.atRisk')}
                     </p>
                   </div>
                 </div>
@@ -299,29 +296,28 @@ export default function BankrollPage() {
 
             {/* Limits */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Loss Limits</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">{t('bankroll.page.limits.title')}</h2>
               <div className="space-y-4">
                 {/* Daily Limit */}
                 {bankroll.daily_loss_limit && (
                   <div>
                     <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-600">Daily Limit</span>
+                      <span className="text-gray-600">{t('bankroll.page.limits.daily')}</span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(bankroll.daily_loss_amount, bankroll.currency)} / {formatCurrency(bankroll.daily_loss_limit, bankroll.currency)}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div
-                        className={`h-3 rounded-full transition-all ${
-                          bankroll.is_daily_limit_reached ? 'bg-red-600' : 'bg-blue-600'
-                        }`}
+                        className={`h-3 rounded-full transition-all ${bankroll.is_daily_limit_reached ? 'bg-red-600' : 'bg-blue-600'
+                          }`}
                         style={{
                           width: `${Math.min((bankroll.daily_loss_amount / bankroll.daily_loss_limit) * 100, 100)}%`
                         }}
                       ></div>
                     </div>
                     {bankroll.is_daily_limit_reached && (
-                      <p className="text-xs text-red-600 mt-1">⚠️ Daily limit reached - betting paused</p>
+                      <p className="text-xs text-red-600 mt-1">⚠️ {t('bankroll.page.limits.daily')} {t('bankroll.page.limits.reached')}</p>
                     )}
                   </div>
                 )}
@@ -330,23 +326,22 @@ export default function BankrollPage() {
                 {bankroll.weekly_loss_limit && (
                   <div>
                     <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-gray-600">Weekly Limit</span>
+                      <span className="text-gray-600">{t('bankroll.page.limits.weekly')}</span>
                       <span className="font-medium text-gray-900">
                         {formatCurrency(bankroll.weekly_loss_amount, bankroll.currency)} / {formatCurrency(bankroll.weekly_loss_limit, bankroll.currency)}
                       </span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
                       <div
-                        className={`h-3 rounded-full transition-all ${
-                          bankroll.is_weekly_limit_reached ? 'bg-red-600' : 'bg-green-600'
-                        }`}
+                        className={`h-3 rounded-full transition-all ${bankroll.is_weekly_limit_reached ? 'bg-red-600' : 'bg-green-600'
+                          }`}
                         style={{
                           width: `${Math.min((bankroll.weekly_loss_amount / bankroll.weekly_loss_limit) * 100, 100)}%`
                         }}
                       ></div>
                     </div>
                     {bankroll.is_weekly_limit_reached && (
-                      <p className="text-xs text-red-600 mt-1">⚠️ Weekly limit reached - betting paused</p>
+                      <p className="text-xs text-red-600 mt-1">⚠️ {t('bankroll.page.limits.weekly')} {t('bankroll.page.limits.reached')}</p>
                     )}
                   </div>
                 )}
@@ -356,12 +351,12 @@ export default function BankrollPage() {
             {/* Recent Transactions */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">
               <div className="flex items-center justify-between mb-4">
-                <h2 className="text-xl font-bold text-gray-900">Recent Transactions</h2>
+                <h2 className="text-xl font-bold text-gray-900">{t('bankroll.page.transactions.recent')}</h2>
                 <button
                   onClick={() => setActiveTab('transactions')}
                   className="text-sm text-blue-600 hover:text-blue-700"
                 >
-                  View All →
+                  {t('bankroll.page.transactions.viewAll')}
                 </button>
               </div>
               <div className="space-y-3">
@@ -378,9 +373,8 @@ export default function BankrollPage() {
                         {formatCurrency(txn.stake_amount, bankroll.currency)}
                       </p>
                       {txn.profit_loss !== null && (
-                        <p className={`text-xs font-medium ${
-                          txn.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
-                        }`}>
+                        <p className={`text-xs font-medium ${txn.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
+                          }`}>
                           {txn.profit_loss >= 0 ? '+' : ''}{formatCurrency(txn.profit_loss, bankroll.currency)}
                         </p>
                       )}
@@ -388,7 +382,7 @@ export default function BankrollPage() {
                   </div>
                 ))}
                 {transactions.length === 0 && (
-                  <p className="text-center text-gray-500 py-8">No transactions yet</p>
+                  <p className="text-center text-gray-500 py-8">{t('bankroll.page.noTransactions')}</p>
                 )}
               </div>
             </div>
@@ -399,19 +393,19 @@ export default function BankrollPage() {
         {activeTab === 'transactions' && (
           <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
             <div className="p-6">
-              <h2 className="text-xl font-bold text-gray-900 mb-4">All Transactions</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-4">{t('bankroll.page.transactions.all')}</h2>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead className="bg-gray-50 border-y border-gray-200">
                   <tr>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Match</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Outcome</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Odds</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Stake</th>
-                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">P/L</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.match')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.outcome')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.odds')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.stake')}</th>
+                    <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.pl')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.status')}</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('bankroll.page.transactions.table.date')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
@@ -425,9 +419,8 @@ export default function BankrollPage() {
                       </td>
                       <td className="px-6 py-4 text-sm text-right">
                         {txn.profit_loss !== null ? (
-                          <span className={`font-medium ${
-                            txn.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
-                          }`}>
+                          <span className={`font-medium ${txn.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
+                            }`}>
                             {txn.profit_loss >= 0 ? '+' : ''}{formatCurrency(txn.profit_loss, bankroll.currency)}
                           </span>
                         ) : (
@@ -435,12 +428,11 @@ export default function BankrollPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${
-                          txn.status === 'settled_won' ? 'bg-green-100 text-green-800' :
+                        <span className={`inline-flex px-2 py-1 rounded-full text-xs font-medium ${txn.status === 'settled_won' ? 'bg-green-100 text-green-800' :
                           txn.status === 'settled_lost' ? 'bg-red-100 text-red-800' :
-                          txn.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
-                          'bg-gray-100 text-gray-800'
-                        }`}>
+                            txn.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
+                              'bg-gray-100 text-gray-800'
+                          }`}>
                           {txn.status.replace('_', ' ')}
                         </span>
                       </td>
@@ -453,7 +445,7 @@ export default function BankrollPage() {
               </table>
               {transactions.length === 0 && (
                 <div className="text-center py-12 text-gray-500">
-                  No transactions yet
+                  {t('bankroll.page.noTransactions')}
                 </div>
               )}
             </div>
@@ -463,25 +455,27 @@ export default function BankrollPage() {
         {/* Settings Tab */}
         {activeTab === 'settings' && (
           <div className="bg-white rounded-lg border border-gray-200 p-6">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">Bankroll Settings</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('bankroll.page.settings.title')}</h2>
             <div className="space-y-6">
               <div>
-                <p className="text-sm text-gray-600 mb-2">Risk Profile</p>
+                <p className="text-sm text-gray-600 mb-2">{t('bankroll.form.riskProfile')}</p>
                 <p className="text-lg font-medium text-gray-900">
-                  {getRiskProfileEmoji(bankroll.risk_profile)} {bankroll.risk_profile}
+                  {getRiskProfileEmoji(bankroll.risk_profile)} {t(`bankroll.riskProfiles.${bankroll.risk_profile as any}.label` as any) || bankroll.risk_profile}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-2">Staking Strategy</p>
-                <p className="text-lg font-medium text-gray-900">{bankroll.staking_strategy.replace('_', ' ')}</p>
+                <p className="text-sm text-gray-600 mb-2">{t('bankroll.form.stakingStrategy')}</p>
+                <p className="text-lg font-medium text-gray-900">
+                  {t(`bankroll.strategies.${bankroll.staking_strategy as any}.label` as any) || bankroll.staking_strategy.replace('_', ' ')}
+                </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-2">Max Stake per Bet</p>
+                <p className="text-sm text-gray-600 mb-2">{t('bankroll.form.maxStake')}</p>
                 <p className="text-lg font-medium text-gray-900">{bankroll.max_stake_percentage}% of bankroll</p>
               </div>
               <div className="pt-4 border-t">
                 <p className="text-xs text-gray-500">
-                  Account created: {formatDate(bankroll.created_at)}
+                  {t('bankroll.page.settings.accountCreated')}: {formatDate(bankroll.created_at)}
                 </p>
               </div>
             </div>

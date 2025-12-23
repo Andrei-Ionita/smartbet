@@ -85,6 +85,11 @@ export interface Recommendation {
     odds_efficiency: string
   }
 
+  // Two-Track Betting System
+  bet_type?: 'safe' | 'value' | 'speculative'
+  bet_label?: string
+  recommendation_color?: string
+
   // New Enhanced Data Features
   teams_data?: {
     home: {

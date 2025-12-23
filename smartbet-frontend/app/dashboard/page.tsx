@@ -7,10 +7,13 @@ import ActiveBetsList from '../components/dashboard/ActiveBetsList';
 import PersonalizedRecommendations from '../components/dashboard/PersonalizedRecommendations';
 import { LayoutDashboard, Wallet, TrendingUp, History } from 'lucide-react';
 
+import { useLanguage } from '../contexts/LanguageContext';
+
 export default function DashboardPage() {
     const router = useRouter();
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const { t } = useLanguage();
 
     useEffect(() => {
         // Check for session
@@ -43,8 +46,8 @@ export default function DashboardPage() {
                                 <LayoutDashboard className="h-6 w-6 text-primary-600" />
                             </div>
                             <div>
-                                <h1 className="text-2xl font-bold text-gray-900">My Dashboard</h1>
-                                <p className="text-sm text-gray-500">Welcome back to your betting portal</p>
+                                <h1 className="text-2xl font-bold text-gray-900">{t('dashboard.title')}</h1>
+                                <p className="text-sm text-gray-500">{t('dashboard.subtitle')}</p>
                             </div>
                         </div>
                         <div className="flex gap-3">
@@ -53,7 +56,7 @@ export default function DashboardPage() {
                                 className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                             >
                                 <Wallet className="h-4 w-4" />
-                                Manage Bankroll
+                                {t('dashboard.manageBankroll')}
                             </button>
                         </div>
                     </div>
@@ -78,7 +81,7 @@ export default function DashboardPage() {
                 <div>
                     <div className="flex items-center gap-2 mb-6">
                         <TrendingUp className="h-6 w-6 text-primary-600" />
-                        <h2 className="text-xl font-bold text-gray-900">Your Smart Picks</h2>
+                        <h2 className="text-xl font-bold text-gray-900">{t('dashboard.smartPicks')}</h2>
                     </div>
                     {sessionId && <PersonalizedRecommendations sessionId={sessionId} />}
                 </div>

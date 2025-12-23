@@ -1,12 +1,12 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { 
-  Activity, 
-  Clock, 
-  TrendingUp, 
-  AlertTriangle, 
-  CheckCircle, 
+import {
+  Activity,
+  Clock,
+  TrendingUp,
+  AlertTriangle,
+  CheckCircle,
   XCircle,
   Zap,
   Database,
@@ -40,7 +40,7 @@ export default function PerformanceDashboard() {
     try {
       const response = await fetch('/api/metrics')
       const data = await response.json()
-      
+
       if (data.success) {
         setReport(data.data)
         setError(null)
@@ -59,7 +59,7 @@ export default function PerformanceDashboard() {
     try {
       const response = await fetch('/api/metrics', { method: 'DELETE' })
       const data = await response.json()
-      
+
       if (data.success) {
         await fetchMetrics()
       } else {
@@ -131,8 +131,8 @@ export default function PerformanceDashboard() {
   if (!report || !report.metrics) return null
 
   const { metrics, performanceScore = 0, recommendations = [] } = report
-  const successRate = metrics && metrics.totalRequests > 0 
-    ? Math.round((metrics.successfulRequests / metrics.totalRequests) * 100) 
+  const successRate = metrics && metrics.totalRequests > 0
+    ? Math.round((metrics.successfulRequests / metrics.totalRequests) * 100)
     : 0
 
   return (
@@ -229,9 +229,9 @@ export default function PerformanceDashboard() {
           <div className="text-xl font-bold text-red-900">{metrics.rateLimitHits}</div>
         </div>
 
-        <div className="bg-indigo-50 rounded-xl p-4">
-          <div className="text-sm font-medium text-indigo-600 mb-1">Last Updated</div>
-          <div className="text-sm font-bold text-indigo-900">
+        <div className="bg-blue-50 rounded-xl p-4">
+          <div className="text-sm font-medium text-blue-600 mb-1">Last Updated</div>
+          <div className="text-sm font-bold text-blue-900">
             {new Date(metrics.lastUpdated).toLocaleTimeString()}
           </div>
         </div>

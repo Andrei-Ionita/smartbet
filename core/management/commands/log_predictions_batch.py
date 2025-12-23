@@ -82,6 +82,10 @@ class Command(BaseCommand):
                         probability_draw=prediction_data['probabilities']['draw'],
                         probability_away=prediction_data['probabilities']['away'],
                         
+                        # Store form data if available
+                        home_team_form=prediction_data.get('teams_data', {}).get('home', {}).get('form'),
+                        away_team_form=prediction_data.get('teams_data', {}).get('away', {}).get('form'),
+                        
                         odds_home=prediction_data.get('odds_data', {}).get('home') if prediction_data.get('odds_data') else None,
                         odds_draw=prediction_data.get('odds_data', {}).get('draw') if prediction_data.get('odds_data') else None,
                         odds_away=prediction_data.get('odds_data', {}).get('away') if prediction_data.get('odds_data') else None,

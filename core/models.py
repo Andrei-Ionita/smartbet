@@ -32,6 +32,10 @@ class PredictionLog(models.Model):
     probability_draw = models.FloatField()
     probability_away = models.FloatField()
     
+    # Team Form Data (stored as CSV string e.g., "W,L,W,D,W")
+    home_team_form = models.CharField(max_length=50, null=True, blank=True)
+    away_team_form = models.CharField(max_length=50, null=True, blank=True)
+    
     # Betting Information
     odds_home = models.FloatField(null=True, blank=True)
     odds_draw = models.FloatField(null=True, blank=True)

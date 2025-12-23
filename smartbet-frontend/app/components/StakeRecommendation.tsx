@@ -61,7 +61,7 @@ export default function StakeRecommendation({ stakeRecommendation, compact = fal
 
   if (compact) {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-3 border border-blue-200">
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg p-3 border border-blue-200">
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-600 mb-1">Recommended Stake</p>
@@ -76,7 +76,7 @@ export default function StakeRecommendation({ stakeRecommendation, compact = fal
             {getRiskEmoji(risk_level)} {risk_level}
           </div>
         </div>
-        
+
         {warnings.length > 0 && (
           <div className="mt-2 pt-2 border-t border-blue-200">
             {warnings.map((warning, index) => (
@@ -94,7 +94,7 @@ export default function StakeRecommendation({ stakeRecommendation, compact = fal
   return (
     <div className="bg-white rounded-lg border-2 border-blue-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 px-4 py-3">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 px-4 py-3">
         <h3 className="text-white font-semibold flex items-center gap-2">
           <span>💰</span>
           <span>Stake Recommendation</span>

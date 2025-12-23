@@ -11,6 +11,7 @@ from datetime import timedelta
 import json
 import os
 import requests
+from django.db.models import Q
 
 from .models import PredictionLog, UserBankroll
 from .bankroll_utils import calculate_stake_amount
@@ -138,8 +139,13 @@ def get_recommendations(request):
             kickoff__gte=now,
             kickoff__lte=end_date,
             predicted_outcome__isnull=False,
-            confidence__gte=0.55  # 55% minimum confidence
-        ).order_by('-confidence', '-expected_value')
+        ).filter(
+            # Two-Track Filtering:
+            # 1. Safe Bets: Confidence >= 60%
+            # 2. Value Bets: Confidence >= 35% AND EV >= 10%
+            Q(confidence__gte=0.60) | 
+            Q(confidence__gte=0.35, expected_value__gte=0.10)
+        ).order_by('-expected_value', '-confidence')  # Prioritize Value now
         
         # Filter by league if specified
         if league:
@@ -212,11 +218,27 @@ def get_recommendations(request):
                 # Additional fields for explore page
                 'prediction_confidence': pred.confidence,
                 'prediction_strength': 'Very Strong' if pred.confidence >= 0.70 else 'Strong' if pred.confidence >= 0.60 else 'Moderate',
+                
+                # Two-Track System Metadata
+                'bet_type': 'safe' if pred.confidence >= 0.60 else 'value',
+                'bet_label': '🛡️ Safe Pick' if pred.confidence >= 0.60 else '💎 Value Bet',
+                'recommendation_color': 'green' if pred.confidence >= 0.60 else 'blue',
+                
                 'ensemble_info': {
                     'model_count': pred.model_count,
                     'consensus': pred.consensus,
                     'variance': pred.variance,
                     'strategy': pred.ensemble_strategy
+                },
+                
+                # Teams Data (Form)
+                'teams_data': {
+                    'home': {
+                        'form': pred.home_team_form or '?????'
+                    },
+                    'away': {
+                        'form': pred.away_team_form or '?????'
+                    }
                 }
             }
             

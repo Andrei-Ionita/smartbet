@@ -82,7 +82,7 @@ export default function BankrollWidget() {
 
   if (!bankroll) {
     return (
-      <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-200 p-4">
+      <div className="bg-gradient-to-r from-blue-50 to-blue-100 rounded-lg border-2 border-blue-200 p-4">
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-semibold text-gray-900 mb-1">
@@ -110,7 +110,7 @@ export default function BankrollWidget() {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
       {/* Header */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-600 p-4">
+      <div className="bg-gradient-to-r from-blue-600 to-blue-700 p-4">
         <div className="flex items-center justify-between text-white">
           <div>
             <p className="text-sm opacity-90">Your Bankroll</p>
@@ -130,8 +130,8 @@ export default function BankrollWidget() {
         <div className="mt-3 flex items-center gap-2">
           <span
             className={`inline-flex items-center px-2 py-1 rounded text-sm font-medium ${isProfitable
-                ? 'bg-green-400 bg-opacity-30 text-white'
-                : 'bg-red-400 bg-opacity-30 text-white'
+              ? 'bg-green-400 bg-opacity-30 text-white'
+              : 'bg-red-400 bg-opacity-30 text-white'
               }`}
           >
             {isProfitable ? '↑' : '↓'} {formatCurrency(Math.abs(profitLoss), bankroll.currency)}
