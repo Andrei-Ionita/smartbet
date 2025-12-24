@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
     const limit = searchParams.get('limit') || '10'
 
     // Get Django backend URL from environment variable or use default
-    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
+    const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://smartbet-backend-production.up.railway.app')
 
     // Build Django URL with query params
     const params = new URLSearchParams()

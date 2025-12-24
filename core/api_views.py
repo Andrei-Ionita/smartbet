@@ -448,7 +448,7 @@ def get_recommended_predictions_with_outcomes(request):
         # Get all recommended predictions
         queryset = PredictionLog.objects.filter(
             is_recommended=True
-        ).order_by('-kickoff')
+        ).defer('notes', 'home_team_form', 'away_team_form').order_by('-kickoff')
         
         # If not including pending, only show completed matches
         if not include_pending:

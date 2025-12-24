@@ -79,6 +79,7 @@ class PredictionLog(models.Model):
             models.Index(fields=['league']),
             models.Index(fields=['is_recommended']),
             models.Index(fields=['is_recommended', 'was_correct']),  # Composite index for accuracy queries
+            models.Index(fields=['is_recommended', '-kickoff']),  # Composite index for monitoring dashboard performance
         ]
         verbose_name = "Prediction Log"
         verbose_name_plural = "Prediction Logs"
