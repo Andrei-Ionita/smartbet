@@ -25,7 +25,16 @@ export async function GET(request: NextRequest) {
       })
 
       if (!response.ok) {
-        throw new Error(`Django API error: ${response.status} ${response.statusText}`)
+        let errorMessage = `Django API error: ${response.status} ${response.statusText}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = `${errorMessage} - Details: ${errorData.error}`
+          }
+        } catch (e) {
+          // Ignore json parsing error if response is not json
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
