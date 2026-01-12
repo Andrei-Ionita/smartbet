@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 import json
 import os
 import requests
@@ -461,10 +461,10 @@ def get_recommended_predictions_with_outcomes(request):
             # Reset view: Only show predictions from V2 launch onwards
             # Note: In production, hardcode this date to the actual launch timestamp
             # For now, we'll use a fixed date to ensure consistency
-            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=timezone.utc)
+            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=dt_timezone.utc)
             queryset = queryset.filter(prediction_logged_at__gte=FIXED_LAUNCH_DATE)
         elif model_version == 'v1':
-            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=timezone.utc)
+            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=dt_timezone.utc)
             queryset = queryset.filter(prediction_logged_at__lt=FIXED_LAUNCH_DATE)
         
         # If not including pending, only show completed matches
