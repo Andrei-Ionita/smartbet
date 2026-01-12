@@ -543,10 +543,12 @@ def get_recommended_predictions_with_outcomes(request):
         
     except Exception as e:
         import traceback
-        traceback.print_exc()
+        traceback_str = traceback.format_exc()
+        print(f"❌ ERROR in recommended-predictions: {str(e)}")
+        print(traceback_str)
         return JsonResponse({
             'success': False,
-            'error': str(e),
+            'error': f"{str(e)} | {traceback_str.splitlines()[-1]}",
             'data': [],
             'count': 0
         }, status=500)
