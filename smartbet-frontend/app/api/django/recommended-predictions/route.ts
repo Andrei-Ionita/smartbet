@@ -9,10 +9,11 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams
     const limit = searchParams.get('limit') || '50'
     const includePending = searchParams.get('include_pending') || 'true'
+    const version = searchParams.get('version') || 'v2'
 
     // Get Django backend URL from environment variable or use default
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://smartbet-backend-production.up.railway.app')
-    const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?limit=${limit}&include_pending=${includePending}`
+    const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?limit=${limit}&include_pending=${includePending}&version=${version}`
 
     console.log(`🔍 Fetching recommended predictions from Django: ${djangoUrl}`)
 
