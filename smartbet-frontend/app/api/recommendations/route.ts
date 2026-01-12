@@ -220,7 +220,10 @@ export async function GET(request: NextRequest) {
             // This filters out "coin flip" predictions like 35%/33%/32%
             const sortedProbs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
             const probabilityGap = sortedProbs[0] - sortedProbs[1]
-            const MIN_PROBABILITY_GAP = 0.12 // 12% minimum gap between 1st and 2nd outcome
+
+            // Model V2: Stricter requirement for Draws (15%) vs others (12%)
+            // "Draw Killer" Rule: Only predict draws if the model is distinctively sure
+            const MIN_PROBABILITY_GAP = predictedOutcome === 'draw' ? 0.15 : 0.12
 
             if (probabilityGap < MIN_PROBABILITY_GAP) {
               // Skip this fixture - prediction too uncertain
