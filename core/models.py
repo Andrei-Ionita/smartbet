@@ -105,31 +105,115 @@ class PredictionLog(models.Model):
         return f"{self.home_team} vs {self.away_team} - Predicted: {self.predicted_outcome} ({self.confidence}%)"
     
     def calculate_performance(self):
-        """Calculate performance metrics after match completes."""
-        if self.actual_outcome and self.predicted_outcome:
-            # Case-insensitive comparison
-            predicted = self.predicted_outcome.lower()
-            actual = self.actual_outcome.lower()
+        """
+        Calculate performance metrics after match completes.
+        Supports multi-market verification: 1X2, BTTS, O/U 2.5, Double Chance
+        """
+        if self.actual_outcome is None and self.actual_score_home is None:
+            return  # No result data yet
             
-            self.was_correct = (predicted == actual)
-            
-            # Calculate P/L for $10 stake on predicted outcome
-            if self.was_correct:
-                if predicted == 'home' and self.odds_home:
-                    self.profit_loss_10 = 10 * (self.odds_home - 1)
-                elif predicted == 'draw' and self.odds_draw:
-                    self.profit_loss_10 = 10 * (self.odds_draw - 1)
-                elif predicted == 'away' and self.odds_away:
-                    self.profit_loss_10 = 10 * (self.odds_away - 1)
+        if not self.predicted_outcome:
+            return  # No prediction to verify
+        
+        # Get market type (default to 1x2 for legacy predictions)
+        market_type = getattr(self, 'market_type', '1x2') or '1x2'
+        predicted = self.predicted_outcome.lower().strip()
+        
+        # Get scores for goal-based markets
+        home_score = self.actual_score_home
+        away_score = self.actual_score_away
+        total_goals = (home_score or 0) + (away_score or 0)
+        
+        # Determine 1X2 actual outcome for reference
+        if home_score is not None and away_score is not None:
+            if home_score > away_score:
+                actual_1x2 = 'home'
+            elif away_score > home_score:
+                actual_1x2 = 'away'
             else:
-                self.profit_loss_10 = -10
+                actual_1x2 = 'draw'
+        else:
+            actual_1x2 = (self.actual_outcome or '').lower()
+        
+        # ============= VERIFY BY MARKET TYPE =============
+        if market_type == '1x2':
+            # Standard 1X2 verification
+            self.was_correct = (predicted == actual_1x2)
             
-            # Calculate ROI
-            if self.profit_loss_10 is not None:
-                self.roi_percent = (self.profit_loss_10 / 10) * 100
-            
-            self.result_logged_at = timezone.now()
-            self.save()
+        elif market_type == 'btts':
+            # Both Teams to Score
+            if home_score is not None and away_score is not None:
+                both_scored = (home_score > 0) and (away_score > 0)
+                predicted_btts_yes = 'yes' in predicted or 'btts yes' in predicted
+                self.was_correct = (predicted_btts_yes == both_scored)
+            else:
+                self.was_correct = None  # Cannot verify without scores
+                
+        elif market_type == 'over_under_2.5':
+            # Over/Under 2.5 Goals
+            if home_score is not None and away_score is not None:
+                is_over = total_goals > 2.5
+                predicted_over = 'over' in predicted
+                self.was_correct = (predicted_over == is_over)
+            else:
+                self.was_correct = None
+                
+        elif market_type == 'double_chance':
+            # Double Chance: 1X (Home or Draw), X2 (Draw or Away), 12 (Home or Away)
+            if actual_1x2:
+                if '1x' in predicted or 'home' in predicted and 'draw' in predicted:
+                    # Home or Draw
+                    self.was_correct = actual_1x2 in ['home', 'draw']
+                elif 'x2' in predicted or 'draw' in predicted and 'away' in predicted:
+                    # Draw or Away
+                    self.was_correct = actual_1x2 in ['draw', 'away']
+                elif '12' in predicted:
+                    # Home or Away (no draw)
+                    self.was_correct = actual_1x2 in ['home', 'away']
+                else:
+                    self.was_correct = None
+            else:
+                self.was_correct = None
+        else:
+            # Unknown market type, fall back to 1X2 logic
+            self.was_correct = (predicted == actual_1x2)
+        
+        # ============= CALCULATE PROFIT/LOSS =============
+        # For multi-market, we use the stored odds from best_market
+        market_odds = getattr(self, 'odds_home', None)  # Default to home odds
+        
+        # Try to get the correct odds based on prediction
+        if market_type == '1x2':
+            if predicted == 'home' and self.odds_home:
+                market_odds = self.odds_home
+            elif predicted == 'draw' and self.odds_draw:
+                market_odds = self.odds_draw
+            elif predicted == 'away' and self.odds_away:
+                market_odds = self.odds_away
+        # For other markets, odds would be stored in a dedicated field (future enhancement)
+        # For now, use expected_value to back-calculate approximate odds
+        elif self.expected_value and self.confidence:
+            # EV = (prob * odds) - 1, so odds = (EV + 1) / prob
+            if self.confidence > 0:
+                market_odds = (self.expected_value + 1) / self.confidence
+        
+        # Calculate P/L
+        if self.was_correct is True:
+            if market_odds and market_odds > 1:
+                self.profit_loss_10 = 10 * (market_odds - 1)
+            else:
+                self.profit_loss_10 = 0  # No odds available
+        elif self.was_correct is False:
+            self.profit_loss_10 = -10
+        else:
+            self.profit_loss_10 = None  # Undetermined
+        
+        # Calculate ROI
+        if self.profit_loss_10 is not None:
+            self.roi_percent = (self.profit_loss_10 / 10) * 100
+        
+        self.result_logged_at = timezone.now()
+        self.save()
 
 
 class PerformanceSnapshot(models.Model):

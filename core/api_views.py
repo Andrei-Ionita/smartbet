@@ -512,7 +512,10 @@ def get_recommended_predictions_with_outcomes(request):
                 'variance': round(pred.variance, 2) if pred.variance else None,
                 'prediction_logged_at': pred.prediction_logged_at.isoformat(),
                 'result_logged_at': pred.result_logged_at.isoformat() if pred.result_logged_at else None,
-                'is_completed': pred.actual_outcome is not None
+                'is_completed': pred.actual_outcome is not None,
+                # Multi-Market Support
+                'market_type': getattr(pred, 'market_type', '1x2') or '1x2',
+                'market_score': getattr(pred, 'market_score', None)
             }
             results.append(result)
         
@@ -522,6 +525,19 @@ def get_recommended_predictions_with_outcomes(request):
         total_pl = sum([r['profit_loss_10'] for r in completed if r['profit_loss_10'] is not None])
         avg_roi = sum([r['roi_percent'] for r in completed if r['roi_percent'] is not None]) / len(completed) if completed else 0
         
+        # Per-Market Accuracy Breakdown
+        market_types = ['1x2', 'btts', 'over_under_2.5', 'double_chance']
+        by_market = {}
+        for market in market_types:
+            market_completed = [r for r in completed if r.get('market_type') == market]
+            market_correct = [r for r in market_completed if r['was_correct']]
+            by_market[market] = {
+                'total': len(market_completed),
+                'correct': len(market_correct),
+                'accuracy': round((len(market_correct) / len(market_completed) * 100), 1) if market_completed else None,
+                'profit_loss': round(sum([r['profit_loss_10'] for r in market_completed if r['profit_loss_10'] is not None]), 2)
+            }
+        
         summary = {
             'total_recommended': len(results),
             'completed': len(completed),
@@ -530,7 +546,8 @@ def get_recommended_predictions_with_outcomes(request):
             'incorrect': len(completed) - len(correct),
             'accuracy': round((len(correct) / len(completed) * 100), 1) if completed else None,
             'total_profit_loss': round(total_pl, 2) if total_pl else 0,
-            'average_roi': round(avg_roi, 2) if avg_roi else None
+            'average_roi': round(avg_roi, 2) if avg_roi else None,
+            'by_market': by_market  # NEW: Per-market breakdown
         }
         
         return JsonResponse({
