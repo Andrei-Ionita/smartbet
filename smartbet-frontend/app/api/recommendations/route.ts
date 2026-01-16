@@ -205,6 +205,9 @@ export async function GET(request: NextRequest) {
 
             // ============= MULTI-MARKET PROCESSING =============
             // Process each market type and find the best one
+            // allMarketsData = ALL markets for display (even if they don't pass filters)
+            // marketResults = Only markets that pass filters (for best market selection)
+            const allMarketsData: MarketPrediction[] = []
             const marketResults: MarketPrediction[] = []
 
             // --- 1X2 Market ---
@@ -235,20 +238,26 @@ export async function GET(request: NextRequest) {
               }
 
               const ev = (maxProb * oddsValue) - 1
-              const minGap = outcome === 'draw' ? 0.15 : 0.12  // Stricter for draws
+              const minGap = outcome === 'draw' ? 0.15 : 0.12
 
+              const marketData: MarketPrediction = {
+                market_type: '1x2',
+                type_id: x12Predictions[0].type_id,
+                predicted_outcome: outcome.charAt(0).toUpperCase() + outcome.slice(1),
+                probability: maxProb,
+                probability_gap: gap,
+                odds: oddsValue,
+                expected_value: ev,
+                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
+              }
+
+              // Always add to display array
+              allMarketsData.push(marketData)
+
+              // Only add to results if passes filters
               if (gap >= minGap && ev > 0) {
-                marketResults.push({
-                  market_type: '1x2',
-                  type_id: x12Predictions[0].type_id,
-                  predicted_outcome: outcome,
-                  probability: maxProb,
-                  probability_gap: gap,
-                  odds: oddsValue,
-                  expected_value: ev,
-                  market_score: calculateMarketScore(gap, ev, maxProb),
-                  raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
-                })
+                marketResults.push(marketData)
               }
             }
 
@@ -274,18 +283,22 @@ export async function GET(request: NextRequest) {
               }
 
               const ev = (maxProb * oddsValue) - 1
+
+              const marketData: MarketPrediction = {
+                market_type: 'btts',
+                type_id: 231,
+                predicted_outcome: outcome === 'yes' ? 'BTTS Yes' : 'BTTS No',
+                probability: maxProb,
+                probability_gap: gap,
+                odds: oddsValue,
+                expected_value: ev,
+                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                raw_predictions: { yes: yesProb, no: noProb }
+              }
+
+              allMarketsData.push(marketData)
               if (gap >= 0.12 && ev > 0) {
-                marketResults.push({
-                  market_type: 'btts',
-                  type_id: 231,
-                  predicted_outcome: outcome === 'yes' ? 'BTTS Yes' : 'BTTS No',
-                  probability: maxProb,
-                  probability_gap: gap,
-                  odds: oddsValue,
-                  expected_value: ev,
-                  market_score: calculateMarketScore(gap, ev, maxProb),
-                  raw_predictions: { yes: yesProb, no: noProb }
-                })
+                marketResults.push(marketData)
               }
             }
 
@@ -311,18 +324,22 @@ export async function GET(request: NextRequest) {
               }
 
               const ev = (maxProb * oddsValue) - 1
+
+              const marketData: MarketPrediction = {
+                market_type: 'over_under_2.5',
+                type_id: 235,
+                predicted_outcome: outcome === 'over' ? 'Over 2.5' : 'Under 2.5',
+                probability: maxProb,
+                probability_gap: gap,
+                odds: oddsValue,
+                expected_value: ev,
+                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                raw_predictions: { over: overProb, under: underProb }
+              }
+
+              allMarketsData.push(marketData)
               if (gap >= 0.12 && ev > 0) {
-                marketResults.push({
-                  market_type: 'over_under_2.5',
-                  type_id: 235,
-                  predicted_outcome: outcome === 'over' ? 'Over 2.5' : 'Under 2.5',
-                  probability: maxProb,
-                  probability_gap: gap,
-                  odds: oddsValue,
-                  expected_value: ev,
-                  market_score: calculateMarketScore(gap, ev, maxProb),
-                  raw_predictions: { over: overProb, under: underProb }
-                })
+                marketResults.push(marketData)
               }
             }
 
@@ -353,18 +370,22 @@ export async function GET(request: NextRequest) {
               }
 
               const ev = (maxProb * oddsValue) - 1
+
+              const marketData: MarketPrediction = {
+                market_type: 'double_chance',
+                type_id: 239,
+                predicted_outcome: outcome,
+                probability: maxProb,
+                probability_gap: gap,
+                odds: oddsValue,
+                expected_value: ev,
+                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
+              }
+
+              allMarketsData.push(marketData)
               if (gap >= 0.10 && ev > 0) {
-                marketResults.push({
-                  market_type: 'double_chance',
-                  type_id: 239,
-                  predicted_outcome: outcome,
-                  probability: maxProb,
-                  probability_gap: gap,
-                  odds: oddsValue,
-                  expected_value: ev,
-                  market_score: calculateMarketScore(gap, ev, maxProb),
-                  raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
-                })
+                marketResults.push(marketData)
               }
             }
 
@@ -492,14 +513,15 @@ export async function GET(request: NextRequest) {
                 expected_value: bestMarket.expected_value,
                 market_score: bestMarket.market_score
               },
-              all_markets: marketResults.map(m => ({
+              all_markets: allMarketsData.sort((a, b) => b.market_score - a.market_score).map(m => ({
                 type: m.market_type,
                 name: MARKET_CONFIG[m.market_type].name,
                 predicted_outcome: m.predicted_outcome,
                 probability: m.probability,
                 odds: m.odds,
                 expected_value: m.expected_value,
-                market_score: m.market_score
+                market_score: m.market_score,
+                is_recommended: marketResults.some(r => r.market_type === m.market_type)  // Flag if passes filters
               })),
 
               debug_info: {

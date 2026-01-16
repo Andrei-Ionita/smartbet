@@ -110,6 +110,7 @@ export interface Recommendation {
     odds: number
     expected_value: number
     market_score: number
+    is_recommended?: boolean  // True if passes EV/gap filters
   }>
 
   // New Enhanced Data Features
