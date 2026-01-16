@@ -371,7 +371,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       </div>
 
       {/* All Available Markets Section */}
-      {recommendation.all_markets && recommendation.all_markets.length > 1 && isExpanded && (
+      {recommendation.all_markets && recommendation.all_markets.length >= 1 && isExpanded && (
         <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 mb-3">
             <Target className="h-4 w-4 text-blue-600" />
@@ -386,7 +386,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 key={market.type}
                 className={`p-2.5 rounded-lg text-center transition-all ${idx === 0
                     ? 'bg-white border-2 border-blue-400 shadow-sm'
-                    : 'bg-white/60 border border-gray-200'
+                    : market.is_recommended
+                      ? 'bg-white border border-green-300'
+                      : 'bg-white/60 border border-gray-200 opacity-70'
                   }`}
               >
                 <div className="text-xs font-medium text-gray-500 mb-0.5">{market.name}</div>
@@ -398,6 +400,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
                 {idx === 0 && (
                   <div className="text-xs text-green-600 font-medium mt-1">★ Best</div>
+                )}
+                {!market.is_recommended && idx !== 0 && (
+                  <div className="text-xs text-gray-400 mt-1">Not recommended</div>
                 )}
               </div>
             ))}

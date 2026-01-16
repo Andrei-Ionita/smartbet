@@ -311,15 +311,30 @@ export async function GET(request: NextRequest) {
               const maxProb = Math.max(overProb, underProb)
               const outcome = overProb > underProb ? 'over' : 'under'
 
-              // Get O/U odds (market_id 18 or search by name)
-              const ouOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 18 || odd.name?.toLowerCase().includes('over') || odd.name?.toLowerCase().includes('2.5')
-              )
+              // Get O/U 2.5 odds - be specific about the 2.5 threshold!
+              // SportMonks market_id 18 is "Over/Under" but we need to match the specific 2.5 line
+              const ouOdds = fixture.odds.filter((odd: any) => {
+                // Must contain "2.5" in the name or label to be the right market
+                const nameMatch = odd.name?.toLowerCase().includes('2.5') ||
+                  odd.label?.toLowerCase().includes('2.5')
+                // Alternatively, check market_id 18 with specific label containing over/under
+                const marketMatch = odd.market_id === 18 &&
+                  (odd.label?.toLowerCase().includes('over 2.5') ||
+                    odd.label?.toLowerCase().includes('under 2.5'))
+                return nameMatch || marketMatch
+              })
+
               let oddsValue = 1
               for (const odd of ouOdds) {
-                const label = odd.label?.toLowerCase()
-                if ((outcome === 'over' && label?.includes('over')) || (outcome === 'under' && label?.includes('under'))) {
+                const label = odd.label?.toLowerCase() || ''
+                // Match specifically Over 2.5 or Under 2.5
+                if (outcome === 'over' && (label.includes('over 2.5') || label === 'over')) {
                   oddsValue = parseFloat(odd.value) || 1
+                  break  // Take the first match, don't iterate through all
+                }
+                if (outcome === 'under' && (label.includes('under 2.5') || label === 'under')) {
+                  oddsValue = parseFloat(odd.value) || 1
+                  break
                 }
               }
 
