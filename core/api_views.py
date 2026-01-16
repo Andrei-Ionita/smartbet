@@ -645,7 +645,11 @@ def log_recommendations(request):
                 'variance': rec.get('ensemble_info', {}).get('variance'),
                 'ensemble_strategy': rec.get('ensemble_info', {}).get('strategy', 'consensus_ensemble'),
                 'recommendation_score': rec.get('revenue_vs_risk_score'),
-                'is_recommended': True
+                'is_recommended': True,
+                # Multi-Market Support (V3)
+                'market_type': rec.get('best_market', {}).get('type', '1x2'),
+                'market_type_id': rec.get('best_market', {}).get('type_id') or rec.get('debug_info', {}).get('market_type_id'),
+                'market_score': rec.get('best_market', {}).get('market_score'),
             }
             
             if existing:

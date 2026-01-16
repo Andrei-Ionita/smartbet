@@ -67,6 +67,23 @@ class PredictionLog(models.Model):
     # Metadata
     recommendation_score = models.FloatField(null=True, blank=True)  # Overall recommendation score
     is_recommended = models.BooleanField(default=False, db_index=True)  # True if this prediction was in the top recommendations
+    
+    # Multi-Market Support (V3)
+    MARKET_TYPE_CHOICES = [
+        ('1x2', 'Match Result'),
+        ('btts', 'Both Teams to Score'),
+        ('over_under_2.5', 'Over/Under 2.5'),
+        ('double_chance', 'Double Chance'),
+    ]
+    market_type = models.CharField(
+        max_length=20, 
+        choices=MARKET_TYPE_CHOICES, 
+        default='1x2',
+        db_index=True
+    )
+    market_type_id = models.IntegerField(null=True, blank=True)  # SportMonks type_id
+    market_score = models.FloatField(null=True, blank=True)  # MarketScore used for ranking
+    
     notes = models.TextField(blank=True)  # Any special notes
     
     class Meta:

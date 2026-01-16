@@ -31,6 +31,67 @@ function getApiToken(): string {
   return token
 }
 
+// ============= MULTI-MARKET CONFIGURATION =============
+// Market Type IDs from SportMonks API
+const MARKET_CONFIG = {
+  '1x2': {
+    name: '1X2',
+    display_name: 'Match Result',
+    type_ids: [233, 237, 238],  // Multiple models for 1X2
+    outcomes: ['home', 'draw', 'away'],
+    odds_market_id: 1,
+    min_gap: 0.12,  // 12% for home/away, 15% for draw (handled in code)
+  },
+  'btts': {
+    name: 'BTTS',
+    display_name: 'Both Teams to Score',
+    type_ids: [231],
+    outcomes: ['yes', 'no'],
+    odds_market_id: 28,  // BTTS market
+    min_gap: 0.12,
+  },
+  'over_under_2.5': {
+    name: 'O/U 2.5',
+    display_name: 'Over/Under 2.5 Goals',
+    type_ids: [235],
+    outcomes: ['yes', 'no'],  // yes = over, no = under
+    odds_market_id: 18,  // Over/Under market
+    min_gap: 0.12,
+  },
+  'double_chance': {
+    name: 'DC',
+    display_name: 'Double Chance',
+    type_ids: [239],
+    outcomes: ['draw_home', 'draw_away', 'home_away'],  // 1X, X2, 12
+    odds_market_id: 12,  // Double Chance market
+    min_gap: 0.10,  // Lower gap since each outcome has ~33% base
+  }
+} as const
+
+type MarketType = keyof typeof MARKET_CONFIG
+
+interface MarketPrediction {
+  market_type: MarketType
+  type_id: number
+  predicted_outcome: string
+  probability: number
+  probability_gap: number
+  odds: number
+  expected_value: number
+  market_score: number
+  raw_predictions: Record<string, number>
+}
+
+// Calculate MarketScore = (probability_gap × 0.4) + (expected_value × 0.3) + (confidence × 0.3)
+function calculateMarketScore(probabilityGap: number, expectedValue: number, confidence: number): number {
+  // Normalize values to 0-1 scale
+  const normalizedGap = Math.min(probabilityGap, 0.5) / 0.5  // Cap at 50% gap
+  const normalizedEV = Math.min(Math.max(expectedValue, 0), 0.5) / 0.5  // Cap at 50% EV
+  const normalizedConf = confidence  // Already 0-1
+
+  return (normalizedGap * 0.4) + (normalizedEV * 0.3) + (normalizedConf * 0.3)
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Fetching real recommendations from SportMonks - no test data')
@@ -117,9 +178,15 @@ export async function GET(request: NextRequest) {
             hasLogged = true
           }
           const predictions = fixture.predictions || []
-          const x12Predictions = predictions.filter((p: any) => [233, 237, 238].includes(p.type_id))
 
-          if (x12Predictions.length > 0 && fixture.odds && fixture.odds.length > 0) {
+          // Get all market type IDs we support
+          const allSupportedTypeIds = Object.values(MARKET_CONFIG).flatMap(m => m.type_ids)
+          const relevantPredictions = predictions.filter((p: any) => allSupportedTypeIds.includes(p.type_id))
+
+          // For backwards compatibility, also check for 1X2 specifically
+          const x12Predictions = predictions.filter((p: any) => MARKET_CONFIG['1x2'].type_ids.includes(p.type_id))
+
+          if (relevantPredictions.length > 0 && fixture.odds && fixture.odds.length > 0) {
             fixturesWithPredictions++
 
             const homeParticipant = fixture.participants?.find((p: any) => p.meta?.location === 'home')
@@ -136,7 +203,182 @@ export async function GET(request: NextRequest) {
               return value
             }
 
-            // Analyze all X12 predictions
+            // ============= MULTI-MARKET PROCESSING =============
+            // Process each market type and find the best one
+            const marketResults: MarketPrediction[] = []
+
+            // --- 1X2 Market ---
+            if (x12Predictions.length > 0) {
+              const x12Data = x12Predictions.map((pred: any) => ({
+                home: normalizeProbability(pred.predictions.home || 0),
+                draw: normalizeProbability(pred.predictions.draw || 0),
+                away: normalizeProbability(pred.predictions.away || 0)
+              }))
+              const avgHome = x12Data.reduce((s: number, p: any) => s + p.home, 0) / x12Data.length
+              const avgDraw = x12Data.reduce((s: number, p: any) => s + p.draw, 0) / x12Data.length
+              const avgAway = x12Data.reduce((s: number, p: any) => s + p.away, 0) / x12Data.length
+
+              const probs = [avgHome, avgDraw, avgAway]
+              const sortedProbs = [...probs].sort((a, b) => b - a)
+              const maxProb = sortedProbs[0]
+              const gap = sortedProbs[0] - sortedProbs[1]
+
+              let outcome = 'draw'
+              if (maxProb === avgHome) outcome = 'home'
+              else if (maxProb === avgAway) outcome = 'away'
+
+              // Get odds for this market
+              const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
+              let oddsValue = 1
+              for (const odd of x12Odds) {
+                if (odd.label?.toLowerCase() === outcome) oddsValue = parseFloat(odd.value) || 1
+              }
+
+              const ev = (maxProb * oddsValue) - 1
+              const minGap = outcome === 'draw' ? 0.15 : 0.12  // Stricter for draws
+
+              if (gap >= minGap && ev > 0) {
+                marketResults.push({
+                  market_type: '1x2',
+                  type_id: x12Predictions[0].type_id,
+                  predicted_outcome: outcome,
+                  probability: maxProb,
+                  probability_gap: gap,
+                  odds: oddsValue,
+                  expected_value: ev,
+                  market_score: calculateMarketScore(gap, ev, maxProb),
+                  raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
+                })
+              }
+            }
+
+            // --- BTTS Market ---
+            const bttsPrediction = predictions.find((p: any) => p.type_id === 231)
+            if (bttsPrediction) {
+              const yesProb = normalizeProbability(bttsPrediction.predictions.yes || 0)
+              const noProb = normalizeProbability(bttsPrediction.predictions.no || 0)
+              const gap = Math.abs(yesProb - noProb)
+              const maxProb = Math.max(yesProb, noProb)
+              const outcome = yesProb > noProb ? 'yes' : 'no'
+
+              // Get BTTS odds (market_id 28 or search by name)
+              const bttsOdds = fixture.odds.filter((odd: any) =>
+                odd.market_id === 28 || odd.name?.toLowerCase().includes('btts') || odd.name?.toLowerCase().includes('both')
+              )
+              let oddsValue = 1
+              for (const odd of bttsOdds) {
+                const label = odd.label?.toLowerCase()
+                if ((outcome === 'yes' && label === 'yes') || (outcome === 'no' && label === 'no')) {
+                  oddsValue = parseFloat(odd.value) || 1
+                }
+              }
+
+              const ev = (maxProb * oddsValue) - 1
+              if (gap >= 0.12 && ev > 0) {
+                marketResults.push({
+                  market_type: 'btts',
+                  type_id: 231,
+                  predicted_outcome: outcome === 'yes' ? 'BTTS Yes' : 'BTTS No',
+                  probability: maxProb,
+                  probability_gap: gap,
+                  odds: oddsValue,
+                  expected_value: ev,
+                  market_score: calculateMarketScore(gap, ev, maxProb),
+                  raw_predictions: { yes: yesProb, no: noProb }
+                })
+              }
+            }
+
+            // --- Over/Under 2.5 Market ---
+            const ouPrediction = predictions.find((p: any) => p.type_id === 235)
+            if (ouPrediction) {
+              const overProb = normalizeProbability(ouPrediction.predictions.yes || 0)
+              const underProb = normalizeProbability(ouPrediction.predictions.no || 0)
+              const gap = Math.abs(overProb - underProb)
+              const maxProb = Math.max(overProb, underProb)
+              const outcome = overProb > underProb ? 'over' : 'under'
+
+              // Get O/U odds (market_id 18 or search by name)
+              const ouOdds = fixture.odds.filter((odd: any) =>
+                odd.market_id === 18 || odd.name?.toLowerCase().includes('over') || odd.name?.toLowerCase().includes('2.5')
+              )
+              let oddsValue = 1
+              for (const odd of ouOdds) {
+                const label = odd.label?.toLowerCase()
+                if ((outcome === 'over' && label?.includes('over')) || (outcome === 'under' && label?.includes('under'))) {
+                  oddsValue = parseFloat(odd.value) || 1
+                }
+              }
+
+              const ev = (maxProb * oddsValue) - 1
+              if (gap >= 0.12 && ev > 0) {
+                marketResults.push({
+                  market_type: 'over_under_2.5',
+                  type_id: 235,
+                  predicted_outcome: outcome === 'over' ? 'Over 2.5' : 'Under 2.5',
+                  probability: maxProb,
+                  probability_gap: gap,
+                  odds: oddsValue,
+                  expected_value: ev,
+                  market_score: calculateMarketScore(gap, ev, maxProb),
+                  raw_predictions: { over: overProb, under: underProb }
+                })
+              }
+            }
+
+            // --- Double Chance Market ---
+            const dcPrediction = predictions.find((p: any) => p.type_id === 239)
+            if (dcPrediction) {
+              const homeOrDraw = normalizeProbability(dcPrediction.predictions.draw_home || 0)
+              const awayOrDraw = normalizeProbability(dcPrediction.predictions.draw_away || 0)
+              const homeOrAway = normalizeProbability(dcPrediction.predictions.home_away || 0)
+
+              const probs = [homeOrDraw, awayOrDraw, homeOrAway]
+              const sortedProbs = [...probs].sort((a, b) => b - a)
+              const maxProb = sortedProbs[0]
+              const gap = sortedProbs[0] - sortedProbs[1]
+
+              let outcome = '1X'
+              if (maxProb === awayOrDraw) outcome = 'X2'
+              else if (maxProb === homeOrAway) outcome = '12'
+
+              // Get DC odds (market_id 12)
+              const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
+              let oddsValue = 1
+              for (const odd of dcOdds) {
+                const label = odd.label?.toLowerCase().replace(/\s/g, '')
+                if (label === outcome.toLowerCase() || label === outcome.toLowerCase().split('').reverse().join('')) {
+                  oddsValue = parseFloat(odd.value) || 1
+                }
+              }
+
+              const ev = (maxProb * oddsValue) - 1
+              if (gap >= 0.10 && ev > 0) {
+                marketResults.push({
+                  market_type: 'double_chance',
+                  type_id: 239,
+                  predicted_outcome: outcome,
+                  probability: maxProb,
+                  probability_gap: gap,
+                  odds: oddsValue,
+                  expected_value: ev,
+                  market_score: calculateMarketScore(gap, ev, maxProb),
+                  raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
+                })
+              }
+            }
+
+            // ============= SELECT BEST MARKET =============
+            // Sort by market_score descending and pick the best
+            marketResults.sort((a, b) => b.market_score - a.market_score)
+            const bestMarket = marketResults[0]
+
+            // Skip if no valid market found
+            if (!bestMarket || bestMarket.market_score < 0.15) {
+              continue
+            }
+
+            // For backwards compatibility, also keep 1X2 specific data
             const allX12Predictions = x12Predictions.map((pred: any) => ({
               type_id: pred.type_id,
               predictions: pred.predictions,
@@ -145,9 +387,9 @@ export async function GET(request: NextRequest) {
               away: normalizeProbability(pred.predictions.away || 0)
             }))
 
-            const consensusHome = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.home, 0) / allX12Predictions.length
-            const consensusDraw = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.draw, 0) / allX12Predictions.length
-            const consensusAway = allX12Predictions.reduce((sum: number, pred: any) => sum + pred.away, 0) / allX12Predictions.length
+            const consensusHome = allX12Predictions.length > 0 ? allX12Predictions.reduce((sum: number, pred: any) => sum + pred.home, 0) / allX12Predictions.length : 0
+            const consensusDraw = allX12Predictions.length > 0 ? allX12Predictions.reduce((sum: number, pred: any) => sum + pred.draw, 0) / allX12Predictions.length : 0
+            const consensusAway = allX12Predictions.length > 0 ? allX12Predictions.reduce((sum: number, pred: any) => sum + pred.away, 0) / allX12Predictions.length : 0
 
             const bestPred = allX12Predictions.reduce((best: any, current: any) => {
               const currentMax = Math.max(current.home, current.draw, current.away)
@@ -212,63 +454,70 @@ export async function GET(request: NextRequest) {
             if (maxProb === predictionData.home) predictedOutcome = 'home'
             else if (maxProb === predictionData.away) predictedOutcome = 'away'
 
-            const confidence = maxProb * 100
-            const oddsValue = oddsData?.[predictedOutcome] || 1
-            const expectedValue = (maxProb * oddsValue) - 1
+            const confidence = bestMarket.probability * 100
+            const probabilityGap = bestMarket.probability_gap
 
-            // PROBABILITY GAP FILTER: Skip weak predictions where outcomes are too close
-            // This filters out "coin flip" predictions like 35%/33%/32%
-            const sortedProbs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
-            const probabilityGap = sortedProbs[0] - sortedProbs[1]
+            // Use the best market's data for the recommendation
+            const marketConfig = MARKET_CONFIG[bestMarket.market_type]
 
-            // Model V2: Stricter requirement for Draws (15%) vs others (12%)
-            // "Draw Killer" Rule: Only predict draws if the model is distinctively sure
-            const MIN_PROBABILITY_GAP = predictedOutcome === 'draw' ? 0.15 : 0.12
+            allRecommendations.push({
+              fixture_id: fixture.id,
+              home_team: homeTeam,
+              away_team: awayTeam,
+              home_id: homeId,
+              away_id: awayId,
+              season_id: fixture.season_id,
+              league: league.name,
+              kickoff: fixture.starting_at,
+              // Use best market's predicted outcome
+              predicted_outcome: bestMarket.predicted_outcome,
+              confidence: bestMarket.probability,
+              expected_value: bestMarket.expected_value,
+              ev: bestMarket.expected_value,
+              // Keep 1X2 probabilities for backwards compatibility
+              probabilities: predictionData,
+              odds_data: oddsData,
+              teams_data: teamsData,
+              explanation: `Best bet: ${marketConfig.display_name} - ${bestMarket.predicted_outcome}`,
 
-            if (probabilityGap < MIN_PROBABILITY_GAP) {
-              // Skip this fixture - prediction too uncertain
-              continue
-            }
+              // NEW: Multi-market data
+              best_market: {
+                type: bestMarket.market_type,
+                name: marketConfig.name,
+                display_name: marketConfig.display_name,
+                predicted_outcome: bestMarket.predicted_outcome,
+                probability: bestMarket.probability,
+                probability_gap: bestMarket.probability_gap,
+                odds: bestMarket.odds,
+                expected_value: bestMarket.expected_value,
+                market_score: bestMarket.market_score
+              },
+              all_markets: marketResults.map(m => ({
+                type: m.market_type,
+                name: MARKET_CONFIG[m.market_type].name,
+                predicted_outcome: m.predicted_outcome,
+                probability: m.probability,
+                odds: m.odds,
+                expected_value: m.expected_value,
+                market_score: m.market_score
+              })),
 
-            if (expectedValue > 0 && confidence >= 55 && expectedValue >= 0.10) {
-              allRecommendations.push({
-                fixture_id: fixture.id,
-                home_team: homeTeam,
-                away_team: awayTeam,
-                home_id: homeId,
-                away_id: awayId,
-                season_id: fixture.season_id,
-                league: league.name,
-                kickoff: fixture.starting_at,
-                predicted_outcome: predictedOutcome.charAt(0).toUpperCase() + predictedOutcome.slice(1),
-                confidence: confidence / 100,
-                expected_value: expectedValue,
-                ev: expectedValue,
-                probabilities: predictionData,
-                odds_data: oddsData,
-                teams_data: teamsData,
-                explanation: `Model predicts ${predictedOutcome} win`,
-                debug_info: {
-                  confidence_score: confidence,
-                  probability_gap: probabilityGap,
-                  variance: probabilityGap >= 0.20 ? 'Low' : probabilityGap >= 0.15 ? 'Medium' : 'High'
-                },
-                revenue_vs_risk_score: 0, // Will be calculated
-                // Adjusted Signal Quality Logic: Retained as it is purely computational, not data-dependent
-                signal_quality: (() => {
-                  const probs = [predictionData.home, predictionData.draw, predictionData.away].sort((a, b) => b - a)
-                  const gap = (probs[0] - probs[1]) * 100
-
-                  // Strong: >65% confidence OR (>55% and >10% gap)
-                  if (confidence >= 65 || (confidence >= 55 && gap >= 10)) return 'Strong'
-                  // Good: >55% conf OR (>45% and >5% gap)
-                  if (confidence >= 55 || (confidence >= 45 && gap >= 5)) return 'Good'
-                  // Moderate: >45% conf
-                  if (confidence >= 45) return 'Moderate'
-                  return 'Weak'
-                })()
-              })
-            }
+              debug_info: {
+                confidence_score: confidence,
+                probability_gap: probabilityGap,
+                variance: probabilityGap >= 0.20 ? 'Low' : probabilityGap >= 0.15 ? 'Medium' : 'High',
+                market_type: bestMarket.market_type,
+                markets_evaluated: marketResults.length
+              },
+              revenue_vs_risk_score: 0, // Will be calculated
+              signal_quality: (() => {
+                const score = bestMarket.market_score * 100
+                if (score >= 50) return 'Strong'
+                if (score >= 35) return 'Good'
+                if (score >= 25) return 'Moderate'
+                return 'Weak'
+              })()
+            })
           }
         }
       } catch (error) {

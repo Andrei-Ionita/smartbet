@@ -90,6 +90,28 @@ export interface Recommendation {
   bet_label?: string
   recommendation_color?: string
 
+  // Multi-Market Support (V3)
+  best_market?: {
+    type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+    name: string  // Short name like "1X2", "BTTS", "O/U 2.5"
+    display_name: string  // Full name like "Match Result"
+    predicted_outcome: string
+    probability: number
+    probability_gap: number
+    odds: number
+    expected_value: number
+    market_score: number
+  }
+  all_markets?: Array<{
+    type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+    name: string
+    predicted_outcome: string
+    probability: number
+    odds: number
+    expected_value: number
+    market_score: number
+  }>
+
   // New Enhanced Data Features
   teams_data?: {
     home: {

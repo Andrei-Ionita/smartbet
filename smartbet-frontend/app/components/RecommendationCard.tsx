@@ -178,13 +178,20 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       <div className="flex justify-between items-start mb-4">
         {/* ... (Team names logic remains same) */}
         <div className="flex-1">
-          <div className="flex items-center gap-2 mb-2">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
             <span className="text-sm font-medium text-primary-600 bg-primary-50 px-3 py-1 rounded-full">
               {recommendation.league}
             </span>
             <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium">
               {formatKickoff(recommendation.kickoff)}
             </span>
+            {/* Best Market Badge */}
+            {recommendation.best_market && recommendation.best_market.type !== '1x2' && (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
+                <Target className="h-3 w-3" />
+                Best: {recommendation.best_market.name}
+              </span>
+            )}
           </div>
           <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight flex items-center gap-2">
             <span className="flex items-center gap-1">
@@ -362,6 +369,41 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           </div>
         )}
       </div>
+
+      {/* All Available Markets Section */}
+      {recommendation.all_markets && recommendation.all_markets.length > 1 && isExpanded && (
+        <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
+          <div className="flex items-center gap-2 mb-3">
+            <Target className="h-4 w-4 text-blue-600" />
+            <span className="font-semibold text-gray-800 text-sm">All Markets</span>
+            <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
+              {recommendation.all_markets.length} options
+            </span>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+            {recommendation.all_markets.map((market, idx) => (
+              <div
+                key={market.type}
+                className={`p-2.5 rounded-lg text-center transition-all ${idx === 0
+                    ? 'bg-white border-2 border-blue-400 shadow-sm'
+                    : 'bg-white/60 border border-gray-200'
+                  }`}
+              >
+                <div className="text-xs font-medium text-gray-500 mb-0.5">{market.name}</div>
+                <div className={`text-sm font-bold ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
+                  {market.predicted_outcome}
+                </div>
+                <div className="text-xs text-gray-500 mt-0.5">
+                  {(market.probability * 100).toFixed(0)}% • {market.odds > 1 ? market.odds.toFixed(2) : '-'}
+                </div>
+                {idx === 0 && (
+                  <div className="text-xs text-green-600 font-medium mt-1">★ Best</div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Personalized Stake Recommendation */}
       {recommendation.stake_recommendation && (
