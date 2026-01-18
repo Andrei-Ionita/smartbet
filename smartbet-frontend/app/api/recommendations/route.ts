@@ -328,39 +328,33 @@ export async function GET(request: NextRequest) {
               for (const odd of ouOdds) {
                 const label = odd.label?.toLowerCase() || ''
                 const name = odd.name?.toLowerCase() || ''
-                // Match specifically Over 2.5 or Under 2.5
-                if (outcome === 'over' && (label.includes('over 2.5') || label === 'over' ||
-                  (label.includes('over') && (name.includes('2.5') || label.includes('2.5'))))) {
-                  oddsValue = parseFloat(odd.value) || 1
-                  break  // Take the first match, don't iterate through all
+
+                // STRICT matching: MUST contain "2.5" somewhere to be the right market
+                const has25 = label.includes('2.5') || name.includes('2.5')
+                if (!has25) continue  // Skip if not 2.5 line
+
+                // Match Over 2.5
+                if (outcome === 'over' && label.includes('over')) {
+                  const value = parseFloat(odd.value)
+                  // Reasonable Over 2.5 odds range: 1.30 - 3.00
+                  if (value >= 1.30 && value <= 3.50) {
+                    oddsValue = value
+                    break
+                  }
                 }
-                if (outcome === 'under' && (label.includes('under 2.5') || label === 'under' ||
-                  (label.includes('under') && (name.includes('2.5') || label.includes('2.5'))))) {
-                  oddsValue = parseFloat(odd.value) || 1
-                  break
+                // Match Under 2.5
+                if (outcome === 'under' && label.includes('under')) {
+                  const value = parseFloat(odd.value)
+                  // Reasonable Under 2.5 odds range: 1.30 - 3.50
+                  if (value >= 1.30 && value <= 3.50) {
+                    oddsValue = value
+                    break
+                  }
                 }
               }
 
-              // Fallback: try to find any Over/Under with reasonable odds
-              if (oddsValue === 1 && ouOdds.length > 0) {
-                for (const odd of ouOdds) {
-                  const label = odd.label?.toLowerCase() || ''
-                  if (outcome === 'over' && label.includes('over')) {
-                    const value = parseFloat(odd.value)
-                    if (value > 1 && value < 10) {
-                      oddsValue = value
-                      break
-                    }
-                  }
-                  if (outcome === 'under' && label.includes('under')) {
-                    const value = parseFloat(odd.value)
-                    if (value > 1 && value < 10) {
-                      oddsValue = value
-                      break
-                    }
-                  }
-                }
-              }
+              // If no valid odds found, don't include this market in recommendations
+              // (oddsValue stays at 1, which means EV will be negative)
 
               const ev = (maxProb * oddsValue) - 1
 

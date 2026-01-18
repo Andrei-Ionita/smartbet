@@ -280,51 +280,35 @@ export async function GET(
           return nameMatch
         })
 
-        // Sort to prioritize 2.5 goal line (middle values first)
+        // STRICT matching: MUST contain "2.5" somewhere to be the right market
         for (const odd of ouOdds) {
           const label = odd.label?.toLowerCase() || ''
           const name = odd.name?.toLowerCase() || ''
 
+          const has25 = label.includes('2.5') || name.includes('2.5')
+          if (!has25) continue  // Skip if not 2.5 line
+
           // Check for Over 2.5 specifically
-          if (outcome.includes('Over')) {
-            if (label.includes('over 2.5') || label === 'over' ||
-              (label.includes('over') && (name.includes('2.5') || label.includes('2.5')))) {
-              oddsValue = parseFloat(odd.value) || 1
+          if (outcome.includes('Over') && label.includes('over')) {
+            const value = parseFloat(odd.value)
+            // Reasonable Over 2.5 odds range: 1.30 - 3.50
+            if (value >= 1.30 && value <= 3.50) {
+              oddsValue = value
               break
             }
           }
           // Check for Under 2.5 specifically  
-          if (outcome.includes('Under')) {
-            if (label.includes('under 2.5') || label === 'under' ||
-              (label.includes('under') && (name.includes('2.5') || label.includes('2.5')))) {
-              oddsValue = parseFloat(odd.value) || 1
+          if (outcome.includes('Under') && label.includes('under')) {
+            const value = parseFloat(odd.value)
+            // Reasonable Under 2.5 odds range: 1.30 - 3.50
+            if (value >= 1.30 && value <= 3.50) {
+              oddsValue = value
               break
             }
           }
         }
 
-        // If still no odds found, try to find any Over/Under with reasonable odds
-        if (oddsValue === 1 && ouOdds.length > 0) {
-          for (const odd of ouOdds) {
-            const label = odd.label?.toLowerCase() || ''
-            if (outcome.includes('Over') && label.includes('over')) {
-              const value = parseFloat(odd.value)
-              if (value > 1 && value < 10) { // Reasonable odds range for O/U 2.5
-                oddsValue = value
-                console.log(`📊 Found O/U odds fallback: ${label} = ${value}`)
-                break
-              }
-            }
-            if (outcome.includes('Under') && label.includes('under')) {
-              const value = parseFloat(odd.value)
-              if (value > 1 && value < 10) {
-                oddsValue = value
-                console.log(`📊 Found O/U odds fallback: ${label} = ${value}`)
-                break
-              }
-            }
-          }
-        }
+        // If no valid odds found, oddsValue stays at 1 (EV will be negative)
       }
 
       const ev = (maxProb * oddsValue) - 1
