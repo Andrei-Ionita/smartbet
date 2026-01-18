@@ -534,6 +534,8 @@ export async function GET(request: NextRequest) {
               confidence: bestMarket.probability,
               expected_value: bestMarket.expected_value,
               ev: bestMarket.expected_value,
+              // Best market odds for display
+              odds: bestMarket.odds,
               // Keep 1X2 probabilities for backwards compatibility
               probabilities: predictionData,
               odds_data: oddsData,
