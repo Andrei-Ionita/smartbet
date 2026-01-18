@@ -478,22 +478,45 @@ export default function ExplorePage() {
                 away_team: selectedFixture.away_team,
                 league: selectedFixture.league,
                 kickoff: selectedFixture.kickoff,
-                predicted_outcome: selectedFixture.predicted_outcome ?
-                  selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) as 'Home' | 'Draw' | 'Away' : 'Home',
-                confidence: (selectedFixture.prediction_confidence || 0) / 100, // Next.js API returns percentage
-                odds: selectedFixture.odds_data ?
+                // Use best_market prediction when available, fallback to 1X2
+                predicted_outcome: (selectedFixture.best_market?.predicted_outcome ||
+                  (selectedFixture.predicted_outcome ?
+                    selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')) as 'Home' | 'Draw' | 'Away',
+                // Use best_market probability when available
+                confidence: selectedFixture.best_market
+                  ? selectedFixture.best_market.probability
+                  : (selectedFixture.prediction_confidence || 0) / 100,
+                // Use best_market odds when available
+                odds: selectedFixture.best_market?.odds || (selectedFixture.odds_data ?
                   (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
                     selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                      selectedFixture.odds_data?.away) : null,
-                ev: (selectedFixture.ev_analysis?.best_ev || 0) / 100, // Next.js API returns percentage
-                score: 0,
+                      selectedFixture.odds_data?.away) : null),
+                // Use best_market expected_value when available
+                ev: selectedFixture.best_market
+                  ? selectedFixture.best_market.expected_value
+                  : (selectedFixture.ev_analysis?.best_ev || 0) / 100,
+                score: selectedFixture.best_market?.market_score || 0,
                 explanation: (() => {
-                  const outcome = selectedFixture.predicted_outcome ?
-                    selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home'
-                  const confidence = selectedFixture.prediction_confidence || 0
-                  const ev = selectedFixture.ev_analysis?.best_ev || 0
+                  // Use best_market data when available
+                  const bestMarket = selectedFixture.best_market
+                  const outcome = bestMarket?.predicted_outcome ||
+                    (selectedFixture.predicted_outcome ?
+                      selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')
+                  const confidence = bestMarket
+                    ? (bestMarket.probability * 100)
+                    : (selectedFixture.prediction_confidence || 0)
+                  const ev = bestMarket
+                    ? (bestMarket.expected_value * 100)
+                    : (selectedFixture.ev_analysis?.best_ev || 0)
+                  const odds = bestMarket?.odds || (selectedFixture.odds_data ?
+                    (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
+                      selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                        selectedFixture.odds_data?.away) : null)
+                  const marketName = bestMarket?.display_name || 'Match Result'
 
-                  let explanation = `SportMonks AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
+                  let explanation = bestMarket
+                    ? `Best bet: ${marketName} - ${outcome} (${confidence.toFixed(1)}% probability).`
+                    : `SportMonks AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
 
                   // Add confidence context
                   if (confidence >= 70) {
@@ -507,13 +530,9 @@ export default function ExplorePage() {
                   }
 
                   // Add odds and EV information if available
-                  if (selectedFixture.odds_data && ev) {
-                    const odds = selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                      selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                        selectedFixture.odds_data?.away
-
-                    if (odds && ev > 0) {
-                      explanation += ` Best odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
+                  if (odds && ev) {
+                    if (ev > 0) {
+                      explanation += ` Odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
 
                       // Add value assessment
                       if (ev >= 20) {
@@ -527,7 +546,7 @@ export default function ExplorePage() {
                       } else {
                         explanation += ` Marginal value - consider smaller stakes.`
                       }
-                    } else if (odds && ev <= 0) {
+                    } else {
                       explanation += ` Current odds (${odds.toFixed(2)}) don't offer positive value.`
                     }
                   }
