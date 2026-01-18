@@ -302,9 +302,12 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">{
-                    recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data?.home?.toFixed(2) :
-                      recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data?.draw?.toFixed(2) :
-                        recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data?.away?.toFixed(2) : 'N/A'
+                    // Use recommendation.odds first (contains best_market.odds for multi-market)
+                    recommendation.odds && recommendation.odds > 1 ? recommendation.odds.toFixed(2) :
+                      // Fallback to odds_data for 1X2 markets
+                      recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data?.home?.toFixed(2) :
+                        recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data?.draw?.toFixed(2) :
+                          recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data?.away?.toFixed(2) : 'N/A'
                   }</div>
                   <div className="text-xs text-purple-700">{t('card.bestOdds')}</div>
                 </div>
@@ -385,10 +388,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               <div
                 key={market.type}
                 className={`p-2.5 rounded-lg text-center transition-all ${idx === 0
-                    ? 'bg-white border-2 border-blue-400 shadow-sm'
-                    : market.is_recommended
-                      ? 'bg-white border border-green-300'
-                      : 'bg-white/60 border border-gray-200 opacity-70'
+                  ? 'bg-white border-2 border-blue-400 shadow-sm'
+                  : market.is_recommended
+                    ? 'bg-white border border-green-300'
+                    : 'bg-white/60 border border-gray-200 opacity-70'
                   }`}
               >
                 <div className="text-xs font-medium text-gray-500 mb-0.5">{market.name}</div>

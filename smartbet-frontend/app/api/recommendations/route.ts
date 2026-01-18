@@ -327,14 +327,38 @@ export async function GET(request: NextRequest) {
               let oddsValue = 1
               for (const odd of ouOdds) {
                 const label = odd.label?.toLowerCase() || ''
+                const name = odd.name?.toLowerCase() || ''
                 // Match specifically Over 2.5 or Under 2.5
-                if (outcome === 'over' && (label.includes('over 2.5') || label === 'over')) {
+                if (outcome === 'over' && (label.includes('over 2.5') || label === 'over' ||
+                  (label.includes('over') && (name.includes('2.5') || label.includes('2.5'))))) {
                   oddsValue = parseFloat(odd.value) || 1
                   break  // Take the first match, don't iterate through all
                 }
-                if (outcome === 'under' && (label.includes('under 2.5') || label === 'under')) {
+                if (outcome === 'under' && (label.includes('under 2.5') || label === 'under' ||
+                  (label.includes('under') && (name.includes('2.5') || label.includes('2.5'))))) {
                   oddsValue = parseFloat(odd.value) || 1
                   break
+                }
+              }
+
+              // Fallback: try to find any Over/Under with reasonable odds
+              if (oddsValue === 1 && ouOdds.length > 0) {
+                for (const odd of ouOdds) {
+                  const label = odd.label?.toLowerCase() || ''
+                  if (outcome === 'over' && label.includes('over')) {
+                    const value = parseFloat(odd.value)
+                    if (value > 1 && value < 10) {
+                      oddsValue = value
+                      break
+                    }
+                  }
+                  if (outcome === 'under' && label.includes('under')) {
+                    const value = parseFloat(odd.value)
+                    if (value > 1 && value < 10) {
+                      oddsValue = value
+                      break
+                    }
+                  }
                 }
               }
 

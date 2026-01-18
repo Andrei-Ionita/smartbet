@@ -269,20 +269,60 @@ export async function GET(
 
       let oddsValue = 1
       if (fixture.odds) {
+        // First try market_id = 18 (Over/Under), then fallback to text matching
         const ouOdds = fixture.odds.filter((odd: any) => {
+          // Check market_id first (18 = Over/Under in SportMonks)
+          if (odd.market_id === 18) return true
+          // Also look for 2.5 in name or label
           const nameMatch = odd.name?.toLowerCase().includes('2.5') ||
-            odd.label?.toLowerCase().includes('2.5')
+            odd.label?.toLowerCase().includes('2.5') ||
+            odd.name?.toLowerCase().includes('over/under')
           return nameMatch
         })
+
+        // Sort to prioritize 2.5 goal line (middle values first)
         for (const odd of ouOdds) {
           const label = odd.label?.toLowerCase() || ''
-          if (outcome.includes('Over') && (label.includes('over 2.5') || label === 'over')) {
-            oddsValue = parseFloat(odd.value) || 1
-            break
+          const name = odd.name?.toLowerCase() || ''
+
+          // Check for Over 2.5 specifically
+          if (outcome.includes('Over')) {
+            if (label.includes('over 2.5') || label === 'over' ||
+              (label.includes('over') && (name.includes('2.5') || label.includes('2.5')))) {
+              oddsValue = parseFloat(odd.value) || 1
+              break
+            }
           }
-          if (outcome.includes('Under') && (label.includes('under 2.5') || label === 'under')) {
-            oddsValue = parseFloat(odd.value) || 1
-            break
+          // Check for Under 2.5 specifically  
+          if (outcome.includes('Under')) {
+            if (label.includes('under 2.5') || label === 'under' ||
+              (label.includes('under') && (name.includes('2.5') || label.includes('2.5')))) {
+              oddsValue = parseFloat(odd.value) || 1
+              break
+            }
+          }
+        }
+
+        // If still no odds found, try to find any Over/Under with reasonable odds
+        if (oddsValue === 1 && ouOdds.length > 0) {
+          for (const odd of ouOdds) {
+            const label = odd.label?.toLowerCase() || ''
+            if (outcome.includes('Over') && label.includes('over')) {
+              const value = parseFloat(odd.value)
+              if (value > 1 && value < 10) { // Reasonable odds range for O/U 2.5
+                oddsValue = value
+                console.log(`📊 Found O/U odds fallback: ${label} = ${value}`)
+                break
+              }
+            }
+            if (outcome.includes('Under') && label.includes('under')) {
+              const value = parseFloat(odd.value)
+              if (value > 1 && value < 10) {
+                oddsValue = value
+                console.log(`📊 Found O/U odds fallback: ${label} = ${value}`)
+                break
+              }
+            }
           }
         }
       }
