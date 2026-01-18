@@ -87,6 +87,28 @@ interface FixtureAnalysis {
   }
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
   teams_data?: any // Relaxed type for Explore page to avoid full mock requirement
+  // Multi-market support
+  best_market?: {
+    type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+    name: string
+    display_name: string
+    predicted_outcome: string
+    probability: number
+    probability_gap: number
+    odds: number
+    expected_value: number
+    market_score: number
+  }
+  all_markets?: Array<{
+    type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+    name: string
+    predicted_outcome: string
+    probability: number
+    odds: number
+    expected_value: number
+    market_score: number
+    is_recommended?: boolean
+  }>
 }
 
 const LEAGUES = [
@@ -534,7 +556,10 @@ export default function ExplorePage() {
                 debug_info: selectedFixture.debug_info,
                 signal_quality: selectedFixture.signal_quality,
                 league_accuracy: null,
-                teams_data: selectedFixture.teams_data
+                teams_data: selectedFixture.teams_data,
+                // Multi-market support
+                best_market: selectedFixture.best_market,
+                all_markets: selectedFixture.all_markets
               }}
               onViewDetails={handleViewDetails}
             />
