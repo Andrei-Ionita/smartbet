@@ -130,7 +130,6 @@ const LEAGUES = [
   { id: '444', name: 'Eliteserien' },
   { id: '453', name: 'Ekstraklasa' },
   { id: '462', name: 'Liga Portugal' },
-  { id: '283', name: 'Romanian SuperLiga' },
   { id: '486', name: 'Russian Premier League' },
   { id: '501', name: 'Premiership' },
   { id: '564', name: 'La Liga' },

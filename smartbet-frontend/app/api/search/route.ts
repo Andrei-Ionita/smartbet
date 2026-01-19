@@ -72,7 +72,6 @@ const SUPPORTED_LEAGUE_IDS = [
   208,   // Pro League
   244,   // 1. HNL
   271,   // Superliga
-  283,   // Romanian SuperLiga
   301,   // Ligue 1
   384,   // Serie A
   387,   // Serie B
