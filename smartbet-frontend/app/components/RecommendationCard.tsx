@@ -491,19 +491,6 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </div>
             )
           })()}
-          <div className={`px-3 py-1 rounded-full ${recommendation.signal_quality === 'Strong' ? 'bg-green-100' :
-            recommendation.signal_quality === 'Good' ? 'bg-blue-100' :
-              recommendation.signal_quality === 'Moderate' ? 'bg-yellow-100' : 'bg-red-100'
-            }`}>
-            <span className={`text-sm font-medium ${recommendation.signal_quality === 'Strong' ? 'text-green-700' :
-              recommendation.signal_quality === 'Good' ? 'text-blue-700' :
-                recommendation.signal_quality === 'Moderate' ? 'text-yellow-700' : 'text-red-700'
-              }`}>
-              {recommendation.signal_quality === 'Strong' ? t('card.badges.strongSignal') :
-                recommendation.signal_quality === 'Good' ? t('card.badges.goodSignal') :
-                  recommendation.signal_quality === 'Moderate' ? t('card.badges.moderateSignal') : t('card.badges.weakSignal')}
-            </span>
-          </div>
         </div>
         <button
           onClick={() => setIsCalculatorOpen(true)}
