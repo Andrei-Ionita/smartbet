@@ -153,7 +153,7 @@ export default function HomePage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
-              <div className="text-sm text-gray-600">Confidence Threshold</div>
+              <div className="text-sm text-gray-600">{t('landing.stats.confidenceThreshold')}</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-green-600 mb-1">27</div>
@@ -161,11 +161,11 @@ export default function HomePage() {
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
-              <div className="text-sm text-gray-600">Days Ahead</div>
+              <div className="text-sm text-gray-600">{t('landing.stats.daysAhead')}</div>
             </div>
             <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
               <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
-              <div className="text-sm text-gray-600">AI Ensemble</div>
+              <div className="text-sm text-gray-600">{t('landing.stats.aiEnsemble')}</div>
             </div>
           </div>
 
@@ -185,14 +185,14 @@ export default function HomePage() {
             >
               <span className="flex items-center gap-2">
                 <Shield className="h-5 w-5" />
-                Track Record
+                {t('landing.trackRecord')}
               </span>
             </button>
             <button
               onClick={() => router.push('/about')}
               className="bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200"
             >
-              Learn More
+              {t('landing.learnMore')}
             </button>
           </div>
         </div>
@@ -202,13 +202,13 @@ export default function HomePage() {
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
               <Star className="h-4 w-4" />
-              <span>Featured Picks</span>
+              <span>{t('landing.featuredBadge')}</span>
             </div>
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Today's Top Recommendations
+              {t('landing.topRecsTitle')}
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Hand-picked predictions with the highest confidence scores and expected value
+              {t('landing.topRecsSubtitle')}
             </p>
           </div>
 

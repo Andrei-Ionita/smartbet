@@ -32,8 +32,15 @@ export const translations = {
                 topPicksToday: 'Top Picks Today',
                 confidenceThreshold: 'Confidence Threshold',
                 totalFixtures: 'Total Fixtures',
-                highestConfidence: 'Highest Confidence'
+                highestConfidence: 'Highest Confidence',
+                daysAhead: 'Days Ahead',
+                aiEnsemble: 'AI Ensemble'
             },
+            trackRecord: 'Track Record',
+            learnMore: 'Learn More',
+            featuredBadge: 'Featured Picks',
+            topRecsTitle: "Today's Top Recommendations",
+            topRecsSubtitle: 'Hand-picked predictions with the highest confidence scores and expected value',
             featured: 'Featured Recommendations',
             refreshTimer: 'Updates in',
             noBets: 'No high-confidence predictions available right now.'
@@ -380,8 +387,15 @@ export const translations = {
                 topPicksToday: 'Topul Zilei',
                 confidenceThreshold: 'Prag Încredere',
                 totalFixtures: 'Total Meciuri',
-                highestConfidence: 'Încredere Maximă'
+                highestConfidence: 'Încredere Maximă',
+                daysAhead: 'Zile în Avans',
+                aiEnsemble: 'Ansamblu AI'
             },
+            trackRecord: 'Istoric Performanță',
+            learnMore: 'Află Mai Multe',
+            featuredBadge: 'Ponturi Recomandate',
+            topRecsTitle: 'Recomandările de Top de Astăzi',
+            topRecsSubtitle: 'Predicții selectate cu cele mai mari scoruri de încredere și valoare așteptată',
             featured: 'Recomandări Top',
             refreshTimer: 'Actualizare în',
             noBets: 'Nu există predicții cu grad ridicat de încredere momentan.'
