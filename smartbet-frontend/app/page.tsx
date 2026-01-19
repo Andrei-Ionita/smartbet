@@ -369,10 +369,10 @@ export default function HomePage() {
         <div className="mb-16">
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Why Choose SmartBet?
+              {t('landing.features.title')}
             </h2>
             <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Our advanced AI system combines machine learning with real-time market data to deliver superior predictions
+              {t('landing.features.subtitle')}
             </p>
           </div>
 
@@ -381,9 +381,9 @@ export default function HomePage() {
               <div className="bg-gradient-to-br from-primary-500 to-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <TrendingUp className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Data-Driven Intelligence</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f1Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Advanced ML models trained on millions of historical matches with real-time market analysis and player statistics
+                {t('landing.features.f1Desc')}
               </p>
             </div>
 
@@ -391,9 +391,9 @@ export default function HomePage() {
               <div className="bg-gradient-to-br from-green-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Shield className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Smart Risk Management</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f2Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Confidence thresholds and expected value calculations help you make informed decisions with proper bankroll management
+                {t('landing.features.f2Desc')}
               </p>
             </div>
 
@@ -401,9 +401,9 @@ export default function HomePage() {
               <div className="bg-gradient-to-br from-purple-500 to-pink-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
                 <Zap className="h-8 w-8 text-white" />
               </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Real-Time Updates</h3>
+              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f3Title')}</h3>
               <p className="text-gray-600 leading-relaxed">
-                Live predictions with SHAP explanations, feature importance breakdown, and instant market updates
+                {t('landing.features.f3Desc')}
               </p>
             </div>
           </div>
@@ -440,7 +440,6 @@ export default function HomePage() {
               { id: 'eliteserien', name: 'Eliteserien', country: 'Norway', status: 'PRODUCTION' },
               { id: 'ekstraklasa', name: 'Ekstraklasa', country: 'Poland', status: 'PRODUCTION' },
               { id: 'liga-portugal', name: 'Liga Portugal', country: 'Portugal', status: 'PRODUCTION' },
-              { id: 'superliga-ro', name: 'Romanian SuperLiga', country: 'Romania', status: 'PRODUCTION' },
               { id: 'premiership', name: 'Premiership', country: 'Scotland', status: 'PRODUCTION' },
               { id: 'la-liga-2', name: 'La Liga 2', country: 'Spain', status: 'PRODUCTION' },
               { id: 'copa-del-rey', name: 'Copa Del Rey', country: 'Spain', status: 'PRODUCTION' },

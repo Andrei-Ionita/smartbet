@@ -21,9 +21,9 @@ export const translations = {
             search: 'Search'
         },
         landing: {
-            heroTitle: '',
-            heroTitleHighlight: 'SmartBet',
-            heroSubtitle: 'AI-Powered Football Predictions. Get data-driven insights and betting recommendations with confidence scores, expected value analysis, and real-time market intelligence across top European leagues.',
+            heroTitle: 'Smart Betting.',
+            heroTitleHighlight: 'Not Guesswork.',
+            heroSubtitle: 'The only platform combining AI power with total transparency. We don\'t promise you\'ll always win, but we promise you\'ll bet mathematically correctly, based on value, not emotion.',
             exploreButton: 'Explore Predictions',
             stats: {
                 accuracy: 'Accuracy',
@@ -43,7 +43,17 @@ export const translations = {
             topRecsSubtitle: 'Hand-picked predictions with the highest confidence scores and expected value',
             featured: 'Featured Recommendations',
             refreshTimer: 'Updates in',
-            noBets: 'No high-confidence predictions available right now.'
+            noBets: 'No high-confidence predictions available right now.',
+            features: {
+                title: 'Why Choose SmartBet?',
+                subtitle: 'Stop betting on your heart. Start betting with data.',
+                f1Title: 'Value Over Volume',
+                f1Desc: "We don't spam you with 50 bets. We find the top 5% of opportunities where the math is in your favor.",
+                f2Title: 'Transparent Track Record',
+                f2Desc: 'We track every recommendation. Wins and losses. No deleting history. Pure accountability.',
+                f3Title: 'Bankroll Protection',
+                f3Desc: "We don't just tell you WHO to bet on. We tell you HOW MUCH to bet using the Kelly Criterion."
+            }
         },
         dashboard: {
             title: 'My Dashboard',
@@ -376,9 +386,9 @@ export const translations = {
             search: 'Caută'
         },
         landing: {
-            heroTitle: '',
-            heroTitleHighlight: 'SmartBet',
-            heroSubtitle: 'Predicții Fotbal cu AI. Obține un avantaj competitiv cu modele de machine learning care analizează mii de date pentru a găsi pariuri valoroase.',
+            heroTitle: 'Pariază Inteligent.',
+            heroTitleHighlight: 'Nu la Ghici.',
+            heroSubtitle: 'Singura platformă care îmbină puterea AI-ului cu transparența totală. Nu îți promitem că vei câștiga mereu, dar îți promitem că vei paria matematic corect, bazat pe valoare, nu pe emoție.',
             exploreButton: 'Explorează Predicții',
             stats: {
                 accuracy: 'Acuratețe',
@@ -398,7 +408,17 @@ export const translations = {
             topRecsSubtitle: 'Predicții selectate cu cele mai mari scoruri de încredere și valoare așteptată',
             featured: 'Recomandări Top',
             refreshTimer: 'Actualizare în',
-            noBets: 'Nu există predicții cu grad ridicat de încredere momentan.'
+            noBets: 'Nu există predicții cu grad ridicat de încredere momentan.',
+            features: {
+                title: 'De ce SmartBet?',
+                subtitle: "Nu mai paria pe 'sentiment'. Pariază pe Valoare.",
+                f1Title: 'Valoare, nu Volum',
+                f1Desc: 'Nu te bombardăm cu 50 de pariuri. Găsim acel top 5% oportunități unde matematica este de partea ta.',
+                f2Title: 'Istoric 100% Transparent',
+                f2Desc: 'Monitorizăm fiecare recomandare. Câștiguri și pierderi. Fără istoric șters. Responsabilitate totală.',
+                f3Title: 'Protecția Bugetului',
+                f3Desc: 'Nu îți spunem doar PE CINE să pariezi. Îți spunem CÂT să pariezi folosind criteriul Kelly pentru a-ți proteja banii.'
+            }
         },
         dashboard: {
             title: 'Panoul Meu',
