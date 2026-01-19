@@ -259,15 +259,15 @@ export default function HomePage() {
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
                   <div>
                     <div className="text-2xl font-bold text-primary-600">{data.recommendations.length}</div>
-                    <div className="text-sm text-primary-700">Top Picks Today</div>
+                    <div className="text-sm text-primary-700">{t('landing.stats.topPicksToday')}</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-green-600">{data.confidence_threshold}%+</div>
-                    <div className="text-sm text-green-700">Confidence Threshold</div>
+                    <div className="text-sm text-green-700">{t('landing.stats.confidenceThreshold')}</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-blue-600">{data.fixtures_analyzed || 0}</div>
-                    <div className="text-sm text-blue-700">Total Fixtures</div>
+                    <div className="text-sm text-blue-700">{t('landing.stats.totalFixtures')}</div>
                   </div>
                   <div>
                     <div className="text-2xl font-bold text-purple-600">
@@ -275,7 +275,7 @@ export default function HomePage() {
                         ? (Math.max(...data.recommendations.map((r: any) => r.confidence)) * 100).toFixed(0) + '%'
                         : '0%'}
                     </div>
-                    <div className="text-sm text-purple-700">Highest Confidence</div>
+                    <div className="text-sm text-purple-700">{t('landing.stats.highestConfidence')}</div>
                   </div>
                 </div>
               </div>

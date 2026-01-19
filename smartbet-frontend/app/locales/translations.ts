@@ -28,7 +28,11 @@ export const translations = {
             stats: {
                 accuracy: 'Accuracy',
                 roi: 'Avg ROI',
-                coverage: 'Leagues'
+                coverage: 'Leagues',
+                topPicksToday: 'Top Picks Today',
+                confidenceThreshold: 'Confidence Threshold',
+                totalFixtures: 'Total Fixtures',
+                highestConfidence: 'Highest Confidence'
             },
             featured: 'Featured Recommendations',
             refreshTimer: 'Updates in',
@@ -111,6 +115,25 @@ export const translations = {
                 lowerConfidence: '• Lower confidence ({0}%) - higher uncertainty',
                 lowEV: '• Low expected value ({0}%) - small edge',
                 drawPrediction: '• Draw prediction - historically harder to predict accurately'
+            },
+            multiMarket: {
+                bestMarket: 'Best',
+                allMarkets: 'All Markets',
+                options: 'options',
+                markets: {
+                    '1x2': 'Match Result',
+                    'btts': 'Both Teams Score',
+                    'over_under_2.5': 'O/U 2.5 Goals',
+                    'double_chance': 'Double Chance'
+                },
+                shortNames: {
+                    '1x2': '1X2',
+                    'btts': 'BTTS',
+                    'over_under_2.5': 'O/U 2.5',
+                    'double_chance': 'DC'
+                },
+                starBest: '★ Best',
+                notRecommended: 'Not recommended'
             }
         },
         trackRecord: {
@@ -353,7 +376,11 @@ export const translations = {
             stats: {
                 accuracy: 'Acuratețe',
                 roi: 'ROI Mediu',
-                coverage: 'Ligi'
+                coverage: 'Ligi',
+                topPicksToday: 'Topul Zilei',
+                confidenceThreshold: 'Prag Încredere',
+                totalFixtures: 'Total Meciuri',
+                highestConfidence: 'Încredere Maximă'
             },
             featured: 'Recomandări Top',
             refreshTimer: 'Actualizare în',
@@ -436,6 +463,25 @@ export const translations = {
                 lowerConfidence: '• Încredere mai mică ({0}%) - incertitudine mai mare',
                 lowEV: '• Valoare așteptată mică ({0}%) - avantaj redus',
                 drawPrediction: '• Predicție de egalitate - istoric mai greu de prezis'
+            },
+            multiMarket: {
+                bestMarket: 'Cel mai bun',
+                allMarkets: 'Toate Piețele',
+                options: 'opțiuni',
+                markets: {
+                    '1x2': 'Rezultat Final',
+                    'btts': 'Ambele Marchează',
+                    'over_under_2.5': 'Peste/Sub 2.5',
+                    'double_chance': 'Șansă Dublă'
+                },
+                shortNames: {
+                    '1x2': '1X2',
+                    'btts': 'GG/NG',
+                    'over_under_2.5': 'P/S 2.5',
+                    'double_chance': 'ȘD'
+                },
+                starBest: '★ Cel mai bun',
+                notRecommended: 'Nerecomandat'
             }
         },
         trackRecord: {

@@ -189,7 +189,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             {recommendation.best_market && recommendation.best_market.type !== '1x2' && (
               <span className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
                 <Target className="h-3 w-3" />
-                Best: {recommendation.best_market.name}
+                {t('card.multiMarket.bestMarket')}: {recommendation.best_market.name}
               </span>
             )}
           </div>
@@ -378,9 +378,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         <div className="mb-4 p-4 bg-gradient-to-r from-gray-50 to-blue-50 rounded-xl border border-gray-200">
           <div className="flex items-center gap-2 mb-3">
             <Target className="h-4 w-4 text-blue-600" />
-            <span className="font-semibold text-gray-800 text-sm">All Markets</span>
+            <span className="font-semibold text-gray-800 text-sm">{t('card.multiMarket.allMarkets')}</span>
             <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">
-              {recommendation.all_markets.length} options
+              {recommendation.all_markets.length} {t('card.multiMarket.options')}
             </span>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
@@ -402,10 +402,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   {(market.probability * 100).toFixed(0)}% • {market.odds > 1 ? market.odds.toFixed(2) : '-'}
                 </div>
                 {idx === 0 && (
-                  <div className="text-xs text-green-600 font-medium mt-1">★ Best</div>
+                  <div className="text-xs text-green-600 font-medium mt-1">{t('card.multiMarket.starBest')}</div>
                 )}
                 {!market.is_recommended && idx !== 0 && (
-                  <div className="text-xs text-gray-400 mt-1">Not recommended</div>
+                  <div className="text-xs text-gray-400 mt-1">{t('card.multiMarket.notRecommended')}</div>
                 )}
               </div>
             ))}
