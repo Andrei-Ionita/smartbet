@@ -1,10 +1,7 @@
 'use client'
 
-import { useState } from 'react'
-import ModelPerformanceDashboard from '../components/ModelPerformanceDashboard'
-import PredictionAccuracyTracker from '../components/PredictionAccuracyTracker'
 import RecommendedPredictionsTable from '../components/RecommendedPredictionsTable'
-import { BarChart3, Settings, TrendingUp, Target, Award, ShieldCheck } from 'lucide-react'
+import { Award, TrendingUp } from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext';
 
 export default function MonitoringPage() {
@@ -25,29 +22,16 @@ export default function MonitoringPage() {
           </div>
         </div>
 
-        <div className="space-y-8">
-          {/* Aggregate Stats Section */}
-          <ModelPerformanceDashboard />
-
-          {/* Detailed History Section */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-            <div className="p-6 border-b border-gray-100">
-              <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                <Award className="h-5 w-5 text-blue-600" />
-                {t('monitoring.tabs.recommended')}
-              </h3>
-            </div>
-            <div className="p-6">
-              <RecommendedPredictionsTable />
-            </div>
+        {/* History Table Only */}
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+          <div className="p-6 border-b border-gray-100">
+            <h3 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <Award className="h-5 w-5 text-blue-600" />
+              {t('monitoring.tabs.recommended')}
+            </h3>
           </div>
-
-          {/* Trust Note */}
-          <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-100 text-center">
-            <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('monitoring.whyTrack.title')}</h3>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              {t('monitoring.whyTrack.description')}
-            </p>
+          <div className="p-6">
+            <RecommendedPredictionsTable />
           </div>
         </div>
       </div>
