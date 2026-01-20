@@ -41,11 +41,28 @@ export default function ModelPerformanceDashboard() {
     useEffect(() => {
         const fetchData = async () => {
             try {
-                const response = await fetch('/api/transparency/dashboard/')
+                const response = await fetch('/api/performance')
                 const data = await response.json()
-                if (data.success) {
-                    setAccuracy(data.stats.overall_accuracy)
-                    setRoi(data.stats.roi_simulation)
+                if (data.success && data.data) {
+                    // Map API response to component state
+                    const stats = data.data;
+
+                    setAccuracy({
+                        overall: {
+                            total_predictions: stats.overall.total_predictions,
+                            correct_predictions: stats.overall.correct_predictions,
+                            accuracy_percent: stats.overall.accuracy_percent
+                        }
+                    })
+
+                    setRoi({
+                        total_bets: stats.overall.total_predictions,
+                        roi_percent: stats.overall.roi_percent,
+                        total_profit_loss: stats.overall.total_profit_loss,
+                        win_rate: stats.overall.accuracy_percent, // Approximation if not explicit
+                        wins: stats.overall.correct_predictions,
+                        losses: stats.overall.total_predictions - stats.overall.correct_predictions
+                    })
                 }
             } catch (error) {
                 console.error('Failed to fetch performance stats:', error)

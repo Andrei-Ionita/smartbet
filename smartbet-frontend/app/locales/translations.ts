@@ -6,7 +6,7 @@ export const translations = {
             home: 'Home',
             dashboard: 'Dashboard',
             explore: 'Explore',
-            monitoring: 'Monitoring',
+            monitoring: 'Results',
             bankroll: 'Bankroll',
             login: 'Login',
             signup: 'Sign Up',
@@ -213,8 +213,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Model Performance Center',
-            subtitle: 'Transparent tracking of our AI prediction accuracy and ROI',
+            title: 'Official Results',
+            subtitle: 'Transparent tracking of our prediction accuracy and history',
             tabs: {
                 dashboard: 'Model Performance',
                 accuracy: 'Detailed Accuracy',
@@ -371,7 +371,7 @@ export const translations = {
             home: 'Acasă',
             dashboard: 'Panou Control',
             explore: 'Explorează',
-            monitoring: 'Monitorizare',
+            monitoring: 'Rezultate',
             bankroll: 'Buget',
             login: 'Autentificare',
             signup: 'Înregistrare',
@@ -578,8 +578,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Centru Performanță Model',
-            subtitle: 'Urmărire transparentă a acurateței predicțiilor AI și ROI',
+            title: 'Rezultate Oficiale',
+            subtitle: 'Urmărire transparentă a acurateței și istoricului nostru',
             tabs: {
                 dashboard: 'Performanță Model',
                 accuracy: 'Acuratețe Detaliată',
