@@ -57,9 +57,14 @@ export const translations = {
         },
         dashboard: {
             title: 'My Dashboard',
-            subtitle: 'Welcome back to your betting portal',
+            subtitle: 'Welcome back to your betting command center',
             manageBankroll: 'Manage Bankroll',
-            smartPicks: 'Your Smart Picks'
+            smartPicks: 'Smart Recommendations',
+            modelPerformance: {
+                title: 'Model Performance',
+                subtitle: 'Transparency is our core value. See how our models are performing.',
+                viewAuditLog: 'View Full History'
+            }
         },
         card: {
             recentForm: 'Recent Form',
@@ -424,7 +429,12 @@ export const translations = {
             title: 'Panoul Meu',
             subtitle: 'Bine ai revenit la portalul tău de pariuri',
             manageBankroll: 'Gestionează Buget',
-            smartPicks: 'Recomandări Inteligente'
+            smartPicks: 'Recomandări Inteligente',
+            modelPerformance: {
+                title: 'Performanță Model',
+                subtitle: 'Transparența este valoarea noastră. Vezi cum performează modelele.',
+                viewAuditLog: 'Vezi Istoric Complet'
+            }
         },
         card: {
             recentForm: 'Forma Recentă',
