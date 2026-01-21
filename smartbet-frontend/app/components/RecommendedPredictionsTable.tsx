@@ -56,7 +56,7 @@ export default function RecommendedPredictionsTable() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [includePending, setIncludePending] = useState(true)
-  const [modelVersion, setModelVersion] = useState<'v2' | 'all'>('v2')
+  const [modelVersion, setModelVersion] = useState<'v2' | 'all'>('all')
 
   const fetchPredictions = async (forceUpdate = false) => {
     try {
