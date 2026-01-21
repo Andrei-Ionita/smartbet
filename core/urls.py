@@ -45,4 +45,7 @@ urlpatterns = [
     path('api/transparency/recent/', transparency_views.recent_predictions_with_results, name='recent_predictions'),
     path('api/transparency/quick-stats/', transparency_views.quick_stats, name='quick_stats'),
     path('api/transparency/update-results/', transparency_views.trigger_result_update, name='trigger_result_update'),
+    
+    # Email Capture / Newsletter
+    path('api/subscribe/', api_views.subscribe_email, name='subscribe_email'),
 ]

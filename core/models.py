@@ -633,3 +633,23 @@ class StakeRecommendation(models.Model):
         return f"Stake: {self.recommended_stake_amount} for {self.prediction_log}"
 
 
+class EmailSubscriber(models.Model):
+    """
+    Stores email subscribers for newsletter/updates.
+    Simple email capture for lead generation.
+    """
+    email = models.EmailField(unique=True, db_index=True)
+    source = models.CharField(max_length=50, default='homepage')  # Where they signed up
+    subscribed_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)  # Can unsubscribe
+    
+    # Optional: Track what they're interested in
+    interests = models.JSONField(default=list, blank=True)  # e.g., ['weekly_picks', 'premium_launch']
+    
+    class Meta:
+        ordering = ['-subscribed_at']
+        verbose_name = "Email Subscriber"
+        verbose_name_plural = "Email Subscribers"
+    
+    def __str__(self):
+        return f"{self.email} ({self.source})"

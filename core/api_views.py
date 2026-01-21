@@ -1243,3 +1243,83 @@ def update_fixture_results(request):
             'error': str(e),
             'updated_count': 0
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def subscribe_email(request):
+    """
+    Email capture endpoint for newsletter/updates.
+    POST /api/subscribe/
+    Body: { "email": "user@example.com", "source": "homepage" }
+    """
+    try:
+        data = json.loads(request.body)
+        email = data.get('email', '').strip().lower()
+        source = data.get('source', 'homepage')
+        interests = data.get('interests', [])
+        
+        if not email:
+            return JsonResponse({
+                'success': False,
+                'error': 'Email is required'
+            }, status=400)
+        
+        # Basic email validation
+        import re
+        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+        if not re.match(email_regex, email):
+            return JsonResponse({
+                'success': False,
+                'error': 'Please enter a valid email address'
+            }, status=400)
+        
+        # Import model here to avoid circular imports
+        from .models import EmailSubscriber
+        
+        # Check if already subscribed
+        existing = EmailSubscriber.objects.filter(email=email).first()
+        if existing:
+            if existing.is_active:
+                return JsonResponse({
+                    'success': True,
+                    'message': 'You are already subscribed!',
+                    'already_subscribed': True
+                })
+            else:
+                # Reactivate subscription
+                existing.is_active = True
+                existing.source = source
+                existing.save()
+                return JsonResponse({
+                    'success': True,
+                    'message': 'Welcome back! Your subscription has been reactivated.',
+                    'reactivated': True
+                })
+        
+        # Create new subscriber
+        subscriber = EmailSubscriber.objects.create(
+            email=email,
+            source=source,
+            interests=interests
+        )
+        
+        print(f"📧 New subscriber: {email} from {source}")
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Thank you for subscribing! You will receive our best picks weekly.',
+            'subscriber_id': subscriber.id
+        })
+        
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'success': False,
+            'error': 'Invalid JSON body'
+        }, status=400)
+    except Exception as e:
+        print(f"❌ Email subscription error: {e}")
+        return JsonResponse({
+            'success': False,
+            'error': 'Something went wrong. Please try again.'
+        }, status=500)

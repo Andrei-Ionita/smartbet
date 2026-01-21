@@ -25,6 +25,7 @@ import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import LoadingSpinner from './components/LoadingSpinner'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
+import EmailCapture from './components/EmailCapture'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
@@ -587,6 +588,11 @@ export default function HomePage() {
               <div className="text-sm text-gray-600">Premium Data Sources • Updates every 60 seconds</div>
             </div>
           </div>
+        </div>
+
+        {/* Email Capture Section */}
+        <div className="mb-8">
+          <EmailCapture variant="hero" source="homepage" />
         </div>
 
         {/* Footer Status */}
