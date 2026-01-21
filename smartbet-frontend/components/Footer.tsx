@@ -112,19 +112,46 @@ export default function Footer() {
                     </div>
                 </div>
 
-                {/* Disclaimer Banner */}
+                {/* Disclaimer Banner - Enhanced Legal Notice */}
                 <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-8">
                     <div className="flex items-start gap-3">
                         <AlertTriangle className="h-5 w-5 text-amber-500 flex-shrink-0 mt-0.5" />
                         <div className="text-xs text-gray-500 leading-relaxed">
-                            <p className="font-semibold text-gray-700 mb-1">Disclaimer & Risk Warning</p>
+                            <p className="font-semibold text-gray-700 mb-2">Important Legal Notice</p>
+
+                            <p className="mb-2">
+                                <strong className="text-gray-700">SmartBet is NOT a betting operator, bookmaker, or gambling site.</strong>{' '}
+                                We do not accept bets, wagers, or deposits of any kind. Our predictions are provided for{' '}
+                                <strong>informational and entertainment purposes only</strong> and should not be considered financial or betting advice.
+                            </p>
+
+                            <p className="mb-2">
+                                <strong className="text-amber-600">Risk Warning:</strong> Betting involves significant risk, including the possible loss of your entire stake.
+                                Past performance is not indicative of future results. Never bet more than you can afford to lose.
+                            </p>
+
+                            <p className="mb-2">
+                                <strong className="text-gray-700">Regional Notice:</strong> Online gambling may be restricted or illegal in your jurisdiction.
+                                It is your responsibility to ensure compliance with local laws before engaging in any gambling activity.
+                            </p>
+
                             <p>
-                                SmartBet provides sports data analysis and predictions for informational and entertainment purposes only.
-                                We do not guarantee the accuracy of any predictions. Betting involves significant risk, including the possible loss of principal.
-                                Past performance is not indicative of future results. Please gamble responsibly and only bet what you can afford to lose.
-                                If you or someone you know has a gambling problem, please seek help.
+                                If you or someone you know has a gambling problem, please seek help:{' '}
+                                <a href="https://www.begambleaware.org" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">BeGambleAware.org</a>,{' '}
+                                <a href="https://www.gamcare.org.uk" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">GamCare</a>,{' '}
+                                <a href="https://www.gamblingtherapy.org" target="_blank" rel="noopener noreferrer" className="text-primary-600 hover:underline">Gambling Therapy</a>
                             </p>
                         </div>
+                    </div>
+
+                    {/* 18+ Badge */}
+                    <div className="flex items-center justify-center gap-4 mt-4 pt-4 border-t border-gray-200">
+                        <div className="flex items-center justify-center w-10 h-10 bg-red-100 rounded-full border-2 border-red-500">
+                            <span className="text-red-600 font-bold text-sm">18+</span>
+                        </div>
+                        <p className="text-xs text-gray-500">
+                            This website is for adults only. You must be 18 years or older to use this service.
+                        </p>
                     </div>
                 </div>
 

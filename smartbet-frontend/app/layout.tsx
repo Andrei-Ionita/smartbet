@@ -5,6 +5,7 @@ import Navigation from '@/components/Navigation'
 import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import Footer from '@/components/Footer'
+import AgeGateModal from './components/AgeGateModal'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -59,6 +60,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={inter.className}>
+        <AgeGateModal />
         <AuthProvider>
           <LanguageProvider>
             <div className="min-h-screen bg-gray-50 flex flex-col">
