@@ -442,32 +442,14 @@ def get_recommended_predictions_with_outcomes(request):
     - include_pending (optional): Include matches that haven't finished yet (default: true)
     """
     try:
-        limit = int(request.GET.get('limit', 50))
+        limit = int(request.GET.get('limit', 100))  # Increased default limit
         include_pending = request.GET.get('include_pending', 'true').lower() == 'true'
         
-        # Model Versioning Logic
-        # V2 Launch Date: Today (First deployment of strict filters)
-        V2_LAUNCH_DATE = timezone.now().replace(hour=0, minute=0, second=0, microsecond=0)
-        # Allow overriding version via query param (e.g., ?version=all)
-        model_version = request.GET.get('version', 'v2')
-        
-        # Get all recommended predictions
+        # Get ALL recommended predictions - no version filtering
+        # This ensures complete transparency and no "missing" data
         queryset = PredictionLog.objects.filter(
             is_recommended=True
         ).defer('notes', 'home_team_form', 'away_team_form').order_by('-kickoff')
-        
-        # Apply Version Filter
-        if model_version == 'v2':
-            # Reset view: Only show predictions from V2 launch onwards
-            # Note: In production, hardcode this date to the actual launch timestamp
-            # For now, we'll use a fixed date to ensure consistency
-            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=dt_timezone.utc)
-            queryset = queryset.filter(prediction_logged_at__gte=FIXED_LAUNCH_DATE)
-        elif model_version == 'v1':
-            FIXED_LAUNCH_DATE = datetime(2025, 12, 24, 0, 0, 0, tzinfo=dt_timezone.utc)
-            queryset = queryset.filter(prediction_logged_at__lt=FIXED_LAUNCH_DATE)
-        
-        # If not including pending, only show completed matches
         
         # If not including pending, only show completed matches
         if not include_pending:

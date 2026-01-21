@@ -56,7 +56,6 @@ export default function RecommendedPredictionsTable() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [includePending, setIncludePending] = useState(true)
-  const [modelVersion, setModelVersion] = useState<'v2' | 'all'>('all')
 
   const fetchPredictions = async (forceUpdate = false) => {
     try {
@@ -79,8 +78,7 @@ export default function RecommendedPredictionsTable() {
       }
 
       // Call Django API through Next.js API route
-      // Pass the selected version to the backend
-      const response = await fetch(`/api/django/recommended-predictions?include_pending=${includePending}&version=${modelVersion}`)
+      const response = await fetch(`/api/django/recommended-predictions?include_pending=${includePending}`)
       const data = await response.json()
 
       if (data.success) {
@@ -108,7 +106,7 @@ export default function RecommendedPredictionsTable() {
     }, 120000) // 2 minutes
 
     return () => clearInterval(refreshInterval)
-  }, [includePending, modelVersion])
+  }, [includePending])
 
   // Refresh when tab becomes visible
   useEffect(() => {
@@ -276,29 +274,6 @@ export default function RecommendedPredictionsTable() {
       {/* Controls */}
       <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="flex flex-col md:flex-row md:items-center gap-4">
-
-          {/* Version Selector */}
-          <div className="flex items-center bg-gray-100 p-1 rounded-lg">
-            <button
-              onClick={() => setModelVersion('v2')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${modelVersion === 'v2'
-                ? 'bg-white text-primary-700 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              Model V2 (Active)
-            </button>
-            <button
-              onClick={() => setModelVersion('all')}
-              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-all ${modelVersion === 'all'
-                ? 'bg-white text-primary-700 shadow-sm'
-                : 'text-gray-600 hover:text-gray-900'
-                }`}
-            >
-              All History
-            </button>
-          </div>
-
           <label className="flex items-center gap-2 cursor-pointer">
             <input
               type="checkbox"
@@ -311,15 +286,6 @@ export default function RecommendedPredictionsTable() {
         </div>
 
         <div className="flex items-center gap-3">
-          {modelVersion === 'v2' && (
-            <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 text-xs font-medium rounded-full border border-blue-100">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-              </span>
-              Live: Strict Filters Active
-            </span>
-          )}
 
           <button
             onClick={() => fetchPredictions(true)}
