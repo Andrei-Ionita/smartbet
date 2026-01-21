@@ -254,8 +254,8 @@ export async function GET(request: NextRequest) {
               // Always add to display array
               allMarketsData.push(marketData)
 
-              // Only add to results if passes filters
-              if (gap >= minGap && ev > 0) {
+              // Only add to results if passes filters (EV >= 5%)
+              if (gap >= minGap && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }
@@ -296,7 +296,7 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.12 && ev > 0) {
+              if (gap >= 0.12 && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }
@@ -370,7 +370,7 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.12 && ev > 0) {
+              if (gap >= 0.12 && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }
@@ -416,7 +416,7 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.10 && ev > 0) {
+              if (gap >= 0.10 && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }
