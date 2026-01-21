@@ -520,6 +520,44 @@ def get_recommended_predictions_with_outcomes(request):
                 'profit_loss': round(sum([r['profit_loss_10'] for r in market_completed if r['profit_loss_10'] is not None]), 2)
             }
         
+        # ============= BASELINE COMPARISON =============
+        # Calculate "implied probability baseline" from odds to show edge over market
+        # This answers: "What accuracy would we expect if bookmakers were perfectly calibrated?"
+        implied_probabilities = []
+        for r in completed:
+            # Get the odds for the predicted outcome
+            outcome = (r.get('predicted_outcome_raw') or r.get('predicted_outcome', '')).lower()
+            if outcome == 'home' and r.get('odds_home'):
+                odds = r['odds_home']
+            elif outcome == 'draw' and r.get('odds_draw'):
+                odds = r['odds_draw']
+            elif outcome == 'away' and r.get('odds_away'):
+                odds = r['odds_away']
+            elif 'over' in outcome.lower() and r.get('odds_home'):  # O/U uses odds_home for the predicted side
+                odds = r['odds_home']
+            elif 'under' in outcome.lower() and r.get('odds_away'):
+                odds = r['odds_away']
+            elif 'btts' in outcome.lower() and r.get('odds_home'):
+                odds = r['odds_home']
+            else:
+                odds = None
+            
+            if odds and odds > 1:
+                # Implied probability = 1 / odds (simplified, ignoring margin)
+                implied_prob = 1 / odds
+                implied_probabilities.append(implied_prob)
+        
+        # Calculate baseline
+        if implied_probabilities:
+            avg_implied_prob = sum(implied_probabilities) / len(implied_probabilities)
+            implied_baseline = round(avg_implied_prob * 100, 1)  # As percentage
+        else:
+            implied_baseline = None
+        
+        # Calculate edge over baseline
+        actual_accuracy = round((len(correct) / len(completed) * 100), 1) if completed else None
+        edge_vs_market = round(actual_accuracy - implied_baseline, 1) if actual_accuracy and implied_baseline else None
+        
         summary = {
             'total_recommended': len(results),
             'completed': len(completed),
@@ -529,7 +567,17 @@ def get_recommended_predictions_with_outcomes(request):
             'accuracy': round((len(correct) / len(completed) * 100), 1) if completed else None,
             'total_profit_loss': round(total_pl, 2) if total_pl else 0,
             'average_roi': round(avg_roi, 2) if avg_roi else None,
-            'by_market': by_market  # NEW: Per-market breakdown
+            'by_market': by_market,
+            # NEW: Baseline comparison metrics
+            'implied_baseline': implied_baseline,  # Expected accuracy based on odds
+            'edge_vs_market': edge_vs_market,  # Our accuracy minus baseline
+            'baseline_comparison': {
+                'our_accuracy': actual_accuracy,
+                'market_implied': implied_baseline,
+                'edge': edge_vs_market,
+                'sample_size': len(implied_probabilities),
+                'explanation': f"Our model achieves {actual_accuracy}% accuracy vs. {implied_baseline}% implied by odds (+{edge_vs_market}% edge)" if edge_vs_market and edge_vs_market > 0 else f"Our model achieves {actual_accuracy}% accuracy vs. {implied_baseline}% implied by odds ({edge_vs_market}% edge)" if edge_vs_market else None
+            }
         }
         
         return JsonResponse({

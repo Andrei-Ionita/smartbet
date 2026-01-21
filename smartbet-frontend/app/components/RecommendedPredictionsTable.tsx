@@ -47,6 +47,15 @@ interface Summary {
   accuracy: number | null
   total_profit_loss: number
   average_roi: number | null
+  implied_baseline: number | null
+  edge_vs_market: number | null
+  baseline_comparison?: {
+    our_accuracy: number | null
+    market_implied: number | null
+    edge: number | null
+    sample_size: number
+    explanation: string | null
+  }
 }
 
 export default function RecommendedPredictionsTable() {
@@ -238,68 +247,101 @@ export default function RecommendedPredictionsTable() {
     <div className="space-y-6">
       {/* Summary Cards */}
       {summary && (
-        <div className="grid md:grid-cols-4 gap-4">
-          <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total Recommended</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.total_recommended}</p>
+        <>
+          <div className="grid md:grid-cols-4 gap-4">
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total Recommended</p>
+                  <p className="text-2xl font-bold text-gray-900">{summary.total_recommended}</p>
+                </div>
+                <Award className="h-8 w-8 text-primary-600" />
               </div>
-              <Award className="h-8 w-8 text-primary-600" />
             </div>
-          </div>
 
-          <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Completed</p>
-                <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
-                {summary.pending > 0 && (
-                  <p className="text-xs text-yellow-600 mt-1">{summary.pending} pending</p>
-                )}
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Completed</p>
+                  <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
+                  {summary.pending > 0 && (
+                    <p className="text-xs text-yellow-600 mt-1">{summary.pending} pending</p>
+                  )}
+                </div>
+                <CheckCircle2 className="h-8 w-8 text-blue-600" />
               </div>
-              <CheckCircle2 className="h-8 w-8 text-blue-600" />
             </div>
-          </div>
 
-          <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Accuracy</p>
-                <p className={`text-2xl font-bold ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                  {summary.accuracy !== null ? `${summary.accuracy}%` : 'N/A'}
-                </p>
-                {summary.accuracy !== null && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    {summary.correct} correct, {summary.incorrect} incorrect
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Accuracy</p>
+                  <p className={`text-2xl font-bold ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                    {summary.accuracy !== null ? `${summary.accuracy}%` : 'N/A'}
                   </p>
+                  {summary.accuracy !== null && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      {summary.correct} correct, {summary.incorrect} incorrect
+                    </p>
+                  )}
+                </div>
+                <TrendingUp className={`h-8 w-8 ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
+              </div>
+            </div>
+
+            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-600">Total P/L ($10 stakes)</p>
+                  <p className={`text-2xl font-bold ${summary.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    ${summary.total_profit_loss.toFixed(2)}
+                  </p>
+                  {summary.average_roi !== null && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Avg ROI: {summary.average_roi.toFixed(1)}%
+                    </p>
+                  )}
+                </div>
+                {summary.total_profit_loss >= 0 ? (
+                  <TrendingUp className="h-8 w-8 text-green-600" />
+                ) : (
+                  <TrendingDown className="h-8 w-8 text-red-600" />
                 )}
               </div>
-              <TrendingUp className={`h-8 w-8 ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
             </div>
           </div>
 
-          <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-600">Total P/L ($10 stakes)</p>
-                <p className={`text-2xl font-bold ${summary.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                  ${summary.total_profit_loss.toFixed(2)}
-                </p>
-                {summary.average_roi !== null && (
-                  <p className="text-xs text-gray-500 mt-1">
-                    Avg ROI: {summary.average_roi.toFixed(1)}%
+          {/* Edge vs Market Comparison - THE KEY TRUST METRIC */}
+          {summary.edge_vs_market !== null && summary.implied_baseline !== null && (
+            <div className={`mt-4 rounded-xl p-5 shadow-lg border-2 ${summary.edge_vs_market >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+                <div className="flex items-center gap-4">
+                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${summary.edge_vs_market >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
+                    <span className={`text-2xl font-bold ${summary.edge_vs_market >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                      {summary.edge_vs_market >= 0 ? '+' : ''}{summary.edge_vs_market.toFixed(1)}%
+                    </span>
+                  </div>
+                  <div>
+                    <h3 className={`text-lg font-bold ${summary.edge_vs_market >= 0 ? 'text-green-800' : 'text-red-800'}`}>
+                      Edge vs. Market
+                    </h3>
+                    <p className="text-sm text-gray-600">
+                      Our accuracy: <strong>{summary.accuracy}%</strong> vs. implied by odds: <strong>{summary.implied_baseline}%</strong>
+                    </p>
+                  </div>
+                </div>
+                <div className="text-sm text-gray-500 max-w-md">
+                  <p>
+                    {summary.edge_vs_market >= 0
+                      ? `✅ We beat the market expectation by ${summary.edge_vs_market.toFixed(1)} percentage points. This is real, verifiable edge.`
+                      : `⚠️ Currently ${Math.abs(summary.edge_vs_market).toFixed(1)}pp below market expectations. Track record is still building.`
+                    }
                   </p>
-                )}
+                </div>
               </div>
-              {summary.total_profit_loss >= 0 ? (
-                <TrendingUp className="h-8 w-8 text-green-600" />
-              ) : (
-                <TrendingDown className="h-8 w-8 text-red-600" />
-              )}
             </div>
-          </div>
-        </div>
+          )}
+        </>
       )}
 
       {/* Controls */}
