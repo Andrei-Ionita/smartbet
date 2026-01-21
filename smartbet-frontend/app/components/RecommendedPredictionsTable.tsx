@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { RefreshCw, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Award } from 'lucide-react'
+import { RefreshCw, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Award, Lock, ExternalLink } from 'lucide-react'
 
 interface RecommendedPrediction {
   fixture_id: number
@@ -130,6 +130,37 @@ export default function RecommendedPredictionsTable() {
       hour: '2-digit',
       minute: '2-digit'
     })
+  }
+
+  // Calculate time before kickoff when prediction was logged
+  const getLoggedBeforeKickoff = (loggedAt: string, kickoff: string) => {
+    const loggedDate = new Date(loggedAt)
+    const kickoffDate = new Date(kickoff)
+    const diffMs = kickoffDate.getTime() - loggedDate.getTime()
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
+    const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
+
+    if (diffHours >= 24) {
+      const days = Math.floor(diffHours / 24)
+      return `${days}d ${diffHours % 24}h before`
+    } else if (diffHours >= 1) {
+      return `${diffHours}h ${diffMins}m before`
+    } else if (diffMins >= 0) {
+      return `${diffMins}m before`
+    } else {
+      return 'After kickoff'
+    }
+  }
+
+  // Check if prediction is locked (after kickoff)
+  const isLocked = (kickoff: string) => {
+    return new Date(kickoff) < new Date()
+  }
+
+  // Generate FlashScore search URL for match
+  const getExternalMatchUrl = (homeTeam: string, awayTeam: string) => {
+    const searchTerm = encodeURIComponent(`${homeTeam} ${awayTeam}`)
+    return `https://www.flashscore.com/search/?q=${searchTerm}`
   }
 
   const getOutcomeColor = (outcome: string) => {
@@ -325,8 +356,26 @@ export default function RecommendedPredictionsTable() {
                 predictions.map((pred) => (
                   <tr key={pred.fixture_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm font-medium text-gray-900">{pred.home_team}</div>
-                      <div className="text-sm text-gray-500">vs {pred.away_team}</div>
+                      <div className="flex items-start gap-2">
+                        {isLocked(pred.kickoff) && (
+                          <Lock className="h-4 w-4 text-green-600 mt-0.5 flex-shrink-0" />
+                        )}
+                        <div>
+                          <a
+                            href={getExternalMatchUrl(pred.home_team, pred.away_team)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-sm font-medium text-gray-900 hover:text-primary-600 hover:underline flex items-center gap-1"
+                          >
+                            {pred.home_team}
+                            <ExternalLink className="h-3 w-3 opacity-50" />
+                          </a>
+                          <div className="text-sm text-gray-500">vs {pred.away_team}</div>
+                          <div className="text-xs text-gray-400 mt-1" title={`Logged: ${new Date(pred.prediction_logged_at).toLocaleString()}`}>
+                            🕐 {getLoggedBeforeKickoff(pred.prediction_logged_at, pred.kickoff)} kickoff
+                          </div>
+                        </div>
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{pred.league}</div>
@@ -335,8 +384,18 @@ export default function RecommendedPredictionsTable() {
                       <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getOutcomeColor(pred.predicted_outcome)}`}>
                         {pred.predicted_outcome}
                       </span>
+                      {/* Odds with bookmaker */}
+                      {(() => {
+                        const outcome = pred.predicted_outcome?.toLowerCase()
+                        const odds = outcome === 'home' ? pred.odds_home : outcome === 'draw' ? pred.odds_draw : pred.odds_away
+                        return odds ? (
+                          <div className="text-xs text-gray-500 mt-1">
+                            @ {odds.toFixed(2)} {pred.bookmaker && <span className="text-gray-400">({pred.bookmaker})</span>}
+                          </div>
+                        ) : null
+                      })()}
                       {pred.expected_value !== null && (
-                        <div className="text-xs text-gray-500 mt-1">EV: {pred.expected_value.toFixed(2)}%</div>
+                        <div className="text-xs text-green-600 mt-0.5">EV: +{pred.expected_value.toFixed(1)}%</div>
                       )}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
