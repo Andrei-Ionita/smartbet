@@ -19,7 +19,8 @@ export default function Footer() {
                                     src="/images/logo.png"
                                     alt="OddsMind Logo"
                                     fill
-                                    className="object-cover scale-[2.0]"
+                                    className="object-cover"
+                                    style={{ transform: 'scale(1.7)' }}
                                 />
                             </div>
                             <span className="text-xl font-bold text-gray-900">OddsMind</span>
