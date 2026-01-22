@@ -14,7 +14,7 @@ export default function Footer() {
                     <div className="col-span-1 md:col-span-1">
                         <Link href="/" className="flex items-center space-x-2 mb-4">
                             <Trophy className="h-6 w-6 text-primary-600" />
-                            <span className="text-xl font-bold text-gray-900">SmartBet</span>
+                            <span className="text-xl font-bold text-gray-900">OddsMind</span>
                         </Link>
                         <p className="text-sm text-gray-600 mb-4 leading-relaxed">
                             AI-powered football predictions and betting insights. We combine machine learning with real-time data to help you make smarter decisions.
@@ -28,7 +28,7 @@ export default function Footer() {
                                 <Github className="h-5 w-5" />
                                 <span className="sr-only">GitHub</span>
                             </a>
-                            <a href="mailto:support@smartbet.com" className="text-gray-400 hover:text-primary-600 transition-colors">
+                            <a href="mailto:support@oddsmind.io" className="text-gray-400 hover:text-primary-600 transition-colors">
                                 <Mail className="h-5 w-5" />
                                 <span className="sr-only">Email</span>
                             </a>
@@ -120,7 +120,7 @@ export default function Footer() {
                             <p className="font-semibold text-gray-700 mb-2">Important Legal Notice</p>
 
                             <p className="mb-2">
-                                <strong className="text-gray-700">SmartBet is NOT a betting operator, bookmaker, or gambling site.</strong>{' '}
+                                <strong className="text-gray-700">OddsMind is NOT a betting operator, bookmaker, or gambling site.</strong>{' '}
                                 We do not accept bets, wagers, or deposits of any kind. Our predictions are provided for{' '}
                                 <strong>informational and entertainment purposes only</strong> and should not be considered financial or betting advice.
                             </p>
@@ -157,7 +157,7 @@ export default function Footer() {
 
                 {/* Bottom Bar */}
                 <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-gray-200 text-sm text-gray-500">
-                    <p>&copy; {currentYear} SmartBet Analytics. All rights reserved.</p>
+                    <p>&copy; {currentYear} OddsMind Analytics. All rights reserved.</p>
                     <div className="flex items-center gap-4 mt-4 md:mt-0">
                         <span className="flex items-center gap-2">
                             <span className="w-2 h-2 bg-green-500 rounded-full"></span>

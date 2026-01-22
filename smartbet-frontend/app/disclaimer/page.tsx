@@ -12,7 +12,7 @@ export default function DisclaimerPage() {
                     <AlertTriangle className="w-8 h-8 text-amber-600" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">Disclaimer</h1>
-                <p className="text-gray-600">Please read this disclaimer carefully before using SmartBet</p>
+                <p className="text-gray-600">Please read this disclaimer carefully before using OddsMind</p>
             </div>
 
             {/* Main Disclaimer Box */}
@@ -20,9 +20,9 @@ export default function DisclaimerPage() {
                 <div className="flex gap-4">
                     <Ban className="w-8 h-8 text-red-600 flex-shrink-0" />
                     <div>
-                        <h2 className="text-xl font-bold text-red-800 mb-3">SmartBet is NOT a Betting Operator</h2>
+                        <h2 className="text-xl font-bold text-red-800 mb-3">OddsMind is NOT a Betting Operator</h2>
                         <p className="text-red-700 mb-4">
-                            SmartBet does NOT accept bets, wagers, deposits, or any form of payment for gambling purposes.
+                            OddsMind does NOT accept bets, wagers, deposits, or any form of payment for gambling purposes.
                             We are NOT licensed as a bookmaker, betting exchange, or gambling operator in any jurisdiction.
                         </p>
                         <p className="text-red-700">
@@ -43,7 +43,7 @@ export default function DisclaimerPage() {
                     </h2>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
                         <p className="text-amber-800">
-                            The predictions, analysis, and information provided by SmartBet do NOT constitute financial advice,
+                            The predictions, analysis, and information provided by OddsMind do NOT constitute financial advice,
                             betting advice, or recommendations to place any wager.
                         </p>
                     </div>
@@ -115,7 +115,7 @@ export default function DisclaimerPage() {
                         </p>
                     </div>
                     <p className="text-gray-600">
-                        By using SmartBet, you confirm that you meet the minimum age requirement and are
+                        By using OddsMind, you confirm that you meet the minimum age requirement and are
                         legally permitted to access gambling-related content in your jurisdiction.
                     </p>
                 </section>
@@ -133,12 +133,12 @@ export default function DisclaimerPage() {
                         </p>
                     </div>
                     <p className="text-gray-600 mb-4">
-                        SmartBet does not target any specific jurisdiction and makes no representations
+                        OddsMind does not target any specific jurisdiction and makes no representations
                         regarding the legality of its service or gambling in any particular location.
                     </p>
                     <p className="text-gray-600">
                         If you are in a jurisdiction where gambling or accessing gambling-related content is
-                        prohibited, you should not use this website. SmartBet is not responsible for any
+                        prohibited, you should not use this website. OddsMind is not responsible for any
                         violation of local laws.
                     </p>
                 </section>
@@ -150,7 +150,7 @@ export default function DisclaimerPage() {
                         Limitation of Liability
                     </h2>
                     <p className="text-gray-600 mb-4">
-                        To the maximum extent permitted by applicable law, SmartBet and its affiliates,
+                        To the maximum extent permitted by applicable law, OddsMind and its affiliates,
                         officers, employees, and agents shall NOT be liable for:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
@@ -168,7 +168,7 @@ export default function DisclaimerPage() {
                     <p className="text-gray-600">
                         Our website may contain links to third-party websites or services. We are not
                         responsible for the content, privacy practices, or terms of service of any
-                        third-party sites. The inclusion of any link does not imply endorsement by SmartBet.
+                        third-party sites. The inclusion of any link does not imply endorsement by OddsMind.
                     </p>
                 </section>
 

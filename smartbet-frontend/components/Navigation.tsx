@@ -35,7 +35,7 @@ export default function Navigation() {
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center space-x-2">
             <Trophy className="h-8 w-8 text-primary-600" />
-            <span className="text-xl font-bold text-gray-900">SmartBet</span>
+            <span className="text-xl font-bold text-gray-900">OddsMind</span>
           </Link>
 
           {/* Desktop Navigation */}

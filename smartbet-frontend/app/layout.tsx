@@ -11,20 +11,20 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: {
-    default: 'SmartBet - AI-Powered Football Predictions',
-    template: '%s | SmartBet'
+    default: 'OddsMind - AI-Powered Football Predictions',
+    template: '%s | OddsMind'
   },
   description: 'Monitor and explore model predictions across top football leagues with AI-powered insights and betting recommendations.',
   keywords: ['football predictions', 'AI betting', 'sports analytics', 'soccer stats', 'betting tips'],
-  authors: [{ name: 'SmartBet Team' }],
-  creator: 'SmartBet',
+  authors: [{ name: 'OddsMind Team' }],
+  creator: 'OddsMind',
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://smartbet.ai',
-    title: 'SmartBet - AI-Powered Football Predictions',
+    url: 'https://oddsmind.io',
+    title: 'OddsMind - AI-Powered Football Predictions',
     description: 'Get data-driven insights and betting recommendations with confidence scores and expected value analysis.',
-    siteName: 'SmartBet',
+    siteName: 'OddsMind',
     images: [
       {
         url: '/images/og-image.jpg',
@@ -36,10 +36,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'SmartBet - AI-Powered Football Predictions',
+    title: 'OddsMind - AI-Powered Football Predictions',
     description: 'AI-powered football predictions and betting insights.',
     images: ['/images/og-image.jpg'],
-    creator: '@smartbet_ai',
+    creator: '@oddsmind_ai',
   },
   viewport: {
     width: 'device-width',

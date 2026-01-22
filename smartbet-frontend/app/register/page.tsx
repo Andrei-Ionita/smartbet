@@ -52,7 +52,7 @@ export default function RegisterPage() {
             Create Account
           </h1>
           <p className="text-gray-600">
-            Join SmartBet for AI-powered predictions
+            Join OddsMind for AI-powered predictions
           </p>
         </div>
 

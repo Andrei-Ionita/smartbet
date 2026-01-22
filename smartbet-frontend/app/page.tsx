@@ -524,7 +524,7 @@ export default function HomePage() {
               Ready to Start Winning?
             </h2>
             <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-              Join thousands of users who trust SmartBet for their football predictions
+              Join thousands of users who trust OddsMind for their football predictions
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {/* Fetch recommendations with SWR - using Django backend */}
