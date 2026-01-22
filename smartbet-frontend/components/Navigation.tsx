@@ -40,7 +40,7 @@ export default function Navigation() {
                 src="/images/logo.png"
                 alt="OddsMind Logo"
                 fill
-                className="object-cover scale-150"
+                className="object-cover scale-[2.5]"
               />
             </div>
             <span className="text-xl font-bold text-gray-900">OddsMind</span>

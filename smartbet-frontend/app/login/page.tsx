@@ -37,7 +37,7 @@ export default function LoginPage() {
               src="/images/logo.png"
               alt="OddsMind"
               fill
-              className="object-cover scale-150"
+              className="object-cover scale-[2.5]"
             />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
