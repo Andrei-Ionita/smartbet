@@ -19,7 +19,7 @@ export default function Footer() {
                                     src="/images/logo.png"
                                     alt="OddsMind Logo"
                                     fill
-                                    className="object-cover scale-110"
+                                    className="object-cover scale-150"
                                 />
                             </div>
                             <span className="text-xl font-bold text-gray-900">OddsMind</span>
