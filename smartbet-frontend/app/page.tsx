@@ -112,7 +112,7 @@ export default function HomePage() {
                   src="/images/logo.png"
                   alt="OddsMind Logo"
                   fill
-                  className="object-cover scale-[2.5]"
+                  className="object-cover scale-[2.0]"
                 />
               </div>
             </div>
