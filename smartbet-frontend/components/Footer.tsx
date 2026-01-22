@@ -14,12 +14,12 @@ export default function Footer() {
                     {/* Brand Section */}
                     <div className="col-span-1 md:col-span-1">
                         <Link href="/" className="flex items-center space-x-2 mb-4">
-                            <div className="relative h-6 w-6">
+                            <div className="relative h-6 w-6 rounded-full overflow-hidden border border-gray-100">
                                 <Image
                                     src="/images/logo.png"
                                     alt="OddsMind Logo"
                                     fill
-                                    className="object-contain"
+                                    className="object-cover scale-110"
                                 />
                             </div>
                             <span className="text-xl font-bold text-gray-900">OddsMind</span>

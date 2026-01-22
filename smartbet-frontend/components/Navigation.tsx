@@ -35,12 +35,12 @@ export default function Navigation() {
       <div className="container mx-auto px-4">
         <div className="flex justify-between items-center h-16">
           <Link href="/" className="flex items-center space-x-2">
-            <div className="relative h-8 w-8">
+            <div className="relative h-8 w-8 rounded-full overflow-hidden border border-gray-100">
               <Image
                 src="/images/logo.png"
                 alt="OddsMind Logo"
                 fill
-                className="object-contain"
+                className="object-cover scale-110"
               />
             </div>
             <span className="text-xl font-bold text-gray-900">OddsMind</span>
