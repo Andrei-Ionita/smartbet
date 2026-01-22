@@ -18,6 +18,7 @@ import {
   ArrowRight,
   Sparkles
 } from 'lucide-react'
+import Image from 'next/image'
 import RecommendationCard from './components/RecommendationCard'
 import EmptyState from './components/EmptyState'
 import RecommendationSkeleton from './components/RecommendationSkeleton'
@@ -106,7 +107,14 @@ export default function HomePage() {
           <div className="relative inline-block mb-6">
             <div className="absolute -inset-4 bg-blue-500/20 rounded-full blur-xl"></div>
             <div className="relative bg-white p-6 rounded-full shadow-lg">
-              <Trophy className="h-16 w-16 text-blue-600" />
+              <div className="relative h-20 w-20">
+                <Image
+                  src="/images/logo.png"
+                  alt="OddsMind Logo"
+                  fill
+                  className="object-contain p-2"
+                />
+              </div>
             </div>
           </div>
 

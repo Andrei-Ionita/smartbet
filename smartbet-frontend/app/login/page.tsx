@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Link from 'next/link';
 import { Trophy } from 'lucide-react';
+import Image from 'next/image';
 
 export default function LoginPage() {
   const [username, setUsername] = useState('');
@@ -31,8 +32,15 @@ export default function LoginPage() {
       <div className="max-w-md w-full">
         {/* Logo/Header */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-600 rounded-full mb-4">
-            <Trophy className="h-8 w-8 text-white" />
+          <div className="inline-flex items-center justify-center w-16 h-16 bg-white shadow-md rounded-full mb-4">
+            <div className="relative h-10 w-10">
+              <Image
+                src="/images/logo.png"
+                alt="OddsMind"
+                fill
+                className="object-contain p-1"
+              />
+            </div>
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
             Welcome Back

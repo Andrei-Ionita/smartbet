@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { Trophy, Github, Twitter, Mail, AlertTriangle } from 'lucide-react'
 
 export default function Footer() {
@@ -13,7 +14,14 @@ export default function Footer() {
                     {/* Brand Section */}
                     <div className="col-span-1 md:col-span-1">
                         <Link href="/" className="flex items-center space-x-2 mb-4">
-                            <Trophy className="h-6 w-6 text-primary-600" />
+                            <div className="relative h-6 w-6">
+                                <Image
+                                    src="/images/logo.png"
+                                    alt="OddsMind Logo"
+                                    fill
+                                    className="object-contain"
+                                />
+                            </div>
                             <span className="text-xl font-bold text-gray-900">OddsMind</span>
                         </Link>
                         <p className="text-sm text-gray-600 mb-4 leading-relaxed">
