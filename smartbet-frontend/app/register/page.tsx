@@ -52,7 +52,7 @@ export default function RegisterPage() {
               alt="OddsMind"
               fill
               className="object-cover"
-              style={{ transform: 'scale(1.7)' }}
+              style={{ transform: 'scale(1.5)' }}
             />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
