@@ -105,17 +105,14 @@ export default function HomePage() {
         {/* Modern Hero Section */}
         <div className="text-center mb-12">
           <div className="relative inline-block mb-6">
-            <div className="absolute -inset-4 bg-blue-500/20 rounded-full blur-xl"></div>
-            <div className="relative bg-white p-6 rounded-full shadow-lg">
-              <div className="relative h-24 w-24 rounded-full overflow-hidden">
-                <Image
-                  src="/images/logo.png"
-                  alt="OddsMind Logo"
-                  fill
-                  className="object-cover"
-                  style={{ transform: 'scale(1.5)' }}
-                />
-              </div>
+            <div className="absolute -inset-8 bg-blue-500/15 rounded-full blur-2xl"></div>
+            <div className="relative w-32 h-32 mx-auto">
+              <Image
+                src="/images/logo.png"
+                alt="OddsMind Logo"
+                fill
+                className="object-contain drop-shadow-lg"
+              />
             </div>
           </div>
 
