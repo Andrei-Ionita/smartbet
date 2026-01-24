@@ -50,6 +50,10 @@ export const metadata: Metadata = {
     index: true,
     follow: true,
   },
+  icons: {
+    icon: '/images/logo-final-v3.png',
+    apple: '/images/logo-final-v3.png',
+  },
 }
 
 export default function RootLayout({
