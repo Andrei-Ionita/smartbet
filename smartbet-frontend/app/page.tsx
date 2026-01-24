@@ -108,7 +108,7 @@ export default function HomePage() {
             <div className="absolute -inset-8 bg-blue-500/15 rounded-full blur-2xl"></div>
             <div className="relative w-32 h-32 mx-auto">
               <Image
-                src="/images/logo-final-v3.png"
+                src="/images/logo-final-v4.png"
                 alt="OddsMind Logo"
                 fill
                 className="object-contain drop-shadow-lg"

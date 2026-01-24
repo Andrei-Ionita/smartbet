@@ -16,7 +16,7 @@ export default function Footer() {
                         <Link href="/" className="flex items-center space-x-2 mb-4">
                             <div className="relative h-8 w-8">
                                 <Image
-                                    src="/images/logo-final-v3.png"
+                                    src="/images/logo-final-v4.png"
                                     alt="OddsMind Logo"
                                     fill
                                     className="object-contain"
