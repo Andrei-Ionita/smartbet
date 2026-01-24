@@ -34,7 +34,7 @@ export default function LoginPage() {
         <div className="text-center mb-8">
           <div className="relative w-20 h-20 mb-4 mx-auto">
             <Image
-              src="/images/logo-final-v5.png"
+              src="/images/logo-final-v6.png"
               alt="OddsMind"
               fill
               className="object-contain drop-shadow-md"

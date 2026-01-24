@@ -37,7 +37,7 @@ export default function Navigation() {
           <Link href="/" className="flex items-center space-x-2">
             <div className="relative h-10 w-10">
               <Image
-                src="/images/logo-final-v5.png"
+                src="/images/logo-final-v6.png"
                 alt="OddsMind Logo"
                 fill
                 className="object-contain"
