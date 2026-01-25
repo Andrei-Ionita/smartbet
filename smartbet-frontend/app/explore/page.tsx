@@ -101,6 +101,7 @@ interface FixtureAnalysis {
     odds: number
     expected_value: number
     market_score: number
+    bookmaker?: string
   }
   all_markets?: Array<{
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
@@ -589,14 +590,16 @@ export default function ExplorePage() {
                         } : undefined,
                         odds_data: selectedFixture.odds_data,
                         bookmaker: (() => {
-                          // 1. Try to find bookmaker for Best Market (if available in payload, though type definition lacks it currently, assumes backend might send it or fallback)
-                          // Since best_market type doesn't explicitly have bookmaker, we rely on standard odds logic first.
+                          // 1. Try to find bookmaker for Best Market
+                          if (selectedFixture.best_market?.bookmaker) {
+                            return selectedFixture.best_market.bookmaker;
+                          }
 
                           // 2. Use specific bookmaker for the predicted 1X2 outcome
                           if (selectedFixture.odds_data) {
                             const outcome = (selectedFixture.predicted_outcome || '').toLowerCase();
 
-                            // If Best Market is 1X2, match specifically
+                            // If Best Market is 1X2 or missing, prioritize 1X2 outcome bookmakers
                             if (selectedFixture.best_market?.type === '1x2' || !selectedFixture.best_market) {
                               if (outcome === 'home' && selectedFixture.odds_data.home_bookmaker) return selectedFixture.odds_data.home_bookmaker;
                               if (outcome === 'draw' && selectedFixture.odds_data.draw_bookmaker) return selectedFixture.odds_data.draw_bookmaker;
@@ -604,7 +607,12 @@ export default function ExplorePage() {
                             }
                           }
 
-                          // 3. Fallback to generic bookmaker field
+                          // 3. Fallback to generic bookmaker field (often contains the primary feed provider like Pinnacle/bet365)
+                          if (selectedFixture.odds_data?.bookmaker && selectedFixture.odds_data.bookmaker !== 'Unique' && selectedFixture.odds_data.bookmaker !== 'Unknown') {
+                            return selectedFixture.odds_data.bookmaker;
+                          }
+
+                          // 4. Ultimate fallback for O/U markets if odds exist -> assume main bookie
                           return selectedFixture.odds_data?.bookmaker || 'Unknown';
                         })(),
                         ensemble_info: selectedFixture.ensemble_info,

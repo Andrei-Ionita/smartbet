@@ -101,6 +101,7 @@ export interface Recommendation {
     odds: number
     expected_value: number
     market_score: number
+    bookmaker?: string
   }
   all_markets?: Array<{
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
