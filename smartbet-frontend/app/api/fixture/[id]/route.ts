@@ -223,17 +223,28 @@ export async function GET(
       if (maxProb === avgHome) outcome = 'Home'
       else if (maxProb === avgAway) outcome = 'Away'
 
-      // Get 1X2 odds
+      // Get 1X2 odds - Find MAX odds
       let oddsValue = 1
       let bookmakerName = undefined
       if (fixture.odds) {
         const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
+
+        let bestOddEntry = null
+        let maxVal = -1
+
         for (const odd of x12Odds) {
           if (odd.label?.toLowerCase() === outcome.toLowerCase()) {
-            oddsValue = parseFloat(odd.value) || 1
-            bookmakerName = getBookmakerName(odd)
-            break
+            const val = parseFloat(odd.value) || 0
+            if (val > maxVal) {
+              maxVal = val
+              bestOddEntry = odd
+            }
           }
+        }
+
+        if (bestOddEntry) {
+          oddsValue = maxVal
+          bookmakerName = getBookmakerName(bestOddEntry)
         }
       }
 
@@ -274,13 +285,24 @@ export async function GET(
         const bttsOdds = fixture.odds.filter((odd: any) =>
           odd.market_id === 28 || odd.name?.toLowerCase().includes('btts')
         )
+
+        let bestOddEntry = null
+        let maxVal = -1
+
         for (const odd of bttsOdds) {
           const label = odd.label?.toLowerCase()
           if ((outcome.includes('Yes') && label === 'yes') || (outcome.includes('No') && label === 'no')) {
-            oddsValue = parseFloat(odd.value) || 1
-            bookmakerName = getBookmakerName(odd)
-            break
+            const val = parseFloat(odd.value) || 0
+            if (val > maxVal) {
+              maxVal = val
+              bestOddEntry = odd
+            }
           }
+        }
+
+        if (bestOddEntry) {
+          oddsValue = maxVal
+          bookmakerName = getBookmakerName(bestOddEntry)
         }
       }
 
@@ -328,6 +350,9 @@ export async function GET(
           return nameMatch
         })
 
+        let bestOddEntry = null
+        let maxVal = -1
+
         // STRICT matching: MUST contain "2.5" somewhere to be the right market
         for (const odd of ouOdds) {
           const label = odd.label?.toLowerCase() || ''
@@ -336,29 +361,34 @@ export async function GET(
           const has25 = label.includes('2.5') || name.includes('2.5')
           if (!has25) continue  // Skip if not 2.5 line
 
+          let isMatch = false
+          const val = parseFloat(odd.value)
+
           // Check for Over 2.5 specifically
           if (outcome.includes('Over') && label.includes('over')) {
-            const value = parseFloat(odd.value)
             // Reasonable Over 2.5 odds range: 1.30 - 3.50
-            if (value >= 1.30 && value <= 3.50) {
-              oddsValue = value
-              bookmakerName = getBookmakerName(odd)
-              break
+            if (val >= 1.30 && val <= 3.50) {
+              isMatch = true
             }
           }
           // Check for Under 2.5 specifically  
           if (outcome.includes('Under') && label.includes('under')) {
-            const value = parseFloat(odd.value)
             // Reasonable Under 2.5 odds range: 1.30 - 3.50
-            if (value >= 1.30 && value <= 3.50) {
-              oddsValue = value
-              bookmakerName = getBookmakerName(odd)
-              break
+            if (val >= 1.30 && val <= 3.50) {
+              isMatch = true
             }
+          }
+
+          if (isMatch && val > maxVal) {
+            maxVal = val
+            bestOddEntry = odd
           }
         }
 
-        // If no valid odds found, oddsValue stays at 1 (EV will be negative)
+        if (bestOddEntry) {
+          oddsValue = maxVal
+          bookmakerName = getBookmakerName(bestOddEntry)
+        }
       }
 
       const ev = (maxProb * oddsValue) - 1
@@ -402,13 +432,24 @@ export async function GET(
       let bookmakerName = undefined
       if (fixture.odds) {
         const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
+
+        let bestOddEntry = null
+        let maxVal = -1
+
         for (const odd of dcOdds) {
           const label = odd.label?.toLowerCase().replace(/\s/g, '')
           if (label === outcome.toLowerCase()) {
-            oddsValue = parseFloat(odd.value) || 1
-            bookmakerName = getBookmakerName(odd)
-            break
+            const val = parseFloat(odd.value) || 0
+            if (val > maxVal) {
+              maxVal = val
+              bestOddEntry = odd
+            }
           }
+        }
+
+        if (bestOddEntry) {
+          oddsValue = maxVal
+          bookmakerName = getBookmakerName(bestOddEntry)
         }
       }
 
