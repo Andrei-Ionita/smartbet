@@ -36,6 +36,9 @@ interface FixtureAnalysis {
     draw: number | null
     away: number | null
     bookmaker: string
+    home_bookmaker?: string | null
+    draw_bookmaker?: string | null
+    away_bookmaker?: string | null
   }
   ev_analysis: {
     home: number | null
@@ -585,7 +588,25 @@ export default function ExplorePage() {
                           away: selectedFixture.predictions.away / 100
                         } : undefined,
                         odds_data: selectedFixture.odds_data,
-                        bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
+                        bookmaker: (() => {
+                          // 1. Try to find bookmaker for Best Market (if available in payload, though type definition lacks it currently, assumes backend might send it or fallback)
+                          // Since best_market type doesn't explicitly have bookmaker, we rely on standard odds logic first.
+
+                          // 2. Use specific bookmaker for the predicted 1X2 outcome
+                          if (selectedFixture.odds_data) {
+                            const outcome = (selectedFixture.predicted_outcome || '').toLowerCase();
+
+                            // If Best Market is 1X2, match specifically
+                            if (selectedFixture.best_market?.type === '1x2' || !selectedFixture.best_market) {
+                              if (outcome === 'home' && selectedFixture.odds_data.home_bookmaker) return selectedFixture.odds_data.home_bookmaker;
+                              if (outcome === 'draw' && selectedFixture.odds_data.draw_bookmaker) return selectedFixture.odds_data.draw_bookmaker;
+                              if (outcome === 'away' && selectedFixture.odds_data.away_bookmaker) return selectedFixture.odds_data.away_bookmaker;
+                            }
+                          }
+
+                          // 3. Fallback to generic bookmaker field
+                          return selectedFixture.odds_data?.bookmaker || 'Unknown';
+                        })(),
                         ensemble_info: selectedFixture.ensemble_info,
                         prediction_info: selectedFixture.prediction_info,
                         market_indicators: selectedFixture.market_indicators,
