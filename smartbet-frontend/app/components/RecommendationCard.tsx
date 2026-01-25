@@ -309,7 +309,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                         recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data?.draw?.toFixed(2) :
                           recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data?.away?.toFixed(2) : 'N/A'
                   }</div>
-                  <div className="text-xs text-purple-700">{t('card.bestOdds')}</div>
+                  <div className="text-xs text-purple-700 truncate max-w-[100px] mx-auto">
+                    {recommendation.bookmaker && recommendation.bookmaker !== 'Unknown'
+                      ? recommendation.bookmaker
+                      : t('card.bestOdds')}
+                  </div>
                 </div>
               </div>
             </div>
