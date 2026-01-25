@@ -387,7 +387,7 @@ export default function ExplorePage() {
               <LoadingSpinner size="lg" text="Searching fixtures..." />
 
             ) : searchResults.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-fadeIn">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
                 {searchResults.map((fixture) => (
                   <div
                     key={fixture.fixture_id}
@@ -454,133 +454,154 @@ export default function ExplorePage() {
           </div>
         )}
 
-        {/* Selected Fixture Analysis */}
-        {isLoadingFixture ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center gap-2 mb-6">
-              <Calendar className="h-5 w-5 text-primary-600" />
-              <h2 className="text-xl font-bold text-gray-900">Loading Analysis...</h2>
+        {/* Fixture Analysis Modal */}
+        {(isLoadingFixture || selectedFixture) && (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
+            onClick={() => {
+              if (!isLoadingFixture) {
+                setSelectedFixture(null);
+                // clear any loading state if stuck
+                setIsLoadingFixture(false);
+              }
+            }}
+          >
+            <div
+              className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative animate-in fade-in zoom-in-95 duration-300"
+              onClick={e => e.stopPropagation()}
+            >
+              {/* Close Button */}
+              <button
+                onClick={() => setSelectedFixture(null)}
+                className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-10"
+                disabled={isLoadingFixture}
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+
+              <div className="p-6 md:p-8">
+                {isLoadingFixture ? (
+                  <div className="flex flex-col items-center justify-center py-12">
+                    <LoadingSpinner size="lg" text="Loading AI Analysis..." />
+                  </div>
+                ) : selectedFixture && (
+                  <>
+                    <div className="flex items-center gap-3 mb-6 pr-8">
+                      <div className="p-2 bg-primary-50 rounded-lg">
+                        <Calendar className="h-6 w-6 text-primary-600" />
+                      </div>
+                      <div>
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">Match Analysis</h2>
+                        <p className="text-sm text-gray-500">{selectedFixture.home_team} vs {selectedFixture.away_team}</p>
+                      </div>
+                    </div>
+
+                    <RecommendationCard
+                      recommendation={{
+                        fixture_id: selectedFixture.fixture_id,
+                        home_team: selectedFixture.home_team,
+                        away_team: selectedFixture.away_team,
+                        league: selectedFixture.league,
+                        kickoff: selectedFixture.kickoff,
+                        predicted_outcome: (selectedFixture.best_market?.predicted_outcome ||
+                          (selectedFixture.predicted_outcome ?
+                            selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')) as 'Home' | 'Draw' | 'Away',
+                        confidence: selectedFixture.best_market
+                          ? selectedFixture.best_market.probability
+                          : (selectedFixture.prediction_confidence || 0) / 100,
+                        odds: selectedFixture.best_market?.odds || (selectedFixture.odds_data ?
+                          (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
+                            selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                              selectedFixture.odds_data?.away) : null),
+                        ev: selectedFixture.best_market
+                          ? selectedFixture.best_market.expected_value
+                          : (selectedFixture.ev_analysis?.best_ev || 0) / 100,
+                        score: selectedFixture.best_market?.market_score || 0,
+                        explanation: (() => {
+                          const bestMarket = selectedFixture.best_market
+                          const outcome = bestMarket?.predicted_outcome ||
+                            (selectedFixture.predicted_outcome ?
+                              selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')
+                          const confidence = bestMarket
+                            ? (bestMarket.probability * 100)
+                            : (selectedFixture.prediction_confidence || 0)
+                          const ev = bestMarket
+                            ? (bestMarket.expected_value * 100)
+                            : (selectedFixture.ev_analysis?.best_ev || 0)
+                          const odds = bestMarket?.odds || (selectedFixture.odds_data ?
+                            (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
+                              selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
+                                selectedFixture.odds_data?.away) : null)
+                          const marketName = bestMarket?.display_name || 'Match Result'
+
+                          let explanation = bestMarket
+                            ? `Best bet: ${marketName} - ${outcome} (${confidence.toFixed(1)}% probability).`
+                            : `SportMonks AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
+
+                          if (confidence >= 70) {
+                            explanation += ` This is a strong prediction with high confidence.`
+                          } else if (confidence >= 60) {
+                            explanation += ` This is a good prediction with solid confidence.`
+                          } else if (confidence >= 50) {
+                            explanation += ` This is a moderate prediction - the match could go either way.`
+                          } else {
+                            explanation += ` This is a close match with higher uncertainty.`
+                          }
+
+                          if (odds && ev) {
+                            if (ev > 0) {
+                              explanation += ` Odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
+                              if (ev >= 20) {
+                                explanation += ` Exceptional betting value detected!`
+                              } else if (ev >= 15) {
+                                explanation += ` Excellent value opportunity.`
+                              } else if (ev >= 10) {
+                                explanation += ` Good betting value.`
+                              } else if (ev >= 5) {
+                                explanation += ` Positive value present.`
+                              } else {
+                                explanation += ` Marginal value - consider smaller stakes.`
+                              }
+                            } else {
+                              explanation += ` Current odds (${odds.toFixed(2)}) don't offer positive value.`
+                            }
+                          }
+
+                          if (confidence >= 70 && ev >= 15) {
+                            explanation += ` Premium betting opportunity!`
+                          } else if (confidence >= 60 && ev >= 10) {
+                            explanation += ` Strong betting recommendation.`
+                          } else if (ev < 5 || confidence < 50) {
+                            explanation += ` Proceed with caution and smaller stakes.`
+                          }
+
+                          return explanation
+                        })(),
+                        probabilities: selectedFixture.predictions ? {
+                          home: selectedFixture.predictions.home / 100,
+                          draw: selectedFixture.predictions.draw / 100,
+                          away: selectedFixture.predictions.away / 100
+                        } : undefined,
+                        odds_data: selectedFixture.odds_data,
+                        bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
+                        ensemble_info: selectedFixture.ensemble_info,
+                        prediction_info: selectedFixture.prediction_info,
+                        market_indicators: selectedFixture.market_indicators,
+                        debug_info: selectedFixture.debug_info,
+                        signal_quality: selectedFixture.signal_quality,
+                        league_accuracy: null,
+                        teams_data: selectedFixture.teams_data,
+                        best_market: selectedFixture.best_market,
+                        all_markets: selectedFixture.all_markets
+                      }}
+                      onViewDetails={handleViewDetails}
+                    />
+                  </>
+                )}
+              </div>
             </div>
-            <LoadingSpinner size="lg" text="Loading fixture analysis..." />
-          </div>
-        ) : selectedFixture && (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-6 shadow-lg border border-white/20">
-            <div className="flex items-center gap-2 mb-6">
-              <Calendar className="h-5 w-5 text-primary-600" />
-              <h2 className="text-xl font-bold text-gray-900">Fixture Analysis</h2>
-            </div>
-
-            <RecommendationCard
-              recommendation={{
-                fixture_id: selectedFixture.fixture_id,
-                home_team: selectedFixture.home_team,
-                away_team: selectedFixture.away_team,
-                league: selectedFixture.league,
-                kickoff: selectedFixture.kickoff,
-                // Use best_market prediction when available, fallback to 1X2
-                predicted_outcome: (selectedFixture.best_market?.predicted_outcome ||
-                  (selectedFixture.predicted_outcome ?
-                    selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')) as 'Home' | 'Draw' | 'Away',
-                // Use best_market probability when available
-                confidence: selectedFixture.best_market
-                  ? selectedFixture.best_market.probability
-                  : (selectedFixture.prediction_confidence || 0) / 100,
-                // Use best_market odds when available
-                odds: selectedFixture.best_market?.odds || (selectedFixture.odds_data ?
-                  (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                    selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                      selectedFixture.odds_data?.away) : null),
-                // Use best_market expected_value when available
-                ev: selectedFixture.best_market
-                  ? selectedFixture.best_market.expected_value
-                  : (selectedFixture.ev_analysis?.best_ev || 0) / 100,
-                score: selectedFixture.best_market?.market_score || 0,
-                explanation: (() => {
-                  // Use best_market data when available
-                  const bestMarket = selectedFixture.best_market
-                  const outcome = bestMarket?.predicted_outcome ||
-                    (selectedFixture.predicted_outcome ?
-                      selectedFixture.predicted_outcome.charAt(0).toUpperCase() + selectedFixture.predicted_outcome.slice(1) : 'Home')
-                  const confidence = bestMarket
-                    ? (bestMarket.probability * 100)
-                    : (selectedFixture.prediction_confidence || 0)
-                  const ev = bestMarket
-                    ? (bestMarket.expected_value * 100)
-                    : (selectedFixture.ev_analysis?.best_ev || 0)
-                  const odds = bestMarket?.odds || (selectedFixture.odds_data ?
-                    (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                      selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                        selectedFixture.odds_data?.away) : null)
-                  const marketName = bestMarket?.display_name || 'Match Result'
-
-                  let explanation = bestMarket
-                    ? `Best bet: ${marketName} - ${outcome} (${confidence.toFixed(1)}% probability).`
-                    : `SportMonks AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
-
-                  // Add confidence context
-                  if (confidence >= 70) {
-                    explanation += ` This is a strong prediction with high confidence.`
-                  } else if (confidence >= 60) {
-                    explanation += ` This is a good prediction with solid confidence.`
-                  } else if (confidence >= 50) {
-                    explanation += ` This is a moderate prediction - the match could go either way.`
-                  } else {
-                    explanation += ` This is a close match with higher uncertainty.`
-                  }
-
-                  // Add odds and EV information if available
-                  if (odds && ev) {
-                    if (ev > 0) {
-                      explanation += ` Odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
-
-                      // Add value assessment
-                      if (ev >= 20) {
-                        explanation += ` Exceptional betting value detected!`
-                      } else if (ev >= 15) {
-                        explanation += ` Excellent value opportunity.`
-                      } else if (ev >= 10) {
-                        explanation += ` Good betting value.`
-                      } else if (ev >= 5) {
-                        explanation += ` Positive value present.`
-                      } else {
-                        explanation += ` Marginal value - consider smaller stakes.`
-                      }
-                    } else {
-                      explanation += ` Current odds (${odds.toFixed(2)}) don't offer positive value.`
-                    }
-                  }
-
-                  // Add recommendation summary
-                  if (confidence >= 70 && ev >= 15) {
-                    explanation += ` Premium betting opportunity!`
-                  } else if (confidence >= 60 && ev >= 10) {
-                    explanation += ` Strong betting recommendation.`
-                  } else if (ev < 5 || confidence < 50) {
-                    explanation += ` Proceed with caution and smaller stakes.`
-                  }
-
-                  return explanation
-                })(),
-                probabilities: selectedFixture.predictions ? {
-                  home: selectedFixture.predictions.home / 100,
-                  draw: selectedFixture.predictions.draw / 100,
-                  away: selectedFixture.predictions.away / 100
-                } : undefined,
-                odds_data: selectedFixture.odds_data,
-                bookmaker: selectedFixture.odds_data?.bookmaker || 'Unknown',
-                ensemble_info: selectedFixture.ensemble_info,
-                prediction_info: selectedFixture.prediction_info,
-                market_indicators: selectedFixture.market_indicators,
-                debug_info: selectedFixture.debug_info,
-                signal_quality: selectedFixture.signal_quality,
-                league_accuracy: null,
-                teams_data: selectedFixture.teams_data,
-                // Multi-market support
-                best_market: selectedFixture.best_market,
-                all_markets: selectedFixture.all_markets
-              }}
-              onViewDetails={handleViewDetails}
-            />
           </div>
         )}
 
