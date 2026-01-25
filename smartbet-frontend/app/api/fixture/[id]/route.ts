@@ -43,6 +43,7 @@ interface MarketPrediction {
   odds: number
   expected_value: number
   market_score: number
+  bookmaker?: string
   raw_predictions: Record<string, number>
 }
 
@@ -155,6 +156,46 @@ export async function GET(
       }
     }
 
+    // Helper function to get bookmaker name from odds entry
+    const getBookmakerName = (odd: any) => {
+      // First try to get bookmaker from the odds.bookmaker include
+      if (odd.bookmaker && odd.bookmaker.name) {
+        return odd.bookmaker.name
+      }
+
+      // Try to get bookmaker name from odds entry directly
+      if (odd.bookmaker_name) return odd.bookmaker_name
+      if (odd.provider) return odd.provider
+      if (odd.source) return odd.source
+
+      // Try to get bookmaker from metadata using bookmaker_id
+      if (odd.bookmaker_id && data.meta?.bookmakers) {
+        const bookmakerMeta = data.meta.bookmakers.find((bm: any) => bm.id === odd.bookmaker_id)
+        if (bookmakerMeta) return bookmakerMeta.name
+      }
+
+      // Fallback: use a common bookmaker name based on ID patterns
+      const bookmakerMap: { [key: number]: string } = {
+        1: 'Bet365',
+        2: 'Betfair',
+        14: 'William Hill',
+        16: 'Paddy Power',
+        26: 'Ladbrokes',
+        29: 'Coral',
+        32: 'Sky Bet',
+        35: 'Unibet',
+        38: 'Betway',
+        64: '888Sport'
+      }
+
+      if (odd.bookmaker_id && bookmakerMap[odd.bookmaker_id]) {
+        return bookmakerMap[odd.bookmaker_id]
+      }
+
+      // Final fallback
+      return `Bookmaker ${odd.bookmaker_id || 'Unknown'}`
+    }
+
     // ============= MULTI-MARKET PROCESSING =============
     // Process all market types for the All Markets display
     const allMarketsData: MarketPrediction[] = []
@@ -184,11 +225,13 @@ export async function GET(
 
       // Get 1X2 odds
       let oddsValue = 1
+      let bookmakerName = undefined
       if (fixture.odds) {
         const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
         for (const odd of x12Odds) {
           if (odd.label?.toLowerCase() === outcome.toLowerCase()) {
             oddsValue = parseFloat(odd.value) || 1
+            bookmakerName = getBookmakerName(odd)
             break
           }
         }
@@ -206,6 +249,7 @@ export async function GET(
         odds: oddsValue,
         expected_value: ev,
         market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+        bookmaker: bookmakerName,
         raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
       }
 
@@ -225,6 +269,7 @@ export async function GET(
       const outcome = yesProb > noProb ? 'BTTS Yes' : 'BTTS No'
 
       let oddsValue = 1
+      let bookmakerName = undefined
       if (fixture.odds) {
         const bttsOdds = fixture.odds.filter((odd: any) =>
           odd.market_id === 28 || odd.name?.toLowerCase().includes('btts')
@@ -233,6 +278,7 @@ export async function GET(
           const label = odd.label?.toLowerCase()
           if ((outcome.includes('Yes') && label === 'yes') || (outcome.includes('No') && label === 'no')) {
             oddsValue = parseFloat(odd.value) || 1
+            bookmakerName = getBookmakerName(odd)
             break
           }
         }
@@ -249,6 +295,7 @@ export async function GET(
         odds: oddsValue,
         expected_value: ev,
         market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+        bookmaker: bookmakerName,
         raw_predictions: { yes: yesProb, no: noProb }
       }
 
@@ -268,6 +315,7 @@ export async function GET(
       const outcome = overProb > underProb ? 'Over 2.5' : 'Under 2.5'
 
       let oddsValue = 1
+      let bookmakerName = undefined
       if (fixture.odds) {
         // First try market_id = 18 (Over/Under), then fallback to text matching
         const ouOdds = fixture.odds.filter((odd: any) => {
@@ -294,6 +342,7 @@ export async function GET(
             // Reasonable Over 2.5 odds range: 1.30 - 3.50
             if (value >= 1.30 && value <= 3.50) {
               oddsValue = value
+              bookmakerName = getBookmakerName(odd)
               break
             }
           }
@@ -303,6 +352,7 @@ export async function GET(
             // Reasonable Under 2.5 odds range: 1.30 - 3.50
             if (value >= 1.30 && value <= 3.50) {
               oddsValue = value
+              bookmakerName = getBookmakerName(odd)
               break
             }
           }
@@ -322,6 +372,7 @@ export async function GET(
         odds: oddsValue,
         expected_value: ev,
         market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+        bookmaker: bookmakerName,
         raw_predictions: { over: overProb, under: underProb }
       }
 
@@ -348,12 +399,14 @@ export async function GET(
       else if (maxProb === homeOrAway) outcome = '12'
 
       let oddsValue = 1
+      let bookmakerName = undefined
       if (fixture.odds) {
         const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
         for (const odd of dcOdds) {
           const label = odd.label?.toLowerCase().replace(/\s/g, '')
           if (label === outcome.toLowerCase()) {
             oddsValue = parseFloat(odd.value) || 1
+            bookmakerName = getBookmakerName(odd)
             break
           }
         }
@@ -370,6 +423,7 @@ export async function GET(
         odds: oddsValue,
         expected_value: ev,
         market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+        bookmaker: bookmakerName,
         raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
       }
 
@@ -391,67 +445,6 @@ export async function GET(
     if (fixture.odds && fixture.odds.length > 0) {
       const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
       if (x12Odds.length > 0) {
-        // Get bookmaker name from the first odds entry
-        const firstOdd = x12Odds[0]
-        let bookmakerName = 'Unknown'
-
-        // Try multiple possible field names for bookmaker
-        if (firstOdd.bookmaker_name) {
-          bookmakerName = firstOdd.bookmaker_name
-        } else if (firstOdd.bookmaker) {
-          bookmakerName = firstOdd.bookmaker
-        } else if (firstOdd.provider) {
-          bookmakerName = firstOdd.provider
-        } else if (firstOdd.source) {
-          bookmakerName = firstOdd.source
-        } else if (firstOdd.bookmaker_id) {
-          // Try to get bookmaker name from metadata if available
-          const bookmakerMeta = data.meta?.bookmakers?.find((bm: any) => bm.id === firstOdd.bookmaker_id)
-          if (bookmakerMeta) {
-            bookmakerName = bookmakerMeta.name
-          }
-        }
-
-        // Helper function to get bookmaker name from odds entry
-        const getBookmakerName = (odd: any) => {
-          // First try to get bookmaker from the odds.bookmaker include
-          if (odd.bookmaker && odd.bookmaker.name) {
-            return odd.bookmaker.name
-          }
-
-          // Try to get bookmaker name from odds entry directly
-          if (odd.bookmaker_name) return odd.bookmaker_name
-          if (odd.provider) return odd.provider
-          if (odd.source) return odd.source
-
-          // Try to get bookmaker from metadata using bookmaker_id
-          if (odd.bookmaker_id) {
-            const bookmakerMeta = data.meta?.bookmakers?.find((bm: any) => bm.id === odd.bookmaker_id)
-            if (bookmakerMeta) return bookmakerMeta.name
-          }
-
-          // Fallback: use a common bookmaker name based on ID patterns
-          const bookmakerMap: { [key: number]: string } = {
-            1: 'Bet365',
-            2: 'Betfair',
-            14: 'William Hill',
-            16: 'Paddy Power',
-            26: 'Ladbrokes',
-            29: 'Coral',
-            32: 'Sky Bet',
-            35: 'Unibet',
-            38: 'Betway',
-            64: '888Sport'
-          }
-
-          if (odd.bookmaker_id && bookmakerMap[odd.bookmaker_id]) {
-            return bookmakerMap[odd.bookmaker_id]
-          }
-
-          // Final fallback
-          return `Bookmaker ${odd.bookmaker_id || 'Unknown'}`
-        }
-
         // Extract odds with individual bookmaker names
         const odds: {
           home: number | null
@@ -719,7 +712,8 @@ export async function GET(
           probability_gap: bestMarket.probability_gap,
           odds: bestMarket.odds,
           expected_value: bestMarket.expected_value,
-          market_score: bestMarket.market_score
+          market_score: bestMarket.market_score,
+          bookmaker: bestMarket.bookmaker
         } : undefined,
         all_markets: allMarketsData.map(m => ({
           type: m.market_type,
@@ -729,6 +723,7 @@ export async function GET(
           odds: m.odds,
           expected_value: m.expected_value,
           market_score: m.market_score,
+          bookmaker: m.bookmaker,
           is_recommended: marketResults.some(r => r.market_type === m.market_type)
         }))
       },
