@@ -156,8 +156,11 @@ class Command(BaseCommand):
         
         # First, unmark all current recommendations if requested
         if unmark_others:
+            # CRITICAL: Only unmark FUTURE recommendations. Preserve history.
+            now = timezone.now()
             unmarked_count = PredictionLog.objects.filter(
-                is_recommended=True
+                is_recommended=True,
+                kickoff__gte=now
             ).exclude(
                 fixture_id__in=top_10_fixture_ids
             ).update(is_recommended=False)

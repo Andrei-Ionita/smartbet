@@ -81,9 +81,10 @@ class Command(BaseCommand):
             (Q(expected_value__gte=min_ev_decimal) | Q(expected_value__gte=min_ev_percent))
         )
 
-        if only_future:
-            now = timezone.now()
-            queryset = queryset.filter(kickoff__gte=now)
+        # Always strictly filter for FUTURE matches for *new* recommendations
+        # We don't want to recommend a match that already happened
+        now = timezone.now()
+        queryset = queryset.filter(kickoff__gte=now)
 
         # Apply the same scoring logic as the home page recommendations API
         # Score all matching predictions and take top 10
@@ -156,11 +157,19 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('\nDRY RUN - No predictions were actually marked'))
             return
 
-        # First unmark all current recommendations
-        PredictionLog.objects.filter(is_recommended=True).update(is_recommended=False)
+        # CRITICAL FIX: Only unmark FUTURE recommendations to refresh the current slip.
+        # Do NOT unmark past games - they are part of history now.
+        now = timezone.now()
         
-        # Mark the top N as recommended
-        top_n = options.get('top_n', 10)
+        # 1. Unmark only future recommendations (refreshing the "Upcoming" list)
+        unmarked_count = PredictionLog.objects.filter(
+            is_recommended=True,
+            kickoff__gte=now
+        ).update(is_recommended=False)
+        
+        self.stdout.write(f'Refreshing {unmarked_count} future recommendations (History preserved)')
+        
+        # 2. Mark the top N *FUTURE* matches as recommended
         top_fixture_ids = [item['prediction'].fixture_id for item in top_predictions]
         updated = PredictionLog.objects.filter(
             fixture_id__in=top_fixture_ids
