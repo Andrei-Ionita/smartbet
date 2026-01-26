@@ -140,10 +140,14 @@ class Command(BaseCommand):
         for i, item in enumerate(top_10, 1):
             pred = item['prediction']
             score = item['score']
+            # Determine display values (handle decimal vs percent)
+            disp_conf = pred.confidence * 100 if pred.confidence < 1 else pred.confidence
+            disp_ev = pred.expected_value * 100 if pred.expected_value < 1 else pred.expected_value
+
             self.stdout.write(
                 f'  [{i}] {pred.home_team} vs {pred.away_team} | '
-                f'{pred.predicted_outcome} (Conf: {pred.confidence:.1f}%, '
-                f'EV: {pred.expected_value:.2f}%) | Score: {score:.2f} | {pred.league}'
+                f'{pred.predicted_outcome} (Conf: {disp_conf:.1f}%, '
+                f'EV: {disp_ev:.2f}%) | Score: {score:.2f} | {pred.league}'
             )
         
         if dry_run:

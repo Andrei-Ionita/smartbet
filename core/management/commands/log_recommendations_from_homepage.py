@@ -114,6 +114,15 @@ class Command(BaseCommand):
                 
                 odds_data = rec.get('odds_data', {})
                 
+                # Extract best_market info for multi-market support
+                best_market = rec.get('best_market', {})
+                market_type = best_market.get('type', '1x2') if best_market else '1x2'
+                market_type_id = best_market.get('type_id')  # Might be None for 1x2 checks
+                
+                # If best_market info is missing, try to infer from debug_info
+                if not market_type_id and rec.get('debug_info'):
+                     market_type = rec.get('debug_info', {}).get('market_type', '1x2')
+                
                 prediction_data = {
                     'fixture_id': fixture_id,
                     'home_team': rec.get('home_team', 'Unknown'),
@@ -121,7 +130,7 @@ class Command(BaseCommand):
                     'league': rec.get('league', 'Unknown'),
                     'league_id': None,  # Not provided by API
                     'kickoff': kickoff,
-                    'predicted_outcome': rec.get('predicted_outcome', 'Home').lower(),
+                    'predicted_outcome': rec.get('predicted_outcome', 'Home'),  # Don't lowercase yet, keep original casing
                     'confidence': confidence,
                     'probability_home': prob_home,
                     'probability_draw': prob_draw,
@@ -136,13 +145,17 @@ class Command(BaseCommand):
                     'variance': rec.get('ensemble_info', {}).get('variance'),
                     'ensemble_strategy': rec.get('ensemble_info', {}).get('strategy', 'consensus_ensemble'),
                     'recommendation_score': rec.get('revenue_vs_risk_score'),
-                    'is_recommended': True  # Mark as recommended since they come from homepage
+                    'is_recommended': True,  # Mark as recommended since they come from homepage
+                    
+                    # Multi-market fields
+                    'market_type': market_type,
+                    'market_type_id': market_type_id
                 }
                 
                 if dry_run:
                     self.stdout.write(
                         f'  [DRY RUN] Would log: {prediction_data["home_team"]} vs {prediction_data["away_team"]} '
-                        f'({prediction_data["predicted_outcome"]}, conf: {confidence*100:.1f}%)'
+                        f'({prediction_data["predicted_outcome"]}, Type: {market_type})'
                     )
                     logged_count += 1
                     continue
@@ -182,10 +195,10 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(
                 'Make sure the frontend server is running and the API endpoint is accessible.'
             ))
-            sys.exit(1)
+            return
         except Exception as e:
             self.stdout.write(self.style.ERROR(f'\nUnexpected error: {e}'))
             import traceback
             traceback.print_exc()
-            sys.exit(1)
+            return
 

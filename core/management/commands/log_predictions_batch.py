@@ -56,52 +56,63 @@ class Command(BaseCommand):
         
         # Log all predictions in a transaction
         logged_count = 0
+        updated_count = 0
         skipped_count = 0
         error_count = 0
         
         with transaction.atomic():
             for prediction_data in predictions_data:
                 try:
-                    # Check if already logged
-                    if PredictionLog.objects.filter(fixture_id=prediction_data['fixture_id']).exists():
-                        skipped_count += 1
-                        continue
-                    
-                    PredictionLog.objects.create(
-                        fixture_id=prediction_data['fixture_id'],
-                        home_team=prediction_data['home_team'],
-                        away_team=prediction_data['away_team'],
-                        league=prediction_data['league'],
-                        league_id=prediction_data.get('league_id'),
-                        kickoff=prediction_data['kickoff'],
+                    # Prepare defaults for update_or_create
+                    defaults = {
+                        'home_team': prediction_data['home_team'],
+                        'away_team': prediction_data['away_team'],
+                        'league': prediction_data['league'],
+                        'league_id': prediction_data.get('league_id'),
+                        'kickoff': prediction_data['kickoff'],
                         
-                        predicted_outcome=prediction_data['predicted_outcome'],
-                        confidence=prediction_data['confidence'],
+                        'predicted_outcome': prediction_data['predicted_outcome'],
+                        'confidence': prediction_data['confidence'],
                         
-                        probability_home=prediction_data['probabilities']['home'],
-                        probability_draw=prediction_data['probabilities']['draw'],
-                        probability_away=prediction_data['probabilities']['away'],
+                        'probability_home': prediction_data['probabilities']['home'],
+                        'probability_draw': prediction_data['probabilities']['draw'],
+                        'probability_away': prediction_data['probabilities']['away'],
                         
                         # Store form data if available
-                        home_team_form=prediction_data.get('teams_data', {}).get('home', {}).get('form'),
-                        away_team_form=prediction_data.get('teams_data', {}).get('away', {}).get('form'),
+                        'home_team_form': prediction_data.get('teams_data', {}).get('home', {}).get('form'),
+                        'away_team_form': prediction_data.get('teams_data', {}).get('away', {}).get('form'),
                         
-                        odds_home=prediction_data.get('odds_data', {}).get('home') if prediction_data.get('odds_data') else None,
-                        odds_draw=prediction_data.get('odds_data', {}).get('draw') if prediction_data.get('odds_data') else None,
-                        odds_away=prediction_data.get('odds_data', {}).get('away') if prediction_data.get('odds_data') else None,
-                        bookmaker=prediction_data.get('odds_data', {}).get('bookmaker') if prediction_data.get('odds_data') else None,
-                        expected_value=prediction_data.get('ev'),
+                        'odds_home': prediction_data.get('odds_data', {}).get('home') if prediction_data.get('odds_data') else None,
+                        'odds_draw': prediction_data.get('odds_data', {}).get('draw') if prediction_data.get('odds_data') else None,
+                        'odds_away': prediction_data.get('odds_data', {}).get('away') if prediction_data.get('odds_data') else None,
+                        'bookmaker': prediction_data.get('odds_data', {}).get('bookmaker') if prediction_data.get('odds_data') else None,
+                        'expected_value': prediction_data.get('ev'),
                         
-                        model_count=prediction_data.get('ensemble_info', {}).get('model_count', 0) if prediction_data.get('ensemble_info') else 0,
-                        consensus=prediction_data.get('ensemble_info', {}).get('consensus') if prediction_data.get('ensemble_info') else None,
-                        variance=prediction_data.get('ensemble_info', {}).get('variance') if prediction_data.get('ensemble_info') else None,
-                        ensemble_strategy=prediction_data.get('ensemble_info', {}).get('strategy', 'consensus_ensemble') if prediction_data.get('ensemble_info') else 'consensus_ensemble',
+                        'model_count': prediction_data.get('ensemble_info', {}).get('model_count', 0) if prediction_data.get('ensemble_info') else 0,
+                        'consensus': prediction_data.get('ensemble_info', {}).get('consensus') if prediction_data.get('ensemble_info') else None,
+                        'variance': prediction_data.get('ensemble_info', {}).get('variance') if prediction_data.get('ensemble_info') else None,
+                        'ensemble_strategy': prediction_data.get('ensemble_info', {}).get('strategy', 'consensus_ensemble') if prediction_data.get('ensemble_info') else 'consensus_ensemble',
                         
-                        recommendation_score=prediction_data.get('score'),
-                        is_recommended=prediction_data.get('is_recommended', False)  # Mark as recommended if explicitly set
+                        # Market Type Support (Critical for Verification)
+                        'market_type': prediction_data.get('market_type', '1x2'),
+                        'market_type_id': prediction_data.get('market_type_id'),
+                        
+                        'recommendation_score': prediction_data.get('score'),
+                    }
+                    
+                    # Handle is_recommended explicitly if present
+                    if 'is_recommended' in prediction_data:
+                        defaults['is_recommended'] = prediction_data['is_recommended']
+                    
+                    obj, created = PredictionLog.objects.update_or_create(
+                        fixture_id=prediction_data['fixture_id'],
+                        defaults=defaults
                     )
                     
-                    logged_count += 1
+                    if created:
+                        logged_count += 1
+                    else:
+                        updated_count += 1
                     
                 except Exception as e:
                     error_count += 1
@@ -111,8 +122,9 @@ class Command(BaseCommand):
         
         # Summary
         self.stdout.write(self.style.SUCCESS(f'\n📊 Batch Logging Summary:'))
-        self.stdout.write(self.style.SUCCESS(f'   ✅ Logged: {logged_count}'))
-        self.stdout.write(self.style.WARNING(f'   ⏭️  Skipped (already exists): {skipped_count}'))
+        self.stdout.write(self.style.SUCCESS(f'   ✅ Logged New: {logged_count}'))
+        self.stdout.write(self.style.SUCCESS(f'   🔄 Updated: {updated_count}'))
+        self.stdout.write(self.style.WARNING(f'   ⏭️  Skipped: {skipped_count}'))
         if error_count > 0:
             self.stdout.write(self.style.ERROR(f'   ❌ Errors: {error_count}'))
         self.stdout.write(self.style.SUCCESS(f'   📅 Total predictions in database: {PredictionLog.objects.count()}'))
