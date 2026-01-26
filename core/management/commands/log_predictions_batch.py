@@ -85,7 +85,7 @@ class Command(BaseCommand):
                         'odds_home': prediction_data.get('odds_data', {}).get('home') if prediction_data.get('odds_data') else None,
                         'odds_draw': prediction_data.get('odds_data', {}).get('draw') if prediction_data.get('odds_data') else None,
                         'odds_away': prediction_data.get('odds_data', {}).get('away') if prediction_data.get('odds_data') else None,
-                        'bookmaker': prediction_data.get('odds_data', {}).get('bookmaker') if prediction_data.get('odds_data') else None,
+                        'bookmaker': prediction_data.get('bookmaker') or prediction_data.get('odds_data', {}).get('bookmaker'),
                         'expected_value': prediction_data.get('ev'),
                         
                         'model_count': prediction_data.get('ensemble_info', {}).get('model_count', 0) if prediction_data.get('ensemble_info') else 0,

@@ -138,7 +138,7 @@ class Command(BaseCommand):
                     'odds_home': odds_data.get('home'),
                     'odds_draw': odds_data.get('draw'),
                     'odds_away': odds_data.get('away'),
-                    'bookmaker': odds_data.get('bookmaker'),
+                    'bookmaker': best_market.get('bookmaker') or odds_data.get('bookmaker'),
                     'expected_value': expected_value,
                     'model_count': rec.get('ensemble_info', {}).get('model_count', 0),
                     'consensus': rec.get('ensemble_info', {}).get('consensus'),
