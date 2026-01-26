@@ -325,7 +325,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div className="text-xs text-purple-700 truncate max-w-[100px] mx-auto">
                     {recommendation.bookmaker && recommendation.bookmaker !== 'Unknown'
                       ? recommendation.bookmaker
-                      : t('card.bestOdds')}
+                      : recommendation.odds_data?.bookmaker && recommendation.odds_data.bookmaker !== 'Unknown'
+                        ? recommendation.odds_data.bookmaker
+                        : recommendation.best_market?.bookmaker
+                          ? recommendation.best_market.bookmaker
+                          : recommendation.odds_data?.home_bookmaker
+                            ? recommendation.odds_data.home_bookmaker
+                            : t('card.bestOdds')}
                   </div>
                 </div>
               </div>
