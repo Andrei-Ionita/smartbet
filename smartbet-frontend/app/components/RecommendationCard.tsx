@@ -1,21 +1,32 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { Recommendation } from '../../src/types/recommendation'
-import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight } from 'lucide-react'
 import BettingCalculatorModal from './BettingCalculatorModal'
+import { generateMatchSlug } from '../../src/utils/seo-helpers'
 
 import { useLanguage } from '../contexts/LanguageContext'
 
 interface RecommendationCardProps {
   recommendation: Recommendation
-  onViewDetails: (fixtureId: number) => void
+  onViewDetails?: (fixtureId: number) => void
 }
 
 export default function RecommendationCard({ recommendation, onViewDetails }: RecommendationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const { t, language } = useLanguage()
+
+  const matchSlug = generateMatchSlug(
+    recommendation.home_team,
+    recommendation.away_team,
+    recommendation.kickoff,
+    recommendation.fixture_id,
+    recommendation.league
+  )
+
 
   const formatKickoff = (dateString: string) => {
     const date = new Date(dateString)
@@ -194,13 +205,15 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             )}
           </div>
           <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight flex items-center gap-2">
-            <span className="flex items-center gap-1">
-              {recommendation.home_team}
-            </span>
-            <span className="text-gray-400 text-sm">vs</span>
-            <span className="flex items-center gap-1">
-              {recommendation.away_team}
-            </span>
+            <Link href={matchSlug} className="flex items-center gap-2 hover:underline decoration-primary-300 decoration-2">
+              <span className="flex items-center gap-1">
+                {recommendation.home_team}
+              </span>
+              <span className="text-gray-400 text-sm">vs</span>
+              <span className="flex items-center gap-1">
+                {recommendation.away_team}
+              </span>
+            </Link>
           </h3>
         </div>
         {/* ... (Expand button remains same) */}
@@ -503,6 +516,16 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <Calculator className="h-4 w-4" />
           {t('card.stake.calculate')}
         </button>
+      </div>
+
+      {/* View Full Analysis Link */}
+      <div className="flex justify-center mb-6">
+        <Link
+          href={matchSlug}
+          className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1 hover:underline decoration-primary-300"
+        >
+          View Full Match Analysis <ArrowRight className="h-4 w-4" />
+        </Link>
       </div>
 
       {/* League Accuracy Badge */}
