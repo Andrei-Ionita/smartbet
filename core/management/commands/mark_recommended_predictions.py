@@ -16,14 +16,14 @@ class Command(BaseCommand):
         parser.add_argument(
             '--min-confidence',
             type=float,
-            default=55.0,
-            help='Minimum confidence percentage (default: 55.0) - matches home page criteria'
+            default=60.0,
+            help='Minimum confidence percentage (default: 60.0) - optimized for accuracy'
         )
         parser.add_argument(
             '--min-ev',
             type=float,
-            default=10.0,
-            help='Minimum expected value percentage (default: 10.0) - matches home page criteria'
+            default=15.0,
+            help='Minimum expected value percentage (default: 15.0) - optimized for accuracy'
         )
         parser.add_argument(
             '--only-future',

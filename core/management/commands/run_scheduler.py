@@ -76,7 +76,7 @@ class Command(BaseCommand):
         self.run_task('update_results', **{'max': 100})
         
         # Task 3: Refresh recommendation flags
-        self.run_task('mark_recommended_predictions', **{'min_confidence': 55.0, 'min_ev': 10.0})
+        self.run_task('mark_recommended_predictions', **{'min_confidence': 60.0, 'min_ev': 15.0})
         
         self.stdout.write(self.style.SUCCESS('✅ All tasks completed successfully.\n'))
 
