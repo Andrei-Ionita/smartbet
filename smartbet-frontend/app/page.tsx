@@ -27,6 +27,7 @@ import LoadingSpinner from './components/LoadingSpinner'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
 import EmailCapture from './components/EmailCapture'
+import RecentResultsWidget from './components/RecentResultsWidget'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
@@ -174,6 +175,11 @@ export default function HomePage() {
               <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
               <div className="text-sm text-gray-600">{t('landing.stats.aiEnsemble')}</div>
             </div>
+          </div>
+
+          {/* Recent Results Widget - Shows transparency with live results */}
+          <div className="max-w-sm mx-auto mb-8">
+            <RecentResultsWidget language={t('common.language') === 'ro' ? 'ro' : 'en'} />
           </div>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center">

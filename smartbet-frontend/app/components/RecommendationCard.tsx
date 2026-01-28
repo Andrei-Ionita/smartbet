@@ -336,6 +336,28 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 {t('card.multiMarket.bestMarket')}: {recommendation.best_market.name}
               </span>
             )}
+            {/* AI Model Agreement Dots */}
+            {recommendation.confidence > 0 && (
+              <span
+                className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200"
+                title={language === 'ro'
+                  ? `${getConfidenceBreakdown().modelCount}/3 modele AI sunt de acord`
+                  : `${getConfidenceBreakdown().modelCount}/3 AI models agree`}
+              >
+                <span className="flex gap-0.5">
+                  {[...Array(3)].map((_, i) => (
+                    <span
+                      key={i}
+                      className={`w-2 h-2 rounded-full ${i < getConfidenceBreakdown().modelCount
+                        ? 'bg-purple-500'
+                        : 'bg-purple-200'
+                        }`}
+                    />
+                  ))}
+                </span>
+                <span className="text-[10px]">AI</span>
+              </span>
+            )}
           </div>
           <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight flex items-center gap-2">
             <Link href={matchSlug} className="flex items-center gap-2 hover:underline decoration-primary-300 decoration-2">
@@ -551,6 +573,46 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 </div>
               </div>
+
+              {/* Edge vs Market Comparison */}
+              {recommendation.odds_data && (
+                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-semibold text-indigo-700">
+                      {language === 'ro' ? 'Edge vs Piață' : 'Edge vs Market'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3 text-xs">
+                    {(() => {
+                      const outcome = recommendation.predicted_outcome.toLowerCase()
+                      const odds = outcome === 'home' ? recommendation.odds_data?.home :
+                        outcome === 'draw' ? recommendation.odds_data?.draw :
+                          recommendation.odds_data?.away
+                      if (!odds) return null
+
+                      const marketImplied = (1 / odds) * 100
+                      const aiProb = recommendation.confidence * 100
+                      const edge = aiProb - marketImplied
+
+                      return (
+                        <>
+                          <span className="text-gray-600">
+                            {language === 'ro' ? 'Piață' : 'Market'}: <span className="font-medium text-gray-800">{marketImplied.toFixed(0)}%</span>
+                          </span>
+                          <span className="text-gray-400">vs</span>
+                          <span className="text-gray-600">
+                            AI: <span className="font-medium text-indigo-700">{aiProb.toFixed(0)}%</span>
+                          </span>
+                          <span className={`px-2 py-0.5 rounded-full font-bold ${edge > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
+                            }`}>
+                            {edge > 0 ? '+' : ''}{edge.toFixed(0)}%
+                          </span>
+                        </>
+                      )
+                    })()}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Risk Warnings */}
