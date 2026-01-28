@@ -92,6 +92,133 @@ function calculateMarketScore(probabilityGap: number, expectedValue: number, con
   return (normalizedGap * 0.4) + (normalizedEV * 0.3) + (normalizedConf * 0.3)
 }
 
+// ============= ACCURACY ENHANCEMENT #1: Form Momentum Adjustment =============
+// Analyzes recent team form (W/D/L) and returns a multiplier for confidence
+// If form strongly aligns with prediction: boost (+5% to +10%)
+// If form contradicts prediction: reduce (-5% to -15%)
+function calculateFormMomentum(
+  teamForm: string,
+  isHome: boolean,
+  predictedForThisTeam: boolean
+): { multiplier: number; reason: string } {
+  if (!teamForm || teamForm === '?????' || teamForm.length < 3) {
+    return { multiplier: 1.0, reason: 'No form data' }
+  }
+
+  // Parse form string (e.g., "WWDLW" -> most recent first)
+  const formArray = teamForm.toUpperCase().slice(0, 5).split('')
+  const wins = formArray.filter(f => f === 'W').length
+  const draws = formArray.filter(f => f === 'D').length
+  const losses = formArray.filter(f => f === 'L').length
+
+  // Calculate momentum score: recent results weighted more heavily
+  // Format: most recent = index 0
+  let momentumScore = 0
+  const weights = [0.30, 0.25, 0.20, 0.15, 0.10] // Most recent weighted highest
+
+  formArray.forEach((result, idx) => {
+    const weight = weights[idx] || 0.10
+    if (result === 'W') momentumScore += weight
+    else if (result === 'L') momentumScore -= weight
+    // Draws are neutral (0)
+  })
+
+  // momentumScore ranges from -1.0 (all losses) to +1.0 (all wins)
+
+  if (predictedForThisTeam) {
+    // We're predicting this team to win/be part of winning outcome
+    if (momentumScore >= 0.5) {
+      // Strong positive momentum aligns with prediction
+      return {
+        multiplier: 1.08,
+        reason: `${isHome ? 'Home' : 'Away'} on hot streak (${wins}W in last 5)`
+      }
+    } else if (momentumScore >= 0.2) {
+      return { multiplier: 1.04, reason: `${isHome ? 'Home' : 'Away'} in decent form` }
+    } else if (momentumScore <= -0.3) {
+      // Predicting a team that's struggling - reduce confidence
+      return {
+        multiplier: 0.92,
+        reason: `${isHome ? 'Home' : 'Away'} struggling (${losses}L in last 5)`
+      }
+    } else if (momentumScore <= -0.5) {
+      return {
+        multiplier: 0.85,
+        reason: `${isHome ? 'Home' : 'Away'} on cold streak`
+      }
+    }
+  } else {
+    // We're predicting AGAINST this team
+    if (momentumScore <= -0.5) {
+      // Team is struggling, aligns with our prediction against them
+      return { multiplier: 1.06, reason: `${isHome ? 'Home' : 'Away'} on losing run` }
+    } else if (momentumScore >= 0.5) {
+      // Predicting against a team on fire - risky, reduce confidence
+      return {
+        multiplier: 0.90,
+        reason: `Warning: ${isHome ? 'Home' : 'Away'} in strong form`
+      }
+    }
+  }
+
+  return { multiplier: 1.0, reason: 'Form is mixed' }
+}
+
+// ============= ACCURACY ENHANCEMENT #2: Value Zone Filtering =============
+// Flags EV values that are suspiciously high (often odds errors or traps)
+// Returns adjusted EV and a flag
+function evaluateValueZone(ev: number): {
+  adjustedEV: number
+  zone: 'optimal' | 'good' | 'suspicious' | 'trap'
+  warning: string | null
+  scorePenalty: number
+} {
+  // EV is in decimal form (0.05 = 5%)
+  const evPercent = ev * 100
+
+  if (evPercent >= 5 && evPercent <= 15) {
+    // Optimal value zone - this is where sustainable profits come from
+    return {
+      adjustedEV: ev,
+      zone: 'optimal',
+      warning: null,
+      scorePenalty: 0
+    }
+  } else if (evPercent > 15 && evPercent <= 25) {
+    // Good but slightly suspicious - could be real value or pricing error
+    return {
+      adjustedEV: ev * 0.95, // Slight reduction
+      zone: 'good',
+      warning: 'High EV - verify odds are accurate',
+      scorePenalty: 0.05
+    }
+  } else if (evPercent > 25 && evPercent <= 40) {
+    // Suspicious - likely odds error or trap
+    return {
+      adjustedEV: ev * 0.85,
+      zone: 'suspicious',
+      warning: 'Unusually high EV - possible odds error',
+      scorePenalty: 0.15
+    }
+  } else if (evPercent > 40) {
+    // Almost certainly an error or trap market
+    return {
+      adjustedEV: Math.min(ev * 0.7, 0.20), // Cap at 20% adjusted EV
+      zone: 'trap',
+      warning: 'Extreme EV detected - likely odds error, proceed with caution',
+      scorePenalty: 0.30
+    }
+  }
+
+  // EV below 5% - standard processing
+  return {
+    adjustedEV: ev,
+    zone: 'optimal',
+    warning: null,
+    scorePenalty: 0
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     console.log('🔍 Fetching real recommendations from SportMonks - no test data')
@@ -507,11 +634,65 @@ export async function GET(request: NextRequest) {
             if (maxProb === predictionData.home) predictedOutcome = 'home'
             else if (maxProb === predictionData.away) predictedOutcome = 'away'
 
-            const confidence = bestMarket.probability * 100
+            // ============= APPLY ACCURACY ENHANCEMENTS =============
+
+            // Enhancement #1: Form Momentum Adjustment
+            const homeForm = teamsData.home.form
+            const awayForm = teamsData.away.form
+
+            // Determine if prediction favors home, away, or neither (draw)
+            const predictedOutcomeLower = bestMarket.predicted_outcome.toLowerCase()
+            const predictingHome = predictedOutcomeLower === 'home' ||
+              predictedOutcomeLower.includes('1x') ||
+              predictedOutcomeLower.includes('12')
+            const predictingAway = predictedOutcomeLower === 'away' ||
+              predictedOutcomeLower.includes('x2') ||
+              predictedOutcomeLower.includes('12')
+
+            const homeMomentum = calculateFormMomentum(homeForm, true, predictingHome)
+            const awayMomentum = calculateFormMomentum(awayForm, false, predictingAway)
+
+            // Combine momentum effects (average the multipliers)
+            const formMultiplier = (homeMomentum.multiplier + awayMomentum.multiplier) / 2
+            const formReasons = [homeMomentum.reason, awayMomentum.reason]
+              .filter(r => r !== 'No form data' && r !== 'Form is mixed')
+
+            // Enhancement #2: Value Zone Filtering
+            const valueZone = evaluateValueZone(bestMarket.expected_value)
+
+            // Apply adjustments to probability and score
+            const adjustedProbability = Math.min(
+              bestMarket.probability * formMultiplier,
+              0.95 // Cap at 95% to avoid overconfidence
+            )
+            const adjustedScore = Math.max(
+              bestMarket.market_score - valueZone.scorePenalty,
+              0
+            )
+            const adjustedEV = valueZone.adjustedEV
+
+            const confidence = adjustedProbability * 100
             const probabilityGap = bestMarket.probability_gap
 
             // Use the best market's data for the recommendation
             const marketConfig = MARKET_CONFIG[bestMarket.market_type]
+
+            // Build enhancement metadata for frontend display
+            const enhancementData = {
+              form_adjustment: {
+                multiplier: formMultiplier,
+                reasons: formReasons,
+                home_form: homeForm,
+                away_form: awayForm
+              },
+              value_zone: {
+                zone: valueZone.zone,
+                warning: valueZone.warning,
+                original_ev: bestMarket.expected_value,
+                adjusted_ev: adjustedEV
+              },
+              adjustments_applied: formMultiplier !== 1.0 || valueZone.scorePenalty > 0
+            }
 
             allRecommendations.push({
               fixture_id: fixture.id,
@@ -524,9 +705,10 @@ export async function GET(request: NextRequest) {
               kickoff: fixture.starting_at,
               // Use best market's predicted outcome
               predicted_outcome: bestMarket.predicted_outcome,
-              confidence: bestMarket.probability,
-              expected_value: bestMarket.expected_value,
-              ev: bestMarket.expected_value,
+              // Use ADJUSTED confidence and EV (with form momentum and value zone applied)
+              confidence: adjustedProbability,
+              expected_value: adjustedEV,
+              ev: adjustedEV,
               // Best market odds for display
               odds: bestMarket.odds,
               // Keep 1X2 probabilities for backwards compatibility
@@ -535,17 +717,19 @@ export async function GET(request: NextRequest) {
               teams_data: teamsData,
               explanation: `Best bet: ${marketConfig.display_name} - ${bestMarket.predicted_outcome}`,
 
-              // NEW: Multi-market data
+              // NEW: Multi-market data (with adjusted score)
               best_market: {
                 type: bestMarket.market_type,
                 name: marketConfig.name,
                 display_name: marketConfig.display_name,
                 predicted_outcome: bestMarket.predicted_outcome,
-                probability: bestMarket.probability,
+                probability: adjustedProbability, // Using adjusted
                 probability_gap: bestMarket.probability_gap,
                 odds: bestMarket.odds,
-                expected_value: bestMarket.expected_value,
-                market_score: bestMarket.market_score
+                expected_value: adjustedEV, // Using adjusted
+                market_score: adjustedScore, // Using adjusted
+                original_probability: bestMarket.probability,
+                original_ev: bestMarket.expected_value
               },
               all_markets: allMarketsData.sort((a, b) => b.market_score - a.market_score).map(m => ({
                 type: m.market_type,
@@ -558,12 +742,17 @@ export async function GET(request: NextRequest) {
                 is_recommended: marketResults.some(r => r.market_type === m.market_type)  // Flag if passes filters
               })),
 
+              // NEW: Accuracy enhancement metadata
+              enhancement_data: enhancementData,
+
               debug_info: {
                 confidence_score: confidence,
                 probability_gap: probabilityGap,
                 variance: probabilityGap >= 0.20 ? 'Low' : probabilityGap >= 0.15 ? 'Medium' : 'High',
                 market_type: bestMarket.market_type,
-                markets_evaluated: marketResults.length
+                markets_evaluated: marketResults.length,
+                form_multiplier: formMultiplier,
+                value_zone: valueZone.zone
               },
               revenue_vs_risk_score: 0, // Will be calculated
               signal_quality: (() => {
