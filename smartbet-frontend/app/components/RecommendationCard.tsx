@@ -3,8 +3,9 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Recommendation } from '../../src/types/recommendation'
-import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Lock, Info } from 'lucide-react'
 import BettingCalculatorModal from './BettingCalculatorModal'
+import BettingAcknowledgmentModal from './BettingAcknowledgmentModal'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
 
 import { useLanguage } from '../contexts/LanguageContext'
@@ -17,7 +18,25 @@ interface RecommendationCardProps {
 export default function RecommendationCard({ recommendation, onViewDetails }: RecommendationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
+  const [showConfidenceTooltip, setShowConfidenceTooltip] = useState(false)
+  const [showAcknowledgment, setShowAcknowledgment] = useState(false)
   const { t, language } = useLanguage()
+
+  // Handler to open calculator - checks for acknowledgment first
+  const handleOpenCalculator = () => {
+    // Check if already acknowledged in this session
+    const acknowledged = typeof window !== 'undefined' && sessionStorage.getItem('betting_acknowledged')
+    if (acknowledged) {
+      setIsCalculatorOpen(true)
+    } else {
+      setShowAcknowledgment(true)
+    }
+  }
+
+  const handleAcknowledgmentConfirm = () => {
+    setShowAcknowledgment(false)
+    setIsCalculatorOpen(true)
+  }
 
   const matchSlug = generateMatchSlug(
     recommendation.home_team,
@@ -26,6 +45,113 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     recommendation.fixture_id,
     recommendation.league
   )
+
+  // Calculate time until kickoff and time since prediction was logged
+  const getTimeStatus = () => {
+    const now = new Date()
+    const kickoff = new Date(recommendation.kickoff)
+    const hoursUntilKickoff = Math.floor((kickoff.getTime() - now.getTime()) / (1000 * 60 * 60))
+    const isLocked = hoursUntilKickoff > 0 // Prediction is locked if match hasn't started
+
+    // Format the time display
+    let timeText = ''
+    if (hoursUntilKickoff > 24) {
+      const days = Math.floor(hoursUntilKickoff / 24)
+      timeText = language === 'ro' ? `în ${days} zile` : `in ${days} days`
+    } else if (hoursUntilKickoff > 0) {
+      timeText = language === 'ro' ? `în ${hoursUntilKickoff}h` : `in ${hoursUntilKickoff}h`
+    } else {
+      timeText = language === 'ro' ? 'Live' : 'Live'
+    }
+
+    return { isLocked, hoursUntilKickoff, timeText }
+  }
+
+  // Get confidence breakdown explanation
+  const getConfidenceBreakdown = () => {
+    const modelCount = recommendation.ensemble_info?.model_count || recommendation.debug_info?.model_count || 3
+    const consensus = recommendation.ensemble_info?.consensus || 0
+    const variance = recommendation.debug_info?.variance || 'Medium'
+    const ev = ((recommendation.ev || 0) * 100).toFixed(1)
+
+    return {
+      modelCount,
+      modelAgreement: consensus > 0.8 ? 'Strong' : consensus > 0.6 ? 'Moderate' : 'Mixed',
+      variance: typeof variance === 'string' ? variance : variance < 0.1 ? 'Low' : variance < 0.2 ? 'Medium' : 'High',
+      evValue: ev,
+      signalQuality: recommendation.signal_quality || 'Good'
+    }
+  }
+
+  // Generate data-driven "Why This Pick" explanation
+  const getWhyThisPick = () => {
+    const reasons: string[] = []
+    const confidence = recommendation.confidence * 100
+    const ev = (recommendation.ev || 0) * 100
+    const outcome = recommendation.predicted_outcome
+
+    // Form-based reasons
+    const homeForm = recommendation.teams_data?.home?.form
+    const awayForm = recommendation.teams_data?.away?.form
+
+    if (homeForm && typeof homeForm === 'string') {
+      const wins = (homeForm.match(/W/g) || []).length
+      if (outcome === 'Home' && wins >= 3) {
+        reasons.push(language === 'ro'
+          ? `${recommendation.home_team} are ${wins} victorii din ultimele 5 meciuri`
+          : `${recommendation.home_team} has ${wins} wins in last 5 matches`)
+      }
+    }
+
+    if (awayForm && typeof awayForm === 'string') {
+      const wins = (awayForm.match(/W/g) || []).length
+      if (outcome === 'Away' && wins >= 3) {
+        reasons.push(language === 'ro'
+          ? `${recommendation.away_team} are ${wins} victorii din ultimele 5 meciuri`
+          : `${recommendation.away_team} has ${wins} wins in last 5 matches`)
+      }
+    }
+
+    // Confidence-based reason
+    if (confidence >= 70) {
+      reasons.push(language === 'ro'
+        ? 'Încredere ridicată: toate modelele AI sunt de acord'
+        : 'High confidence: all AI models agree')
+    } else if (confidence >= 60) {
+      reasons.push(language === 'ro'
+        ? 'Acord majoritar între modele AI'
+        : 'Majority agreement across AI models')
+    }
+
+    // Value-based reason
+    if (ev >= 15) {
+      reasons.push(language === 'ro'
+        ? `Valoare excelentă detectată (+${ev.toFixed(0)}% EV)`
+        : `Excellent value detected (+${ev.toFixed(0)}% EV)`)
+    } else if (ev >= 10) {
+      reasons.push(language === 'ro'
+        ? `Valoare bună la cote (+${ev.toFixed(0)}% EV)`
+        : `Good odds value (+${ev.toFixed(0)}% EV)`)
+    }
+
+    // Signal quality reason
+    if (recommendation.signal_quality === 'Strong') {
+      reasons.push(language === 'ro'
+        ? 'Semnal puternic: varianță scăzută între modele'
+        : 'Strong signal: low variance across models')
+    }
+
+    // If no specific reasons, provide a generic one
+    if (reasons.length === 0) {
+      reasons.push(language === 'ro'
+        ? `Predicție bazată pe analiză statistică și ${getConfidenceBreakdown().modelCount} modele AI`
+        : `Prediction based on statistical analysis and ${getConfidenceBreakdown().modelCount} AI models`)
+    }
+
+    return reasons.slice(0, 3) // Return max 3 reasons
+  }
+
+  const timeStatus = getTimeStatus()
 
 
   const formatKickoff = (dateString: string) => {
@@ -196,6 +322,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium">
               {formatKickoff(recommendation.kickoff)}
             </span>
+            {/* Prediction Lock Badge - Shows prediction is locked before kickoff */}
+            {timeStatus.isLocked && (
+              <span className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200">
+                <Lock className="h-3 w-3" />
+                {language === 'ro' ? 'Predicție blocată' : 'Locked'} • {timeStatus.timeText}
+              </span>
+            )}
             {/* Best Market Badge */}
             {recommendation.best_market && recommendation.best_market.type !== '1x2' && (
               <span className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-sm">
@@ -254,9 +387,73 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 )}
               </div>
-              <span className="text-lg font-bold text-gray-700 min-w-[3rem] text-right">
-                {Math.round(recommendation.confidence * 100)}%
-              </span>
+              {/* Confidence with Info Tooltip */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowConfidenceTooltip(!showConfidenceTooltip)}
+                  className="flex items-center gap-1 text-lg font-bold text-gray-700 min-w-[4rem] text-right hover:text-primary-600 transition-colors"
+                  aria-label="Show confidence breakdown"
+                >
+                  {Math.round(recommendation.confidence * 100)}%
+                  <Info className="h-4 w-4 text-gray-400 hover:text-primary-500" />
+                </button>
+
+                {/* Confidence Breakdown Tooltip */}
+                {showConfidenceTooltip && (
+                  <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 p-4 text-left">
+                    <div className="flex items-center justify-between mb-3">
+                      <span className="text-sm font-bold text-gray-900">
+                        {language === 'ro' ? 'Cum am calculat' : 'How we calculated this'}
+                      </span>
+                      <button
+                        onClick={() => setShowConfidenceTooltip(false)}
+                        className="text-gray-400 hover:text-gray-600"
+                      >
+                        ×
+                      </button>
+                    </div>
+                    <div className="space-y-2 text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">{language === 'ro' ? 'Acord modele AI' : 'AI Model Agreement'}</span>
+                        <span className="font-medium text-gray-900 flex items-center gap-1">
+                          {getConfidenceBreakdown().modelCount}/3
+                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${getConfidenceBreakdown().modelAgreement === 'Strong' ? 'bg-green-100 text-green-700' :
+                            getConfidenceBreakdown().modelAgreement === 'Moderate' ? 'bg-yellow-100 text-yellow-700' :
+                              'bg-orange-100 text-orange-700'
+                            }`}>
+                            {getConfidenceBreakdown().modelAgreement}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">{language === 'ro' ? 'Valoare așteptată' : 'Expected Value'}</span>
+                        <span className="font-medium text-green-600">+{getConfidenceBreakdown().evValue}%</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">{language === 'ro' ? 'Variație predicții' : 'Prediction Variance'}</span>
+                        <span className={`font-medium ${getConfidenceBreakdown().variance === 'Low' ? 'text-green-600' :
+                          getConfidenceBreakdown().variance === 'Medium' ? 'text-yellow-600' :
+                            'text-red-600'
+                          }`}>{getConfidenceBreakdown().variance}</span>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-gray-600">{language === 'ro' ? 'Calitate semnal' : 'Signal Quality'}</span>
+                        <span className={`font-medium ${getConfidenceBreakdown().signalQuality === 'Strong' ? 'text-green-600' :
+                          getConfidenceBreakdown().signalQuality === 'Good' ? 'text-blue-600' :
+                            'text-yellow-600'
+                          }`}>{getConfidenceBreakdown().signalQuality}</span>
+                      </div>
+                    </div>
+                    <div className="mt-3 pt-2 border-t border-gray-100">
+                      <p className="text-[10px] text-gray-500">
+                        {language === 'ro'
+                          ? 'Bazat pe consens între 3 modele AI și date statistice'
+                          : 'Based on consensus across 3 AI models and statistical data'}
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Recent Form Section */}
@@ -303,6 +500,25 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
               </div>
             )}
+
+            {/* Why This Pick Section - Data-driven explanations */}
+            <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-amber-600">💡</span>
+                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
+                  {language === 'ro' ? 'De ce această predicție' : 'Why This Pick'}
+                </span>
+              </div>
+              <ul className="space-y-1">
+                {getWhyThisPick().map((reason, idx) => (
+                  <li key={idx} className="text-xs text-amber-900 flex items-start gap-2">
+                    <span className="text-amber-500 mt-0.5">•</span>
+                    <span>{reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
             <div className="mb-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
                 <div className="text-center">
@@ -837,6 +1053,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
 
       </div>
+
+      {/* Betting Acknowledgment Modal */}
+      <BettingAcknowledgmentModal
+        isOpen={showAcknowledgment}
+        onConfirm={handleAcknowledgmentConfirm}
+        onClose={() => setShowAcknowledgment(false)}
+        language={language as 'en' | 'ro'}
+      />
 
       {/* Betting Calculator Modal */}
       <BettingCalculatorModal
