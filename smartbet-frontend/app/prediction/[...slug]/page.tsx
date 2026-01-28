@@ -76,13 +76,24 @@ export default async function PredictionPage({ params }: PageProps) {
     const recommendation: Recommendation = {
         ...fixture,
         predicted_outcome: outcome as 'Home' | 'Draw' | 'Away',
-        confidence: fixture.prediction_confidence,
+        // Normalize confidence: fixtureService returns percentage (e.g., 59.69), 
+        // but Recommendation expects decimal (0-1 range, e.g., 0.5969)
+        confidence: fixture.prediction_confidence > 1
+            ? fixture.prediction_confidence / 100
+            : fixture.prediction_confidence,
         // Map odds from best market or odds_data
         odds: fixture.best_market?.odds ||
             (outcome === 'Home' ? fixture.odds_data?.home :
                 outcome === 'Draw' ? fixture.odds_data?.draw :
                     fixture.odds_data?.away) || null,
-        ev: fixture.best_market?.expected_value || fixture.ev_analysis?.best_ev || null,
+        // Normalize EV: same normalization as confidence
+        ev: (() => {
+            const rawEv = fixture.best_market?.expected_value || fixture.ev_analysis?.best_ev || null;
+            if (rawEv === null) return null;
+            // If EV is greater than 1, it's likely in percentage format (e.g., 12.2 for 12.2%)
+            // Convert to decimal (0.122)
+            return rawEv > 1 ? rawEv / 100 : rawEv;
+        })(),
         score: fixture.best_market?.market_score || 0, // Fallback
         explanation: `AI prediction for ${fixture.home_team} vs ${fixture.away_team} favoring ${outcome}.`,
         odds_data: fixture.odds_data ? {
