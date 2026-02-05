@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { Recommendation } from '../../src/types/recommendation'
-import { X, Calculator, DollarSign, TrendingUp, AlertTriangle, Target, Save, Copy } from 'lucide-react'
+import { X, Calculator, DollarSign, TrendingUp, AlertTriangle, Target, Save, Copy, Lock } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
+import Link from 'next/link'
 
 interface BettingCalculatorModalProps {
   recommendation: Recommendation
@@ -28,6 +30,7 @@ interface StakeCalculation {
 }
 
 export default function BettingCalculatorModal({ recommendation, isOpen, onClose }: BettingCalculatorModalProps) {
+  const { isPro, isAuthenticated } = useAuth()
   const [bankroll, setBankroll] = useState(1000)
   const [customStake, setCustomStake] = useState(0)
   const [selectedStrategy, setSelectedStrategy] = useState('kelly')
@@ -94,25 +97,25 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
         stake = kellyPercent * bankroll
         risk = kellyPercent > 0.05 ? 'High' : kellyPercent > 0.02 ? 'Medium' : 'Low'
         break
-      
+
       case 'fixed_percent':
         stake = bankroll * 0.02 // 2% fixed
         risk = 'Low'
         break
-      
+
       case 'conservative':
         const kellyStake = calculateKelly(confidence, odds) * bankroll
         const fixedStake = bankroll * 0.01
         stake = Math.min(kellyStake * 0.5, fixedStake) // Half Kelly or 1%
         risk = 'Low'
         break
-      
+
       case 'aggressive':
         const fullKelly = calculateKelly(confidence, odds) * bankroll
         stake = fullKelly * 2 // Double Kelly
         risk = 'High'
         break
-      
+
       default:
         stake = 0
     }
@@ -170,6 +173,63 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
   }
 
   if (!isOpen) return null
+
+  // Pro Gate: Show upgrade prompt for non-Pro users
+  if (!isPro) {
+    return (
+      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">
+          <div className="flex justify-end">
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg">
+              <X className="h-5 w-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="text-center">
+            <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
+              <Lock className="w-8 h-8 text-white" />
+            </div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              Betting Calculator is a Pro Feature
+            </h3>
+            <p className="text-gray-600 mb-6">
+              Unlock the betting calculator with Kelly Criterion, stake recommendations,
+              and ROI analysis for just <span className="font-bold text-violet-600">€5/month</span>.
+            </p>
+            {isAuthenticated ? (
+              <Link
+                href="/pricing"
+                className="inline-block w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all"
+              >
+                Upgrade to Pro - €5/month
+              </Link>
+            ) : (
+              <>
+                <Link
+                  href="/register"
+                  className="inline-block w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all"
+                >
+                  Sign Up for Pro - €5/month
+                </Link>
+                <p className="text-sm text-gray-500 mt-3">
+                  Already have an account?{' '}
+                  <Link href="/login" className="text-violet-600 hover:underline font-medium">Log in</Link>
+                </p>
+              </>
+            )}
+            <div className="mt-6 pt-4 border-t border-gray-200 text-left">
+              <p className="text-xs text-gray-500 mb-2">Pro includes:</p>
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-1"><span className="text-green-500">✓</span> Kelly Criterion</div>
+                <div className="flex items-center gap-1"><span className="text-green-500">✓</span> All predictions</div>
+                <div className="flex items-center gap-1"><span className="text-green-500">✓</span> Real-time access</div>
+                <div className="flex items-center gap-1"><span className="text-green-500">✓</span> Email alerts</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
@@ -245,11 +305,10 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
                 <button
                   key={strategy.id}
                   onClick={() => setSelectedStrategy(strategy.id)}
-                  className={`p-3 rounded-lg border-2 transition-all ${
-                    selectedStrategy === strategy.id
+                  className={`p-3 rounded-lg border-2 transition-all ${selectedStrategy === strategy.id
                       ? `border-blue-500 ${strategy.bgColor}`
                       : 'border-gray-200 hover:border-gray-300'
-                  }`}
+                    }`}
                 >
                   <div className="text-left">
                     <div className={`font-medium ${strategy.color}`}>{strategy.name}</div>
@@ -277,7 +336,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
           {/* Calculation Results */}
           <div className="bg-blue-50 rounded-xl p-4">
             <h3 className="text-lg font-semibold text-gray-900 mb-4">Calculation Results</h3>
-            
+
             {customCalculation ? (
               <div className="space-y-4">
                 <div className="bg-white rounded-lg p-4">
@@ -347,7 +406,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
                 <div>
                   <h4 className="font-semibold text-red-800">High Risk Warning</h4>
                   <p className="text-sm text-red-700 mt-1">
-                    This stake size is considered high risk. Consider using a more conservative strategy 
+                    This stake size is considered high risk. Consider using a more conservative strategy
                     or reducing your stake size to protect your bankroll.
                   </p>
                 </div>

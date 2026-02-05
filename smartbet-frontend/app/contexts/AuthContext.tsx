@@ -3,12 +3,16 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
+// Subscription tier type
+export type UserTier = 'free' | 'pro';
+
 interface User {
   id: number;
   username: string;
   email: string;
   first_name: string;
   last_name: string;
+  tier: UserTier; // Added for subscription support
 }
 
 interface AuthContextType {
@@ -19,6 +23,10 @@ interface AuthContextType {
   logout: () => void;
   isAuthenticated: boolean;
   isLoading: boolean;
+  // New tier-related helpers
+  isPro: boolean;
+  tier: UserTier;
+  upgradeToPro: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -123,6 +131,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  // Upgrade user to Pro tier (called after successful payment)
+  const upgradeToPro = async () => {
+    if (!user) return;
+
+    const updatedUser = { ...user, tier: 'pro' as UserTier };
+    setUser(updatedUser);
+    localStorage.setItem('smartbet_user', JSON.stringify(updatedUser));
+
+    // In production, also call API to update user tier in database
+    // await fetch(`${apiUrl}/api/auth/upgrade/`, { ... })
+  };
+
+  // Determine current tier (default to 'free' if not set)
+  const currentTier: UserTier = user?.tier || 'free';
+
   const value = {
     user,
     accessToken,
@@ -131,6 +154,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout,
     isAuthenticated: !!user,
     isLoading,
+    // Tier-related properties
+    isPro: currentTier === 'pro',
+    tier: currentTier,
+    upgradeToPro,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
