@@ -3,9 +3,13 @@
 import { useAuth } from '../contexts/AuthContext'
 import Link from 'next/link'
 import { Check, X, Zap, Calculator, Bell, Clock, BarChart3, Download } from 'lucide-react'
+import CheckoutButton from '../components/CheckoutButton'
 
 export default function PricingPage() {
     const { isAuthenticated, isPro } = useAuth()
+
+    // TODO: Replace with your actual Polar.sh Product ID
+    const PRO_PRODUCT_ID = process.env.NEXT_PUBLIC_POLAR_PRODUCT_ID || 'YOUR_PRODUCT_ID_HERE'
 
     const features = [
         { name: 'Daily Predictions', free: '3 best picks', pro: 'All picks (10-20+)', icon: BarChart3 },
@@ -118,11 +122,12 @@ export default function PricingPage() {
                                 ✓ You&apos;re on Pro
                             </div>
                         ) : isAuthenticated ? (
-                            <button
+                            <CheckoutButton
+                                productId={PRO_PRODUCT_ID}
                                 className="block w-full py-3 text-center font-semibold bg-white text-violet-600 rounded-lg hover:bg-gray-50 transition-colors"
                             >
                                 Upgrade Now
-                            </button>
+                            </CheckoutButton>
                         ) : (
                             <Link
                                 href="/register"
