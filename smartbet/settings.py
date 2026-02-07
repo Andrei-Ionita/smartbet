@@ -233,3 +233,12 @@ if not DEBUG:
     # SECURE_HSTS_SECONDS = 31536000
     # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
     # SECURE_HSTS_PRELOAD = True
+
+    # CSRF Settings for Production
+    CSRF_TRUSTED_ORIGINS = [
+        'https://betglitch.com',
+        'https://www.betglitch.com',
+        'https://api.betglitch.com',
+    ]
+    if os.getenv('FRONTEND_URL'):
+        CSRF_TRUSTED_ORIGINS.append(os.getenv('FRONTEND_URL'))
