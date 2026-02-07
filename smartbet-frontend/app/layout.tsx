@@ -11,35 +11,35 @@ const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
   title: {
-    default: 'OddsMind - AI-Powered Football Predictions',
-    template: '%s | OddsMind'
+    default: 'BetGlitch - AI-Powered Football Predictions',
+    template: '%s | BetGlitch'
   },
-  description: 'Monitor and explore model predictions across top football leagues with AI-powered insights and betting recommendations.',
-  keywords: ['football predictions', 'AI betting', 'sports analytics', 'soccer stats', 'betting tips'],
-  authors: [{ name: 'OddsMind Team' }],
-  creator: 'OddsMind',
+  description: 'Find the edge. Monitor model predictions across top football leagues with AI-powered insights and betting recommendations.',
+  keywords: ['football predictions', 'AI betting', 'sports analytics', 'soccer stats', 'betting tips', 'value betting'],
+  authors: [{ name: 'BetGlitch Team' }],
+  creator: 'BetGlitch',
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://oddsmind.io',
-    title: 'OddsMind - AI-Powered Football Predictions',
-    description: 'Get data-driven insights and betting recommendations with confidence scores and expected value analysis.',
-    siteName: 'OddsMind',
+    url: 'https://betglitch.com',
+    title: 'BetGlitch - AI-Powered Football Predictions',
+    description: 'The system has a glitch. We found it. Data-driven insights and betting recommendations.',
+    siteName: 'BetGlitch',
     images: [
       {
         url: '/images/og-image.jpg',
         width: 1200,
         height: 630,
-        alt: 'SmartBet AI Predictions',
+        alt: 'BetGlitch AI Predictions',
       },
     ],
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'OddsMind - AI-Powered Football Predictions',
+    title: 'BetGlitch - AI-Powered Football Predictions',
     description: 'AI-powered football predictions and betting insights.',
     images: ['/images/og-image.jpg'],
-    creator: '@oddsmind_ai',
+    creator: '@BetGlitch',
   },
   viewport: {
     width: 'device-width',
