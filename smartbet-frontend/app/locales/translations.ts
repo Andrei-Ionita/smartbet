@@ -21,7 +21,7 @@ export const translations = {
             search: 'Search'
         },
         landing: {
-            heroTitle: 'OddsMind.',
+            heroTitle: 'BetGlitch.',
             heroTitleHighlight: 'Not Guesswork.',
             heroSubtitle: 'The only platform combining AI power with total transparency. We don\'t promise you\'ll always win, but we promise you\'ll bet mathematically correctly, based on value, not emotion.',
             exploreButton: 'Explore Predictions',
@@ -45,7 +45,7 @@ export const translations = {
             refreshTimer: 'Updates in',
             noBets: 'No high-confidence predictions available right now.',
             features: {
-                title: 'Why Choose OddsMind?',
+                title: 'Why Choose BetGlitch?',
                 subtitle: 'Stop wasting time on manual research. Bet on Value, instantly.',
                 f1Title: 'Save Time, Bet Smart',
                 f1Desc: "We analyze 2,000+ matches so you don't have to. We deliver only the top opportunities, saving you hours of research every week.",
@@ -415,7 +415,7 @@ export const translations = {
             refreshTimer: 'Actualizare în',
             noBets: 'Nu există predicții cu grad ridicat de încredere momentan.',
             features: {
-                title: 'De ce OddsMind?',
+                title: 'De ce BetGlitch?',
                 subtitle: "Nu mai pierde ore întregi analizând manual. Pariază pe Valoare, instant.",
                 f1Title: 'Câștigă Timp, Pariază Inteligent',
                 f1Desc: 'Analizăm 2.000+ meciuri în locul tău. Tu primești direct selecția finală de top, economisind zeci de ore de documentare săptămânal.',

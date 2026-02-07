@@ -49,7 +49,7 @@ export default function RegisterPage() {
           <div className="relative w-20 h-20 mb-4 mx-auto">
             <Image
               src="/images/logo-final-v6.png"
-              alt="OddsMind"
+              alt="BetGlitch"
               fill
               className="object-contain drop-shadow-md"
             />
@@ -58,7 +58,7 @@ export default function RegisterPage() {
             Create Account
           </h1>
           <p className="text-gray-600">
-            Join OddsMind for AI-powered predictions
+            Join BetGlitch for AI-powered predictions
           </p>
         </div>
 

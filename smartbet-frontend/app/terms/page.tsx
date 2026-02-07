@@ -24,7 +24,7 @@ export default function TermsPage() {
                         1. Agreement to Terms
                     </h2>
                     <p className="text-gray-600 mb-4">
-                        By accessing or using OddsMind ("the Service"), you agree to be bound by these Terms of Service.
+                        By accessing or using BetGlitch ("the Service"), you agree to be bound by these Terms of Service.
                         If you do not agree to these terms, please do not use our Service.
                     </p>
                     <p className="text-gray-600">
@@ -40,13 +40,13 @@ export default function TermsPage() {
                         <div className="flex gap-3">
                             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                             <p className="text-amber-800 text-sm">
-                                <strong>OddsMind is NOT a betting operator, bookmaker, or gambling site.</strong> We do not
+                                <strong>BetGlitch is NOT a betting operator, bookmaker, or gambling site.</strong> We do not
                                 accept bets, wagers, deposits, or any form of payment for gambling purposes.
                             </p>
                         </div>
                     </div>
                     <p className="text-gray-600 mb-4">
-                        OddsMind provides AI-powered sports predictions and data analysis for <strong>informational
+                        BetGlitch provides AI-powered sports predictions and data analysis for <strong>informational
                             and entertainment purposes only</strong>. Our service includes:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
@@ -100,7 +100,7 @@ export default function TermsPage() {
                 <section>
                     <h2 className="text-xl font-bold text-gray-900 mb-4">5. Limitation of Liability</h2>
                     <p className="text-gray-600 mb-4">
-                        To the fullest extent permitted by law, OddsMind and its affiliates shall not be liable for:
+                        To the fullest extent permitted by law, BetGlitch and its affiliates shall not be liable for:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
                         <li>Any financial losses incurred from betting based on our predictions</li>
@@ -132,7 +132,7 @@ export default function TermsPage() {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">7. Intellectual Property</h2>
                     <p className="text-gray-600">
                         All content, features, and functionality of the Service (including but not limited to text,
-                        graphics, logos, algorithms, and software) are owned by OddsMind and are protected by
+                        graphics, logos, algorithms, and software) are owned by BetGlitch and are protected by
                         international copyright, trademark, and other intellectual property laws.
                     </p>
                 </section>
@@ -153,7 +153,7 @@ export default function TermsPage() {
                     <p className="text-gray-600">
                         If you have any questions about these Terms of Service, please contact us at:{' '}
                         <a href="mailto:legal@smartbet.ai" className="text-primary-600 hover:underline">
-                            legal@oddsmind.io
+                            legal@betglitch.com
                         </a>
                     </p>
                 </section>

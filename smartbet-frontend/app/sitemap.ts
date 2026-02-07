@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 
 // Base URL from environment or hardcoded fallback
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://oddsmind.io'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://betglitch.com'
 
 export default function sitemap(): MetadataRoute.Sitemap {
     // Static routes

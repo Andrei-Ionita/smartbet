@@ -35,7 +35,7 @@ export default function LoginPage() {
           <div className="relative w-20 h-20 mb-4 mx-auto">
             <Image
               src="/images/logo-final-v6.png"
-              alt="OddsMind"
+              alt="BetGlitch"
               fill
               className="object-contain drop-shadow-md"
             />
@@ -44,7 +44,7 @@ export default function LoginPage() {
             Welcome Back
           </h1>
           <p className="text-gray-600">
-            Sign in to continue to OddsMind
+            Sign in to continue to BetGlitch
           </p>
         </div>
 
