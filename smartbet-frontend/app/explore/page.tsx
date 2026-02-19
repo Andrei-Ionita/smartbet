@@ -117,6 +117,11 @@ interface FixtureAnalysis {
 
 const LEAGUES = [
   { id: '', name: 'All Leagues' },
+  // European Club Tournaments
+  { id: '2', name: 'UEFA Champions League' },
+  { id: '5', name: 'UEFA Europa League' },
+  { id: '2286', name: 'UEFA Europa Conference League' },
+  // Domestic Leagues
   { id: '8', name: 'Premier League' },
   { id: '9', name: 'Championship' },
   { id: '24', name: 'FA Cup' },
