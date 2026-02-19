@@ -257,18 +257,12 @@ class PredictionEnhancer:
             if confidence < 0.35:
                  return False, f"Confidence too low ({confidence*100:.1f}% < 35%)"
             
-            # DATA-DRIVEN: League blacklist (0% accuracy in recommendations)
-            if league in self.LEAGUE_BLACKLIST:
-                # Only allow if confidence is very high (≥70%)
-                if confidence < 0.70:
-                    return False, f"{league}: historically poor accuracy — requires ≥70% confidence"
-            
-            # DATA-DRIVEN: Under 2.5 requires higher confidence (41.7% accuracy)
-            if 'under' in predicted_outcome:
-                if confidence < 0.65:
-                    return False, f"Under 2.5 requires ≥65% confidence (has {confidence*100:.1f}%)"
+            # NOTE: League blacklist and Under 2.5 are handled via quality score
+            # penalties and risk warnings (soft signals) rather than hard blocks.
+            # This preserves recommendation volume while ranking weaker picks lower.
             
             # DATA-DRIVEN: Reject odds above 2.50 (accuracy collapses)
+            # This is the only hard filter — odds >2.50 had 0% hit rate at 3.0+
             if predicted_odds > self.max_odds:
                 return False, f"Odds too high ({predicted_odds:.2f} > {self.max_odds:.2f})"
             
