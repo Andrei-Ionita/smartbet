@@ -62,6 +62,10 @@ MAJOR_LEAGUES = {
     "UEFA Europa League": 5,
     "Europa League": 5,
     "UEL": 5,
+    "UEFA Europa Conference League": 2286,
+    "Europa Conference League": 2286,
+    "Conference League": 2286,
+    "UECL": 2286,
     
     # Romanian Football
     "Romanian Liga I": 274,
@@ -324,6 +328,9 @@ def normalize_league_name_for_verification(name):
         "ucl": "uefa champions league",
         "europa league": "uefa europa league",
         "uel": "uefa europa league",
+        "conference league": "uefa europa conference league",
+        "europa conference league": "uefa europa conference league",
+        "uecl": "uefa europa conference league",
         "liga 1": "romanian liga i",
         "romanian liga 1": "romanian liga i",
     }
