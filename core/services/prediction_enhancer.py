@@ -12,12 +12,31 @@ class PredictionEnhancer:
     """
     Enhance predictions using filters, market signals, and contextual awareness.
     Goal: Increase accuracy by being MORE SELECTIVE, not predicting better.
+    
+    Data-driven thresholds (updated Feb 2026 from 46 recommended predictions):
+    - Under 2.5 accuracy: 41.7% vs Over 2.5: 77.4%  → penalize Under 2.5
+    - Probability gap ≥25%: 83.3% accuracy          → boost high-gap predictions
+    - Admiral Bundesliga/Liga Portugal/Super Lig: 0% → league blacklist
+    - Incorrect preds avg odds 3.20 vs correct 2.19  → tighter odds cap
     """
     
+    # Leagues with critically poor accuracy in recommended predictions
+    LEAGUE_BLACKLIST = [
+        'Admiral Bundesliga',   # 0/3 = 0.0% accuracy, -$30 P/L
+        'Liga Portugal',        # 0/1 = 0.0% accuracy
+        'Super Lig',            # 0/0 recommended (14.3% overall)
+    ]
+    
+    # Leagues to watch — not blocked but require extra confidence
+    LEAGUE_WATCHLIST = [
+        'Eredivisie',           # 2/4 = 50.0% accuracy
+        'Pro League',           # 0/1 = 0.0% accuracy
+    ]
+    
     def __init__(self):
-        self.confidence_floor = 0.60  # Raise from 55% to 60%
-        self.ev_floor = 0.15  # Raise from 0% to 15%
-        self.max_odds = 3.0  # Avoid high-variance bets
+        self.confidence_floor = 0.60  # Minimum for Safe Bets
+        self.ev_floor = 0.15  # Minimum EV for recommendations
+        self.max_odds = 2.50  # Lowered from 3.0 — accuracy collapses above 2.50
     
     def calculate_quality_score(self, prediction: Dict) -> float:
         """
@@ -70,8 +89,8 @@ class PredictionEnhancer:
         elif predicted_odds > 3.5:
             score -= 10  # High variance - risky
         
-        # Factor 4: Probability dominance (0-10 points)
-        # Clear winner = more confident prediction
+        # Factor 4: Probability dominance (0-15 points)
+        # Analysis: gap ≥25% → 83.3% accuracy (10/12)
         probs = prediction.get('probabilities', {})
         prob_home = probs.get('home', 0)
         prob_draw = probs.get('draw', 0)
@@ -80,8 +99,10 @@ class PredictionEnhancer:
         sorted_probs = sorted([prob_home, prob_draw, prob_away], reverse=True)
         if len(sorted_probs) >= 2:
             gap = sorted_probs[0] - sorted_probs[1]
-            if gap >= 0.30:  # 30% gap
-                score += 10
+            if gap >= 0.40:  # 40%+ gap: 80% accuracy
+                score += 15
+            elif gap >= 0.25:  # 25%+ gap: 83.3% accuracy
+                score += 12
             elif gap >= 0.20:  # 20% gap
                 score += 5
         
@@ -91,6 +112,21 @@ class PredictionEnhancer:
             score += 10  # Low variance = models agree
         elif variance and variance < 0.2:
             score += 5
+        
+        # Factor 6: Outcome type penalty (DATA-DRIVEN)
+        # Under 2.5: 41.7% accuracy vs Over 2.5: 77.4%
+        outcome = prediction.get('predicted_outcome', '').lower()
+        if 'under' in outcome:
+            score -= 10  # Penalty for historically weak outcome type
+        elif 'over' in outcome:
+            score += 5   # Bonus for historically strong outcome type
+        
+        # Factor 7: League penalty (DATA-DRIVEN)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
+        if league in self.LEAGUE_BLACKLIST:
+            score -= 15  # Heavy penalty for 0% accuracy leagues
+        elif league in self.LEAGUE_WATCHLIST:
+            score -= 5   # Moderate penalty for underperforming leagues
         
         return min(score, 100.0)
     
@@ -167,6 +203,32 @@ class PredictionEnhancer:
                     'icon': '⚖️'
                 })
         
+        # Warning 7: Under 2.5 prediction (DATA-DRIVEN: 41.7% accuracy)
+        if 'under' in predicted_outcome:
+            warnings.append({
+                'type': 'outcome_history',
+                'level': 'medium',
+                'message': 'Under 2.5 predictions historically less accurate (41.7%) - consider smaller stake',
+                'icon': '📉'
+            })
+        
+        # Warning 8: Blacklisted/watchlisted league (DATA-DRIVEN)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
+        if league in self.LEAGUE_BLACKLIST:
+            warnings.append({
+                'type': 'league_history',
+                'level': 'high',
+                'message': f'{league}: historically poor accuracy - higher risk',
+                'icon': '🚩'
+            })
+        elif league in self.LEAGUE_WATCHLIST:
+            warnings.append({
+                'type': 'league_history',
+                'level': 'medium',
+                'message': f'{league}: below-average accuracy - monitor',
+                'icon': '👀'
+            })
+        
         return warnings
     
     def should_recommend(self, prediction: Dict, strict_mode: bool = False) -> tuple[bool, str]:
@@ -187,12 +249,28 @@ class PredictionEnhancer:
         ev = prediction.get('expected_value', 0) or 0
         predicted_outcome = prediction.get('predicted_outcome', '').lower()
         predicted_odds = prediction.get('odds_data', {}).get(predicted_outcome, 0)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
         
         # Strict mode (recommended for better accuracy)
         if strict_mode:
             # Absolute floor for any prediction
             if confidence < 0.35:
                  return False, f"Confidence too low ({confidence*100:.1f}% < 35%)"
+            
+            # DATA-DRIVEN: League blacklist (0% accuracy in recommendations)
+            if league in self.LEAGUE_BLACKLIST:
+                # Only allow if confidence is very high (≥70%)
+                if confidence < 0.70:
+                    return False, f"{league}: historically poor accuracy — requires ≥70% confidence"
+            
+            # DATA-DRIVEN: Under 2.5 requires higher confidence (41.7% accuracy)
+            if 'under' in predicted_outcome:
+                if confidence < 0.65:
+                    return False, f"Under 2.5 requires ≥65% confidence (has {confidence*100:.1f}%)"
+            
+            # DATA-DRIVEN: Reject odds above 2.50 (accuracy collapses)
+            if predicted_odds > self.max_odds:
+                return False, f"Odds too high ({predicted_odds:.2f} > {self.max_odds:.2f})"
             
             # Track 1: Safe Bets (Standard)
             if confidence >= 0.60:

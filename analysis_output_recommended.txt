@@ -1,0 +1,196 @@
+
+==========================================================================================
+  DEEP HISTORICAL PREDICTION PATTERN ANALYSIS
+  Goal: Find patterns to improve accuracy without overfitting
+==========================================================================================
+Filtering to RECOMMENDED predictions only
+  Total Completed Predictions: 46
+  Correct: 31 (67.4%)
+  Incorrect: 15 (32.6%)
+
+------------------------------------------------------------------------------------------
+  1. CONFIDENCE CALIBRATION
+  Is our stated confidence matching actual accuracy?
+------------------------------------------------------------------------------------------
+  Band          Total  Correct   Accuracy   Expected      Gap Status              
+  --------------------------------------------------------------------------------
+  55-60%           12        9      75.0%      57.5%   +17.5% Under-confident [OK]
+  60-65%           26       15      57.7%      62.5%    -4.8% Well-calibrated     
+  65-70%            8        7      87.5%      67.5%   +20.0% Under-confident [OK]
+
+------------------------------------------------------------------------------------------
+  2. MISS PATTERN ANALYSIS
+  What do our INCORRECT predictions have in common?
+------------------------------------------------------------------------------------------
+  Metric                                 Correct       Incorrect        Delta
+  ---------------------------------------------------------------------------
+  Avg Confidence                           61.8%           61.4%        +0.4%
+  Avg Expected Value                       38.5%           28.1%       +10.4%
+  Avg Predicted Odds                        2.19            3.20        -1.01
+
+  Misses by Predicted Outcome:
+    [X] Under 2.5: 7 (46.7% of misses)
+    [X] Over 2.5: 7 (46.7% of misses)
+    [X] Home: 1 (6.7% of misses)
+
+  Misses by League:
+    [X] Admiral Bundesliga: 3 misses / 3 total (league accuracy: 0.0%)
+    [X] Eredivisie: 2 misses / 4 total (league accuracy: 50.0%)
+    [X] Championship: 2 misses / 5 total (league accuracy: 60.0%)
+    [X] Liga Portugal: 1 misses / 1 total (league accuracy: 0.0%)
+    [X] Ligue 1: 1 misses / 3 total (league accuracy: 66.7%)
+    [X] Pro League: 1 misses / 1 total (league accuracy: 0.0%)
+    [X] Copa Del Rey: 1 misses / 3 total (league accuracy: 66.7%)
+    [X] Premier League: 1 misses / 3 total (league accuracy: 66.7%)
+    [X] Serie B: 1 misses / 5 total (league accuracy: 80.0%)
+    [X] Serie A: 1 misses / 1 total (league accuracy: 0.0%)
+    [X] La Liga: 1 misses / 1 total (league accuracy: 0.0%)
+
+------------------------------------------------------------------------------------------
+  3. MODEL CONSENSUS & VARIANCE ANALYSIS
+  Does higher model agreement = higher accuracy?
+------------------------------------------------------------------------------------------
+  Variance Band         Total  Correct   Accuracy Signal                   
+  -------------------------------------------------------------------------
+  Very Low (0-2)            1        0       0.0% [WEAK]                   
+
+  Consensus Bands:
+    Low (<60%)                1        0       0.0%
+    Medium (60-75%)           1        0       0.0%
+
+------------------------------------------------------------------------------------------
+  4. EXPECTED VALUE vs ACCURACY
+  Do high-EV predictions actually hit more often?
+------------------------------------------------------------------------------------------
+  EV Range              Total  Correct   Accuracy    Avg P/L Signal              
+  -------------------------------------------------------------------------------
+  High (15-25%)            33       21      63.6% $   +2.48 [MODERATE]          
+  Very High (25-50%)        5        3      60.0% $   +2.61 [MODERATE]          
+  Extreme (50%+)            8        7      87.5% $  +17.88 [STRONG]            
+
+------------------------------------------------------------------------------------------
+  5. LEAGUE PERFORMANCE ANALYSIS
+  Which leagues are we best/worst at predicting?
+------------------------------------------------------------------------------------------
+  League                               Total  Correct   Accuracy  P/L ($10) Signal         
+  -----------------------------------------------------------------------------------------
+  Bundesliga                               7        7     100.0% $  +91.76 [STRONG]       
+  Serie B                                  5        4      80.0% $  +35.10 [STRONG]       
+  Championship                             5        3      60.0% $  +10.61 [OK]           
+  Eredivisie                               4        2      50.0% $   +8.75 [WEAK]         
+  Super League                             3        3     100.0% $  +50.24 [STRONG]       
+  Ligue 1                                  3        2      66.7% $  +22.31 [OK]           
+  Premier League                           3        2      66.7% $  +10.35 [OK]           
+  Copa Del Rey                             3        2      66.7% $   +5.59 [OK]           
+  Admiral Bundesliga                       3        0       0.0% $  -30.00 [AVOID?]       
+  Superliga                                2        2     100.0% $  +20.34 [STRONG]       
+  Premiership                              1        1     100.0% $  +25.00 [STRONG]       
+  Liga Portugal                            1        0       0.0% $  -10.00 [AVOID?]       
+  Pro League                               1        0       0.0% $  -10.00 [AVOID?]       
+  Carabao Cup                              1        1     100.0% $   +9.84 [STRONG]       
+  FA Cup                                   1        1     100.0% $   +7.84 [STRONG]       
+  Ekstraklasa                              1        1     100.0% $  +10.01 [STRONG]       
+  Serie A                                  1        0       0.0% $  -10.00 [AVOID?]       
+  La Liga                                  1        0       0.0% $  -10.00 [AVOID?]       
+
+------------------------------------------------------------------------------------------
+  6. MARKET TYPE ANALYSIS
+  Which market types are most accurate?
+------------------------------------------------------------------------------------------
+  Market Type                Total  Correct   Accuracy  P/L ($10)
+  ---------------------------------------------------------------
+  over_under_2.5                43       29      67.4% $ +227.41
+  1x2                            3        2      66.7% $  +10.34
+
+------------------------------------------------------------------------------------------
+  7. ODDS RANGE ANALYSIS
+  What odds range gives us the best accuracy?
+------------------------------------------------------------------------------------------
+  Odds Range                      Total  Correct   Accuracy    Avg P/L      ROI
+  -----------------------------------------------------------------------------
+  2.00-2.50 (Even)                    2        2     100.0% $  +10.17  +101.7%
+  3.00-4.00 (Underdog)                1        0       0.0% $  -10.00  -100.0%
+
+------------------------------------------------------------------------------------------
+  8. PREDICTED OUTCOME TYPE ANALYSIS
+  Home vs Draw vs Away prediction performance
+------------------------------------------------------------------------------------------
+  Outcome          Total  Correct   Accuracy   Avg Conf  P/L ($10)
+  ----------------------------------------------------------------
+  Over 2.5            31       24      77.4%      62.4% $ +242.01
+  Under 2.5           12        5      41.7%      60.3% $  -14.59
+  Home                 3        2      66.7%      59.6% $  +10.34
+
+------------------------------------------------------------------------------------------
+  9. PROBABILITY GAP ANALYSIS
+  Does a wider gap between #1 and #2 probability = better accuracy?
+------------------------------------------------------------------------------------------
+  Gap Range                  Total  Correct   Accuracy Signal              
+  -------------------------------------------------------------------------
+  0-5% (Tossup)                  6        4      66.7% [MODERATE]          
+  5-10% (Slight edge)            4        2      50.0% [RISKY]             
+  10-15% (Clear edge)            8        5      62.5% [MODERATE]          
+  15-25% (Strong edge)          16       10      62.5% [MODERATE]          
+  25-40% (Dominant)              7        6      85.7% [STRONG]            
+  40%+ (Crush)                   5        4      80.0% [STRONG]            
+
+------------------------------------------------------------------------------------------
+  10. TEAM FORM CORRELATION
+  Does recent form data correlate with correct predictions?
+------------------------------------------------------------------------------------------
+  No team form data available.
+------------------------------------------------------------------------------------------
+  THRESHOLD BACKTESTING
+  What would our accuracy be with different filtering thresholds?
+------------------------------------------------------------------------------------------
+
+  Current thresholds: Confidence >= 60%, EV >= 15%, Max Odds <= 3.0
+
+  Confidence x EV Grid (accuracy%% / count):
+
+  Conf \ EV     EV>=0%      EV>=5%      EV>=10%      EV>=15%      EV>=20%    
+  ------------------------------------------------------------------------
+  C>=50%        67%/46      67%/46      67%/46      67%/46      68%/44    
+  C>=55%        67%/46      67%/46      67%/46      67%/46      68%/44    
+  C>=60%        65%/34      65%/34      65%/34      65%/34      66%/32    
+  C>=65%        --/8        --/8        --/8        --/8        --/7      
+  C>=70%        --/0        --/0        --/0        --/0        --/0      
+
+  BEST threshold combo (min 10 preds): Confidence >= 50%, EV >= 20% -> 68.2% accuracy (30/44)
+
+  Max Odds Impact:
+  Max Odds         Total  Correct   Accuracy     Change
+  -----------------------------------------------------
+  <= 2.5             33       22      66.7%      +0.0%
+  <= 3.0             33       22      66.7%      +0.0% <-- current
+  <= 3.5             34       22      64.7%      -2.0%
+  <= 4.0             34       22      64.7%      -2.0%
+  <= 5.0             34       22      64.7%      -2.0%
+
+  Minimum Probability Gap Impact:
+  Min Gap          Total  Correct   Accuracy
+  ------------------------------------------
+  >= 0          %     46       31      67.4%
+  >= 5          %     40       27      67.5%
+  >= 10         %     36       25      69.4%
+  >= 15         %     28       20      71.4%
+  >= 20         %     20       14      70.0%
+  >= 25         %     12       10      83.3%
+
+
+  Data exported to: C:\Users\Andrei\OneDrive\Desktop\ML\smartbet\analysis_export.csv
+------------------------------------------------------------------------------------------
+  ACTIONABLE RECOMMENDATIONS
+------------------------------------------------------------------------------------------
+
+  No critical issues found! Current thresholds appear well-calibrated.
+
+
+  SUMMARY
+  ----------------------------------------
+  Total predictions analyzed: 46
+  Overall accuracy: 67.4%
+  Recommendations generated: 0
+  Run with --backtest for threshold optimization
+
+==========================================================================================
