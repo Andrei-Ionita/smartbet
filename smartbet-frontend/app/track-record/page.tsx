@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock } from 'lucide-react';
+import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 
 interface PredictionWithResult {
@@ -58,6 +58,11 @@ export default function TrackRecordPage() {
   const [updating, setUpdating] = useState(false);
   const [filterLeague, setFilterLeague] = useState('all');
   const [filterStatus, setFilterStatus] = useState('completed');
+  const [filterDateFrom, setFilterDateFrom] = useState('');
+  const [filterDateTo, setFilterDateTo] = useState('');
+  const [filterResult, setFilterResult] = useState('all');
+  const [filterOutcome, setFilterOutcome] = useState('all');
+  const [showFilters, setShowFilters] = useState(true);
   const [leagues, setLeagues] = useState<string[]>([]);
 
   useEffect(() => {
@@ -140,8 +145,42 @@ export default function TrackRecordPage() {
     });
   };
 
+  const clearFilters = () => {
+    setFilterLeague('all');
+    setFilterDateFrom('');
+    setFilterDateTo('');
+    setFilterResult('all');
+    setFilterOutcome('all');
+  };
+
+  const activeFilterCount = [
+    filterLeague !== 'all',
+    filterDateFrom !== '',
+    filterDateTo !== '',
+    filterResult !== 'all',
+    filterOutcome !== 'all',
+  ].filter(Boolean).length;
+
   const filteredPredictions = predictions.filter((pred) => {
     if (filterLeague !== 'all' && pred.league !== filterLeague) return false;
+
+    // Date range filter
+    if (filterDateFrom) {
+      const kickoff = new Date(pred.kickoff).toISOString().split('T')[0];
+      if (kickoff < filterDateFrom) return false;
+    }
+    if (filterDateTo) {
+      const kickoff = new Date(pred.kickoff).toISOString().split('T')[0];
+      if (kickoff > filterDateTo) return false;
+    }
+
+    // Result filter (win/loss)
+    if (filterResult === 'wins' && pred.was_correct !== true) return false;
+    if (filterResult === 'losses' && pred.was_correct !== false) return false;
+
+    // Predicted outcome filter
+    if (filterOutcome !== 'all' && pred.predicted_outcome !== filterOutcome) return false;
+
     return true;
   });
 
@@ -284,37 +323,136 @@ export default function TrackRecordPage() {
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 mb-6">
-          <div className="flex items-center gap-4 flex-wrap">
+        <div className="bg-white rounded-lg border border-gray-200 mb-6 overflow-hidden">
+          {/* Filter header - always visible */}
+          <button
+            onClick={() => setShowFilters(!showFilters)}
+            className="w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
+          >
             <div className="flex items-center gap-2">
-              <Filter className="h-4 w-4 text-gray-600" />
-              <span className="text-sm font-medium text-gray-700">{t('trackRecord.filters.label')}</span>
+              <Filter className="h-4 w-4 text-blue-600" />
+              <span className="text-sm font-semibold text-gray-800">{t('trackRecord.filters.label')}</span>
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  {formatString(t('trackRecord.filters.activeFilters'), activeFilterCount)}
+                </span>
+              )}
             </div>
+            <div className="flex items-center gap-3">
+              <span className="text-sm text-gray-500">
+                {formatString(t('trackRecord.filters.showing'), filteredPredictions.length)}
+              </span>
+              {showFilters ? <ChevronUp className="h-4 w-4 text-gray-400" /> : <ChevronDown className="h-4 w-4 text-gray-400" />}
+            </div>
+          </button>
 
-            <select
-              value={filterLeague}
-              onChange={(e) => setFilterLeague(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="all">{t('trackRecord.filters.allLeagues')}</option>
-              {leagues.map((league) => (
-                <option key={league} value={league}>{league}</option>
-              ))}
-            </select>
+          {/* Collapsible filter body */}
+          {showFilters && (
+            <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+              {/* Row 1: Date range + League + Status */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                {/* Date From */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.dateFrom')}</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={filterDateFrom}
+                      onChange={(e) => setFilterDateFrom(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
 
-            <select
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value)}
-              className="px-3 py-1.5 border border-gray-300 rounded-lg text-sm"
-            >
-              <option value="completed">{t('trackRecord.filters.completedOnly')}</option>
-              <option value="all">{t('trackRecord.filters.all')}</option>
-            </select>
+                {/* Date To */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.dateTo')}</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                    <input
+                      type="date"
+                      value={filterDateTo}
+                      onChange={(e) => setFilterDateTo(e.target.value)}
+                      className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    />
+                  </div>
+                </div>
 
-            <span className="text-sm text-gray-600 ml-auto">
-              {formatString(t('trackRecord.filters.showing'), filteredPredictions.length)}
-            </span>
-          </div>
+                {/* League */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.allLeagues')}</label>
+                  <select
+                    value={filterLeague}
+                    onChange={(e) => setFilterLeague(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">{t('trackRecord.filters.allLeagues')}</option>
+                    {leagues.map((league) => (
+                      <option key={league} value={league}>{league}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Status */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.completedOnly')}</label>
+                  <select
+                    value={filterStatus}
+                    onChange={(e) => setFilterStatus(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="completed">{t('trackRecord.filters.completedOnly')}</option>
+                    <option value="all">{t('trackRecord.filters.all')}</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 2: Result + Outcome + Clear */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Result (Win/Loss) */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.table.result')}</label>
+                  <select
+                    value={filterResult}
+                    onChange={(e) => setFilterResult(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">{t('trackRecord.filters.allResults')}</option>
+                    <option value="wins">{t('trackRecord.filters.winsOnly')}</option>
+                    <option value="losses">{t('trackRecord.filters.lossesOnly')}</option>
+                  </select>
+                </div>
+
+                {/* Predicted Outcome */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.table.predicted')}</label>
+                  <select
+                    value={filterOutcome}
+                    onChange={(e) => setFilterOutcome(e.target.value)}
+                    className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="all">{t('trackRecord.filters.allOutcomes')}</option>
+                    <option value="Home">{t('card.outcomes.home')}</option>
+                    <option value="Draw">{t('card.outcomes.draw')}</option>
+                    <option value="Away">{t('card.outcomes.away')}</option>
+                  </select>
+                </div>
+
+                {/* Clear Filters */}
+                <div className="flex items-end">
+                  <button
+                    onClick={clearFilters}
+                    disabled={activeFilterCount === 0}
+                    className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    {t('trackRecord.filters.clearFilters')}
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Predictions Table */}
