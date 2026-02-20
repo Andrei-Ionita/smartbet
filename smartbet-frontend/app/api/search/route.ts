@@ -60,8 +60,13 @@ function getApiToken(): string {
   return token
 }
 
-// All 27 leagues covered by subscription
+// All leagues covered by subscription (domestic + European Club Tournaments addon)
 const SUPPORTED_LEAGUE_IDS = [
+  // European Club Tournaments
+  2,     // UEFA Champions League
+  5,     // UEFA Europa League
+  2286,  // UEFA Europa Conference League
+  // Domestic Leagues
   8,     // Premier League
   9,     // Championship
   24,    // FA Cup
