@@ -117,7 +117,7 @@ interface FixtureAnalysis {
 
 const LEAGUES = [
   { id: '', name: 'All Leagues' },
-  // European Club Tournaments
+  // European Club Tournaments (UCL, UEL, UECL)
   { id: '2', name: 'UEFA Champions League' },
   { id: '5', name: 'UEFA Europa League' },
   { id: '2286', name: 'UEFA Europa Conference League' },
