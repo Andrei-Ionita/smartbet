@@ -180,7 +180,15 @@ export const translations = {
                 allLeagues: 'All Leagues',
                 completedOnly: 'Completed Only',
                 all: 'All (Including Pending)',
-                showing: 'Showing {0} predictions'
+                showing: 'Showing {0} predictions',
+                dateFrom: 'From',
+                dateTo: 'To',
+                allResults: 'All Results',
+                winsOnly: 'Wins Only',
+                lossesOnly: 'Losses Only',
+                allOutcomes: 'All Outcomes',
+                clearFilters: 'Clear Filters',
+                activeFilters: '{0} active'
             },
             table: {
                 match: 'Match',
@@ -550,7 +558,15 @@ export const translations = {
                 allLeagues: 'Toate Ligile',
                 completedOnly: 'Doar Finalizate',
                 all: 'Toate (Inclusiv În Așteptare)',
-                showing: 'Se afișează {0} predicții'
+                showing: 'Se afișează {0} predicții',
+                dateFrom: 'De la',
+                dateTo: 'Până la',
+                allResults: 'Toate Rezultatele',
+                winsOnly: 'Doar Câștiguri',
+                lossesOnly: 'Doar Pierderi',
+                allOutcomes: 'Toate Predicțiile',
+                clearFilters: 'Șterge Filtre',
+                activeFilters: '{0} active'
             },
             table: {
                 match: 'Meci',
