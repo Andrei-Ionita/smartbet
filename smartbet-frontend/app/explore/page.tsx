@@ -547,7 +547,7 @@ export default function ExplorePage() {
 
                           let explanation = bestMarket
                             ? `Best bet: ${marketName} - ${outcome} (${confidence.toFixed(1)}% probability).`
-                            : `SportMonks AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
+                            : `AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
 
                           if (confidence >= 70) {
                             explanation += ` This is a strong prediction with high confidence.`

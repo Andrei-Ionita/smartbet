@@ -635,7 +635,7 @@ export async function getFixtureDetails(fixtureId: string) {
             prediction_strength: signalQuality,
             market_indicators: marketIndicators,
             prediction_info: {
-                source: 'SportMonks AI',
+                source: 'AI',
                 confidence_level: confidence >= 70 ? 'High' : confidence >= 60 ? 'Good' : confidence >= 50 ? 'Moderate' : 'Low',
                 reliability_score: confidence / 100,
                 data_quality: (predictionData && oddsData) ? 'Complete' : predictionData ? 'Predictions Only' : 'Limited',
