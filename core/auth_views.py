@@ -115,6 +115,17 @@ def login(request):
                 'error': 'Username and password are required'
             }, status=status.HTTP_400_BAD_REQUEST)
         
+        # Support login by email: if input looks like an email, look up username
+        login_input = username
+        if '@' in login_input:
+            try:
+                email_user = User.objects.get(email=login_input)
+                username = email_user.username
+            except User.DoesNotExist:
+                return Response({
+                    'error': 'No account found with that email address'
+                }, status=status.HTTP_401_UNAUTHORIZED)
+        
         # Authenticate user
         user = authenticate(username=username, password=password)
         

@@ -310,3 +310,174 @@ class SecurityTests(TestCase):
         # Django CORS middleware should add these headers
         # (This test assumes django-cors-headers is installed)
         self.assertEqual(response.status_code, 200)
+
+
+class AuthenticationTests(TestCase):
+    """Test authentication API endpoints"""
+
+    def setUp(self):
+        self.client = Client()
+        self.register_url = '/api/auth/register/'
+        self.login_url = '/api/auth/login/'
+        self.refresh_url = '/api/auth/token/refresh/'
+        self.user_url = '/api/auth/user/'
+
+    def test_register_success(self):
+        """Test successful user registration"""
+        response = self.client.post(self.register_url, data={
+            'username': 'newuser',
+            'email': 'newuser@example.com',
+            'password': 'securepass123',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 201)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('tokens', data)
+        self.assertIn('access', data['tokens'])
+        self.assertIn('refresh', data['tokens'])
+        self.assertEqual(data['user']['username'], 'newuser')
+        self.assertEqual(data['user']['email'], 'newuser@example.com')
+
+    def test_register_duplicate_username(self):
+        """Test registration with existing username is rejected"""
+        User.objects.create_user(username='taken', email='a@test.com', password='pass12345')
+
+        response = self.client.post(self.register_url, data={
+            'username': 'taken',
+            'email': 'b@test.com',
+            'password': 'securepass123',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+
+    def test_register_duplicate_email(self):
+        """Test registration with existing email is rejected"""
+        User.objects.create_user(username='user1', email='used@test.com', password='pass12345')
+
+        response = self.client.post(self.register_url, data={
+            'username': 'user2',
+            'email': 'used@test.com',
+            'password': 'securepass123',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+
+    def test_register_short_password(self):
+        """Test registration with password too short is rejected"""
+        response = self.client.post(self.register_url, data={
+            'username': 'shortpw',
+            'email': 'test@test.com',
+            'password': 'abc',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 400)
+        self.assertIn('error', response.json())
+
+    def test_login_by_username(self):
+        """Test login with username"""
+        User.objects.create_user(username='loginuser', email='login@test.com', password='mypassword1')
+
+        response = self.client.post(self.login_url, data={
+            'username': 'loginuser',
+            'password': 'mypassword1',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('tokens', data)
+        self.assertEqual(data['user']['username'], 'loginuser')
+
+    def test_login_by_email(self):
+        """Test login with email address"""
+        User.objects.create_user(username='emailuser', email='email@test.com', password='mypassword1')
+
+        response = self.client.post(self.login_url, data={
+            'username': 'email@test.com',
+            'password': 'mypassword1',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['user']['username'], 'emailuser')
+
+    def test_login_wrong_password(self):
+        """Test login with wrong password returns 401"""
+        User.objects.create_user(username='wrongpw', email='wp@test.com', password='correctpassword')
+
+        response = self.client.post(self.login_url, data={
+            'username': 'wrongpw',
+            'password': 'incorrectpassword',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 401)
+        self.assertIn('error', response.json())
+
+    def test_login_nonexistent_user(self):
+        """Test login with non-existent user returns 401"""
+        response = self.client.post(self.login_url, data={
+            'username': 'noone',
+            'password': 'nopassword',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_login_nonexistent_email(self):
+        """Test login with non-existent email returns 401"""
+        response = self.client.post(self.login_url, data={
+            'username': 'nobody@nowhere.com',
+            'password': 'nopassword',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 401)
+
+    def test_token_refresh(self):
+        """Test refreshing access token with valid refresh token"""
+        # Register to get tokens
+        reg_response = self.client.post(self.register_url, data={
+            'username': 'refresher',
+            'email': 'refresh@test.com',
+            'password': 'securepass123',
+        }, content_type='application/json')
+
+        refresh_token = reg_response.json()['tokens']['refresh']
+
+        # Refresh the token
+        response = self.client.post(self.refresh_url, data={
+            'refresh': refresh_token,
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertIn('access', data)
+
+    def test_get_user_with_token(self):
+        """Test getting user profile with valid JWT token"""
+        # Register to get tokens
+        reg_response = self.client.post(self.register_url, data={
+            'username': 'profileuser',
+            'email': 'profile@test.com',
+            'password': 'securepass123',
+        }, content_type='application/json')
+
+        access_token = reg_response.json()['tokens']['access']
+
+        # Get user profile with Bearer token
+        response = self.client.get(self.user_url,
+            HTTP_AUTHORIZATION=f'Bearer {access_token}')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['user']['username'], 'profileuser')
+
+    def test_get_user_without_token(self):
+        """Test getting user profile without token returns 401"""
+        response = self.client.get(self.user_url)
+
+        self.assertEqual(response.status_code, 401)
