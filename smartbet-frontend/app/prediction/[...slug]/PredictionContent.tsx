@@ -5,6 +5,7 @@ import RecommendationCard from '../../components/RecommendationCard'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, Shield, Trophy } from 'lucide-react'
+import ProofCapturePanel from '../../components/ProofCapturePanel'
 
 interface PredictionContentProps {
     recommendation: Recommendation
@@ -125,6 +126,15 @@ export default function PredictionContent({
                         </li>
                     </ul>
                 </div>
+            </div>
+
+            <div className="mb-12">
+                <ProofCapturePanel
+                    source="prediction_page"
+                    leagueInterest={leagueName}
+                    title="Like this edge? Get the best ones by email."
+                    description="We use the free list to send weekly high-conviction picks, transparent track-record updates, and premium launch notices without touching the live prediction flow."
+                />
             </div>
 
             {/* Disclaimer */}
