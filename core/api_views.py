@@ -766,9 +766,15 @@ def mark_recommended_by_fixture_ids(request):
                 'message': 'No matching predictions found in database - skipping update'
             })
         
-        # Only unmark if we have matching predictions to mark
-        # This prevents unmarking everything when fixture_ids don't match
-        PredictionLog.objects.filter(is_recommended=True).update(is_recommended=False)
+        # Instead of unmarking EVERYTHING, we only unmark FUTURE matches that are no longer recommended.
+        # This preserves the historical track record while allowing us to change our minds on upcoming matches.
+        from django.utils import timezone
+        PredictionLog.objects.filter(
+            is_recommended=True,
+            kickoff__gt=timezone.now()
+        ).exclude(
+            fixture_id__in=fixture_ids
+        ).update(is_recommended=False)
         
         # Mark the new ones as recommended
         updated = PredictionLog.objects.filter(
