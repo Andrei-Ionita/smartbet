@@ -13,8 +13,9 @@ import os
 import requests
 from django.db.models import Q
 
-from .models import PredictionLog, UserBankroll
+from .models import EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll
 from .bankroll_utils import calculate_stake_amount
+from .services.marketing import MarketingSyncError, sync_marketing_profile
 
 
 def generate_model_explanation(prediction):
@@ -442,10 +443,9 @@ def get_recommended_predictions_with_outcomes(request):
     - include_pending (optional): Include matches that haven't finished yet (default: true)
     """
     try:
-        limit = int(request.GET.get('limit', 100))  # Increased default limit
         include_pending = request.GET.get('include_pending', 'true').lower() == 'true'
         
-        # Get ALL recommended predictions - no version filtering
+        # Get ALL recommended predictions - no limit!
         # This ensures complete transparency and no "missing" data
         queryset = PredictionLog.objects.filter(
             is_recommended=True
@@ -455,7 +455,7 @@ def get_recommended_predictions_with_outcomes(request):
         if not include_pending:
             queryset = queryset.filter(actual_outcome__isnull=False)
         
-        predictions = queryset[:limit]
+        predictions = list(queryset)
         
         # Convert to frontend format
         results = []
@@ -829,7 +829,7 @@ def fix_performance_metrics(request):
 @require_http_methods(["GET"])
 def search_fixtures(request):
     """
-    Search fixtures by team names or league - QUERIES SPORTMONKS API DIRECTLY
+    Search fixtures by team names or league.
 
     GET /api/search/
     Query params:
@@ -848,123 +848,84 @@ def search_fixtures(request):
                 'error': 'Search query is required'
             }, status=400)
 
-        # Get SportMonks API token
         api_token = os.getenv('SPORTMONKS_API_TOKEN') or os.getenv('SPORTMONKS_TOKEN')
         if not api_token:
-            # Fallback to database search if no API token
             return search_fixtures_from_database(request, query, league_filter, limit)
 
-        # Search SportMonks API for upcoming fixtures
-        print(f"🔍 Searching SportMonks for: {query}")
+        print(f"Searching SportMonks for: {query}")
 
-        # Calculate date range (next 14 days)
         now = timezone.now()
         start_date = now.strftime("%Y-%m-%d")
         end_date = (now + timedelta(days=14)).strftime("%Y-%m-%d")
-
-        # Supported league IDs (27 leagues)
         supported_leagues = [8, 9, 24, 27, 72, 82, 181, 208, 244, 271, 301, 384, 387,
                             390, 444, 453, 462, 486, 501, 564, 567, 570, 573, 591, 600, 609, 1371]
 
-        # Build API request using the /between endpoint for date filtering
         url = f"https://api.sportmonks.com/v3/football/fixtures/between/{start_date}/{end_date}"
         params = {
             'api_token': api_token,
             'include': 'participants;league;predictions',
             'filters': f'fixtureLeagues:{",".join(map(str, supported_leagues))}',
-            'per_page': '200'  # Get more results to filter by team name
+            'per_page': '200'
         }
-
-        print(f"📅 Date range: {start_date} to {end_date}")
-        print(f"🌐 SportMonks API URL: {url}")
-        print(f"📋 Filters: {params['filters']}")
 
         try:
             response = requests.get(url, params=params, timeout=10)
-            print(f"📡 SportMonks response status: {response.status_code}")
-
-            if response.status_code == 200:
-                data = response.json()
-                fixtures_data = data.get('data', [])
-
-                print(f"📊 SportMonks returned {len(fixtures_data)} total fixtures")
-
-                # Debug: Show first few fixtures to see what we're getting
-                if fixtures_data and len(fixtures_data) > 0:
-                    print(f"🔍 Sample fixtures (showing first 3):")
-                    for i, f in enumerate(fixtures_data[:3]):
-                        parts = f.get('participants', [])
-                        home = next((p for p in parts if p.get('meta', {}).get('location') == 'home'), {}).get('name', '?')
-                        away = next((p for p in parts if p.get('meta', {}).get('location') == 'away'), {}).get('name', '?')
-                        print(f"  {i+1}. {home} vs {away} - {f.get('starting_at', '?')}")
-
-                # Filter fixtures by team name (case-insensitive)
-                matching_fixtures = []
-                query_lower = query.lower()
-
-                for fixture in fixtures_data:
-                    participants = fixture.get('participants', [])
-                    if len(participants) < 2:
-                        continue
-
-                    home_team = next((p for p in participants if p.get('meta', {}).get('location') == 'home'), None)
-                    away_team = next((p for p in participants if p.get('meta', {}).get('location') == 'away'), None)
-
-                    if not home_team or not away_team:
-                        continue
-
-                    home_name = home_team.get('name', '')
-                    away_name = away_team.get('name', '')
-                    league_name = fixture.get('league', {}).get('name', 'Unknown')
-                    league_id = fixture.get('league', {}).get('id', 0)
-
-                    # Check if team name matches
-                    if query_lower in home_name.lower() or query_lower in away_name.lower():
-                        # Apply league filter if specified
-                        if league_filter and str(league_id) != league_filter:
-                            continue
-
-                        # Check if fixture has predictions
-                        predictions = fixture.get('predictions', [])
-                        has_predictions = len([p for p in predictions if p.get('type_id') in [233, 237, 238]]) > 0
-
-                        print(f"  ✓ Match found: {home_name} vs {away_name} ({league_name}) - {fixture.get('starting_at', '')}")
-
-                        matching_fixtures.append({
-                            'fixture_id': fixture.get('id'),
-                            'home_team': home_name,
-                            'away_team': away_name,
-                            'league': league_name,
-                            'kickoff': fixture.get('starting_at', ''),
-                            'has_predictions': has_predictions,
-                            'has_odds': False  # We don't fetch odds in search to keep it fast
-                        })
-
-                # Sort by kickoff time and limit
-                matching_fixtures.sort(key=lambda x: x['kickoff'])
-                matching_fixtures = matching_fixtures[:limit]
-
-                print(f"✅ Found {len(matching_fixtures)} matching fixtures")
-
-                return JsonResponse({
-                    'success': True,
-                    'results': matching_fixtures,
-                    'data': matching_fixtures,
-                    'count': len(matching_fixtures),
-                    'query': query,
-                    'message': f'Found {len(matching_fixtures)} upcoming fixtures'
-                })
-
-            else:
-                print(f"⚠️ SportMonks API error: {response.status_code}")
-                # Fallback to database search
+            if response.status_code != 200:
+                print(f"SportMonks API error: {response.status_code}")
                 return search_fixtures_from_database(request, query, league_filter, limit)
 
+            data = response.json()
+            fixtures_data = data.get('data', [])
+            matching_fixtures = []
+            query_lower = query.lower()
+
+            for fixture in fixtures_data:
+                participants = fixture.get('participants', [])
+                if len(participants) < 2:
+                    continue
+
+                home_team = next((p for p in participants if p.get('meta', {}).get('location') == 'home'), None)
+                away_team = next((p for p in participants if p.get('meta', {}).get('location') == 'away'), None)
+                if not home_team or not away_team:
+                    continue
+
+                home_name = home_team.get('name', '')
+                away_name = away_team.get('name', '')
+                league_name = fixture.get('league', {}).get('name', 'Unknown')
+                league_id = fixture.get('league', {}).get('id', 0)
+
+                if query_lower in home_name.lower() or query_lower in away_name.lower():
+                    if league_filter and str(league_id) != league_filter:
+                        continue
+
+                    predictions = fixture.get('predictions', [])
+                    has_predictions = len([p for p in predictions if p.get('type_id') in [233, 237, 238]]) > 0
+                    matching_fixtures.append({
+                        'fixture_id': fixture.get('id'),
+                        'home_team': home_name,
+                        'away_team': away_name,
+                        'league': league_name,
+                        'kickoff': fixture.get('starting_at', ''),
+                        'has_predictions': has_predictions,
+                        'has_odds': False
+                    })
+
+            matching_fixtures.sort(key=lambda x: x['kickoff'])
+            matching_fixtures = matching_fixtures[:limit]
+
+            return JsonResponse({
+                'success': True,
+                'results': matching_fixtures,
+                'data': matching_fixtures,
+                'count': len(matching_fixtures),
+                'query': query,
+                'message': f'Found {len(matching_fixtures)} upcoming fixtures'
+            })
         except requests.exceptions.Timeout:
-            print("⏱️ SportMonks API timeout - falling back to database search")
+            print('SportMonks API timeout - falling back to database search')
             return search_fixtures_from_database(request, query, league_filter, limit)
         except Exception as e:
-            print(f"❌ SportMonks API error: {str(e)}")
+            print(f"SportMonks API error: {str(e)}")
             return search_fixtures_from_database(request, query, league_filter, limit)
 
     except Exception as e:
@@ -980,17 +941,10 @@ def search_fixtures(request):
 def search_fixtures_from_database(request, query, league_filter, limit):
     """Fallback: Search fixtures already in database"""
     try:
-        from django.db.models import Q
-
-        print("⚠️ Using database fallback search")
-
-        # Build queryset
+        print('Using database fallback search')
         now = timezone.now()
         end_date = now + timedelta(days=14)
 
-        print(f"📅 Searching database for fixtures between {now} and {end_date}")
-
-        # Use Q objects for proper OR logic with date filtering
         queryset = PredictionLog.objects.filter(
             kickoff__gte=now,
             kickoff__lte=end_date
@@ -998,28 +952,21 @@ def search_fixtures_from_database(request, query, league_filter, limit):
             Q(home_team__icontains=query) | Q(away_team__icontains=query)
         )
 
-        # Filter by league if specified
         if league_filter:
             queryset = queryset.filter(league__icontains=league_filter)
 
-        # Order by kickoff time
         fixtures = queryset.order_by('kickoff')[:limit]
-
-        print(f"📊 Database search found {len(fixtures)} fixtures")
-
-        # Convert to frontend format
         results = []
         for pred in fixtures:
-            result = {
+            results.append({
                 'fixture_id': pred.fixture_id,
                 'home_team': pred.home_team,
                 'away_team': pred.away_team,
                 'league': pred.league,
                 'kickoff': pred.kickoff.isoformat(),
-                'has_predictions': True,  # All DB entries have predictions
+                'has_predictions': True,
                 'has_odds': bool(pred.odds_home or pred.odds_draw or pred.odds_away)
-            }
-            results.append(result)
+            })
 
         return JsonResponse({
             'success': True,
@@ -1245,6 +1192,59 @@ def update_fixture_results(request):
         }, status=500)
 
 
+def _normalize_interests(raw_value):
+    if isinstance(raw_value, list):
+        return [str(item).strip() for item in raw_value if str(item).strip()]
+    if isinstance(raw_value, str) and raw_value.strip():
+        return [item.strip() for item in raw_value.split(',') if item.strip()]
+    return []
+
+
+def _clean_text(value, default=''):
+    if value is None:
+        return default
+    return str(value).strip()
+
+
+def _validate_email(email):
+    import re
+
+    email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
+    return re.match(email_regex, email) is not None
+
+
+def _record_marketing_event(event_name, subscriber=None, source='', page='', metadata=None):
+    return MarketingEvent.objects.create(
+        subscriber=subscriber,
+        event_name=event_name,
+        source=_clean_text(source),
+        page=_clean_text(page),
+        metadata=metadata or {},
+    )
+
+
+def _sync_subscriber(subscriber, action, metadata=None):
+    try:
+        sync_marketing_profile(subscriber, action, metadata or {})
+    except MarketingSyncError:
+        if subscriber.email_platform_status in ('pending', 'reactivated'):
+            subscriber.email_platform_status = 'sync_failed'
+            subscriber.save(update_fields=['email_platform_status'])
+
+
+def _subscriber_payload(data):
+    return {
+        'source': _clean_text(data.get('source'), 'homepage') or 'homepage',
+        'landing_page': _clean_text(data.get('landing_page')),
+        'utm_source': _clean_text(data.get('utm_source')),
+        'utm_medium': _clean_text(data.get('utm_medium')),
+        'utm_campaign': _clean_text(data.get('utm_campaign')),
+        'language': _clean_text(data.get('language'), 'en') or 'en',
+        'league_interest': _clean_text(data.get('league_interest')),
+        'interests': _normalize_interests(data.get('interests', [])),
+    }
+
+
 @csrf_exempt
 @require_http_methods(["POST"])
 def subscribe_email(request):
@@ -1255,71 +1255,201 @@ def subscribe_email(request):
     """
     try:
         data = json.loads(request.body)
-        email = data.get('email', '').strip().lower()
-        source = data.get('source', 'homepage')
-        interests = data.get('interests', [])
-        
+        email = _clean_text(data.get('email')).lower()
+        payload = _subscriber_payload(data)
+
         if not email:
             return JsonResponse({
                 'success': False,
                 'error': 'Email is required'
             }, status=400)
-        
-        # Basic email validation
-        import re
-        email_regex = r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$'
-        if not re.match(email_regex, email):
+
+        if not _validate_email(email):
             return JsonResponse({
                 'success': False,
                 'error': 'Please enter a valid email address'
             }, status=400)
-        
-        # Import model here to avoid circular imports
-        from .models import EmailSubscriber
-        
-        # Check if already subscribed
+
         existing = EmailSubscriber.objects.filter(email=email).first()
         if existing:
+            updated_fields = []
+            for field, value in payload.items():
+                if getattr(existing, field) != value and value not in ('', []):
+                    setattr(existing, field, value)
+                    updated_fields.append(field)
+
             if existing.is_active:
+                if updated_fields:
+                    existing.save(update_fields=updated_fields)
                 return JsonResponse({
                     'success': True,
                     'message': 'You are already subscribed!',
-                    'already_subscribed': True
+                    'already_subscribed': True,
+                    'subscriber_id': existing.id
                 })
-            else:
-                # Reactivate subscription
-                existing.is_active = True
-                existing.source = source
-                existing.save()
-                return JsonResponse({
-                    'success': True,
-                    'message': 'Welcome back! Your subscription has been reactivated.',
-                    'reactivated': True
-                })
-        
-        # Create new subscriber
-        subscriber = EmailSubscriber.objects.create(
-            email=email,
-            source=source,
-            interests=interests
-        )
-        
-        print(f"📧 New subscriber: {email} from {source}")
-        
+
+            existing.is_active = True
+            existing.source = payload['source']
+            existing.email_platform_status = 'reactivated'
+            updated_fields.extend(['is_active', 'source', 'email_platform_status'])
+            existing.save(update_fields=sorted(set(updated_fields)))
+
+            _record_marketing_event('email_subscribed', existing, payload['source'], payload['landing_page'], {'reactivated': True})
+            _record_marketing_event('welcome_sequence_started', existing, payload['source'], payload['landing_page'], {'reactivated': True})
+            _sync_subscriber(existing, 'reactivate', {'reactivated': True})
+
+            return JsonResponse({
+                'success': True,
+                'message': 'Welcome back! Your subscription has been reactivated.',
+                'reactivated': True,
+                'subscriber_id': existing.id
+            })
+
+        subscriber = EmailSubscriber.objects.create(email=email, **payload)
+        _record_marketing_event('email_subscribed', subscriber, payload['source'], payload['landing_page'], {
+            'utm_source': payload['utm_source'],
+            'utm_medium': payload['utm_medium'],
+            'utm_campaign': payload['utm_campaign'],
+            'league_interest': payload['league_interest'],
+        })
+        _record_marketing_event('welcome_sequence_started', subscriber, payload['source'], payload['landing_page'], {
+            'trigger': 'subscription'
+        })
+        _sync_subscriber(subscriber, 'subscribe', {'trigger': 'subscription'})
+
+        print(f"New subscriber: {email} from {payload['source']}")
+
         return JsonResponse({
             'success': True,
             'message': 'Thank you for subscribing! You will receive our best picks weekly.',
             'subscriber_id': subscriber.id
         })
-        
+
     except json.JSONDecodeError:
         return JsonResponse({
             'success': False,
             'error': 'Invalid JSON body'
         }, status=400)
     except Exception as e:
-        print(f"❌ Email subscription error: {e}")
+        print(f"Email subscription error: {e}")
         return JsonResponse({
             'success': False,
             'error': 'Something went wrong. Please try again.'
         }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def track_marketing_event(request):
+    try:
+        data = json.loads(request.body)
+        event_name = _clean_text(data.get('event_name'))
+        valid_events = {choice for choice, _ in MarketingEvent.EVENT_CHOICES}
+        if event_name not in valid_events:
+            return JsonResponse({'success': False, 'error': 'Unsupported event_name'}, status=400)
+
+        subscriber = None
+        subscriber_id = data.get('subscriber_id')
+        email = _clean_text(data.get('email')).lower()
+        if subscriber_id:
+            subscriber = EmailSubscriber.objects.filter(id=subscriber_id).first()
+        elif email:
+            subscriber = EmailSubscriber.objects.filter(email=email).first()
+
+        metadata = data.get('metadata') if isinstance(data.get('metadata'), dict) else {}
+        page = _clean_text(data.get('page'))
+        source = _clean_text(data.get('source'))
+
+        event = _record_marketing_event(event_name, subscriber, source, page, metadata)
+
+        if subscriber and event_name == 'paid_converted':
+            subscriber.email_platform_status = 'paid'
+            subscriber.save(update_fields=['email_platform_status'])
+            _sync_subscriber(subscriber, 'paid_converted', metadata)
+
+        return JsonResponse({
+            'success': True,
+            'event_id': event.id
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON body'}, status=400)
+    except Exception as e:
+        print(f"Marketing event tracking error: {e}")
+        return JsonResponse({'success': False, 'error': 'Something went wrong. Please try again.'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def marketing_webhook(request):
+    try:
+        expected_secret = os.getenv('MARKETING_WEBHOOK_SECRET', '').strip()
+        provided_secret = request.headers.get('X-Marketing-Webhook-Secret', '').strip()
+        if expected_secret and provided_secret != expected_secret:
+            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+        data = json.loads(request.body)
+        metadata = data.get('metadata') if isinstance(data.get('metadata'), dict) else {}
+        source = _clean_text(data.get('source'))
+        page = _clean_text(data.get('page'))
+        brevo_event = _clean_text(data.get('event')).lower()
+        action = _clean_text(data.get('action')).lower()
+
+        if brevo_event:
+            action_map = {
+                'click': 'email_clicked',
+                'clicked': 'email_clicked',
+                'unique_click': 'email_clicked',
+                'unsubscribe': 'unsubscribe',
+                'unsubscribed': 'unsubscribe',
+            }
+            action = action_map.get(brevo_event, action)
+            if not source:
+                source = 'brevo_webhook'
+            if not page:
+                page = _clean_text(data.get('link'))
+            metadata = {
+                **metadata,
+                'brevo_event': brevo_event,
+                'message_id': data.get('message-id') or data.get('messageId'),
+                'subject': data.get('subject'),
+            }
+
+        email = _clean_text(data.get('email') or data.get('recipient')).lower()
+        subscriber_id = data.get('subscriber_id')
+
+        subscriber = None
+        if subscriber_id:
+            subscriber = EmailSubscriber.objects.filter(id=subscriber_id).first()
+        elif email:
+            subscriber = EmailSubscriber.objects.filter(email=email).first()
+
+        if not subscriber:
+            return JsonResponse({'success': False, 'error': 'Subscriber not found'}, status=404)
+
+        if action == 'unsubscribe':
+            subscriber.is_active = False
+            subscriber.email_platform_status = 'unsubscribed'
+            subscriber.save(update_fields=['is_active', 'email_platform_status'])
+        elif action == 'reactivate':
+            subscriber.is_active = True
+            subscriber.email_platform_status = 'reactivated'
+            subscriber.save(update_fields=['is_active', 'email_platform_status'])
+            _record_marketing_event('email_subscribed', subscriber, source, page, {'reactivated_via_webhook': True, **metadata})
+            _record_marketing_event('welcome_sequence_started', subscriber, source, page, {'reactivated_via_webhook': True})
+        elif action == 'weekly_picks_sent':
+            _record_marketing_event('weekly_picks_sent', subscriber, source, page, metadata)
+        elif action == 'email_clicked':
+            _record_marketing_event('email_clicked', subscriber, source, page, metadata)
+        elif action == 'paid_converted':
+            subscriber.email_platform_status = 'paid'
+            subscriber.save(update_fields=['email_platform_status'])
+            _record_marketing_event('paid_converted', subscriber, source, page, metadata)
+        else:
+            return JsonResponse({'success': False, 'error': 'Unsupported action'}, status=400)
+
+        return JsonResponse({'success': True})
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Invalid JSON body'}, status=400)
+    except Exception as e:
+        print(f"Marketing webhook error: {e}")
+        return JsonResponse({'success': False, 'error': 'Something went wrong. Please try again.'}, status=500)

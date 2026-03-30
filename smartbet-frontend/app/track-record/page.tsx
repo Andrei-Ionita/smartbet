@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from 'react';
 import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
+import ProofCapturePanel from '../components/ProofCapturePanel';
 
 interface PredictionWithResult {
   fixture_id: number;
@@ -77,7 +78,7 @@ export default function TrackRecordPage() {
       const showAll = filterStatus === 'all';
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const predictionsResponse = await fetch(
-        `${apiUrl}/api/transparency/recent/?limit=100&show_all=${showAll}`
+        `${apiUrl}/api/transparency/recent/?show_all=${showAll}`
       );
       const predictionsData = await predictionsResponse.json();
 
@@ -559,6 +560,14 @@ export default function TrackRecordPage() {
               </div>
             )}
           </div>
+        </div>
+
+        <div className="mt-8">
+          <ProofCapturePanel
+            source="track_record_page"
+            title="Follow the proof, then get the weekly shortlist."
+            description="This page is the trust layer of the funnel. Use it to verify results, then subscribe for the free picks and premium launch updates."
+          />
         </div>
 
         {/* Transparency Notice */}
