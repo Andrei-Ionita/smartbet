@@ -11,7 +11,8 @@ export async function GET(request: NextRequest) {
 
     // Get Django backend URL from environment variable or use default
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://smartbet-backend-production.up.railway.app')
-    const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?include_pending=${includePending}`
+    // Explicitly pass a large limit to ensure we get ALL records (overrides backend default)
+    const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?limit=1000&include_pending=${includePending}`
 
     console.log(`🔍 Fetching recommended predictions from Django: ${djangoUrl}`)
 

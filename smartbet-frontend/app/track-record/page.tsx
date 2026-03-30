@@ -78,7 +78,7 @@ export default function TrackRecordPage() {
       const showAll = filterStatus === 'all';
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const predictionsResponse = await fetch(
-        `${apiUrl}/api/transparency/recent/?show_all=${showAll}`
+        `${apiUrl}/api/transparency/recent/?limit=1000&show_all=${showAll}`
       );
       const predictionsData = await predictionsResponse.json();
 
