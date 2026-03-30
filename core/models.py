@@ -640,8 +640,16 @@ class EmailSubscriber(models.Model):
     """
     email = models.EmailField(unique=True, db_index=True)
     source = models.CharField(max_length=50, default='homepage')  # Where they signed up
+    landing_page = models.CharField(max_length=255, blank=True, default='')
+    utm_source = models.CharField(max_length=100, blank=True, default='')
+    utm_medium = models.CharField(max_length=100, blank=True, default='')
+    utm_campaign = models.CharField(max_length=150, blank=True, default='')
+    language = models.CharField(max_length=10, blank=True, default='en')
+    league_interest = models.CharField(max_length=100, blank=True, default='')
     subscribed_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)  # Can unsubscribe
+    email_platform_status = models.CharField(max_length=30, blank=True, default='pending')
+    last_synced_at = models.DateTimeField(null=True, blank=True)
     
     # Optional: Track what they're interested in
     interests = models.JSONField(default=list, blank=True)  # e.g., ['weekly_picks', 'premium_launch']
@@ -653,3 +661,42 @@ class EmailSubscriber(models.Model):
     
     def __str__(self):
         return f"{self.email} ({self.source})"
+
+
+class MarketingEvent(models.Model):
+    """
+    Append-only marketing telemetry used for attribution and lifecycle automation.
+    """
+    EVENT_CHOICES = [
+        ('email_subscribed', 'Email Subscribed'),
+        ('welcome_sequence_started', 'Welcome Sequence Started'),
+        ('weekly_picks_sent', 'Weekly Picks Sent'),
+        ('email_clicked', 'Email Clicked'),
+        ('pricing_viewed', 'Pricing Viewed'),
+        ('paid_converted', 'Paid Converted'),
+    ]
+
+    subscriber = models.ForeignKey(
+        EmailSubscriber,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='marketing_events'
+    )
+    event_name = models.CharField(max_length=50, choices=EVENT_CHOICES, db_index=True)
+    source = models.CharField(max_length=50, blank=True, default='')
+    page = models.CharField(max_length=255, blank=True, default='')
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['event_name', '-created_at']),
+            models.Index(fields=['source', '-created_at']),
+        ]
+        verbose_name = "Marketing Event"
+        verbose_name_plural = "Marketing Events"
+
+    def __str__(self):
+        return f"{self.event_name} @ {self.created_at:%Y-%m-%d %H:%M:%S}"

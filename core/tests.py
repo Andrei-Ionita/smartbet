@@ -8,7 +8,8 @@ from django.test import TestCase, Client
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
-from core.models import PredictionLog, UserBankroll, BankrollTransaction
+from unittest.mock import Mock, patch
+from core.models import BankrollTransaction, EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll
 from core.bankroll_utils import calculate_kelly_criterion, calculate_stake_amount
 from django.contrib.auth import get_user_model
 
@@ -242,6 +243,9 @@ class TransparencyTests(TestCase):
             kickoff=kickoff_past,
             predicted_outcome="Home",
             confidence=0.70,
+            probability_home=0.70,
+            probability_draw=0.15,
+            probability_away=0.15,
             actual_outcome="Home",
             was_correct=True,
             result_logged_at=timezone.now(),
@@ -257,6 +261,9 @@ class TransparencyTests(TestCase):
             kickoff=kickoff_past,
             predicted_outcome="Home",
             confidence=0.60,
+            probability_home=0.60,
+            probability_draw=0.20,
+            probability_away=0.20,
             actual_outcome="Away",
             was_correct=False,
             result_logged_at=timezone.now(),
@@ -481,3 +488,205 @@ class AuthenticationTests(TestCase):
         response = self.client.get(self.user_url)
 
         self.assertEqual(response.status_code, 401)
+
+
+class MarketingAutomationTests(TestCase):
+    def setUp(self):
+        self.client = Client()
+        self.subscribe_url = '/api/subscribe/'
+        self.events_url = '/api/marketing/events/'
+        self.webhook_url = '/api/marketing/webhook/'
+
+    def test_subscribe_email_backwards_compatible_payload(self):
+        response = self.client.post(self.subscribe_url, data={
+            'email': 'subscriber@example.com',
+            'source': 'homepage',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        data = response.json()
+        self.assertTrue(data['success'])
+
+        subscriber = EmailSubscriber.objects.get(email='subscriber@example.com')
+        self.assertEqual(subscriber.source, 'homepage')
+        self.assertEqual(subscriber.landing_page, '')
+        self.assertEqual(subscriber.language, 'en')
+        self.assertEqual(MarketingEvent.objects.filter(subscriber=subscriber, event_name='email_subscribed').count(), 1)
+        self.assertEqual(MarketingEvent.objects.filter(subscriber=subscriber, event_name='welcome_sequence_started').count(), 1)
+
+    def test_subscribe_email_with_marketing_metadata(self):
+        response = self.client.post(self.subscribe_url, data={
+            'email': 'meta@example.com',
+            'source': 'prediction_page',
+            'landing_page': '/prediction/team-a-vs-team-b-123',
+            'utm_source': 'google',
+            'utm_medium': 'organic',
+            'utm_campaign': 'liga-1-weekend',
+            'language': 'ro',
+            'league_interest': 'Liga 1',
+            'interests': ['weekly_picks', 'premium_launch'],
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        subscriber = EmailSubscriber.objects.get(email='meta@example.com')
+        self.assertEqual(subscriber.landing_page, '/prediction/team-a-vs-team-b-123')
+        self.assertEqual(subscriber.utm_source, 'google')
+        self.assertEqual(subscriber.utm_medium, 'organic')
+        self.assertEqual(subscriber.utm_campaign, 'liga-1-weekend')
+        self.assertEqual(subscriber.language, 'ro')
+        self.assertEqual(subscriber.league_interest, 'Liga 1')
+        self.assertEqual(subscriber.interests, ['weekly_picks', 'premium_launch'])
+
+
+    @patch.dict('os.environ', {
+        'MARKETING_SYNC_ENABLED': 'True',
+        'BREVO_API_KEY': 'brevo-test-key',
+        'BREVO_SENDER_EMAIL': 'hello@betglitch.com',
+        'BREVO_SENDER_NAME': 'BetGlitch',
+        'BREVO_WELCOME_EMAIL_ENABLED': 'True',
+        'BREVO_SANDBOX_MODE': 'True',
+    }, clear=False)
+    @patch('core.services.marketing.requests.request')
+    def test_subscribe_triggers_brevo_contact_sync_and_welcome_email(self, mock_request):
+        contact_response = Mock()
+        contact_response.content = b'{}'
+        contact_response.json.return_value = {}
+        contact_response.raise_for_status.return_value = None
+
+        email_response = Mock()
+        email_response.content = b'{}'
+        email_response.json.return_value = {}
+        email_response.raise_for_status.return_value = None
+
+        mock_request.side_effect = [contact_response, email_response]
+
+        response = self.client.post(self.subscribe_url, data={
+            'email': 'brevo@example.com',
+            'source': 'homepage',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        subscriber = EmailSubscriber.objects.get(email='brevo@example.com')
+        self.assertEqual(subscriber.email_platform_status, 'synced')
+        self.assertIsNotNone(subscriber.last_synced_at)
+        self.assertEqual(mock_request.call_count, 2)
+        self.assertEqual(mock_request.call_args_list[0].args[0], 'POST')
+        self.assertEqual(mock_request.call_args_list[0].args[1], 'https://api.brevo.com/v3/contacts')
+        self.assertEqual(mock_request.call_args_list[1].args[1], 'https://api.brevo.com/v3/smtp/email')
+
+    def test_brevo_webhook_click_payload_logs_email_click(self):
+        subscriber = EmailSubscriber.objects.create(email='clicked@example.com', source='homepage')
+
+        response = self.client.post(
+            self.webhook_url,
+            data={
+                'event': 'clicked',
+                'email': 'clicked@example.com',
+                'link': '/pricing',
+                'messageId': 'abc123',
+            },
+            content_type='application/json',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(MarketingEvent.objects.filter(subscriber=subscriber, event_name='email_clicked').exists())
+
+    def test_reactivate_inactive_subscriber_logs_events(self):
+        subscriber = EmailSubscriber.objects.create(
+            email='inactive@example.com',
+            source='homepage',
+            is_active=False,
+        )
+
+        response = self.client.post(self.subscribe_url, data={
+            'email': 'inactive@example.com',
+            'source': 'track_record_page',
+            'landing_page': '/track-record',
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        subscriber.refresh_from_db()
+        self.assertTrue(subscriber.is_active)
+        self.assertEqual(subscriber.source, 'track_record_page')
+        self.assertEqual(MarketingEvent.objects.filter(subscriber=subscriber, event_name='email_subscribed').count(), 1)
+        self.assertEqual(MarketingEvent.objects.filter(subscriber=subscriber, event_name='welcome_sequence_started').count(), 1)
+
+    def test_track_marketing_event_updates_paid_status(self):
+        subscriber = EmailSubscriber.objects.create(email='paid@example.com', source='pricing_page')
+
+        response = self.client.post(self.events_url, data={
+            'event_name': 'paid_converted',
+            'subscriber_id': subscriber.id,
+            'source': 'pricing_page',
+            'page': '/pricing',
+            'metadata': {'plan': 'premium_waitlist'},
+        }, content_type='application/json')
+
+        self.assertEqual(response.status_code, 200)
+        subscriber.refresh_from_db()
+        self.assertEqual(subscriber.email_platform_status, 'paid')
+        self.assertTrue(MarketingEvent.objects.filter(subscriber=subscriber, event_name='paid_converted').exists())
+
+    @patch.dict('os.environ', {'MARKETING_WEBHOOK_SECRET': 'top-secret'}, clear=False)
+    def test_marketing_webhook_unsubscribe_and_reactivate(self):
+        subscriber = EmailSubscriber.objects.create(email='webhook@example.com', source='homepage')
+
+        unsubscribe_response = self.client.post(
+            self.webhook_url,
+            data={'action': 'unsubscribe', 'email': 'webhook@example.com'},
+            content_type='application/json',
+            HTTP_X_MARKETING_WEBHOOK_SECRET='top-secret'
+        )
+        self.assertEqual(unsubscribe_response.status_code, 200)
+        subscriber.refresh_from_db()
+        self.assertFalse(subscriber.is_active)
+        self.assertEqual(subscriber.email_platform_status, 'unsubscribed')
+
+        reactivate_response = self.client.post(
+            self.webhook_url,
+            data={'action': 'reactivate', 'email': 'webhook@example.com', 'source': 'email_platform'},
+            content_type='application/json',
+            HTTP_X_MARKETING_WEBHOOK_SECRET='top-secret'
+        )
+        self.assertEqual(reactivate_response.status_code, 200)
+        subscriber.refresh_from_db()
+        self.assertTrue(subscriber.is_active)
+        self.assertEqual(subscriber.email_platform_status, 'reactivated')
+        self.assertTrue(MarketingEvent.objects.filter(subscriber=subscriber, event_name='welcome_sequence_started').exists())
+
+    def test_end_to_end_marketing_journey(self):
+        subscribe_response = self.client.post(self.subscribe_url, data={
+            'email': 'journey@example.com',
+            'source': 'homepage',
+            'landing_page': '/',
+            'utm_source': 'google',
+            'utm_medium': 'organic',
+            'utm_campaign': 'weekly-picks',
+        }, content_type='application/json')
+        self.assertEqual(subscribe_response.status_code, 200)
+        subscriber_id = subscribe_response.json()['subscriber_id']
+
+        pricing_response = self.client.post(self.events_url, data={
+            'event_name': 'pricing_viewed',
+            'subscriber_id': subscriber_id,
+            'source': 'pricing_page',
+            'page': '/pricing',
+            'metadata': {'tier': 'marketing_waitlist'},
+        }, content_type='application/json')
+        self.assertEqual(pricing_response.status_code, 200)
+
+        click_response = self.client.post(self.webhook_url, data={
+            'action': 'email_clicked',
+            'subscriber_id': subscriber_id,
+            'source': 'weekly_picks_email',
+            'page': '/prediction/sample-fixture',
+            'metadata': {'campaign': 'welcome-1'},
+        }, content_type='application/json')
+        self.assertEqual(click_response.status_code, 200)
+
+        subscriber = EmailSubscriber.objects.get(id=subscriber_id)
+        events = list(MarketingEvent.objects.filter(subscriber=subscriber).values_list('event_name', flat=True))
+        self.assertIn('email_subscribed', events)
+        self.assertIn('welcome_sequence_started', events)
+        self.assertIn('pricing_viewed', events)
+        self.assertIn('email_clicked', events)
