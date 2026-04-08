@@ -34,6 +34,8 @@ export function generateSchemaLD(fixture: any) {
     // Use a default end time of +2 hours if not available
     const endTime = new Date(new Date(startTime).getTime() + 2 * 60 * 60 * 1000).toISOString();
 
+    const slug = generateMatchSlug(homeTeam, awayTeam, startTime, fixture.id || 0, fixture.league || '');
+
     const schema = {
         "@context": "https://schema.org",
         "@type": "SportsEvent",
@@ -41,6 +43,13 @@ export function generateSchemaLD(fixture: any) {
         "description": `Football prediction and betting tips for ${homeTeam} vs ${awayTeam} in ${fixture.league}.`,
         "startDate": startTime,
         "endDate": endTime,
+        "eventStatus": "https://schema.org/EventScheduled",
+        "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
+        "url": `https://betglitch.com${slug}`,
+        "organizer": {
+            "@type": "SportsOrganization",
+            "name": fixture.league || "Football League"
+        },
         "competitor": [
             {
                 "@type": "SportsTeam",
