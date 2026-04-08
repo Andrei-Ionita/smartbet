@@ -70,10 +70,10 @@ export default function AboutPage() {
               <div className="bg-blue-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <BarChart3 className="h-7 w-7 text-blue-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">2-Model Ensemble</h3>
+              <h3 className="font-bold text-gray-900 mb-2">Multi-Model Consensus</h3>
               <p className="text-sm text-gray-600">
-                LightGBM and XGBoost gradient boosting models work together to produce consensus predictions
-                with calibrated confidence scores.
+                Multiple independent AI models are aggregated into a consensus forecast. We only recommend
+                when models strongly agree — reducing noise and increasing reliability.
               </p>
             </div>
             <div className="text-center p-4">

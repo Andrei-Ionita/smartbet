@@ -53,10 +53,10 @@ A common misconception is that bookmaker odds perfectly reflect the true probabi
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">How BetGlitch Identifies Value</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-BetGlitch's AI models generate independent probability estimates for every match outcome across 27 European leagues. These probabilities are derived purely from data — historical performance, current form, head-to-head records, contextual factors, and dozens of engineered features. Crucially, our models do not look at bookmaker odds when forming their probability estimates. This independence is essential: it means our models can identify genuine discrepancies between what the data suggests and what the market is pricing.
+BetGlitch aggregates predictions from multiple independent AI models across 27 European leagues. These models generate probability estimates based on data — historical performance, current form, head-to-head records, contextual factors, and various engineered features. By combining multiple model outputs into a consensus forecast, we can identify genuine discrepancies between what the data suggests and what the market is pricing.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Once our probability estimates are generated, we compare them against the best available bookmaker odds. When our model assigns a significantly higher probability to an outcome than the odds imply, that selection is flagged as a value bet. We also calculate the expected value and a confidence rating so users can prioritize the strongest opportunities.
+Once our consensus probability estimates are generated, we compare them against the best available bookmaker odds. When our models assign a significantly higher probability to an outcome than the odds imply, that selection is flagged as a value bet. We also calculate the expected value and a confidence rating so users can prioritize the strongest opportunities.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">The Kelly Criterion: Sizing Your Stakes</h2>
