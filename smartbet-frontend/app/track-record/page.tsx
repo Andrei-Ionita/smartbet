@@ -74,29 +74,72 @@ export default function TrackRecordPage() {
     try {
       setLoading(true);
 
-      // Fetch predictions
-      const showAll = filterStatus === 'all';
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      // Fetch predictions via Next.js API proxy (avoids CORS issues with direct Django calls)
+      const includePending = filterStatus === 'all';
       const predictionsResponse = await fetch(
-        `${apiUrl}/api/transparency/recent/?limit=1000&show_all=${showAll}`
+        `/api/django/recommended-predictions?include_pending=${includePending}`
       );
       const predictionsData = await predictionsResponse.json();
 
       if (predictionsData.success) {
-        setPredictions(predictionsData.predictions);
+        // Map from recommended-predictions format to track-record format
+        const mappedPredictions: PredictionWithResult[] = (predictionsData.data || []).map((p: any) => ({
+          fixture_id: p.fixture_id,
+          home_team: p.home_team,
+          away_team: p.away_team,
+          league: p.league,
+          kickoff: p.kickoff,
+          predicted_outcome: p.predicted_outcome,
+          confidence: p.confidence,
+          expected_value: p.expected_value || 0,
+          odds: {
+            home: p.odds_home || 0,
+            draw: p.odds_draw || 0,
+            away: p.odds_away || 0,
+          },
+          actual_outcome: p.actual_outcome,
+          actual_score: p.actual_score_home !== null && p.actual_score_away !== null
+            ? `${p.actual_score_home}-${p.actual_score_away}`
+            : null,
+          was_correct: p.was_correct,
+          profit_loss: p.profit_loss_10 ?? null,
+          prediction_logged_at: p.prediction_logged_at,
+          status: p.is_completed ? 'completed' : 'pending',
+        }));
+
+        setPredictions(mappedPredictions);
 
         // Extract unique leagues
-        const uniqueLeagues = Array.from(new Set(predictionsData.predictions.map((p: PredictionWithResult) => p.league)));
+        const uniqueLeagues = Array.from(new Set(mappedPredictions.map((p: PredictionWithResult) => p.league)));
         setLeagues(uniqueLeagues as string[]);
-      }
 
-      // Fetch accuracy stats
-      const statsResponse = await fetch(`${apiUrl}/api/transparency/dashboard/`);
-      const statsData = await statsResponse.json();
+        // Build stats from the summary provided by the same endpoint
+        const summary = predictionsData.summary;
+        if (summary) {
+          setAccuracyStats({
+            overall: {
+              total_predictions: summary.completed || 0,
+              correct_predictions: summary.correct || 0,
+              incorrect_predictions: summary.incorrect || 0,
+              accuracy_percent: summary.accuracy || 0,
+            },
+            by_outcome: summary.by_outcome || {
+              home: { total: 0, correct: 0, accuracy: 0 },
+              draw: { total: 0, correct: 0, accuracy: 0 },
+              away: { total: 0, correct: 0, accuracy: 0 },
+            },
+          });
 
-      if (statsData.success) {
-        setAccuracyStats(statsData.stats.overall_accuracy);
-        setROIStats(statsData.stats.roi_simulation);
+          setROIStats({
+            total_bets: summary.completed || 0,
+            total_staked: (summary.completed || 0) * 10,
+            total_profit_loss: summary.total_profit_loss || 0,
+            roi_percent: summary.average_roi || 0,
+            wins: summary.correct || 0,
+            losses: summary.incorrect || 0,
+            win_rate: summary.accuracy || 0,
+          });
+        }
       }
     } catch (error) {
       console.error('Failed to load track record:', error);
@@ -108,8 +151,8 @@ export default function TrackRecordPage() {
   const handleUpdateResults = async () => {
     setUpdating(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
-      const response = await fetch(`${apiUrl}/api/transparency/update-results/`, {
+      // Use Next.js API proxy route instead of direct Django call
+      const response = await fetch('/api/django/update-results', {
         method: 'POST',
       });
       const data = await response.json();
