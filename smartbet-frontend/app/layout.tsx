@@ -7,6 +7,7 @@ import Footer from '@/components/Footer'
 import AgeGateModal from './components/AgeGateModal'
 
 export const metadata: Metadata = {
+  metadataBase: new URL('https://betglitch.com'),
   title: {
     default: 'BetGlitch - AI-Powered Football Predictions',
     template: '%s | BetGlitch'
@@ -53,6 +54,29 @@ export const metadata: Metadata = {
   },
 }
 
+const organizationSchema = {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "BetGlitch",
+  "url": "https://betglitch.com",
+  "logo": "https://betglitch.com/images/logo-final-v6.png",
+  "description": "AI-powered football predictions and betting insights for 27 European leagues.",
+  "sameAs": [],
+}
+
+const websiteSchema = {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "BetGlitch",
+  "url": "https://betglitch.com",
+  "description": "AI-powered football predictions across 27 European leagues",
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": "https://betglitch.com/explore?q={search_term_string}",
+    "query-input": "required name=search_term_string",
+  },
+}
+
 export default function RootLayout({
   children,
 }: {
@@ -60,6 +84,16 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationSchema) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteSchema) }}
+        />
+      </head>
       <body className="font-sans">
         <AgeGateModal />
         <AuthProvider>
