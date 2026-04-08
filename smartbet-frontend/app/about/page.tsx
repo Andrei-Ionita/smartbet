@@ -70,9 +70,9 @@ export default function AboutPage() {
               <div className="bg-blue-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <BarChart3 className="h-7 w-7 text-blue-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">3-Model Ensemble</h3>
+              <h3 className="font-bold text-gray-900 mb-2">2-Model Ensemble</h3>
               <p className="text-sm text-gray-600">
-                Random Forest, XGBoost, and Neural Network models work together to produce consensus predictions
+                LightGBM and XGBoost gradient boosting models work together to produce consensus predictions
                 with calibrated confidence scores.
               </p>
             </div>

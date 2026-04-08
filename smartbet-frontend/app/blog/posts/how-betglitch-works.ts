@@ -3,7 +3,7 @@ import { BlogPost } from '../types'
 export const howBetglitchWorks: BlogPost = {
   slug: 'how-betglitch-works',
   title: 'How BetGlitch Works: AI-Powered Football Predictions',
-  description: 'Discover how BetGlitch combines three machine learning models with real-time data from 27 European leagues to generate accurate football predictions.',
+  description: 'Discover how BetGlitch combines two gradient boosting models into a powerful ensemble, using real-time data from 27 European leagues to generate accurate football predictions.',
   author: 'BetGlitch Team',
   date: '2026-03-15',
   readTime: '8 min read',
@@ -14,32 +14,27 @@ export const howBetglitchWorks: BlogPost = {
 The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a fundamentally different approach. We built an AI-driven prediction engine that processes thousands of data points across 27 European football leagues, generating probabilistic forecasts that are published transparently — every single one, wins and losses alike.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our mission is simple: replace guesswork with data science. Rather than relying on a single pundit's opinion, BetGlitch combines three distinct machine learning models into an ensemble system that cross-validates its own predictions before they ever reach you. This article explains exactly how that works, from raw data ingestion to the final probability estimate you see on our platform.
+Our mission is simple: replace guesswork with data science. Rather than relying on a single pundit's opinion, BetGlitch combines two distinct gradient boosting models into an ensemble system that cross-validates its own predictions before they ever reach you. This article explains exactly how that works, from raw data ingestion to the final probability estimate you see on our platform.
 </p>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">The Three-Model Ensemble Approach</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">The Two-Model Ensemble Approach</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-At the core of BetGlitch is an ensemble of three machine learning models. Each model has distinct strengths, and by combining their outputs, we achieve more robust and accurate predictions than any single model could deliver alone. Think of it as a panel of three expert analysts, each using a different methodology, who then collaborate on a final consensus forecast.
+At the core of BetGlitch is an ensemble of two gradient boosting models. Both are tree-based algorithms — the current gold standard for tabular prediction tasks — but each has distinct architectural strengths. By combining their outputs, we achieve more robust and accurate predictions than either model could deliver alone. Think of it as two expert analysts using complementary methodologies who then collaborate on a consensus forecast.
 </p>
 
-<h3 class="text-xl font-semibold text-gray-900 mb-3">1. Random Forest</h3>
+<h3 class="text-xl font-semibold text-gray-900 mb-3">1. LightGBM (Light Gradient Boosting Machine)</h3>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our Random Forest model constructs hundreds of decision trees, each trained on a random subset of our feature set. These features include recent form metrics, head-to-head records, home and away performance differentials, goals scored and conceded trends, and squad availability data. Each tree independently votes on the likely outcome, and the forest aggregates those votes into a probability distribution. Random Forest excels at handling noisy data and is highly resistant to overfitting, making it a reliable baseline predictor. It captures non-linear interactions between features — for example, how a team's home advantage might diminish significantly when facing a top-four opponent with a strong away record.
+Our primary model is LightGBM, a high-performance gradient boosting framework developed by Microsoft Research. LightGBM builds decision trees sequentially using a leaf-wise growth strategy, which means it expands the leaf that produces the largest reduction in loss at each step. This makes it exceptionally efficient and accurate, especially on large feature sets. In our system, LightGBM processes over 100 engineered features — including odds-derived probabilities, log odds, market margins, home-away odds ratios, and favorite-underdog spreads. Its speed and memory efficiency allow us to retrain and recalibrate frequently, keeping the model responsive to shifting form and market conditions across all 27 leagues.
 </p>
 
 <h3 class="text-xl font-semibold text-gray-900 mb-3">2. XGBoost (Extreme Gradient Boosting)</h3>
 <p class="text-gray-700 leading-relaxed mb-6">
-XGBoost is a gradient boosting algorithm that builds trees sequentially, with each new tree focusing specifically on the errors made by the previous ones. This iterative error-correction process makes XGBoost exceptionally good at capturing subtle patterns that other models miss. In our system, XGBoost is particularly effective at weighting recent performance trends — it can detect when a team is on a genuine upswing or downswing, as opposed to random variance. It also handles missing data gracefully, which is critical when dealing with mid-season squad changes, postponed fixtures, or incomplete statistical records from smaller leagues.
-</p>
-
-<h3 class="text-xl font-semibold text-gray-900 mb-3">3. Neural Network</h3>
-<p class="text-gray-700 leading-relaxed mb-6">
-The third pillar of our ensemble is a deep neural network. Unlike the tree-based models above, neural networks can learn highly complex, abstract representations of the data through multiple hidden layers. Our network architecture is specifically designed for sequential sports data, allowing it to identify temporal patterns — momentum shifts, fatigue effects across congested fixture schedules, and the impact of managerial changes over multiple match windows. The neural network often captures relationships that are invisible to traditional statistical methods, such as how a team's playing style interacts with specific opponent formations.
+The second model in our ensemble is XGBoost, another gradient boosting algorithm that builds trees sequentially, with each new tree focusing specifically on the errors made by the previous ones. While conceptually similar to LightGBM, XGBoost uses a different tree-building strategy (level-wise growth) and different regularization techniques, which means it often catches patterns that LightGBM misses, and vice versa. In our system, XGBoost is particularly effective at weighting recent performance trends — it can detect when a team is on a genuine upswing or downswing, as opposed to random variance. It also handles missing data gracefully, which is critical when dealing with mid-season squad changes, postponed fixtures, or incomplete statistical records from smaller leagues.
 </p>
 
 <h3 class="text-xl font-semibold text-gray-900 mb-3">Ensemble Aggregation</h3>
 <p class="text-gray-700 leading-relaxed mb-6">
-The outputs of all three models are combined using a weighted averaging method. The weights are not static — they are recalibrated regularly based on each model's recent predictive accuracy across different leagues and market types. If XGBoost has been outperforming on draw predictions in La Liga, it receives a higher weight for that specific context. This dynamic weighting ensures the ensemble adapts to changing conditions and consistently delivers the most accurate probability estimates possible.
+The outputs of both models are combined by averaging their probability distributions. Each model independently produces probabilities for home win, draw, and away win, and the ensemble averages these into a final consensus forecast. Because LightGBM and XGBoost have different internal architectures — leaf-wise vs. level-wise growth, different regularization, different handling of categorical splits — they tend to make different types of errors. When averaged, these errors often cancel out, producing a more calibrated and reliable final prediction than either model alone.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Data Pipeline: From Raw Stats to Predictions</h2>
@@ -49,7 +44,7 @@ Quality predictions start with quality data. BetGlitch sources its data from the
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Data Ingestion:</strong> Match results, lineups, player statistics, odds movements, and contextual data are pulled continuously from SportMonks for all 27 covered leagues.</li>
 <li><strong class="text-gray-900">Feature Engineering:</strong> Raw data is transformed into predictive features — rolling averages, Elo ratings, expected goals (xG) differentials, rest days between matches, and dozens more carefully crafted variables.</li>
-<li><strong class="text-gray-900">Model Inference:</strong> The engineered features are fed into all three models simultaneously. Each produces a probability distribution over possible outcomes (home win, draw, away win, as well as over/under and other markets).</li>
+<li><strong class="text-gray-900">Model Inference:</strong> The engineered features are fed into both models simultaneously. Each produces a probability distribution over possible outcomes (home win, draw, away win).</li>
 <li><strong class="text-gray-900">Ensemble &amp; Calibration:</strong> Model outputs are combined, calibrated for accuracy, and compared against current bookmaker odds to identify value opportunities.</li>
 <li><strong class="text-gray-900">Publication:</strong> Final predictions, including confidence levels and value assessments, are published on the platform before kickoff with immutable timestamps.</li>
 </ul>
