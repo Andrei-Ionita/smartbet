@@ -152,7 +152,7 @@ export default function TermsPage() {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">9. Contact Information</h2>
                     <p className="text-gray-600">
                         If you have any questions about these Terms of Service, please contact us at:{' '}
-                        <a href="mailto:legal@smartbet.ai" className="text-primary-600 hover:underline">
+                        <a href="mailto:legal@betglitch.com" className="text-primary-600 hover:underline">
                             legal@betglitch.com
                         </a>
                     </p>

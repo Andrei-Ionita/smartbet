@@ -21,7 +21,7 @@ export default function PrivacyPage() {
                 <section>
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Introduction</h2>
                     <p className="text-gray-600 mb-4">
-                        SmartBet ("we", "our", or "us") is committed to protecting your privacy.
+                        BetGlitch ("we", "our", or "us") is committed to protecting your privacy.
                         This Privacy Policy explains how we collect, use, disclose, and safeguard your
                         information when you use our website and services.
                     </p>
@@ -122,7 +122,7 @@ export default function PrivacyPage() {
                             <strong>Legal Requirements:</strong> When required by law or to respond to legal process
                         </li>
                         <li>
-                            <strong>Protection:</strong> To protect the rights, property, or safety of SmartBet and our users
+                            <strong>Protection:</strong> To protect the rights, property, or safety of BetGlitch and our users
                         </li>
                         <li>
                             <strong>Business Transfers:</strong> In connection with a merger, acquisition, or sale of assets
@@ -195,8 +195,8 @@ export default function PrivacyPage() {
                     </h2>
                     <p className="text-gray-600">
                         If you have questions about this Privacy Policy or wish to exercise your rights, contact us at:{' '}
-                        <a href="mailto:privacy@smartbet.ai" className="text-primary-600 hover:underline">
-                            privacy@smartbet.ai
+                        <a href="mailto:privacy@betglitch.com" className="text-primary-600 hover:underline">
+                            privacy@betglitch.com
                         </a>
                     </p>
                 </section>

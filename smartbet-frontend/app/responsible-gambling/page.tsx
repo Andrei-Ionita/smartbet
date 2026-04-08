@@ -13,7 +13,7 @@ export default function ResponsibleGamblingPage() {
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">Responsible Gambling</h1>
                 <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                    At SmartBet, we believe gambling should be an enjoyable activity, not a source of harm.
+                    At BetGlitch, we believe gambling should be an enjoyable activity, not a source of harm.
                     We are committed to promoting responsible gambling practices.
                 </p>
             </div>
@@ -25,7 +25,7 @@ export default function ResponsibleGamblingPage() {
                     <div>
                         <h2 className="font-semibold text-amber-800 mb-2">Important Reminder</h2>
                         <p className="text-amber-700">
-                            SmartBet provides predictions for <strong>informational and entertainment purposes only</strong>.
+                            BetGlitch provides predictions for <strong>informational and entertainment purposes only</strong>.
                             We are NOT a betting operator and do not accept any bets or wagers.
                             If you choose to place bets based on our analysis, please do so responsibly through licensed operators.
                         </p>

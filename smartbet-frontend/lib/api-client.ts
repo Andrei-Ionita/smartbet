@@ -91,7 +91,7 @@ class SmartAPIClient {
         ...options,
         headers: {
           'Accept': 'application/json',
-          'User-Agent': 'SmartBet/1.0',
+          'User-Agent': 'BetGlitch/1.0',
           ...options.headers
         }
       })

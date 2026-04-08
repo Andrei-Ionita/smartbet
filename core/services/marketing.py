@@ -114,7 +114,7 @@ def _welcome_email_payload(subscriber, metadata=None):
     if not sender_email:
         return None
 
-    sender_name = os.getenv('BREVO_SENDER_NAME', 'SmartBet').strip() or 'SmartBet'
+    sender_name = os.getenv('BREVO_SENDER_NAME', 'BetGlitch').strip() or 'BetGlitch'
     track_record_url = os.getenv('MARKETING_TRACK_RECORD_URL', 'https://betglitch.com/track-record').strip()
     pricing_url = os.getenv('MARKETING_PRICING_URL', 'https://betglitch.com/pricing').strip()
 
@@ -146,10 +146,10 @@ def _welcome_email_payload(subscriber, metadata=None):
         }
         return payload
 
-    payload['subject'] = 'Welcome to SmartBet weekly picks'
+    payload['subject'] = 'Welcome to BetGlitch weekly picks'
     payload['htmlContent'] = (
         '<html><body>'
-        '<h1>Welcome to SmartBet</h1>'
+        '<h1>Welcome to BetGlitch</h1>'
         '<p>You are on the list for weekly AI-powered picks, public track-record updates, and premium launch notices.</p>'
         f'<p><strong>Track record:</strong> <a href="{track_record_url}">{track_record_url}</a></p>'
         f'<p><strong>Pricing roadmap:</strong> <a href="{pricing_url}">{pricing_url}</a></p>'
@@ -157,7 +157,7 @@ def _welcome_email_payload(subscriber, metadata=None):
         '</body></html>'
     )
     payload['textContent'] = (
-        f'Welcome to SmartBet. Track record: {track_record_url}. '
+        f'Welcome to BetGlitch. Track record: {track_record_url}. '
         f'Pricing roadmap: {pricing_url}. '
         'You will receive weekly picks and premium launch updates.'
     )
