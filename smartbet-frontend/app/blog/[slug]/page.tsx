@@ -106,7 +106,7 @@ export default async function BlogPostPage({ params }: Props) {
 
         <div
           className="prose prose-lg max-w-none prose-headings:text-gray-900 prose-p:text-gray-700 prose-p:leading-relaxed prose-a:text-primary-600 prose-a:no-underline hover:prose-a:underline prose-strong:text-gray-900 prose-li:text-gray-700"
-          dangerouslySetInnerHTML={{ __html: post.content }}
+          dangerouslySetInnerHTML={{ __html: post.content.trim() }}
         />
 
         <footer className="mt-12 pt-8 border-t border-gray-200">
