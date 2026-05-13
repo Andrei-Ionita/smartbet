@@ -113,16 +113,23 @@ class Command(BaseCommand):
                     prob_away = prob_away / 100
                 
                 odds_data = rec.get('odds_data', {})
-                
+
                 # Extract best_market info for multi-market support
                 best_market = rec.get('best_market', {})
                 market_type = best_market.get('type', '1x2') if best_market else '1x2'
                 market_type_id = best_market.get('type_id')  # Might be None for 1x2 checks
-                
+
                 # If best_market info is missing, try to infer from debug_info
                 if not market_type_id and rec.get('debug_info'):
                      market_type = rec.get('debug_info', {}).get('market_type', '1x2')
-                
+
+                # Bet-time odds for the predicted outcome. odds_data is 1X2-only; for O/U /
+                # BTTS / DC the actual bet odds live in rec['odds'] or best_market['odds'].
+                bet_odds = rec.get('odds') or best_market.get('odds')
+                raw_ev = best_market.get('original_ev')
+                if raw_ev is not None and abs(raw_ev) > 1:
+                    raw_ev = raw_ev / 100.0
+
                 prediction_data = {
                     'fixture_id': fixture_id,
                     'home_team': rec.get('home_team', 'Unknown'),
@@ -138,15 +145,17 @@ class Command(BaseCommand):
                     'odds_home': odds_data.get('home'),
                     'odds_draw': odds_data.get('draw'),
                     'odds_away': odds_data.get('away'),
+                    'odds': bet_odds,
                     'bookmaker': best_market.get('bookmaker') or odds_data.get('bookmaker'),
                     'expected_value': expected_value,
+                    'raw_expected_value': raw_ev,
                     'model_count': rec.get('ensemble_info', {}).get('model_count', 0),
                     'consensus': rec.get('ensemble_info', {}).get('consensus'),
                     'variance': rec.get('ensemble_info', {}).get('variance'),
                     'ensemble_strategy': rec.get('ensemble_info', {}).get('strategy', 'consensus_ensemble'),
                     'recommendation_score': rec.get('revenue_vs_risk_score'),
                     'is_recommended': True,  # Mark as recommended since they come from homepage
-                    
+
                     # Multi-market fields
                     'market_type': market_type,
                     'market_type_id': market_type_id

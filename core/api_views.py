@@ -177,6 +177,8 @@ def get_recommendations(request):
                 'confidence': pred.confidence,
                 'expected_value': pred.expected_value,
                 'ev': pred.expected_value,  # Frontend expects 'ev' field
+                'raw_expected_value': pred.raw_expected_value,
+                'odds': pred.odds,
                 'odds_home': pred.odds_home,
                 'odds_draw': pred.odds_draw,
                 'odds_away': pred.odds_away,
@@ -472,10 +474,13 @@ def get_recommended_predictions_with_outcomes(request):
                 'confidence': round(pred.confidence * 100, 1) if pred.confidence and pred.confidence < 1 else round(pred.confidence, 1),
                 # Convert EV to percentage if stored as decimal
                 'expected_value': round(pred.expected_value * 100, 2) if pred.expected_value and pred.expected_value < 1 else round(pred.expected_value, 2) if pred.expected_value else None,
+                'raw_expected_value': round(pred.raw_expected_value * 100, 2) if pred.raw_expected_value and abs(pred.raw_expected_value) < 1 else round(pred.raw_expected_value, 2) if pred.raw_expected_value is not None else None,
+                'odds': pred.odds,
                 'odds_home': pred.odds_home,
                 'odds_draw': pred.odds_draw,
                 'odds_away': pred.odds_away,
                 'bookmaker': pred.bookmaker,
+                'is_audit_excluded': pred.is_audit_excluded,
                 'actual_outcome': pred.actual_outcome.capitalize() if pred.actual_outcome else None,
                 'actual_outcome_raw': pred.actual_outcome,  # For comparison
                 'actual_score_home': pred.actual_score_home,
@@ -521,31 +526,32 @@ def get_recommended_predictions_with_outcomes(request):
             }
         
         # ============= BASELINE COMPARISON =============
-        # Calculate "implied probability baseline" from odds to show edge over market
-        # This answers: "What accuracy would we expect if bookmakers were perfectly calibrated?"
+        # "Implied probability baseline": what hit-rate would we expect if the bookmaker
+        # priced the predicted outcome perfectly? Always use `r['odds']` (the actual bet-time
+        # odds for the predicted outcome — works for any market). Fall back to per-outcome
+        # 1X2 columns only for legacy rows where `odds` is null (pre-Stage-A data).
         implied_probabilities = []
         for r in completed:
-            # Get the odds for the predicted outcome
-            outcome = (r.get('predicted_outcome_raw') or r.get('predicted_outcome', '')).lower()
-            if outcome == 'home' and r.get('odds_home'):
-                odds = r['odds_home']
-            elif outcome == 'draw' and r.get('odds_draw'):
-                odds = r['odds_draw']
-            elif outcome == 'away' and r.get('odds_away'):
-                odds = r['odds_away']
-            elif 'over' in outcome.lower() and r.get('odds_home'):  # O/U uses odds_home for the predicted side
-                odds = r['odds_home']
-            elif 'under' in outcome.lower() and r.get('odds_away'):
-                odds = r['odds_away']
-            elif 'btts' in outcome.lower() and r.get('odds_home'):
-                odds = r['odds_home']
-            else:
-                odds = None
-            
+            odds = r.get('odds')
+            if not odds:
+                outcome = (r.get('predicted_outcome_raw') or r.get('predicted_outcome', '')).lower()
+                if outcome == 'home':
+                    odds = r.get('odds_home')
+                elif outcome == 'draw':
+                    odds = r.get('odds_draw')
+                elif outcome == 'away':
+                    odds = r.get('odds_away')
+                # For O/U / BTTS / DC legacy rows we don't have bet-time odds at all —
+                # back-calculate from EV + confidence if possible.
+                elif r.get('expected_value') is not None and r.get('confidence'):
+                    conf_dec = r['confidence'] / 100.0 if r['confidence'] > 1 else r['confidence']
+                    ev_dec = r['expected_value'] / 100.0 if abs(r['expected_value']) > 1 else r['expected_value']
+                    if conf_dec > 0:
+                        odds = (ev_dec + 1) / conf_dec
+
             if odds and odds > 1:
-                # Implied probability = 1 / odds (simplified, ignoring margin)
-                implied_prob = 1 / odds
-                implied_probabilities.append(implied_prob)
+                # Implied probability = 1 / odds (simplified, ignoring bookmaker margin)
+                implied_probabilities.append(1 / odds)
         
         # Calculate baseline
         if implied_probabilities:
@@ -667,10 +673,20 @@ def log_recommendations(request):
             
             odds_data = rec.get('odds_data', {})
             predicted_outcome = rec.get('predicted_outcome', 'Home').capitalize()
-            
+
+            # The Next.js engine sends the actual bet-time odds at the top level (`rec['odds']`)
+            # and via best_market.odds. odds_data is the 1X2 home/draw/away triple and is NOT
+            # the right value for O/U / BTTS / DC markets — those need rec['odds'].
+            best_market = rec.get('best_market') or {}
+            bet_odds = rec.get('odds') or best_market.get('odds')
+            # The original (pre-clamp) EV, when the engine sent it.
+            raw_ev = best_market.get('original_ev')
+            if raw_ev is not None and abs(raw_ev) > 1:
+                raw_ev = raw_ev / 100.0
+
             # Check if exists
             existing = PredictionLog.objects.filter(fixture_id=fixture_id).first()
-            
+
             prediction_data = {
                 'home_team': rec.get('home_team', 'Unknown'),
                 'away_team': rec.get('away_team', 'Unknown'),
@@ -685,8 +701,10 @@ def log_recommendations(request):
                 'odds_home': odds_data.get('home'),
                 'odds_draw': odds_data.get('draw'),
                 'odds_away': odds_data.get('away'),
-                'bookmaker': odds_data.get('bookmaker'),
+                'odds': bet_odds,
+                'bookmaker': best_market.get('bookmaker') or odds_data.get('bookmaker'),
                 'expected_value': expected_value,
+                'raw_expected_value': raw_ev,
                 'model_count': rec.get('ensemble_info', {}).get('model_count', 0),
                 'consensus': rec.get('ensemble_info', {}).get('consensus'),
                 'variance': rec.get('ensemble_info', {}).get('variance'),
@@ -694,9 +712,9 @@ def log_recommendations(request):
                 'recommendation_score': rec.get('revenue_vs_risk_score'),
                 'is_recommended': True,
                 # Multi-Market Support (V3)
-                'market_type': rec.get('best_market', {}).get('type', '1x2'),
-                'market_type_id': rec.get('best_market', {}).get('type_id') or rec.get('debug_info', {}).get('market_type_id'),
-                'market_score': rec.get('best_market', {}).get('market_score'),
+                'market_type': best_market.get('type', '1x2'),
+                'market_type_id': best_market.get('type_id') or rec.get('debug_info', {}).get('market_type_id'),
+                'market_score': best_market.get('market_score'),
             }
             
             if existing:
