@@ -70,6 +70,13 @@ const MARKET_CONFIG = {
 
 type MarketType = keyof typeof MARKET_CONFIG
 
+// Leagues blocked from recommendations based on settled-data backtest:
+//   Admiral Bundesliga (-33% yield, n=9), Liga Portugal (-29%, n=3),
+//   Super Lig (carry-over), Allsvenskan (-31%, n=6), Eliteserien (-21%, n=14).
+// Fixtures from these leagues are skipped before any prediction processing.
+// Backtest projects +5-8pp yield with this filter + the Under-2.5 block below.
+const BLACKLISTED_LEAGUE_IDS = new Set<number>([181, 462, 600, 573, 444])
+
 interface MarketPrediction {
   market_type: MarketType
   type_id: number
@@ -281,6 +288,9 @@ export async function GET(request: NextRequest) {
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
     for (const league of keyLeagues) {
+      if (BLACKLISTED_LEAGUE_IDS.has(league.id)) {
+        continue
+      }
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
@@ -497,7 +507,11 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.12 && ev >= 0.05) {
+              // Hard-block Under 2.5: backtest on 203 settled rows shows dropping it
+              // lifts yield from 13.76% to 21.60%. The model overrates this outcome
+              // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
+              // surfaces in `all_markets` for transparency; just not as a pick.
+              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }

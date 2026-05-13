@@ -412,6 +412,16 @@ CANDIDATE = replace(
     league_blacklist=DATA_DRIVEN_BLACKLIST,
 )
 
+# What Phase 2a deploys: same as drop_under_2.5 + the data-driven blacklist, but
+# no EV trim. This is the live filter shipping in commit-after-this for the
+# Next.js engine + Django defensive layer + prediction_enhancer.py.
+PHASE_2A = replace(
+    CURRENT_PROD,
+    name='phase_2a',
+    drop_outcomes_substrings=['under 2.5'],
+    league_blacklist=DATA_DRIVEN_BLACKLIST,
+)
+
 BASELINES: List[FilterConfig] = [
     CURRENT_PROD,
     NO_MAX_ODDS,
@@ -421,5 +431,6 @@ BASELINES: List[FilterConfig] = [
     SAFE_ONLY,
     V2_TIERS,
     DROP_UNDER_25,
+    PHASE_2A,
     CANDIDATE,
 ]

@@ -20,23 +20,30 @@ class PredictionEnhancer:
     - Incorrect preds avg odds 3.20 vs correct 2.19  → tighter odds cap
     """
     
-    # Leagues with critically poor accuracy in recommended predictions
+    # Phase 2a: leagues blocked from recommendations based on backtest of 203 settled
+    # rows. Source-of-truth shared with core/api_views.PHASE_2A_BLACKLISTED_LEAGUES
+    # and smartbet-frontend BLACKLISTED_LEAGUE_IDS.
     LEAGUE_BLACKLIST = [
-        'Admiral Bundesliga',   # 0/3 = 0.0% accuracy, -$30 P/L
-        'Liga Portugal',        # 0/1 = 0.0% accuracy
-        'Super Lig',            # 0/0 recommended (14.3% overall)
+        'Admiral Bundesliga',   # backtest: -33% yield (n=9)
+        'Liga Portugal',        # backtest: -29% yield (n=3)
+        'Super Lig',            # carry-over from prior analysis
+        'Allsvenskan',          # backtest: -31% yield (n=6)
+        'Eliteserien',          # backtest: -21% yield (n=14)
     ]
-    
+
     # Leagues to watch — not blocked but require extra confidence
     LEAGUE_WATCHLIST = [
         'Eredivisie',           # 2/4 = 50.0% accuracy
         'Pro League',           # 0/1 = 0.0% accuracy
     ]
-    
+
     def __init__(self):
         self.confidence_floor = 0.60  # Minimum for Safe Bets
         self.ev_floor = 0.15  # Minimum EV for recommendations
-        self.max_odds = 2.50  # Lowered from 3.0 — accuracy collapses above 2.50
+        # max_odds was lowered to 2.50 in Feb 2026 on n=46. Backtest on 203 settled
+        # rows shows it's a no-op (legacy O/U rows have odds=None so the check is
+        # skipped). Kept as None for clarity; the EV-zone trap cap is the live guard.
+        self.max_odds = None
     
     def calculate_quality_score(self, prediction: Dict) -> float:
         """
@@ -256,14 +263,18 @@ class PredictionEnhancer:
             # Absolute floor for any prediction
             if confidence < 0.35:
                  return False, f"Confidence too low ({confidence*100:.1f}% < 35%)"
-            
-            # NOTE: League blacklist and Under 2.5 are handled via quality score
-            # penalties and risk warnings (soft signals) rather than hard blocks.
-            # This preserves recommendation volume while ranking weaker picks lower.
-            
-            # DATA-DRIVEN: Reject odds above 2.50 (accuracy collapses)
-            # This is the only hard filter — odds >2.50 had 0% hit rate at 3.0+
-            if predicted_odds > self.max_odds:
+
+            # Phase 2a hard blocks (backtest-driven). Promotes the prior soft penalties
+            # to hard rejects because the backtest showed these picks actively destroy
+            # yield, not just dilute it.
+            if 'under' in predicted_outcome and '2.5' in predicted_outcome:
+                return False, "Under 2.5 blocked (backtest: dropping it adds +7.8pp yield)"
+            if league in self.LEAGUE_BLACKLIST:
+                return False, f"League blacklisted ({league})"
+
+            # max_odds is now None (see __init__ note). The check below is preserved
+            # only so a future operator can re-enable it by setting self.max_odds.
+            if self.max_odds is not None and predicted_odds > self.max_odds:
                 return False, f"Odds too high ({predicted_odds:.2f} > {self.max_odds:.2f})"
             
             # Track 1: Safe Bets (Standard)

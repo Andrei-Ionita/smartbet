@@ -62,11 +62,23 @@ class Command(BaseCommand):
             updated_count = 0
             skipped_count = 0
             
+            # Phase 2a filter — reuse the same source-of-truth from api_views so
+            # this command and the live POST endpoint behave identically.
+            from core.api_views import PHASE_2A_BLACKLISTED_LEAGUES, PHASE_2A_BLOCKED_OUTCOMES
+
             for rec in recommendations:
                 fixture_id = rec.get('fixture_id')
                 if not fixture_id:
                     continue
-                
+
+                if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
+                    skipped_count += 1
+                    continue
+                if any(needle in (rec.get('predicted_outcome') or '').lower()
+                       for needle in PHASE_2A_BLOCKED_OUTCOMES):
+                    skipped_count += 1
+                    continue
+
                 # Check if already exists
                 existing = PredictionLog.objects.filter(fixture_id=fixture_id).first()
                 

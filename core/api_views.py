@@ -18,6 +18,21 @@ from .bankroll_utils import calculate_stake_amount
 from .services.marketing import MarketingSyncError, sync_marketing_profile
 
 
+# Phase 2a: hard-blocks at the write boundary. The primary filter lives in the
+# Next.js recommendation engine; this layer is defense-in-depth so a stale
+# frontend (or a future caller bypassing the engine) can't poison PredictionLog.
+# Source of truth for the same list: smartbet-frontend/app/api/recommendations/
+# route.ts BLACKLISTED_LEAGUE_IDS (181/462/600/573/444).
+PHASE_2A_BLACKLISTED_LEAGUES = {
+    'Admiral Bundesliga',
+    'Liga Portugal',
+    'Super Lig',
+    'Allsvenskan',
+    'Eliteserien',
+}
+PHASE_2A_BLOCKED_OUTCOMES = ('under 2.5',)
+
+
 def generate_model_explanation(prediction):
     """Generate beautiful, comprehensive model insights"""
     
@@ -644,12 +659,26 @@ def log_recommendations(request):
         
         logged_count = 0
         updated_count = 0
-        
+        skipped_blacklist = 0
+        skipped_outcome = 0
+
         for rec in recommendations:
             fixture_id = rec.get('fixture_id')
             if not fixture_id:
                 continue
-            
+
+            # Phase 2a defensive filter — reject recs we won't recommend regardless
+            # of what the upstream engine sent. Keeps existing rows with
+            # is_recommended=True intact (we only filter writes, not the
+            # historical track record).
+            if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
+                skipped_blacklist += 1
+                continue
+            predicted_lower = (rec.get('predicted_outcome') or '').lower()
+            if any(needle in predicted_lower for needle in PHASE_2A_BLOCKED_OUTCOMES):
+                skipped_outcome += 1
+                continue
+
             # Parse kickoff date
             kickoff_str = rec.get('kickoff')
             try:
@@ -747,8 +776,13 @@ def log_recommendations(request):
             'success': True,
             'logged_count': logged_count,
             'updated_count': updated_count,
+            'skipped_blacklist': skipped_blacklist,
+            'skipped_outcome': skipped_outcome,
             'total': logged_count + updated_count,
-            'message': f'Logged {logged_count} new, updated {updated_count} existing recommendations'
+            'message': (
+                f'Logged {logged_count} new, updated {updated_count} existing; '
+                f'skipped {skipped_blacklist} blacklist + {skipped_outcome} blocked-outcome recs'
+            ),
         })
         
     except json.JSONDecodeError:
