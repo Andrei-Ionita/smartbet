@@ -506,13 +506,17 @@ def get_recommended_predictions_with_outcomes(request):
             }
             results.append(result)
         
-        # Calculate summary statistics
-        completed = [r for r in results if r['is_completed']]
+        # Calculate summary statistics.
+        # Audit-excluded rows are returned in `data` (so the table can render them with a
+        # "excluded — see why" badge) but are kept OUT of all aggregate metrics. This is the
+        # whole point of the quarantine flag — public stats reflect only data we trust.
+        completed = [r for r in results if r['is_completed'] and not r.get('is_audit_excluded')]
+        quarantined = [r for r in results if r['is_completed'] and r.get('is_audit_excluded')]
         correct = [r for r in completed if r['was_correct']]
         total_pl = sum([r['profit_loss_10'] for r in completed if r['profit_loss_10'] is not None])
         avg_roi = sum([r['roi_percent'] for r in completed if r['roi_percent'] is not None]) / len(completed) if completed else 0
-        
-        # Per-Market Accuracy Breakdown
+
+        # Per-Market Accuracy Breakdown (also excludes quarantined rows)
         market_types = ['1x2', 'btts', 'over_under_2.5', 'double_chance']
         by_market = {}
         for market in market_types:
@@ -564,15 +568,25 @@ def get_recommended_predictions_with_outcomes(request):
         actual_accuracy = round((len(correct) / len(completed) * 100), 1) if completed else None
         edge_vs_market = round(actual_accuracy - implied_baseline, 1) if actual_accuracy and implied_baseline else None
         
+        # Yield = profit per unit staked. With flat $10 stakes, yield = total_pl / (n * 10) * 100.
+        # This is the headline number bettors actually compare services on.
+        yield_percent = round(total_pl / (len(completed) * 10) * 100, 2) if completed else None
+
+        # "pending" excludes quarantined-but-incomplete rows on principle; the
+        # quarantined_count surfaces them separately for transparency.
+        pending_count = sum(1 for r in results if not r['is_completed'] and not r.get('is_audit_excluded'))
+
         summary = {
             'total_recommended': len(results),
             'completed': len(completed),
-            'pending': len(results) - len(completed),
+            'pending': pending_count,
+            'quarantined': len(quarantined),
             'correct': len(correct),
             'incorrect': len(completed) - len(correct),
             'accuracy': round((len(correct) / len(completed) * 100), 1) if completed else None,
             'total_profit_loss': round(total_pl, 2) if total_pl else 0,
             'average_roi': round(avg_roi, 2) if avg_roi else None,
+            'yield_percent': yield_percent,
             'by_market': by_market,
             # NEW: Baseline comparison metrics
             'implied_baseline': implied_baseline,  # Expected accuracy based on odds
