@@ -31,6 +31,10 @@ PHASE_2A_BLACKLISTED_LEAGUES = {
     'Eliteserien',
 }
 PHASE_2A_BLOCKED_OUTCOMES = ('under 2.5',)
+# Phase 2b: hard EV cap. Tighter than the model's own EV_PLAUSIBLE_MAX (0.50)
+# because backtest shows picks with EV in (0.20, 0.50] still underperform —
+# they're the trap-zone the V2 enhancer was originally trying to address.
+PHASE_2B_MAX_EV = 0.20
 
 
 def generate_model_explanation(prediction):
@@ -661,13 +665,14 @@ def log_recommendations(request):
         updated_count = 0
         skipped_blacklist = 0
         skipped_outcome = 0
+        skipped_high_ev = 0
 
         for rec in recommendations:
             fixture_id = rec.get('fixture_id')
             if not fixture_id:
                 continue
 
-            # Phase 2a defensive filter — reject recs we won't recommend regardless
+            # Phase 2a/2b defensive filters — reject recs we won't recommend regardless
             # of what the upstream engine sent. Keeps existing rows with
             # is_recommended=True intact (we only filter writes, not the
             # historical track record).
@@ -678,6 +683,13 @@ def log_recommendations(request):
             if any(needle in predicted_lower for needle in PHASE_2A_BLOCKED_OUTCOMES):
                 skipped_outcome += 1
                 continue
+            # EV cap: incoming EV may be percent or decimal — normalize before comparing.
+            incoming_ev = rec.get('expected_value') or rec.get('ev')
+            if incoming_ev is not None:
+                normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
+                if normalized_ev > PHASE_2B_MAX_EV:
+                    skipped_high_ev += 1
+                    continue
 
             # Parse kickoff date
             kickoff_str = rec.get('kickoff')
@@ -778,10 +790,12 @@ def log_recommendations(request):
             'updated_count': updated_count,
             'skipped_blacklist': skipped_blacklist,
             'skipped_outcome': skipped_outcome,
+            'skipped_high_ev': skipped_high_ev,
             'total': logged_count + updated_count,
             'message': (
                 f'Logged {logged_count} new, updated {updated_count} existing; '
-                f'skipped {skipped_blacklist} blacklist + {skipped_outcome} blocked-outcome recs'
+                f'skipped {skipped_blacklist} blacklist + {skipped_outcome} blocked-outcome '
+                f'+ {skipped_high_ev} high-EV recs'
             ),
         })
         

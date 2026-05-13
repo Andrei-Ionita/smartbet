@@ -272,6 +272,11 @@ class PredictionEnhancer:
             if league in self.LEAGUE_BLACKLIST:
                 return False, f"League blacklisted ({league})"
 
+            # Phase 2b: hard cap on EV. Backtest shows picks with EV > 0.20 underperform —
+            # they're typically bookmaker pricing errors or trap markets, not real edges.
+            if ev > 0.20:
+                return False, f"EV too high ({ev*100:.1f}% > 20%) - trap zone"
+
             # max_odds is now None (see __init__ note). The check below is preserved
             # only so a future operator can re-enable it by setting self.max_odds.
             if self.max_odds is not None and predicted_odds > self.max_odds:

@@ -685,6 +685,16 @@ export async function GET(request: NextRequest) {
             )
             const adjustedEV = valueZone.adjustedEV
 
+            // Phase 2b: hard-cap EV at 20%. Backtest on 203 settled rows shows
+            // EV >20% picks (even after evaluateValueZone's soft adjustment)
+            // underperform — they're typically bookmaker pricing errors or
+            // suspended/illiquid markets, not genuine edges. Drop the entire
+            // fixture rather than reaching for second-best market (matches
+            // backtester semantics: trim is on stored expected_value).
+            if (adjustedEV > 0.20) {
+              continue
+            }
+
             const confidence = adjustedProbability * 100
             const probabilityGap = bestMarket.probability_gap
 
