@@ -690,3 +690,302 @@ class MarketingAutomationTests(TestCase):
         self.assertIn('welcome_sequence_started', events)
         self.assertIn('pricing_viewed', events)
         self.assertIn('email_clicked', events)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression tests for the data-integrity + Phase-2 filter work shipped
+# 2026-05-13/14. These exist to fail loudly if a future refactor weakens any of
+# the invariants we just spent a session establishing.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _make_pred(fixture_id, **overrides):
+    """Helper: a valid PredictionLog kwargs dict with sane defaults; override what you need."""
+    base = dict(
+        fixture_id=fixture_id,
+        home_team='A', away_team='B', league='Premier League',
+        kickoff=timezone.now() + timedelta(days=1),
+        predicted_outcome='Home',
+        confidence=0.65,
+        probability_home=0.65, probability_draw=0.20, probability_away=0.15,
+        market_type='1x2',
+    )
+    base.update(overrides)
+    return base
+
+
+class PredictionLogSaveInvariantTests(TestCase):
+    """Cover the save() override added in Stage A — see core/models.py PredictionLog.save."""
+
+    def test_ev_percent_normalized_to_decimal(self):
+        p = PredictionLog.objects.create(**_make_pred(101, expected_value=15.0, odds=2.1))
+        # 15.0 means 15%, should become 0.15
+        self.assertAlmostEqual(p.expected_value, 0.15, places=6)
+        self.assertEqual(p.is_audit_excluded, False)
+
+    def test_confidence_percent_normalized_to_decimal(self):
+        p = PredictionLog.objects.create(**_make_pred(102, confidence=65.0, expected_value=0.10, odds=2.0))
+        self.assertAlmostEqual(p.confidence, 0.65, places=6)
+
+    def test_high_ev_clamped_and_audit_excluded(self):
+        p = PredictionLog.objects.create(**_make_pred(103, expected_value=0.95, odds=3.0))
+        self.assertEqual(p.expected_value, PredictionLog.EV_PLAUSIBLE_MAX)
+        self.assertAlmostEqual(p.raw_expected_value, 0.95, places=6)
+        self.assertTrue(p.is_audit_excluded)
+
+    def test_low_ev_clamped_and_audit_excluded(self):
+        p = PredictionLog.objects.create(**_make_pred(104, expected_value=-0.80, odds=2.0))
+        self.assertEqual(p.expected_value, PredictionLog.EV_PLAUSIBLE_MIN)
+        self.assertAlmostEqual(p.raw_expected_value, -0.80, places=6)
+        self.assertTrue(p.is_audit_excluded)
+
+    def test_high_ev_in_percent_form_handled(self):
+        # The DB has historical rows where EV came in as e.g. 89.45 (percent).
+        # save() should normalize then clamp.
+        p = PredictionLog.objects.create(**_make_pred(105, expected_value=89.45, odds=3.0))
+        self.assertEqual(p.expected_value, PredictionLog.EV_PLAUSIBLE_MAX)
+        self.assertAlmostEqual(p.raw_expected_value, 0.8945, places=4)
+        self.assertTrue(p.is_audit_excluded)
+
+    def test_invalid_odds_nulled(self):
+        p = PredictionLog.objects.create(**_make_pred(106, expected_value=0.10, odds=0.95))
+        # 0.95 <= 1.01 is impossible for decimal odds — should be discarded
+        self.assertIsNone(p.odds)
+
+    def test_clean_inputs_pass_through(self):
+        p = PredictionLog.objects.create(
+            **_make_pred(107, expected_value=0.18, odds=1.91, confidence=0.62)
+        )
+        self.assertAlmostEqual(p.expected_value, 0.18, places=6)
+        self.assertEqual(p.odds, 1.91)
+        self.assertAlmostEqual(p.confidence, 0.62, places=6)
+        self.assertFalse(p.is_audit_excluded)
+        # raw_expected_value is preserved on first save
+        self.assertAlmostEqual(p.raw_expected_value, 0.18, places=6)
+
+    def test_re_save_is_idempotent(self):
+        p = PredictionLog.objects.create(**_make_pred(108, expected_value=0.95, odds=3.0))
+        # First save clamped to 0.50, flagged audit-excluded.
+        first_ev = p.expected_value
+        first_raw = p.raw_expected_value
+        first_flag = p.is_audit_excluded
+        p.save()
+        p.refresh_from_db()
+        self.assertEqual(p.expected_value, first_ev)
+        self.assertEqual(p.raw_expected_value, first_raw)
+        self.assertEqual(p.is_audit_excluded, first_flag)
+
+
+class LogRecommendationsFilterTests(TestCase):
+    """Cover Phase 2a + 2b reject branches in core/api_views.log_recommendations."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = '/api/log-recommendations/'
+
+    def _post(self, recs):
+        import json as _json
+        return self.client.post(
+            self.url, data=_json.dumps({'recommendations': recs}),
+            content_type='application/json',
+        )
+
+    def _rec(self, **overrides):
+        """Default valid recommendation payload."""
+        base = {
+            'fixture_id': 200001,
+            'home_team': 'Team A', 'away_team': 'Team B',
+            'league': 'Premier League',
+            'kickoff': (timezone.now() + timedelta(days=1)).isoformat(),
+            'predicted_outcome': 'Over 2.5',
+            'confidence': 0.62,
+            'probabilities': {'home': 0.45, 'draw': 0.25, 'away': 0.30},
+            'odds_data': {'home': 1.9, 'draw': 3.4, 'away': 3.2, 'bookmaker': 'bet365'},
+            'best_market': {'type': 'over_under_2.5', 'odds': 1.85, 'market_score': 0.5},
+            'odds': 1.85,
+            'expected_value': 0.15,
+        }
+        base.update(overrides)
+        return base
+
+    def test_blacklist_league_rejected(self):
+        rec = self._rec(fixture_id=200010, league='Admiral Bundesliga')
+        resp = self._post([rec])
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body['skipped_blacklist'], 1)
+        self.assertEqual(body['logged_count'], 0)
+        self.assertFalse(PredictionLog.objects.filter(fixture_id=200010).exists())
+
+    def test_under_25_outcome_rejected(self):
+        rec = self._rec(fixture_id=200011, predicted_outcome='Under 2.5')
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['skipped_outcome'], 1)
+        self.assertFalse(PredictionLog.objects.filter(fixture_id=200011).exists())
+
+    def test_high_ev_rejected(self):
+        # expected_value as decimal > 0.20
+        rec = self._rec(fixture_id=200012, expected_value=0.35)
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['skipped_high_ev'], 1)
+        self.assertFalse(PredictionLog.objects.filter(fixture_id=200012).exists())
+
+    def test_high_ev_in_percent_form_rejected(self):
+        # Same threshold, expressed as percent
+        rec = self._rec(fixture_id=200013, expected_value=35.0)
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['skipped_high_ev'], 1)
+
+    def test_clean_recommendation_logged(self):
+        rec = self._rec(fixture_id=200014)
+        resp = self._post([rec])
+        body = resp.json()
+        self.assertEqual(body['logged_count'], 1)
+        self.assertEqual(body['skipped_blacklist'], 0)
+        self.assertEqual(body['skipped_outcome'], 0)
+        self.assertEqual(body['skipped_high_ev'], 0)
+        p = PredictionLog.objects.get(fixture_id=200014)
+        # Stage A wiring — `odds` was captured from rec['odds']
+        self.assertEqual(p.odds, 1.85)
+
+
+class AuditQuarantineCommandTests(TestCase):
+    """End-to-end of `python manage.py audit_quarantine_predictions`."""
+
+    def setUp(self):
+        # Three rows: one bad EV (gets flagged), one clean, one with percent-form EV.
+        kickoff = timezone.now() - timedelta(days=2)
+        # We bypass save() invariants here because the command's job is to fix
+        # rows where they weren't applied at write time (legacy data).
+        PredictionLog.objects.bulk_create([
+            PredictionLog(
+                fixture_id=300001, home_team='A', away_team='B', league='Premier League',
+                kickoff=kickoff, predicted_outcome='Over 2.5', market_type='over_under_2.5',
+                confidence=0.62, probability_home=0, probability_draw=0, probability_away=0,
+                expected_value=85.0,  # implausibly high, stored as percent
+                actual_outcome='Over', was_correct=True, profit_loss_10=8.5, roi_percent=85.0,
+                is_recommended=True,
+            ),
+            PredictionLog(
+                fixture_id=300002, home_team='C', away_team='D', league='Premier League',
+                kickoff=kickoff, predicted_outcome='Over 2.5', market_type='over_under_2.5',
+                confidence=0.60, probability_home=0, probability_draw=0, probability_away=0,
+                expected_value=0.15,  # clean decimal
+                actual_outcome='Under', was_correct=False, profit_loss_10=-10.0, roi_percent=-100.0,
+                is_recommended=True,
+            ),
+            PredictionLog(
+                fixture_id=300003, home_team='E', away_team='F', league='Premier League',
+                kickoff=kickoff, predicted_outcome='Home', market_type='1x2', odds=2.0,
+                confidence=58.0, probability_home=0.58, probability_draw=0.22, probability_away=0.20,
+                expected_value=16.0,  # percent form — should normalize but stay clean
+                actual_outcome='Home', was_correct=True, profit_loss_10=10.0, roi_percent=100.0,
+                is_recommended=True,
+            ),
+        ])
+
+    def test_dry_run_does_not_mutate(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command('audit_quarantine_predictions', stdout=StringIO())
+        # Nothing should be flagged on the DB.
+        self.assertEqual(PredictionLog.objects.filter(is_audit_excluded=True).count(), 0)
+        # The bad row's stored EV stays in percent form (untouched).
+        bad = PredictionLog.objects.get(fixture_id=300001)
+        self.assertEqual(bad.expected_value, 85.0)
+
+    def test_apply_flags_and_normalizes(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command('audit_quarantine_predictions', '--apply', stdout=StringIO())
+        bad = PredictionLog.objects.get(fixture_id=300001)
+        self.assertTrue(bad.is_audit_excluded)
+        # EV should be clamped to plausible max
+        self.assertEqual(bad.expected_value, PredictionLog.EV_PLAUSIBLE_MAX)
+        # Clean rows untouched (the percent-form EV gets normalized but not flagged)
+        clean = PredictionLog.objects.get(fixture_id=300002)
+        self.assertFalse(clean.is_audit_excluded)
+        self.assertAlmostEqual(clean.expected_value, 0.15, places=6)
+        percent_clean = PredictionLog.objects.get(fixture_id=300003)
+        self.assertFalse(percent_clean.is_audit_excluded)
+        self.assertAlmostEqual(percent_clean.expected_value, 0.16, places=6)
+
+    def test_apply_is_idempotent(self):
+        from django.core.management import call_command
+        from io import StringIO
+        call_command('audit_quarantine_predictions', '--apply', stdout=StringIO())
+        flagged_first = PredictionLog.objects.filter(is_audit_excluded=True).count()
+        call_command('audit_quarantine_predictions', '--apply', stdout=StringIO())
+        flagged_second = PredictionLog.objects.filter(is_audit_excluded=True).count()
+        self.assertEqual(flagged_first, flagged_second)
+
+
+class BacktesterTests(TestCase):
+    """Cover core.services.backtester filter logic + metric computation."""
+
+    def setUp(self):
+        from core.services import backtester
+        self.bt = backtester
+        # Three settled rows: a winning O/U, a losing O/U, and a Under 2.5 pick
+        # (so drop_under_2.5 config can prove it filters it out).
+        kickoff = timezone.now() - timedelta(days=2)
+        self.rows = []
+        self.rows.append(PredictionLog.objects.create(
+            fixture_id=400001, home_team='A', away_team='B', league='Premier League',
+            kickoff=kickoff, predicted_outcome='Over 2.5', market_type='over_under_2.5',
+            confidence=0.65, probability_home=0, probability_draw=0, probability_away=0,
+            expected_value=0.12, odds=1.85,
+            actual_outcome='Over', was_correct=True, profit_loss_10=8.5, roi_percent=85.0,
+            is_recommended=True,
+        ))
+        self.rows.append(PredictionLog.objects.create(
+            fixture_id=400002, home_team='C', away_team='D', league='Premier League',
+            kickoff=kickoff, predicted_outcome='Over 2.5', market_type='over_under_2.5',
+            confidence=0.60, probability_home=0, probability_draw=0, probability_away=0,
+            expected_value=0.10, odds=1.80,
+            actual_outcome='Under', was_correct=False, profit_loss_10=-10.0, roi_percent=-100.0,
+            is_recommended=True,
+        ))
+        self.rows.append(PredictionLog.objects.create(
+            fixture_id=400003, home_team='E', away_team='F', league='Allsvenskan',
+            kickoff=kickoff, predicted_outcome='Under 2.5', market_type='over_under_2.5',
+            confidence=0.62, probability_home=0, probability_draw=0, probability_away=0,
+            expected_value=0.12, odds=1.95,
+            actual_outcome='Under', was_correct=True, profit_loss_10=9.5, roi_percent=95.0,
+            is_recommended=True,
+        ))
+
+    def test_metrics_yield_and_accuracy(self):
+        m = self.bt.metrics(self.rows)
+        self.assertEqual(m.n_settled, 3)
+        self.assertEqual(m.correct, 2)
+        self.assertAlmostEqual(m.accuracy, 2 / 3 * 100, places=4)
+        # Total P/L: 8.5 + -10 + 9.5 = 8.0 over 3 bets of $10 = 8/30 = 26.67%
+        self.assertAlmostEqual(m.total_pl, 8.0, places=4)
+        self.assertAlmostEqual(m.yield_percent, 8.0 / 30 * 100, places=4)
+
+    def test_passes_drops_under_25_when_configured(self):
+        cfg = self.bt.DROP_UNDER_25
+        kept = [r for r in self.rows if self.bt.passes(r, cfg)]
+        # Under 2.5 row (400003) should be dropped.
+        self.assertEqual({r.fixture_id for r in kept}, {400001, 400002})
+
+    def test_passes_drops_blacklisted_leagues_when_configured(self):
+        cfg = self.bt.PHASE_2A
+        kept = [r for r in self.rows if self.bt.passes(r, cfg)]
+        # Allsvenskan is in DATA_DRIVEN_BLACKLIST; row 400003 also drops via under-2.5.
+        self.assertNotIn(400003, {r.fixture_id for r in kept})
+
+    def test_passes_ev_max_caps_evaluation(self):
+        cfg = self.bt.PHASE_2B  # max_ev=0.20
+        # All three rows have EV <= 0.20 so this filter doesn't drop on its own —
+        # but combined with Phase 2a blocks Under 2.5 + Allsvenskan, row 400003 still drops.
+        kept = [r for r in self.rows if self.bt.passes(r, cfg)]
+        self.assertEqual({r.fixture_id for r in kept}, {400001, 400002})
+
+    def test_evaluate_returns_metrics_for_kept_rows(self):
+        m, kept = self.bt.evaluate(self.rows, self.bt.PHASE_2A)
+        self.assertEqual(len(kept), 2)
+        self.assertEqual(m.n_kept, 2)
+        # Only the winning O/U (400001) and losing O/U (400002) survive.
+        # Yield: (8.5 - 10) / (2 * 10) = -7.5%
+        self.assertAlmostEqual(m.yield_percent, -7.5, places=4)
