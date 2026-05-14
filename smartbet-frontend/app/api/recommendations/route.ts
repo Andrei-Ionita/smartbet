@@ -406,9 +406,14 @@ export async function GET(request: NextRequest) {
               const maxProb = Math.max(yesProb, noProb)
               const outcome = yesProb > noProb ? 'yes' : 'no'
 
-              // Get BTTS odds (market_id 28 or search by name)
+              // Phase 4a fix: BTTS lives at market_id=14, not 28. The previous
+              // value (28) is actually "Goals Over/Under 1st Half" — no BTTS odds
+              // ever matched, so EV stayed at -1 and BTTS picks never surfaced.
+              // Also accept market_description fallback for resilience to schema drift.
               const bttsOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 28 || odd.name?.toLowerCase().includes('btts') || odd.name?.toLowerCase().includes('both')
+                odd.market_id === 14 ||
+                odd.market_description?.toLowerCase() === 'both teams to score' ||
+                odd.name?.toLowerCase().includes('btts')
               )
               let oddsValue = 1
               for (const odd of bttsOdds) {
@@ -532,13 +537,26 @@ export async function GET(request: NextRequest) {
               if (maxProb === awayOrDraw) outcome = 'X2'
               else if (maxProb === homeOrAway) outcome = '12'
 
-              // Get DC odds (market_id 12)
-              const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
+              // Phase 4a fix: Double Chance lives at market_id=2, not 12. Labels are
+              // "Home/Draw" / "Home/Away" / "Draw/Away" (some bookmakers also use
+              // team-name labels like "Team A or Team B" — skipped here since most
+              // bookmakers use the standard format and one bookmaker per outcome is enough).
+              const dcOdds = fixture.odds.filter((odd: any) =>
+                odd.market_id === 2 ||
+                odd.market_description?.toLowerCase() === 'double chance'
+              )
+              const dcLabelByOutcome: Record<string, string> = {
+                '1X': 'home/draw',     // home or draw
+                'X2': 'draw/away',     // draw or away
+                '12': 'home/away',     // home or away (no draw)
+              }
+              const targetLabel = dcLabelByOutcome[outcome]
               let oddsValue = 1
               for (const odd of dcOdds) {
                 const label = odd.label?.toLowerCase().replace(/\s/g, '')
-                if (label === outcome.toLowerCase() || label === outcome.toLowerCase().split('').reverse().join('')) {
+                if (label === targetLabel) {
                   oddsValue = parseFloat(odd.value) || 1
+                  break
                 }
               }
 
