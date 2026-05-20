@@ -22,12 +22,24 @@ from datetime import datetime
 class Command(BaseCommand):
     help = 'Fetch recommendations from home page API and log them to PredictionLog database'
 
+    # The default URL must resolve in the deployed environment. Prior default
+    # was http://localhost:3000 — local Next.js dev port — which doesn't exist
+    # in the Railway container, so the Procfile worker calling this command
+    # every 60 minutes was silently 404ing for months. Production picks were
+    # only landing in PredictionLog when a user happened to load the homepage
+    # and the Next.js endpoint POSTed them back (traffic-coupled persistence).
+    # Override via env var for local dev:  RECOMMENDATIONS_API_URL=http://localhost:3000/api/recommendations
+    DEFAULT_API_URL = os.environ.get(
+        'RECOMMENDATIONS_API_URL',
+        'https://www.betglitch.com/api/recommendations',
+    )
+
     def add_arguments(self, parser):
         parser.add_argument(
             '--api-url',
             type=str,
-            default='http://localhost:3000/api/recommendations',
-            help='URL of the recommendations API endpoint'
+            default=self.DEFAULT_API_URL,
+            help='URL of the recommendations API endpoint (override default with RECOMMENDATIONS_API_URL env var)'
         )
         parser.add_argument(
             '--dry-run',
@@ -45,8 +57,11 @@ class Command(BaseCommand):
         self.stdout.write(f'Fetching recommendations from: {api_url}\n')
 
         try:
-            # Fetch recommendations from the home page API
-            response = requests.get(api_url, timeout=10)
+            # Fetch recommendations from the home page API.
+            # The Next.js engine iterates 27 leagues with sequential SportMonks calls,
+            # comfortably taking 20-40s. The previous 10s timeout was abandoning the
+            # request before any response arrived — yet another silent failure mode.
+            response = requests.get(api_url, timeout=90)
             response.raise_for_status()
             data = response.json()
             
