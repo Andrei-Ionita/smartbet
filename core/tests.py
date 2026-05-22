@@ -919,6 +919,64 @@ class AuditQuarantineCommandTests(TestCase):
         self.assertEqual(flagged_first, flagged_second)
 
 
+class ResultUpdaterArchiveTests(TestCase):
+    """Cover the 2026-05-22 fix: SportMonks 404 -> match_status='archived' so
+    we don't re-check dead fixtures forever, and max-age filter caps lookback."""
+
+    def setUp(self):
+        from core.services.result_updater import ResultUpdaterService
+        # Bypass __init__'s env-var check by constructing minimal instance.
+        # ResultUpdaterService needs SPORTMONKS_API_TOKEN; provide a dummy.
+        import os
+        os.environ.setdefault('SPORTMONKS_API_TOKEN', 'dummy-token-for-tests')
+        self.svc = ResultUpdaterService()
+        kickoff = timezone.now() - timedelta(hours=24)
+        # Two rows: one recent (within max-age), one ancient (outside max-age).
+        self.recent = PredictionLog.objects.create(
+            fixture_id=500001, home_team='A', away_team='B', league='Test',
+            kickoff=kickoff, predicted_outcome='Home',
+            confidence=0.62, probability_home=0.62, probability_draw=0.2, probability_away=0.18,
+            is_recommended=True,
+        )
+        self.ancient = PredictionLog.objects.create(
+            fixture_id=500002, home_team='C', away_team='D', league='Test',
+            kickoff=timezone.now() - timedelta(days=90), predicted_outcome='Home',
+            confidence=0.60, probability_home=0.60, probability_draw=0.2, probability_away=0.20,
+            is_recommended=True,
+        )
+
+    def test_max_age_filter_excludes_ancient_rows(self):
+        pending = self.svc.get_pending_predictions()
+        ids = {p.fixture_id for p in pending}
+        self.assertIn(500001, ids)
+        self.assertNotIn(500002, ids)  # 90 days old -> outside MAX_LOOKBACK_DAYS
+
+    def test_404_response_marks_row_archived(self):
+        """Simulate a 404 response and verify the row gets match_status='archived'."""
+        from unittest.mock import patch, Mock
+        mock_resp = Mock()
+        mock_resp.status_code = 404
+        with patch('core.services.result_updater.requests.get', return_value=mock_resp):
+            result = self.svc.fetch_fixture_result(500001)
+        self.assertIs(result, self.svc.ARCHIVED_RESULT)
+
+    def test_404_handling_in_full_pipeline(self):
+        """End-to-end: pending row -> SportMonks 404 -> row marked archived ->
+        next call no longer picks it up."""
+        from unittest.mock import patch, Mock
+        mock_resp = Mock()
+        mock_resp.status_code = 404
+        with patch('core.services.result_updater.requests.get', return_value=mock_resp):
+            stats = self.svc.update_all_pending_results(max_predictions=10)
+        self.assertEqual(stats.get('archived'), 1)
+        # The recent row should now be marked archived
+        self.recent.refresh_from_db()
+        self.assertEqual(self.recent.match_status, 'archived')
+        # Subsequent get_pending_predictions skips it
+        pending_after = self.svc.get_pending_predictions()
+        self.assertNotIn(500001, {p.fixture_id for p in pending_after})
+
+
 class BacktesterTests(TestCase):
     """Cover core.services.backtester filter logic + metric computation."""
 

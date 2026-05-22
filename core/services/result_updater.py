@@ -28,36 +28,54 @@ class ResultUpdaterService:
         
         self.base_url = "https://api.sportmonks.com/v3/football"
     
+    # SportMonks archives fixtures after they age out of the live data set
+    # (empirically ~30-90 days). Calls for those fixtures 404 indefinitely. We cap
+    # the lookback so old never-settled rows don't burn API calls forever. Anything
+    # past this is also marked match_status='archived' on the first 404 (see
+    # fetch_fixture_result), so even within the window we never re-check a known
+    # dead fixture.
+    MAX_LOOKBACK_DAYS = 14
+
     def get_pending_predictions(self, hours_after_kickoff: int = 3) -> List[PredictionLog]:
         """
         Get predictions that need result updates.
-        
+
         Args:
             hours_after_kickoff: Hours after kickoff before checking (default 3)
-        
+
         Returns:
             QuerySet of PredictionLog entries needing updates
         """
-        cutoff_time = timezone.now() - timedelta(hours=hours_after_kickoff)
-        
+        now = timezone.now()
+        cutoff_time = now - timedelta(hours=hours_after_kickoff)
+        max_age_cutoff = now - timedelta(days=self.MAX_LOOKBACK_DAYS)
+
         pending = PredictionLog.objects.filter(
             actual_outcome__isnull=True,  # No result yet
-            kickoff__lt=cutoff_time,  # Match should be finished
-            match_status__isnull=True  # Status not updated
+            kickoff__lt=cutoff_time,      # Match should be finished
+            kickoff__gte=max_age_cutoff,  # But not so old SportMonks has archived it
+            match_status__isnull=True     # Status not updated
         ).order_by('kickoff')
-        
-        logger.info(f"Found {pending.count()} predictions awaiting results")
+
+        logger.info(f"Found {pending.count()} predictions awaiting results (within {self.MAX_LOOKBACK_DAYS}d window)")
         return list(pending)
     
+    # Sentinel value returned by fetch_fixture_result when SportMonks no longer
+    # serves a fixture (HTTP 404). Caller uses this to mark the prediction
+    # match_status='archived' so it never gets re-checked.
+    ARCHIVED_RESULT = {'_archived': True}
+
     def fetch_fixture_result(self, fixture_id: int) -> Optional[Dict]:
         """
         Fetch result for a specific fixture from SportMonks API.
-        
+
         Args:
             fixture_id: SportMonks fixture ID
-        
+
         Returns:
-            Dictionary with result data or None if not available
+            Dictionary with result data or None if not available, or the
+            ARCHIVED_RESULT sentinel if SportMonks returns 404 (fixture has
+            aged out of their data; we'll never get a result for it).
         """
         try:
             url = f"{self.base_url}/fixtures/{fixture_id}"
@@ -65,8 +83,11 @@ class ResultUpdaterService:
                 'api_token': self.api_token,
                 'include': 'scores,state,participants'
             }
-            
+
             response = requests.get(url, params=params, timeout=10)
+            if response.status_code == 404:
+                logger.info(f"Fixture {fixture_id} not found in SportMonks (archived)")
+                return self.ARCHIVED_RESULT
             response.raise_for_status()
             
             data = response.json()
@@ -184,12 +205,22 @@ class ResultUpdaterService:
             'incorrect_predictions': 0
         }
         
+        stats['archived'] = 0
+
         for prediction in pending:
             logger.info(f"Checking fixture {prediction.fixture_id}: {prediction.home_team} vs {prediction.away_team}")
-            
+
             result_data = self.fetch_fixture_result(prediction.fixture_id)
-            
-            if result_data:
+
+            if result_data is self.ARCHIVED_RESULT:
+                # Permanently gone from SportMonks. Mark archived so the pending
+                # filter (match_status__isnull=True) drops it from future cycles.
+                # Use queryset .update() to bypass the model's save() invariants
+                # entirely — we have no reason to re-validate EV/odds on a row
+                # we're only flagging.
+                PredictionLog.objects.filter(pk=prediction.pk).update(match_status='archived')
+                stats['archived'] += 1
+            elif result_data:
                 if self.update_prediction_result(prediction, result_data):
                     stats['updated'] += 1
                     if prediction.was_correct:
@@ -234,7 +265,15 @@ class ResultUpdaterService:
                 }
             
             result_data = self.fetch_fixture_result(fixture_id)
-            
+
+            if result_data is self.ARCHIVED_RESULT:
+                PredictionLog.objects.filter(pk=prediction.pk).update(match_status='archived')
+                return {
+                    'success': False,
+                    'message': f'Fixture {fixture_id} not in SportMonks anymore — marked archived',
+                    'archived': True,
+                }
+
             if not result_data:
                 return {
                     'success': False,

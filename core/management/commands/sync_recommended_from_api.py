@@ -154,19 +154,16 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('\nDRY RUN - No predictions were actually marked'))
             return
         
-        # First, unmark all current recommendations if requested
+        # The --unmark-others flag used to strip is_recommended=True from picks
+        # not in the new top list. This caused the 2026-05-22 stripped-picks bug.
+        # is_recommended is now permanent (set by log_recommendations at write
+        # time, never unset). Keeping the --unmark-others flag accepted as a no-op
+        # so any existing scripts/aliases don't error out.
         if unmark_others:
-            # CRITICAL: Only unmark FUTURE recommendations. Preserve history.
-            now = timezone.now()
-            unmarked_count = PredictionLog.objects.filter(
-                is_recommended=True,
-                kickoff__gte=now
-            ).exclude(
-                fixture_id__in=top_10_fixture_ids
-            ).update(is_recommended=False)
-            
-            if unmarked_count > 0:
-                self.stdout.write(self.style.WARNING(f'\nUnmarked {unmarked_count} predictions that no longer match criteria'))
+            self.stdout.write(self.style.WARNING(
+                '--unmark-others is a no-op (deprecated). is_recommended is now '
+                'permanent — see core/api_views.py:mark_recommended_by_fixture_ids.'
+            ))
         
         # Mark the top 10 as recommended
         updated_count = PredictionLog.objects.filter(

@@ -467,9 +467,13 @@ def get_recommended_predictions_with_outcomes(request):
         include_pending = request.GET.get('include_pending', 'true').lower() == 'true'
         
         # Get ALL recommended predictions - no limit!
-        # This ensures complete transparency and no "missing" data
+        # This ensures complete transparency and no "missing" data.
+        # Exclude archived (SportMonks no longer has the fixture) — these are
+        # permanently un-settle-able and shouldn't appear in user-facing stats.
         queryset = PredictionLog.objects.filter(
             is_recommended=True
+        ).exclude(
+            match_status='archived'
         ).defer('notes', 'home_team_form', 'away_team_form').order_by('-kickoff')
         
         # If not including pending, only show completed matches
