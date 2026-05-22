@@ -846,17 +846,15 @@ def mark_recommended_by_fixture_ids(request):
                 'message': 'No matching predictions found in database - skipping update'
             })
         
-        # Instead of unmarking EVERYTHING, we only unmark FUTURE matches that are no longer recommended.
-        # This preserves the historical track record while allowing us to change our minds on upcoming matches.
-        from django.utils import timezone
-        PredictionLog.objects.filter(
-            is_recommended=True,
-            kickoff__gt=timezone.now()
-        ).exclude(
-            fixture_id__in=fixture_ids
-        ).update(is_recommended=False)
-        
-        # Mark the new ones as recommended
+        # is_recommended is the canonical "this was once a recommendation" flag — must
+        # be PERMANENT. The previous unmark-future-not-in-new-list logic had a fatal
+        # race: a Monday-logged pick (kickoff = Saturday) gets unmarked Tuesday when
+        # the engine produces a different top-10, then on Saturday it settles silently
+        # — never restored, never visible in the public track record. The 2026-05-22
+        # audit found 26 of 43 weekend settled picks had been hidden this way.
+        # This endpoint is now additive only: it ensures the provided fixture_ids are
+        # flagged, and never strips any existing flag. The "current homepage" carousel
+        # doesn't depend on this flag (the homepage queries /api/recommendations live).
         updated = PredictionLog.objects.filter(
             fixture_id__in=fixture_ids
         ).update(is_recommended=True)

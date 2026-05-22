@@ -157,25 +157,25 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING('\nDRY RUN - No predictions were actually marked'))
             return
 
-        # CRITICAL FIX: Only unmark FUTURE recommendations to refresh the current slip.
-        # Do NOT unmark past games - they are part of history now.
-        now = timezone.now()
-        
-        # 1. Unmark only future recommendations (refreshing the "Upcoming" list)
-        unmarked_count = PredictionLog.objects.filter(
-            is_recommended=True,
-            kickoff__gte=now
-        ).update(is_recommended=False)
-        
-        self.stdout.write(f'Refreshing {unmarked_count} future recommendations (History preserved)')
-        
-        # 2. Mark the top N *FUTURE* matches as recommended
+        # is_recommended is the canonical "this was once a recommendation" flag, used
+        # by the public monitoring page to build the historical track record. It must
+        # be PERMANENT — once True, never flip to False. The previous implementation
+        # unmarked future picks every cron cycle to "refresh the homepage carousel",
+        # but the homepage actually queries /api/recommendations fresh and doesn't
+        # depend on is_recommended at all. The unmark only had the effect of stripping
+        # the flag from picks that aged out of the rolling top-10 — and then those
+        # picks (silently) settled and disappeared from the public track record.
+        # Found via Stage-B+ audit on 2026-05-22: 26 of 43 weekend settled picks
+        # had been stripped this way, hiding +$103 of real profit.
+        # Logging already sets is_recommended=True at write time; this command's
+        # only job now is to additively re-mark the top-N (idempotent, never strips).
         top_fixture_ids = [item['prediction'].fixture_id for item in top_predictions]
         updated = PredictionLog.objects.filter(
             fixture_id__in=top_fixture_ids
         ).update(is_recommended=True)
 
-        self.stdout.write(self.style.SUCCESS(f'\nSuccessfully marked {updated} predictions as recommended!\n'))
+        self.stdout.write(self.style.SUCCESS(f'\nSuccessfully (re)marked {updated} predictions as recommended.\n'))
+        self.stdout.write('No predictions were unmarked. is_recommended is now permanent — by design.')
 
         # Show statistics
         total_recommended = PredictionLog.objects.filter(is_recommended=True).count()
