@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import PredictionLog, PerformanceSnapshot
+from .models import EmailSubscriber, MarketingEvent, PerformanceSnapshot, PredictionLog
 
 
 @admin.register(PredictionLog)
@@ -81,3 +81,17 @@ class PerformanceSnapshotAdmin(admin.ModelAdmin):
     )
 
 
+@admin.register(EmailSubscriber)
+class EmailSubscriberAdmin(admin.ModelAdmin):
+    list_display = ('email', 'source', 'landing_page', 'language', 'league_interest', 'is_active', 'email_platform_status', 'subscribed_at')
+    list_filter = ('is_active', 'language', 'source', 'email_platform_status', 'subscribed_at')
+    search_fields = ('email', 'source', 'landing_page', 'utm_source', 'utm_campaign', 'league_interest')
+    readonly_fields = ('subscribed_at', 'last_synced_at')
+
+
+@admin.register(MarketingEvent)
+class MarketingEventAdmin(admin.ModelAdmin):
+    list_display = ('event_name', 'subscriber', 'source', 'page', 'created_at')
+    list_filter = ('event_name', 'source', 'created_at')
+    search_fields = ('page', 'source', 'subscriber__email')
+    readonly_fields = ('created_at',)

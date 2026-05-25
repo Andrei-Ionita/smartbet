@@ -12,12 +12,43 @@ class PredictionEnhancer:
     """
     Enhance predictions using filters, market signals, and contextual awareness.
     Goal: Increase accuracy by being MORE SELECTIVE, not predicting better.
+    
+    Data-driven thresholds (updated Feb 2026 from 46 recommended predictions):
+    - Under 2.5 accuracy: 41.7% vs Over 2.5: 77.4%  → penalize Under 2.5
+    - Probability gap ≥25%: 83.3% accuracy          → boost high-gap predictions
+    - Admiral Bundesliga/Liga Portugal/Super Lig: 0% → league blacklist
+    - Incorrect preds avg odds 3.20 vs correct 2.19  → tighter odds cap
     """
     
+    # Phase 2a: leagues blocked from recommendations based on backtest of 203 settled
+    # rows. Source-of-truth shared with core/api_views.PHASE_2A_BLACKLISTED_LEAGUES
+    # and smartbet-frontend BLACKLISTED_LEAGUE_IDS.
+    LEAGUE_BLACKLIST = [
+        'Admiral Bundesliga',   # backtest: -33% yield (n=9)
+        'Liga Portugal',        # backtest: -29% yield (n=3)
+        'Super Lig',            # carry-over from prior analysis
+        'Allsvenskan',          # backtest: -31% yield (n=6)
+        'Eliteserien',          # backtest: -21% yield (n=14)
+    ]
+
+    # Phase 2c (2026-05-25): leagues to watch — not blocked but require stricter
+    # thresholds (see PHASE_2C_WATCHLIST_LEAGUES in core/api_views.py for the
+    # canonical thresholds source-of-truth). Earlier entries here (Eredivisie,
+    # Pro League) were tagged on n<5 evidence and have since proven productive
+    # — Pro League is one of the strongest leagues in our 2026-05 weekend data.
+    # The real underperformer is Premier League (-52% weekend yield over 4,
+    # -27% cumulative over 14). Revisit 2026-06-08.
+    LEAGUE_WATCHLIST = [
+        'Premier League',
+    ]
+
     def __init__(self):
-        self.confidence_floor = 0.60  # Raise from 55% to 60%
-        self.ev_floor = 0.15  # Raise from 0% to 15%
-        self.max_odds = 3.0  # Avoid high-variance bets
+        self.confidence_floor = 0.60  # Minimum for Safe Bets
+        self.ev_floor = 0.15  # Minimum EV for recommendations
+        # max_odds was lowered to 2.50 in Feb 2026 on n=46. Backtest on 203 settled
+        # rows shows it's a no-op (legacy O/U rows have odds=None so the check is
+        # skipped). Kept as None for clarity; the EV-zone trap cap is the live guard.
+        self.max_odds = None
     
     def calculate_quality_score(self, prediction: Dict) -> float:
         """
@@ -70,8 +101,8 @@ class PredictionEnhancer:
         elif predicted_odds > 3.5:
             score -= 10  # High variance - risky
         
-        # Factor 4: Probability dominance (0-10 points)
-        # Clear winner = more confident prediction
+        # Factor 4: Probability dominance (0-15 points)
+        # Analysis: gap ≥25% → 83.3% accuracy (10/12)
         probs = prediction.get('probabilities', {})
         prob_home = probs.get('home', 0)
         prob_draw = probs.get('draw', 0)
@@ -80,8 +111,10 @@ class PredictionEnhancer:
         sorted_probs = sorted([prob_home, prob_draw, prob_away], reverse=True)
         if len(sorted_probs) >= 2:
             gap = sorted_probs[0] - sorted_probs[1]
-            if gap >= 0.30:  # 30% gap
-                score += 10
+            if gap >= 0.40:  # 40%+ gap: 80% accuracy
+                score += 15
+            elif gap >= 0.25:  # 25%+ gap: 83.3% accuracy
+                score += 12
             elif gap >= 0.20:  # 20% gap
                 score += 5
         
@@ -91,6 +124,21 @@ class PredictionEnhancer:
             score += 10  # Low variance = models agree
         elif variance and variance < 0.2:
             score += 5
+        
+        # Factor 6: Outcome type penalty (DATA-DRIVEN)
+        # Under 2.5: 41.7% accuracy vs Over 2.5: 77.4%
+        outcome = prediction.get('predicted_outcome', '').lower()
+        if 'under' in outcome:
+            score -= 10  # Penalty for historically weak outcome type
+        elif 'over' in outcome:
+            score += 5   # Bonus for historically strong outcome type
+        
+        # Factor 7: League penalty (DATA-DRIVEN)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
+        if league in self.LEAGUE_BLACKLIST:
+            score -= 15  # Heavy penalty for 0% accuracy leagues
+        elif league in self.LEAGUE_WATCHLIST:
+            score -= 5   # Moderate penalty for underperforming leagues
         
         return min(score, 100.0)
     
@@ -167,6 +215,32 @@ class PredictionEnhancer:
                     'icon': '⚖️'
                 })
         
+        # Warning 7: Under 2.5 prediction (DATA-DRIVEN: 41.7% accuracy)
+        if 'under' in predicted_outcome:
+            warnings.append({
+                'type': 'outcome_history',
+                'level': 'medium',
+                'message': 'Under 2.5 predictions historically less accurate (41.7%) - consider smaller stake',
+                'icon': '📉'
+            })
+        
+        # Warning 8: Blacklisted/watchlisted league (DATA-DRIVEN)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
+        if league in self.LEAGUE_BLACKLIST:
+            warnings.append({
+                'type': 'league_history',
+                'level': 'high',
+                'message': f'{league}: historically poor accuracy - higher risk',
+                'icon': '🚩'
+            })
+        elif league in self.LEAGUE_WATCHLIST:
+            warnings.append({
+                'type': 'league_history',
+                'level': 'medium',
+                'message': f'{league}: below-average accuracy - monitor',
+                'icon': '👀'
+            })
+        
         return warnings
     
     def should_recommend(self, prediction: Dict, strict_mode: bool = False) -> tuple[bool, str]:
@@ -187,12 +261,31 @@ class PredictionEnhancer:
         ev = prediction.get('expected_value', 0) or 0
         predicted_outcome = prediction.get('predicted_outcome', '').lower()
         predicted_odds = prediction.get('odds_data', {}).get(predicted_outcome, 0)
+        league = prediction.get('league_name', '') or prediction.get('league', '')
         
         # Strict mode (recommended for better accuracy)
         if strict_mode:
             # Absolute floor for any prediction
             if confidence < 0.35:
                  return False, f"Confidence too low ({confidence*100:.1f}% < 35%)"
+
+            # Phase 2a hard blocks (backtest-driven). Promotes the prior soft penalties
+            # to hard rejects because the backtest showed these picks actively destroy
+            # yield, not just dilute it.
+            if 'under' in predicted_outcome and '2.5' in predicted_outcome:
+                return False, "Under 2.5 blocked (backtest: dropping it adds +7.8pp yield)"
+            if league in self.LEAGUE_BLACKLIST:
+                return False, f"League blacklisted ({league})"
+
+            # Phase 2b: hard cap on EV. Backtest shows picks with EV > 0.20 underperform —
+            # they're typically bookmaker pricing errors or trap markets, not real edges.
+            if ev > 0.20:
+                return False, f"EV too high ({ev*100:.1f}% > 20%) - trap zone"
+
+            # max_odds is now None (see __init__ note). The check below is preserved
+            # only so a future operator can re-enable it by setting self.max_odds.
+            if self.max_odds is not None and predicted_odds > self.max_odds:
+                return False, f"Odds too high ({predicted_odds:.2f} > {self.max_odds:.2f})"
             
             # Track 1: Safe Bets (Standard)
             if confidence >= 0.60:

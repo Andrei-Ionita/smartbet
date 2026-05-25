@@ -1085,7 +1085,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div>
                     <span className="font-semibold">Data Source:</span>
                     {' '}
-                    Prediction from SportMonks AI analyzing historical performance, recent form, head-to-head records, and statistical models.
+                    Prediction from AI analyzing historical performance, recent form, head-to-head records, and statistical models.
                     {recommendation.signal_quality && (
                       <span className="ml-1">
                         Signal quality: <span className="font-semibold">{recommendation.signal_quality}</span>.

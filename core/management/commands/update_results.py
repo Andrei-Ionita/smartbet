@@ -63,6 +63,7 @@ class Command(BaseCommand):
             self.stdout.write(f"Total Checked:        {stats['total_checked']}")
             self.stdout.write(self.style.SUCCESS(f"✅ Updated:           {stats['updated']}"))
             self.stdout.write(f"⏳ Still Pending:     {stats['still_pending']}")
+            self.stdout.write(f"📦 Archived (404):    {stats.get('archived', 0)}")
             self.stdout.write(self.style.ERROR(f"❌ Errors:            {stats['errors']}"))
             self.stdout.write('')
             

@@ -70,6 +70,23 @@ const MARKET_CONFIG = {
 
 type MarketType = keyof typeof MARKET_CONFIG
 
+// Leagues blocked from recommendations based on settled-data backtest:
+//   Admiral Bundesliga (-33% yield, n=9), Liga Portugal (-29%, n=3),
+//   Super Lig (carry-over), Allsvenskan (-31%, n=6), Eliteserien (-21%, n=14).
+// Fixtures from these leagues are skipped before any prediction processing.
+// Backtest projects +5-8pp yield with this filter + the Under-2.5 block below.
+const BLACKLISTED_LEAGUE_IDS = new Set<number>([181, 462, 600, 573, 444])
+
+// Phase 2c (2026-05-25): leagues with persistent underperformance but too thin a
+// sample to blacklist. Picks from these leagues must clear a stricter bar
+// (confidence + EV) than the baseline filter — applied after value-zone adjustment,
+// so it uses the adjusted/final values the user will see. Revisit 2026-06-08.
+//   Premier League: -52% yield this weekend (n=4), -27% cumulative (n=14) since
+//   Phase 2 deploy. League ID 8.
+const WATCHLIST_LEAGUE_THRESHOLDS: Record<number, { minConfidence: number; minEv: number }> = {
+  8: { minConfidence: 0.65, minEv: 0.12 },  // Premier League
+}
+
 interface MarketPrediction {
   market_type: MarketType
   type_id: number
@@ -281,6 +298,9 @@ export async function GET(request: NextRequest) {
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
     for (const league of keyLeagues) {
+      if (BLACKLISTED_LEAGUE_IDS.has(league.id)) {
+        continue
+      }
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
@@ -396,9 +416,14 @@ export async function GET(request: NextRequest) {
               const maxProb = Math.max(yesProb, noProb)
               const outcome = yesProb > noProb ? 'yes' : 'no'
 
-              // Get BTTS odds (market_id 28 or search by name)
+              // Phase 4a fix: BTTS lives at market_id=14, not 28. The previous
+              // value (28) is actually "Goals Over/Under 1st Half" — no BTTS odds
+              // ever matched, so EV stayed at -1 and BTTS picks never surfaced.
+              // Also accept market_description fallback for resilience to schema drift.
               const bttsOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 28 || odd.name?.toLowerCase().includes('btts') || odd.name?.toLowerCase().includes('both')
+                odd.market_id === 14 ||
+                odd.market_description?.toLowerCase() === 'both teams to score' ||
+                odd.name?.toLowerCase().includes('btts')
               )
               let oddsValue = 1
               for (const odd of bttsOdds) {
@@ -497,7 +522,11 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.12 && ev >= 0.05) {
+              // Hard-block Under 2.5: backtest on 203 settled rows shows dropping it
+              // lifts yield from 13.76% to 21.60%. The model overrates this outcome
+              // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
+              // surfaces in `all_markets` for transparency; just not as a pick.
+              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05) {
                 marketResults.push(marketData)
               }
             }
@@ -518,13 +547,26 @@ export async function GET(request: NextRequest) {
               if (maxProb === awayOrDraw) outcome = 'X2'
               else if (maxProb === homeOrAway) outcome = '12'
 
-              // Get DC odds (market_id 12)
-              const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
+              // Phase 4a fix: Double Chance lives at market_id=2, not 12. Labels are
+              // "Home/Draw" / "Home/Away" / "Draw/Away" (some bookmakers also use
+              // team-name labels like "Team A or Team B" — skipped here since most
+              // bookmakers use the standard format and one bookmaker per outcome is enough).
+              const dcOdds = fixture.odds.filter((odd: any) =>
+                odd.market_id === 2 ||
+                odd.market_description?.toLowerCase() === 'double chance'
+              )
+              const dcLabelByOutcome: Record<string, string> = {
+                '1X': 'home/draw',     // home or draw
+                'X2': 'draw/away',     // draw or away
+                '12': 'home/away',     // home or away (no draw)
+              }
+              const targetLabel = dcLabelByOutcome[outcome]
               let oddsValue = 1
               for (const odd of dcOdds) {
                 const label = odd.label?.toLowerCase().replace(/\s/g, '')
-                if (label === outcome.toLowerCase() || label === outcome.toLowerCase().split('').reverse().join('')) {
+                if (label === targetLabel) {
                   oddsValue = parseFloat(odd.value) || 1
+                  break
                 }
               }
 
@@ -670,6 +712,25 @@ export async function GET(request: NextRequest) {
               0
             )
             const adjustedEV = valueZone.adjustedEV
+
+            // Phase 2b: hard-cap EV at 20%. Backtest on 203 settled rows shows
+            // EV >20% picks (even after evaluateValueZone's soft adjustment)
+            // underperform — they're typically bookmaker pricing errors or
+            // suspended/illiquid markets, not genuine edges. Drop the entire
+            // fixture rather than reaching for second-best market (matches
+            // backtester semantics: trim is on stored expected_value).
+            if (adjustedEV > 0.20) {
+              continue
+            }
+
+            // Phase 2c: watchlisted leagues require materially better signal than
+            // baseline. Premier League keeps underperforming (-52% yield this
+            // weekend, -27% cumulative over 14 picks); too thin to blacklist, but
+            // worth only surfacing when conviction is clearly higher than usual.
+            const watch = WATCHLIST_LEAGUE_THRESHOLDS[league.id]
+            if (watch && (adjustedProbability < watch.minConfidence || adjustedEV < watch.minEv)) {
+              continue
+            }
 
             const confidence = adjustedProbability * 100
             const probabilityGap = bestMarket.probability_gap

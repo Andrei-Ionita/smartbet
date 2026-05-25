@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!data || !data.fixture) {
         return {
-            title: 'Match Prediction Not Found | OddsMind',
+            title: 'Match Prediction Not Found | BetGlitch',
             description: 'The requested match prediction could not be found.'
         }
     }
@@ -38,7 +38,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { home_team, away_team, league, prediction_confidence, predicted_outcome } = data.fixture
     const confidence = Math.round(prediction_confidence * 100)
 
-    const title = `${home_team} vs ${away_team} Prediction, Stats & Odds | OddsMind`
+    const title = `${home_team} vs ${away_team} Prediction, Stats & Odds | BetGlitch`
     const description = `AI betting prediction for ${home_team} vs ${away_team} in ${league}. Our model predicts ${predicted_outcome} with ${confidence}% confidence. Get full stats and value analysis.`
 
     return {
@@ -48,7 +48,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
             title,
             description,
             type: 'article',
-            url: `https://oddsmind.io/prediction/${params.slug.join('/')}`,
+            url: `https://betglitch.com/prediction/${params.slug.join('/')}`,
             section: 'Sports',
             tags: ['Football Prediction', 'Betting Tips', home_team, away_team, league]
         },

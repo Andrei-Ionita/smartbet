@@ -152,7 +152,7 @@ def recent_predictions_with_results(request):
     - show_all: Include pending or only completed (default false)
     """
     try:
-        limit = int(request.GET.get('limit', 50))
+        limit = request.GET.get('limit', None)
         show_all = request.GET.get('show_all', 'false').lower() == 'true'
         
         queryset = PredictionLog.objects.filter(is_recommended=True)
@@ -160,7 +160,12 @@ def recent_predictions_with_results(request):
         if not show_all:
             queryset = queryset.filter(actual_outcome__isnull=False)
         
-        predictions = queryset.order_by('-kickoff')[:limit]
+        queryset = queryset.order_by('-kickoff')
+        
+        if limit is not None:
+            predictions = queryset[:int(limit)]
+        else:
+            predictions = queryset
         
         results = []
         for pred in predictions:

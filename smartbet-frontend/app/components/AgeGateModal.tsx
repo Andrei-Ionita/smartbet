@@ -55,7 +55,7 @@ export default function AgeGateModal() {
                     </div>
                     <h1 className="text-2xl font-bold text-white mb-2">Age Verification Required</h1>
                     <p className="text-primary-100 text-sm">
-                        Please confirm you meet the requirements to access SmartBet
+                        Please confirm you meet the requirements to access BetGlitch
                     </p>
                 </div>
 
@@ -68,7 +68,7 @@ export default function AgeGateModal() {
                             <div className="text-sm">
                                 <p className="font-semibold text-amber-800 mb-1">Important Notice</p>
                                 <p className="text-amber-700">
-                                    SmartBet provides sports predictions for <strong>informational and entertainment purposes only</strong>.
+                                    BetGlitch provides sports predictions for <strong>informational and entertainment purposes only</strong>.
                                     We are <strong>NOT a betting operator</strong> and do not accept bets or wagers of any kind.
                                 </p>
                             </div>
@@ -123,7 +123,7 @@ export default function AgeGateModal() {
                             <span className="text-red-600 font-bold text-lg">18+</span>
                         </div>
                         <p className="text-xs text-gray-500 max-w-xs">
-                            Access to SmartBet is restricted to adults only. We promote responsible gambling.
+                            Access to BetGlitch is restricted to adults only. We promote responsible gambling.
                         </p>
                     </div>
 

@@ -2,13 +2,31 @@
 
 import { useState } from 'react'
 import { Mail, CheckCircle, Loader2, Sparkles } from 'lucide-react'
+import { getSubscriberCaptureContext, storeSubscriberId } from '@/src/lib/marketing'
 
 interface EmailCaptureProps {
     source?: string
     variant?: 'default' | 'compact' | 'hero'
+    interests?: string[]
+    leagueInterest?: string
+    language?: string
+    landingPage?: string
+    title?: string
+    description?: string
+    buttonText?: string
 }
 
-export default function EmailCapture({ source = 'homepage', variant = 'default' }: EmailCaptureProps) {
+export default function EmailCapture({
+    source = 'homepage',
+    variant = 'default',
+    interests = ['weekly_picks'],
+    leagueInterest = '',
+    language,
+    landingPage,
+    title,
+    description,
+    buttonText,
+}: EmailCaptureProps) {
     const [email, setEmail] = useState('')
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
     const [message, setMessage] = useState('')
@@ -25,13 +43,23 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
         setStatus('loading')
 
         try {
-            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'https://smartbet-backend-production.up.railway.app'
+            const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+            const context = getSubscriberCaptureContext({
+                landingPage,
+                language,
+            })
             const response = await fetch(`${apiUrl}/api/subscribe/`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({ email, source }),
+                body: JSON.stringify({
+                    email,
+                    source,
+                    interests,
+                    league_interest: leagueInterest,
+                    ...context,
+                }),
             })
 
             const data = await response.json()
@@ -40,6 +68,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                 setStatus('success')
                 setMessage(data.message || 'Thank you for subscribing!')
                 setEmail('')
+                storeSubscriberId(data.subscriber_id)
             } else {
                 setStatus('error')
                 setMessage(data.error || 'Something went wrong')
@@ -50,7 +79,12 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
         }
     }
 
-    // Success state
+    const variantTitle = title || (variant === 'hero' ? 'Get Our Best Picks Every Week' : 'Get Weekly Tips')
+    const variantDescription = description || (variant === 'hero'
+        ? 'Join bettors receiving our top AI-powered picks, track-record updates, and bankroll insights every week.'
+        : 'Free AI-powered betting picks with transparent tracking.')
+    const ctaLabel = buttonText || (variant === 'hero' ? 'Get Free Picks' : variant === 'compact' ? 'Subscribe' : 'Subscribe for Free')
+
     if (status === 'success') {
         return (
             <div className={`rounded-2xl p-6 ${variant === 'hero' ? 'bg-gradient-to-r from-green-500 to-emerald-600' : 'bg-green-50 border border-green-200'}`}>
@@ -60,7 +94,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                     </div>
                     <div>
                         <h3 className={`font-bold ${variant === 'hero' ? 'text-white' : 'text-green-800'}`}>
-                            You&apos;re In! 🎉
+                            You&apos;re In!
                         </h3>
                         <p className={`text-sm ${variant === 'hero' ? 'text-white/90' : 'text-green-700'}`}>
                             {message}
@@ -71,7 +105,6 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
         )
     }
 
-    // Hero variant - larger, more prominent
     if (variant === 'hero') {
         return (
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-8 text-white">
@@ -80,10 +113,10 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                     <span className="text-sm font-medium uppercase tracking-wide opacity-90">Free Weekly Tips</span>
                 </div>
                 <h3 className="text-2xl font-bold mb-2">
-                    Get Our Best Picks Every Week
+                    {variantTitle}
                 </h3>
                 <p className="text-white/80 mb-6">
-                    Join 100+ bettors receiving our top 3 AI-powered picks every Friday. Free forever.
+                    {variantDescription}
                 </p>
 
                 <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3">
@@ -109,7 +142,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                                 Joining...
                             </>
                         ) : (
-                            'Get Free Picks'
+                            ctaLabel
                         )}
                     </button>
                 </form>
@@ -125,7 +158,6 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
         )
     }
 
-    // Compact variant - inline form
     if (variant === 'compact') {
         return (
             <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
@@ -143,7 +175,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                         disabled={status === 'loading'}
                         className="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50"
                     >
-                        {status === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Subscribe'}
+                        {status === 'loading' ? <Loader2 className="h-4 w-4 animate-spin" /> : ctaLabel}
                     </button>
                 </form>
                 {status === 'error' && (
@@ -153,7 +185,6 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
         )
     }
 
-    // Default variant
     return (
         <div className="bg-gradient-to-br from-gray-50 to-gray-100 rounded-2xl p-6 border border-gray-200">
             <div className="flex items-center gap-3 mb-4">
@@ -161,8 +192,8 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                     <Mail className="h-5 w-5 text-primary-600" />
                 </div>
                 <div>
-                    <h3 className="font-bold text-gray-900">Get Weekly Tips</h3>
-                    <p className="text-sm text-gray-600">Free AI-powered betting picks</p>
+                    <h3 className="font-bold text-gray-900">{variantTitle}</h3>
+                    <p className="text-sm text-gray-600">{variantDescription}</p>
                 </div>
             </div>
 
@@ -186,7 +217,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
                             Subscribing...
                         </>
                     ) : (
-                        'Subscribe for Free'
+                        ctaLabel
                     )}
                 </button>
             </form>
@@ -196,7 +227,7 @@ export default function EmailCapture({ source = 'homepage', variant = 'default' 
             )}
 
             <p className="mt-3 text-xs text-gray-500 text-center">
-                No spam • Unsubscribe anytime
+                No spam. Unsubscribe anytime.
             </p>
         </div>
     )

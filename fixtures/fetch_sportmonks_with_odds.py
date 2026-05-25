@@ -36,7 +36,7 @@ SPORTMONKS_RATE_LIMIT = 1.2  # requests per second
 SPORTMONKS_MAX_RETRIES = 3
 SPORTMONKS_RETRY_DELAY = 5  # seconds
 
-# European leagues supported by SportMonks European leagues basic
+# European leagues supported by SportMonks European leagues basic + European Club Tournaments addon
 EUROPEAN_LEAGUE_IDS = {
     "Premier League": 8,
     "La Liga": 564,
@@ -44,6 +44,10 @@ EUROPEAN_LEAGUE_IDS = {
     "Bundesliga": 78,
     "Ligue 1": 301,
     "Liga 1": 486,  # Romanian Liga 1
+    # European Club Tournaments addon
+    "UEFA Champions League": 2,
+    "UEFA Europa League": 5,
+    "UEFA Europa Conference League": 2286,
 }
 
 def get_api_token() -> str:

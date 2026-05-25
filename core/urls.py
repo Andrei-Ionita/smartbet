@@ -48,4 +48,6 @@ urlpatterns = [
     
     # Email Capture / Newsletter
     path('api/subscribe/', api_views.subscribe_email, name='subscribe_email'),
+    path('api/marketing/events/', api_views.track_marketing_event, name='track_marketing_event'),
+    path('api/marketing/webhook/', api_views.marketing_webhook, name='marketing_webhook'),
 ]

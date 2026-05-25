@@ -17,14 +17,29 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from django.http import JsonResponse
+from django.conf import settings
 
 def health_check(request):
     """Simple health check endpoint for Render"""
     print("Health check endpoint hit!")
     return JsonResponse({"status": "healthy", "service": "smartbet-backend"})
 
+def db_check(request):
+    """Temporary diagnostic: which database is the backend actually using?"""
+    from django.contrib.auth.models import User
+    db_config = settings.DATABASES['default']
+    return JsonResponse({
+        "engine": db_config.get('ENGINE', 'unknown'),
+        "host": db_config.get('HOST', 'unknown'),
+        "name": db_config.get('NAME', 'unknown'),
+        "port": db_config.get('PORT', 'unknown'),
+        "user_count": User.objects.count(),
+        "has_database_url": bool(settings.DATABASES['default'].get('HOST')),
+    })
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/health/', health_check, name='health-check'),
+    path('api/db-check/', db_check, name='db-check'),
     path('', include('core.urls')),
 ]

@@ -110,7 +110,7 @@ export default function HomePage() {
             <div className="relative w-32 h-32 mx-auto">
               <Image
                 src="/images/logo-final-v6.png"
-                alt="OddsMind Logo"
+                alt="BetGlitch Logo"
                 fill
                 className="object-contain drop-shadow-lg"
               />
@@ -536,7 +536,7 @@ export default function HomePage() {
               Ready to Start Winning?
             </h2>
             <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-              Join thousands of users who trust OddsMind for their football predictions
+              Join thousands of users who trust BetGlitch for their football predictions
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               {/* Fetch recommendations with SWR - using Django backend */}

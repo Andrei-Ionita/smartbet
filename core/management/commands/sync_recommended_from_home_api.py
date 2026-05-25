@@ -101,16 +101,16 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('\nDRY RUN - No predictions were actually marked'))
                 return
             
-            # Unmark others if requested
+            # The --unmark-others flag used to strip is_recommended=True from
+            # picks not in the new list. This was even more aggressive than the
+            # sibling sync command — it unmarked PAST recommendations too,
+            # destroying the historical track record. is_recommended is now
+            # permanent; accepting the flag as a no-op for backwards compatibility.
             if unmark_others:
-                unmarked_count = PredictionLog.objects.filter(
-                    is_recommended=True
-                ).exclude(
-                    fixture_id__in=fixture_ids
-                ).update(is_recommended=False)
-                
-                if unmarked_count > 0:
-                    self.stdout.write(self.style.WARNING(f'\nUnmarked {unmarked_count} predictions that are no longer in recommendations'))
+                self.stdout.write(self.style.WARNING(
+                    '--unmark-others is a no-op (deprecated). is_recommended is now '
+                    'permanent.'
+                ))
             
             # Mark the matching predictions as recommended
             updated_count = matching_predictions.update(is_recommended=True)

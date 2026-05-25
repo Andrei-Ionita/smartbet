@@ -42,6 +42,17 @@ class PredictionLog(models.Model):
     odds_away = models.FloatField(null=True, blank=True)
     bookmaker = models.CharField(max_length=50, null=True, blank=True)
     expected_value = models.FloatField(null=True, blank=True)
+
+    # Bet-time odds for the *predicted* outcome (works for any market type).
+    # For 1X2 this duplicates whichever of odds_home/draw/away matches predicted_outcome;
+    # for O/U 2.5, BTTS, Double Chance this is the only place the actual bet odds live.
+    odds = models.FloatField(null=True, blank=True)
+    # The EV the prediction engine originally computed, before any client-side clamping
+    # (e.g. evaluateValueZone). Lets us audit the raw signal without losing the displayed value.
+    raw_expected_value = models.FloatField(null=True, blank=True)
+    # Set when a row is excluded from public stats because we don't trust its data
+    # (e.g. corrupt EV/odds from a known prior bug window). Counted in DB, hidden in UI.
+    is_audit_excluded = models.BooleanField(default=False, db_index=True)
     
     # Ensemble Info
     model_count = models.IntegerField(default=0)
@@ -103,7 +114,58 @@ class PredictionLog(models.Model):
     
     def __str__(self):
         return f"{self.home_team} vs {self.away_team} - Predicted: {self.predicted_outcome} ({self.confidence}%)"
-    
+
+    # Plausible bounds for sports-betting expected value. Anything outside this almost always
+    # means a pricing/units bug — log it (and stash the raw value) rather than silently inflate stats.
+    EV_PLAUSIBLE_MIN = -0.30
+    EV_PLAUSIBLE_MAX = 0.50
+
+    def save(self, *args, **kwargs):
+        import logging
+        log = logging.getLogger(__name__)
+
+        # Confidence may arrive as percentage from some legacy callers; coerce to decimal.
+        if self.confidence is not None and self.confidence > 1:
+            self.confidence = self.confidence / 100.0
+
+        # EV may arrive as percentage; coerce to decimal.
+        if self.expected_value is not None and abs(self.expected_value) > 1:
+            self.expected_value = self.expected_value / 100.0
+        if self.raw_expected_value is not None and abs(self.raw_expected_value) > 1:
+            self.raw_expected_value = self.raw_expected_value / 100.0
+
+        # Stash the raw value before any clamp, so we can audit later.
+        if self.expected_value is not None and self.raw_expected_value is None:
+            self.raw_expected_value = self.expected_value
+
+        # Clamp implausible EV. Sports markets don't price +50% edges; values higher mean
+        # bad probabilities or a unit-mismatch bug. Mark for audit exclusion rather than
+        # publishing inflated numbers. If a previously-bad row arrives with a clean EV on
+        # update, leave the exclusion flag alone — audit decisions are managed elsewhere.
+        if self.expected_value is not None and (
+            self.expected_value > self.EV_PLAUSIBLE_MAX
+            or self.expected_value < self.EV_PLAUSIBLE_MIN
+        ):
+            log.warning(
+                "PredictionLog fixture=%s: implausible EV %.4f (raw=%s) — clamping and marking audit-excluded",
+                self.fixture_id, self.expected_value, self.raw_expected_value,
+            )
+            self.expected_value = max(
+                self.EV_PLAUSIBLE_MIN,
+                min(self.EV_PLAUSIBLE_MAX, self.expected_value),
+            )
+            self.is_audit_excluded = True
+
+        # Odds sanity: decimal odds must be > 1.0. A value < 1.01 is data corruption.
+        if self.odds is not None and self.odds <= 1.01:
+            log.warning(
+                "PredictionLog fixture=%s: invalid odds %.4f — discarding",
+                self.fixture_id, self.odds,
+            )
+            self.odds = None
+
+        return super().save(*args, **kwargs)
+
     def calculate_performance(self):
         """
         Calculate performance metrics after match completes.
@@ -179,23 +241,22 @@ class PredictionLog(models.Model):
             self.was_correct = (predicted == actual_1x2)
         
         # ============= CALCULATE PROFIT/LOSS =============
-        # For multi-market, we use the stored odds from best_market
-        market_odds = getattr(self, 'odds_home', None)  # Default to home odds
-        
-        # Try to get the correct odds based on prediction
-        if market_type == '1x2':
-            if predicted == 'home' and self.odds_home:
+        # Prefer the canonical `odds` field (works for any market). Fall back to per-outcome
+        # 1X2 columns, and only as a last resort back-calculate from EV (legacy historical rows).
+        market_odds = self.odds
+
+        if not market_odds and market_type == '1x2':
+            if predicted == 'home':
                 market_odds = self.odds_home
-            elif predicted == 'draw' and self.odds_draw:
+            elif predicted == 'draw':
                 market_odds = self.odds_draw
-            elif predicted == 'away' and self.odds_away:
+            elif predicted == 'away':
                 market_odds = self.odds_away
-        # For other markets, odds would be stored in a dedicated field (future enhancement)
-        # For now, use expected_value to back-calculate approximate odds
-        elif self.expected_value and self.confidence:
-            # EV = (prob * odds) - 1, so odds = (EV + 1) / prob
-            if self.confidence > 0:
-                market_odds = (self.expected_value + 1) / self.confidence
+
+        if not market_odds and self.expected_value and self.confidence and self.confidence > 0:
+            # Legacy back-calc: EV = (prob * odds) - 1, so odds = (EV + 1) / prob.
+            # Only reached for historical rows logged before `odds` was captured.
+            market_odds = (self.expected_value + 1) / self.confidence
         
         # Calculate P/L
         if self.was_correct is True:
@@ -640,8 +701,16 @@ class EmailSubscriber(models.Model):
     """
     email = models.EmailField(unique=True, db_index=True)
     source = models.CharField(max_length=50, default='homepage')  # Where they signed up
+    landing_page = models.CharField(max_length=255, blank=True, default='')
+    utm_source = models.CharField(max_length=100, blank=True, default='')
+    utm_medium = models.CharField(max_length=100, blank=True, default='')
+    utm_campaign = models.CharField(max_length=150, blank=True, default='')
+    language = models.CharField(max_length=10, blank=True, default='en')
+    league_interest = models.CharField(max_length=100, blank=True, default='')
     subscribed_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)  # Can unsubscribe
+    email_platform_status = models.CharField(max_length=30, blank=True, default='pending')
+    last_synced_at = models.DateTimeField(null=True, blank=True)
     
     # Optional: Track what they're interested in
     interests = models.JSONField(default=list, blank=True)  # e.g., ['weekly_picks', 'premium_launch']
@@ -653,3 +722,42 @@ class EmailSubscriber(models.Model):
     
     def __str__(self):
         return f"{self.email} ({self.source})"
+
+
+class MarketingEvent(models.Model):
+    """
+    Append-only marketing telemetry used for attribution and lifecycle automation.
+    """
+    EVENT_CHOICES = [
+        ('email_subscribed', 'Email Subscribed'),
+        ('welcome_sequence_started', 'Welcome Sequence Started'),
+        ('weekly_picks_sent', 'Weekly Picks Sent'),
+        ('email_clicked', 'Email Clicked'),
+        ('pricing_viewed', 'Pricing Viewed'),
+        ('paid_converted', 'Paid Converted'),
+    ]
+
+    subscriber = models.ForeignKey(
+        EmailSubscriber,
+        null=True,
+        blank=True,
+        on_delete=models.SET_NULL,
+        related_name='marketing_events'
+    )
+    event_name = models.CharField(max_length=50, choices=EVENT_CHOICES, db_index=True)
+    source = models.CharField(max_length=50, blank=True, default='')
+    page = models.CharField(max_length=255, blank=True, default='')
+    metadata = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['event_name', '-created_at']),
+            models.Index(fields=['source', '-created_at']),
+        ]
+        verbose_name = "Marketing Event"
+        verbose_name_plural = "Marketing Events"
+
+    def __str__(self):
+        return f"{self.event_name} @ {self.created_at:%Y-%m-%d %H:%M:%S}"

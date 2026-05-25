@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { RefreshCw, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Award, Lock, ExternalLink } from 'lucide-react'
+import { useState, useEffect, useMemo } from 'react'
+import { RefreshCw, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Award, Lock, ExternalLink, Filter, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
 
 interface RecommendedPrediction {
   fixture_id: number
@@ -65,6 +65,12 @@ export default function RecommendedPredictionsTable() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [includePending, setIncludePending] = useState(true)
+  const [filterLeague, setFilterLeague] = useState('all')
+  const [filterDateFrom, setFilterDateFrom] = useState('')
+  const [filterDateTo, setFilterDateTo] = useState('')
+  const [filterResult, setFilterResult] = useState('all')
+  const [filterOutcome, setFilterOutcome] = useState('all')
+  const [showFilters, setShowFilters] = useState(false)
 
   const fetchPredictions = async (forceUpdate = false) => {
     try {
@@ -214,6 +220,54 @@ export default function RecommendedPredictionsTable() {
     return null
   }
 
+  // --- Filter logic ---
+  const uniqueLeagues = useMemo(() => {
+    const leagues = Array.from(new Set(predictions.map(p => p.league))).sort()
+    return leagues
+  }, [predictions])
+
+  const clearFilters = () => {
+    setFilterLeague('all')
+    setFilterDateFrom('')
+    setFilterDateTo('')
+    setFilterResult('all')
+    setFilterOutcome('all')
+  }
+
+  const activeFilterCount = [
+    filterLeague !== 'all',
+    filterDateFrom !== '',
+    filterDateTo !== '',
+    filterResult !== 'all',
+    filterOutcome !== 'all',
+  ].filter(Boolean).length
+
+  const filteredPredictions = useMemo(() => {
+    return predictions.filter((pred) => {
+      // League filter
+      if (filterLeague !== 'all' && pred.league !== filterLeague) return false
+
+      // Date range
+      if (filterDateFrom) {
+        const kickoff = new Date(pred.kickoff).toISOString().split('T')[0]
+        if (kickoff < filterDateFrom) return false
+      }
+      if (filterDateTo) {
+        const kickoff = new Date(pred.kickoff).toISOString().split('T')[0]
+        if (kickoff > filterDateTo) return false
+      }
+
+      // Result (win/loss)
+      if (filterResult === 'wins' && pred.was_correct !== true) return false
+      if (filterResult === 'losses' && pred.was_correct !== false) return false
+
+      // Predicted outcome
+      if (filterOutcome !== 'all' && pred.predicted_outcome?.toLowerCase() !== filterOutcome) return false
+
+      return true
+    })
+  }, [predictions, filterLeague, filterDateFrom, filterDateTo, filterResult, filterOutcome])
+
   if (isLoading) {
     return (
       <div className="bg-white rounded-2xl p-6 shadow-lg border border-gray-200">
@@ -344,21 +398,39 @@ export default function RecommendedPredictionsTable() {
         </>
       )}
 
-      {/* Controls */}
-      <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex flex-col md:flex-row md:items-center gap-4">
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includePending}
-              onChange={(e) => setIncludePending(e.target.checked)}
-              className="rounded text-primary-600 focus:ring-primary-500"
-            />
-            <span className="text-sm font-medium text-gray-700">Include Pending</span>
-          </label>
-        </div>
+      {/* Filters & Controls */}
+      <div className="bg-white rounded-xl shadow-lg border border-gray-200 overflow-hidden">
+        {/* Filter header - always visible */}
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowFilters(!showFilters)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100 transition-colors border border-gray-200"
+            >
+              <Filter className="h-4 w-4 text-blue-600" />
+              Filters
+              {activeFilterCount > 0 && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">
+                  {activeFilterCount}
+                </span>
+              )}
+              {showFilters ? <ChevronUp className="h-3.5 w-3.5 text-gray-400" /> : <ChevronDown className="h-3.5 w-3.5 text-gray-400" />}
+            </button>
 
-        <div className="flex items-center gap-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={includePending}
+                onChange={(e) => setIncludePending(e.target.checked)}
+                className="rounded text-primary-600 focus:ring-primary-500"
+              />
+              <span className="text-sm font-medium text-gray-700">Include Pending</span>
+            </label>
+
+            <span className="text-sm text-gray-500">
+              Showing {filteredPredictions.length} of {predictions.length}
+            </span>
+          </div>
 
           <button
             onClick={() => fetchPredictions(true)}
@@ -369,6 +441,95 @@ export default function RecommendedPredictionsTable() {
             {isRefreshing ? 'Refreshing...' : 'Refresh'}
           </button>
         </div>
+
+        {/* Collapsible filter body */}
+        {showFilters && (
+          <div className="px-4 pb-4 border-t border-gray-100 pt-3">
+            {/* Row 1: Date range + League */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={filterDateFrom}
+                    onChange={(e) => setFilterDateFrom(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+                <div className="relative">
+                  <Calendar className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+                  <input
+                    type="date"
+                    value={filterDateTo}
+                    onChange={(e) => setFilterDateTo(e.target.value)}
+                    className="w-full pl-8 pr-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">League</label>
+                <select
+                  value={filterLeague}
+                  onChange={(e) => setFilterLeague(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Leagues</option>
+                  {uniqueLeagues.map((league) => (
+                    <option key={league} value={league}>{league}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Result</label>
+                <select
+                  value={filterResult}
+                  onChange={(e) => setFilterResult(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Results</option>
+                  <option value="wins">Wins Only</option>
+                  <option value="losses">Losses Only</option>
+                </select>
+              </div>
+            </div>
+
+            {/* Row 2: Predicted Outcome + Clear */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Predicted Outcome</label>
+                <select
+                  value={filterOutcome}
+                  onChange={(e) => setFilterOutcome(e.target.value)}
+                  className="w-full px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="all">All Outcomes</option>
+                  <option value="home">Home</option>
+                  <option value="draw">Draw</option>
+                  <option value="away">Away</option>
+                </select>
+              </div>
+
+              <div className="flex items-end">
+                <button
+                  onClick={clearFilters}
+                  disabled={activeFilterCount === 0}
+                  className="w-full flex items-center justify-center gap-2 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-600 hover:bg-gray-50 hover:text-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  <RotateCcw className="h-3.5 w-3.5" />
+                  Clear Filters
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Table */}
@@ -388,14 +549,17 @@ export default function RecommendedPredictionsTable() {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {predictions.length === 0 ? (
+              {filteredPredictions.length === 0 ? (
                 <tr>
                   <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
-                    No recommended predictions found. Make sure predictions are marked as recommended.
+                    {activeFilterCount > 0
+                      ? 'No predictions match the current filters.'
+                      : 'No recommended predictions found. Make sure predictions are marked as recommended.'
+                    }
                   </td>
                 </tr>
               ) : (
-                predictions.map((pred) => (
+                filteredPredictions.map((pred) => (
                   <tr key={pred.fixture_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-start gap-2">

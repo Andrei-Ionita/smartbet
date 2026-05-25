@@ -38,12 +38,12 @@ export default function Navigation() {
             <div className="relative h-10 w-10">
               <Image
                 src="/images/logo-final-v6.png"
-                alt="OddsMind Logo"
+                alt="BetGlitch Logo"
                 fill
                 className="object-contain"
               />
             </div>
-            <span className="text-xl font-bold text-gray-900">OddsMind</span>
+            <span className="text-xl font-bold text-gray-900">BetGlitch</span>
           </Link>
 
           {/* Desktop Navigation */}
