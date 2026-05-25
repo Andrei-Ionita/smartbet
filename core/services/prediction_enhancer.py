@@ -31,10 +31,15 @@ class PredictionEnhancer:
         'Eliteserien',          # backtest: -21% yield (n=14)
     ]
 
-    # Leagues to watch — not blocked but require extra confidence
+    # Phase 2c (2026-05-25): leagues to watch — not blocked but require stricter
+    # thresholds (see PHASE_2C_WATCHLIST_LEAGUES in core/api_views.py for the
+    # canonical thresholds source-of-truth). Earlier entries here (Eredivisie,
+    # Pro League) were tagged on n<5 evidence and have since proven productive
+    # — Pro League is one of the strongest leagues in our 2026-05 weekend data.
+    # The real underperformer is Premier League (-52% weekend yield over 4,
+    # -27% cumulative over 14). Revisit 2026-06-08.
     LEAGUE_WATCHLIST = [
-        'Eredivisie',           # 2/4 = 50.0% accuracy
-        'Pro League',           # 0/1 = 0.0% accuracy
+        'Premier League',
     ]
 
     def __init__(self):

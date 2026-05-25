@@ -790,11 +790,13 @@ class LogRecommendationsFilterTests(TestCase):
         )
 
     def _rec(self, **overrides):
-        """Default valid recommendation payload."""
+        """Default valid recommendation payload. Uses La Liga because Phase 2c
+        watchlists Premier League with stricter thresholds — tests that need PL
+        explicitly override league=."""
         base = {
             'fixture_id': 200001,
             'home_team': 'Team A', 'away_team': 'Team B',
-            'league': 'Premier League',
+            'league': 'La Liga',
             'kickoff': (timezone.now() + timedelta(days=1)).isoformat(),
             'predicted_outcome': 'Over 2.5',
             'confidence': 0.62,
@@ -834,6 +836,45 @@ class LogRecommendationsFilterTests(TestCase):
         rec = self._rec(fixture_id=200013, expected_value=35.0)
         resp = self._post([rec])
         self.assertEqual(resp.json()['skipped_high_ev'], 1)
+
+    def test_watchlist_premier_league_low_confidence_rejected(self):
+        # Phase 2c: PL pick that doesn't clear the stricter bar (conf>=0.65, ev>=0.12)
+        rec = self._rec(
+            fixture_id=200015, league='Premier League',
+            confidence=0.60, expected_value=0.15,  # conf below threshold
+        )
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['skipped_watchlist'], 1)
+        self.assertFalse(PredictionLog.objects.filter(fixture_id=200015).exists())
+
+    def test_watchlist_premier_league_low_ev_rejected(self):
+        # Phase 2c: PL pick with high confidence but EV below the watchlist bar
+        rec = self._rec(
+            fixture_id=200016, league='Premier League',
+            confidence=0.70, expected_value=0.08,  # ev below threshold
+        )
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['skipped_watchlist'], 1)
+
+    def test_watchlist_premier_league_passing_threshold_logged(self):
+        # Phase 2c: PL pick that clears both stricter thresholds is allowed through
+        rec = self._rec(
+            fixture_id=200017, league='Premier League',
+            confidence=0.68, expected_value=0.15,
+        )
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['logged_count'], 1)
+        self.assertEqual(resp.json()['skipped_watchlist'], 0)
+
+    def test_watchlist_doesnt_affect_other_leagues(self):
+        # A La Liga pick with the same numbers as the rejected PL pick passes
+        rec = self._rec(
+            fixture_id=200018, league='La Liga',
+            confidence=0.60, expected_value=0.15,
+        )
+        resp = self._post([rec])
+        self.assertEqual(resp.json()['logged_count'], 1)
+        self.assertEqual(resp.json()['skipped_watchlist'], 0)
 
     def test_clean_recommendation_logged(self):
         rec = self._rec(fixture_id=200014)

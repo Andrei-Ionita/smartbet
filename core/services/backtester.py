@@ -428,6 +428,17 @@ PHASE_2B = replace(
     max_ev=0.20,
 )
 
+# Phase 2c adds a soft watchlist on top of Phase 2b. Premier League picks must
+# clear confidence ≥ 65% AND EV ≥ 12% to pass. Live filter as of 2026-05-25.
+PHASE_2C = replace(
+    PHASE_2B,
+    name='phase_2c',
+    league_tiers={
+        **PHASE_2B.league_tiers,
+        'Premier League': {'min_confidence': 0.65, 'min_ev': 0.12},
+    },
+)
+
 BASELINES: List[FilterConfig] = [
     CURRENT_PROD,
     NO_MAX_ODDS,
@@ -439,5 +450,6 @@ BASELINES: List[FilterConfig] = [
     DROP_UNDER_25,
     PHASE_2A,
     PHASE_2B,
+    PHASE_2C,
     CANDIDATE,
 ]

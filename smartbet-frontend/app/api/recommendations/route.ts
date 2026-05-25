@@ -77,6 +77,16 @@ type MarketType = keyof typeof MARKET_CONFIG
 // Backtest projects +5-8pp yield with this filter + the Under-2.5 block below.
 const BLACKLISTED_LEAGUE_IDS = new Set<number>([181, 462, 600, 573, 444])
 
+// Phase 2c (2026-05-25): leagues with persistent underperformance but too thin a
+// sample to blacklist. Picks from these leagues must clear a stricter bar
+// (confidence + EV) than the baseline filter — applied after value-zone adjustment,
+// so it uses the adjusted/final values the user will see. Revisit 2026-06-08.
+//   Premier League: -52% yield this weekend (n=4), -27% cumulative (n=14) since
+//   Phase 2 deploy. League ID 8.
+const WATCHLIST_LEAGUE_THRESHOLDS: Record<number, { minConfidence: number; minEv: number }> = {
+  8: { minConfidence: 0.65, minEv: 0.12 },  // Premier League
+}
+
 interface MarketPrediction {
   market_type: MarketType
   type_id: number
@@ -710,6 +720,15 @@ export async function GET(request: NextRequest) {
             // fixture rather than reaching for second-best market (matches
             // backtester semantics: trim is on stored expected_value).
             if (adjustedEV > 0.20) {
+              continue
+            }
+
+            // Phase 2c: watchlisted leagues require materially better signal than
+            // baseline. Premier League keeps underperforming (-52% yield this
+            // weekend, -27% cumulative over 14 picks); too thin to blacklist, but
+            // worth only surfacing when conviction is clearly higher than usual.
+            const watch = WATCHLIST_LEAGUE_THRESHOLDS[league.id]
+            if (watch && (adjustedProbability < watch.minConfidence || adjustedEV < watch.minEv)) {
               continue
             }
 

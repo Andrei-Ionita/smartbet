@@ -35,6 +35,14 @@ PHASE_2A_BLOCKED_OUTCOMES = ('under 2.5',)
 # because backtest shows picks with EV in (0.20, 0.50] still underperform —
 # they're the trap-zone the V2 enhancer was originally trying to address.
 PHASE_2B_MAX_EV = 0.20
+# Phase 2c (2026-05-25): soft watchlist. Leagues here must clear stricter
+# confidence + EV thresholds than the baseline filter. Reasoning: persistent
+# underperformance but sample too thin to blacklist. Revisit 2026-06-08.
+#   Premier League: -52% yield weekend (n=4), -27% cumulative since Phase 2.
+# Source-of-truth shared with smartbet-frontend WATCHLIST_LEAGUE_THRESHOLDS.
+PHASE_2C_WATCHLIST_LEAGUES = {
+    'Premier League': {'min_confidence': 0.65, 'min_ev': 0.12},
+}
 
 
 def generate_model_explanation(prediction):
@@ -670,16 +678,16 @@ def log_recommendations(request):
         skipped_blacklist = 0
         skipped_outcome = 0
         skipped_high_ev = 0
+        skipped_watchlist = 0
 
         for rec in recommendations:
             fixture_id = rec.get('fixture_id')
             if not fixture_id:
                 continue
 
-            # Phase 2a/2b defensive filters — reject recs we won't recommend regardless
-            # of what the upstream engine sent. Keeps existing rows with
-            # is_recommended=True intact (we only filter writes, not the
-            # historical track record).
+            # Phase 2a/2b/2c defensive filters — reject recs we won't recommend
+            # regardless of what the upstream engine sent. Keeps existing rows with
+            # is_recommended=True intact (we only filter writes, not history).
             if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
                 skipped_blacklist += 1
                 continue
@@ -689,10 +697,20 @@ def log_recommendations(request):
                 continue
             # EV cap: incoming EV may be percent or decimal — normalize before comparing.
             incoming_ev = rec.get('expected_value') or rec.get('ev')
+            normalized_ev = None
             if incoming_ev is not None:
                 normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
                 if normalized_ev > PHASE_2B_MAX_EV:
                     skipped_high_ev += 1
+                    continue
+            # Phase 2c watchlist: stricter thresholds for known under-performers.
+            watch = PHASE_2C_WATCHLIST_LEAGUES.get(rec.get('league'))
+            if watch is not None:
+                incoming_conf = rec.get('confidence') or 0
+                normalized_conf = incoming_conf / 100.0 if incoming_conf > 1 else incoming_conf
+                effective_ev = normalized_ev if normalized_ev is not None else 0
+                if normalized_conf < watch['min_confidence'] or effective_ev < watch['min_ev']:
+                    skipped_watchlist += 1
                     continue
 
             # Parse kickoff date
@@ -795,11 +813,12 @@ def log_recommendations(request):
             'skipped_blacklist': skipped_blacklist,
             'skipped_outcome': skipped_outcome,
             'skipped_high_ev': skipped_high_ev,
+            'skipped_watchlist': skipped_watchlist,
             'total': logged_count + updated_count,
             'message': (
                 f'Logged {logged_count} new, updated {updated_count} existing; '
                 f'skipped {skipped_blacklist} blacklist + {skipped_outcome} blocked-outcome '
-                f'+ {skipped_high_ev} high-EV recs'
+                f'+ {skipped_high_ev} high-EV + {skipped_watchlist} watchlist recs'
             ),
         })
         

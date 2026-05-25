@@ -77,12 +77,13 @@ class Command(BaseCommand):
             updated_count = 0
             skipped_count = 0
             
-            # Phase 2a + 2b filters — reuse the same source-of-truth from api_views so
-            # this command and the live POST endpoint behave identically.
+            # Phase 2a + 2b + 2c filters — reuse the same source-of-truth from
+            # api_views so this command and the live POST endpoint behave identically.
             from core.api_views import (
                 PHASE_2A_BLACKLISTED_LEAGUES,
                 PHASE_2A_BLOCKED_OUTCOMES,
                 PHASE_2B_MAX_EV,
+                PHASE_2C_WATCHLIST_LEAGUES,
             )
 
             for rec in recommendations:
@@ -98,9 +99,18 @@ class Command(BaseCommand):
                     skipped_count += 1
                     continue
                 incoming_ev = rec.get('expected_value') or rec.get('ev')
+                normalized_ev = None
                 if incoming_ev is not None:
                     normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
                     if normalized_ev > PHASE_2B_MAX_EV:
+                        skipped_count += 1
+                        continue
+                watch = PHASE_2C_WATCHLIST_LEAGUES.get(rec.get('league'))
+                if watch is not None:
+                    incoming_conf = rec.get('confidence') or 0
+                    normalized_conf = incoming_conf / 100.0 if incoming_conf > 1 else incoming_conf
+                    effective_ev = normalized_ev if normalized_ev is not None else 0
+                    if normalized_conf < watch['min_confidence'] or effective_ev < watch['min_ev']:
                         skipped_count += 1
                         continue
 
