@@ -4,6 +4,8 @@ Core models for SmartBet - Prediction Tracking & Bankroll Management
 
 from django.db import models
 from django.contrib.auth.models import User
+from django.db.models.signals import post_save
+from django.dispatch import receiver
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
 from decimal import Decimal
@@ -761,3 +763,57 @@ class MarketingEvent(models.Model):
 
     def __str__(self):
         return f"{self.event_name} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
+
+
+class UserProfile(models.Model):
+    """Per-user subscription + persistence data that doesn't belong on the auth User row.
+
+    Auto-created via a post_save signal when a User is registered so we can read
+    .profile.tier without null-checking on every request path.
+    """
+
+    TIER_FREE = 'free'
+    TIER_PRO = 'pro'
+    TIER_CHOICES = [
+        (TIER_FREE, 'Free'),
+        (TIER_PRO, 'Pro'),
+    ]
+
+    user = models.OneToOneField(
+        User, on_delete=models.CASCADE, related_name='profile'
+    )
+    tier = models.CharField(
+        max_length=10,
+        choices=TIER_CHOICES,
+        default=TIER_FREE,
+        db_index=True,
+    )
+    # Polar subscription id (preserved so we can correlate webhook events
+    # to the user when a re-upgrade or cancellation comes in).
+    polar_subscription_id = models.CharField(max_length=100, null=True, blank=True)
+    tier_updated_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "User Profile"
+        verbose_name_plural = "User Profiles"
+
+    def __str__(self):
+        return f"{self.user.username} ({self.tier})"
+
+    def set_tier(self, new_tier: str, polar_subscription_id: str = None):
+        """Set tier + bookkeeping in one shot. Idempotent."""
+        if new_tier not in dict(self.TIER_CHOICES):
+            raise ValueError(f'Unknown tier: {new_tier!r}')
+        self.tier = new_tier
+        if polar_subscription_id:
+            self.polar_subscription_id = polar_subscription_id
+        self.tier_updated_at = timezone.now()
+        self.save(update_fields=['tier', 'polar_subscription_id', 'tier_updated_at'])
+
+
+@receiver(post_save, sender=User)
+def _create_user_profile(sender, instance, created, **kwargs):
+    """Make sure every User has a UserProfile (default tier='free')."""
+    if created:
+        UserProfile.objects.get_or_create(user=instance)

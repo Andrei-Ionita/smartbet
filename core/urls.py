@@ -37,6 +37,7 @@ urlpatterns = [
     path('api/auth/logout/', auth_views.logout, name='logout'),
     path('api/auth/user/', auth_views.get_user, name='get_user'),
     path('api/auth/token/refresh/', auth_views.refresh_token, name='refresh_token'),
+    path('api/auth/upgrade-tier/', auth_views.upgrade_tier, name='upgrade_tier'),
     
     # Transparency & Accuracy Tracking (Public)
     path('api/transparency/dashboard/', transparency_views.public_accuracy_dashboard, name='public_accuracy_dashboard'),
