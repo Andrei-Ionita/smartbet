@@ -99,7 +99,7 @@ export default function PricingContent() {
                                 <h2 className="text-2xl font-bold">Pro</h2>
                             </div>
                             <div className="mt-4">
-                                <span className="text-4xl font-bold">€5</span>
+                                <span className="text-4xl font-bold">€14.99</span>
                                 <span className="text-violet-200">/month</span>
                             </div>
                             <p className="text-violet-200 mt-2">Everything you need to win</p>

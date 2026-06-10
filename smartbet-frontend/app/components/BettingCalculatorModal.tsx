@@ -193,14 +193,14 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
             </h3>
             <p className="text-gray-600 mb-6">
               Unlock the betting calculator with Kelly Criterion, stake recommendations,
-              and ROI analysis for just <span className="font-bold text-violet-600">€5/month</span>.
+              and ROI analysis for just <span className="font-bold text-violet-600">€14.99/month</span>.
             </p>
             {isAuthenticated ? (
               <Link
                 href="/pricing"
                 className="inline-block w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all"
               >
-                Upgrade to Pro - €5/month
+                Upgrade to Pro - €14.99/month
               </Link>
             ) : (
               <>
@@ -208,7 +208,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
                   href="/register"
                   className="inline-block w-full py-3 px-6 bg-gradient-to-r from-violet-600 to-purple-600 text-white font-semibold rounded-lg hover:from-violet-700 hover:to-purple-700 transition-all"
                 >
-                  Sign Up for Pro - €5/month
+                  Sign Up for Pro - €14.99/month
                 </Link>
                 <p className="text-sm text-gray-500 mt-3">
                   Already have an account?{' '}

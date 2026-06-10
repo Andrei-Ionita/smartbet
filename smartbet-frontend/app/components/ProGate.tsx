@@ -47,7 +47,7 @@ export function ProGate({ children, feature = 'This feature', showUpgradePrompt 
                             {feature} is a Pro Feature
                         </h3>
                         <p className="text-sm text-gray-600 mb-4">
-                            Upgrade to Pro for just <span className="font-bold text-violet-600">€5/month</span> to unlock all features.
+                            Upgrade to Pro for just <span className="font-bold text-violet-600">€14.99/month</span> to unlock all features.
                         </p>
                         {isAuthenticated ? (
                             <Link

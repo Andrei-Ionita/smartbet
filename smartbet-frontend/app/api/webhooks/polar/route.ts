@@ -13,7 +13,7 @@
  *     any one match is sufficient.
  *
  * Required env:
- *   POLAR_WEBHOOK_SECRET   — starts with `whsec_`; base64-encoded HMAC key.
+ *   POLAR_WEBHOOK_SECRET   — base64-encoded HMAC key (prefixed `whsec_` or `polar_whs_`).
  *   DJANGO_API_URL         — backend base URL (e.g. https://api.betglitch.com).
  *   INTERNAL_API_SECRET    — shared secret the backend's upgrade-tier endpoint
  *                            checks via the X-Internal-Auth header.
@@ -49,7 +49,9 @@ function verifySignature(opts: {
 }): boolean {
   const rawSecret = opts.secret.startsWith('whsec_')
     ? opts.secret.slice('whsec_'.length)
-    : opts.secret
+    : opts.secret.startsWith('polar_whs_')
+      ? opts.secret.slice('polar_whs_'.length)
+      : opts.secret
   let keyBuf: Buffer
   try {
     keyBuf = Buffer.from(rawSecret, 'base64')
