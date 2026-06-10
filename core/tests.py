@@ -9,7 +9,7 @@ from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import Mock, patch
-from core.models import BankrollTransaction, EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll
+from core.models import BankrollTransaction, EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll, UserProfile
 from core.bankroll_utils import calculate_kelly_criterion, calculate_stake_amount
 from django.contrib.auth import get_user_model
 
@@ -1088,3 +1088,187 @@ class BacktesterTests(TestCase):
         # Only the winning O/U (400001) and losing O/U (400002) survive.
         # Yield: (8.5 - 10) / (2 * 10) = -7.5%
         self.assertAlmostEqual(m.yield_percent, -7.5, places=4)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subscription / user-tier tests (added with the Polar subscription work).
+# Covers: UserProfile signal, /api/auth response shape, /api/auth/upgrade-tier/
+# endpoint, and the email-login path that was inadvertently dropped on the
+# subscription branch and restored via the merge.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class UserProfileSignalTests(TestCase):
+    """Every User creation should auto-create a UserProfile via post_save."""
+
+    def test_profile_auto_created_on_user_create(self):
+        user = User.objects.create_user(username='auto', email='auto@x.com', password='pw12345678')
+        self.assertTrue(hasattr(user, 'profile'))
+        self.assertEqual(user.profile.tier, UserProfile.TIER_FREE)
+
+    def test_set_tier_updates_timestamp_and_subscription_id(self):
+        user = User.objects.create_user(username='setter', email='set@x.com', password='pw12345678')
+        before = user.profile.tier_updated_at
+        user.profile.set_tier(UserProfile.TIER_PRO, polar_subscription_id='sub_abc')
+        user.profile.refresh_from_db()
+        self.assertEqual(user.profile.tier, 'pro')
+        self.assertEqual(user.profile.polar_subscription_id, 'sub_abc')
+        self.assertIsNotNone(user.profile.tier_updated_at)
+        self.assertNotEqual(user.profile.tier_updated_at, before)
+
+    def test_set_tier_rejects_unknown_value(self):
+        user = User.objects.create_user(username='reject', email='reject@x.com', password='pw12345678')
+        with self.assertRaises(ValueError):
+            user.profile.set_tier('platinum')
+
+
+class AuthResponseShapeTests(TestCase):
+    """Login, register, and /api/auth/user/ all include `tier`."""
+
+    def setUp(self):
+        self.client = Client()
+
+    def test_register_response_includes_tier(self):
+        resp = self.client.post('/api/auth/register/', data={
+            'username': 'newbie', 'email': 'newbie@x.com', 'password': 'pw12345678',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 201)
+        body = resp.json()
+        self.assertIn('tier', body['user'])
+        self.assertEqual(body['user']['tier'], 'free')
+
+    def test_login_response_includes_tier(self):
+        User.objects.create_user(username='loginer', email='log@x.com', password='pw12345678')
+        resp = self.client.post('/api/auth/login/', data={
+            'username': 'loginer', 'password': 'pw12345678',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['user']['tier'], 'free')
+
+    def test_login_by_email_restored(self):
+        # This branch had originally stripped email-login support; the merge
+        # restored it. Make sure it still works.
+        User.objects.create_user(username='emailer', email='via.email@x.com', password='pw12345678')
+        resp = self.client.post('/api/auth/login/', data={
+            'username': 'via.email@x.com', 'password': 'pw12345678',
+        }, content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['user']['username'], 'emailer')
+
+    def test_get_user_includes_tier_after_upgrade(self):
+        from rest_framework_simplejwt.tokens import RefreshToken
+        user = User.objects.create_user(username='proguy', email='pro@x.com', password='pw12345678')
+        user.profile.set_tier('pro', polar_subscription_id='sub_xyz')
+        token = str(RefreshToken.for_user(user).access_token)
+        resp = self.client.get('/api/auth/user/', HTTP_AUTHORIZATION=f'Bearer {token}')
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['user']['tier'], 'pro')
+
+
+class UpgradeTierEndpointTests(TestCase):
+    """The endpoint the Polar webhook calls. Protected by INTERNAL_API_SECRET."""
+
+    def setUp(self):
+        self.client = Client()
+        self.url = '/api/auth/upgrade-tier/'
+        self.user = User.objects.create_user(
+            username='upg', email='upg@example.com', password='pw12345678',
+        )
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_upgrade_succeeds_with_correct_secret(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro', 'subscription_id': 'sub_1'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertEqual(body['tier'], 'pro')
+        self.assertEqual(body['previous_tier'], 'free')
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.tier, 'pro')
+        self.assertEqual(self.user.profile.polar_subscription_id, 'sub_1')
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_upgrade_rejected_without_secret(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro'},
+            content_type='application/json',
+        )
+        self.assertEqual(resp.status_code, 401)
+        self.user.profile.refresh_from_db()
+        self.assertEqual(self.user.profile.tier, 'free')
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_upgrade_rejected_with_wrong_secret(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='not-the-right-one',
+        )
+        self.assertEqual(resp.status_code, 401)
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_unknown_email_returns_404(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'nope@example.com', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        self.assertEqual(resp.status_code, 404)
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_email_match_is_case_insensitive(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'UPG@EXAMPLE.COM', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        self.assertEqual(resp.status_code, 200)
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_unknown_tier_rejected(self):
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'platinum'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        self.assertEqual(resp.status_code, 400)
+
+    @patch.dict('os.environ', {'INTERNAL_API_SECRET': 'shared-secret-xyz'}, clear=False)
+    def test_idempotent_repeated_upgrade(self):
+        # First upgrade
+        self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        # Same upgrade again should also return 200
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='shared-secret-xyz',
+        )
+        self.assertEqual(resp.status_code, 200)
+        self.assertEqual(resp.json()['previous_tier'], 'pro')
+
+    @patch.dict('os.environ', {}, clear=True)
+    def test_endpoint_refuses_when_server_secret_unset(self):
+        # If INTERNAL_API_SECRET is unset on the server we'd rather 503 than
+        # accept the request — a misconfigured webhook is more dangerous than
+        # a temporary outage.
+        resp = self.client.post(
+            self.url,
+            data={'email': 'upg@example.com', 'tier': 'pro'},
+            content_type='application/json',
+            HTTP_X_INTERNAL_AUTH='anything',
+        )
+        self.assertEqual(resp.status_code, 503)
