@@ -19,9 +19,16 @@ COPY . .
 # Uncomment the following line in case you want to disable telemetry during the build.
 ENV NEXT_TELEMETRY_DISABLED 1
 
-# Receive environment variables from Railway during build
+# Receive environment variables from Railway during build.
+# NEXT_PUBLIC_* vars must be present when `next build` runs so they get
+# inlined into the client bundle — Railway passes service env vars as
+# build ARGs only when declared here.
 ARG NEXT_PUBLIC_API_URL
+ARG NEXT_PUBLIC_APP_URL
+ARG NEXT_PUBLIC_POLAR_PRODUCT_ID
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_APP_URL=$NEXT_PUBLIC_APP_URL
+ENV NEXT_PUBLIC_POLAR_PRODUCT_ID=$NEXT_PUBLIC_POLAR_PRODUCT_ID
 
 RUN npm run build
 
