@@ -4,14 +4,15 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
+import { ProBadge } from '../app/components/ProGate'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const pathname = usePathname()
-  const { user, logout, isAuthenticated } = useAuth()
+  const { user, logout, isAuthenticated, isPro } = useAuth()
   const { t, language, setLanguage } = useLanguage()
 
   const navItems = [
@@ -20,6 +21,7 @@ export default function Navigation() {
     { href: '/explore', label: t('nav.explore'), icon: Search },
     { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     { href: '/bankroll', label: t('nav.bankroll'), icon: Wallet },
+    { href: '/pricing', label: t('nav.pricing'), icon: Tag },
   ]
 
 
@@ -88,9 +90,19 @@ export default function Navigation() {
 
             {isAuthenticated && user ? (
               <>
+                {!isPro && (
+                  <Link
+                    href="/pricing"
+                    className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg transition-all shadow-sm"
+                  >
+                    <Zap className="h-4 w-4" />
+                    <span>{t('nav.upgradeToPro')}</span>
+                  </Link>
+                )}
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
                   <User className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-900">{user.username}</span>
+                  {isPro && <ProBadge />}
                 </div>
                 <button
                   onClick={logout}
@@ -188,13 +200,30 @@ export default function Navigation() {
             <hr className="my-2 border-gray-200" />
 
             {isAuthenticated ? (
-              <button
-                onClick={logout}
-                className="w-full flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium text-red-600 hover:bg-red-50 text-left"
-              >
-                <LogOut className="h-5 w-5" />
-                <span>{t('nav.logout')}</span>
-              </button>
+              <>
+                {!isPro && (
+                  <Link
+                    href="/pricing"
+                    className="flex items-center space-x-3 px-3 py-3 mb-2 rounded-md text-base font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"
+                  >
+                    <Zap className="h-5 w-5" />
+                    <span>{t('nav.upgradeToPro')}</span>
+                  </Link>
+                )}
+                {isPro && (
+                  <div className="flex items-center space-x-3 px-3 py-2 mb-2">
+                    <ProBadge />
+                    <span className="text-sm text-gray-600">{user?.username}</span>
+                  </div>
+                )}
+                <button
+                  onClick={logout}
+                  className="w-full flex items-center space-x-3 px-3 py-3 rounded-md text-base font-medium text-red-600 hover:bg-red-50 text-left"
+                >
+                  <LogOut className="h-5 w-5" />
+                  <span>{t('nav.logout')}</span>
+                </button>
+              </>
             ) : (
               <div className="flex flex-col gap-2 p-2">
                 <Link
