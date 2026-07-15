@@ -9,8 +9,9 @@ import MarketingEventTracker from '../components/MarketingEventTracker'
 export default function PricingContent() {
     const { isAuthenticated, isPro } = useAuth()
 
-    // TODO: Replace with your actual Polar.sh Product ID
-    const PRO_PRODUCT_ID = process.env.NEXT_PUBLIC_POLAR_PRODUCT_ID || 'YOUR_PRODUCT_ID_HERE'
+    // Baked in at build time — must be set on the Railway frontend service.
+    const PRO_PRODUCT_ID = process.env.NEXT_PUBLIC_POLAR_PRODUCT_ID || ''
+    const isCheckoutConfigured = PRO_PRODUCT_ID.length > 0
 
     const features = [
         { name: 'Daily Predictions', free: '3 best picks', pro: 'All picks (10-20+)', icon: BarChart3 },
@@ -124,12 +125,18 @@ export default function PricingContent() {
                                 ✓ You&apos;re on Pro
                             </div>
                         ) : isAuthenticated ? (
-                            <CheckoutButton
-                                productId={PRO_PRODUCT_ID}
-                                className="block w-full py-3 text-center font-semibold bg-white text-violet-600 rounded-lg hover:bg-gray-50 transition-colors"
-                            >
-                                Upgrade Now
-                            </CheckoutButton>
+                            isCheckoutConfigured ? (
+                                <CheckoutButton
+                                    productId={PRO_PRODUCT_ID}
+                                    className="block w-full py-3 text-center font-semibold bg-white text-violet-600 rounded-lg hover:bg-gray-50 transition-colors"
+                                >
+                                    Upgrade Now
+                                </CheckoutButton>
+                            ) : (
+                                <div className="block w-full py-3 text-center font-semibold bg-red-100 text-red-700 rounded-lg" title="NEXT_PUBLIC_POLAR_PRODUCT_ID missing at build time">
+                                    Checkout unavailable
+                                </div>
+                            )
                         ) : (
                             <Link
                                 href="/register"
