@@ -203,8 +203,13 @@ if DEBUG:
     ]
 else:
     CORS_ALLOW_ALL_ORIGINS = False
-    frontend_url = os.getenv('FRONTEND_URL', '')
-    CORS_ALLOWED_ORIGINS = [frontend_url] if frontend_url else []
+    # Prefer explicit multi-origin list (comma-separated); fall back to single FRONTEND_URL.
+    _cors_env = os.getenv('CORS_ALLOWED_ORIGINS', '')
+    if _cors_env:
+        CORS_ALLOWED_ORIGINS = [o.strip() for o in _cors_env.split(',') if o.strip()]
+    else:
+        frontend_url = os.getenv('FRONTEND_URL', '')
+        CORS_ALLOWED_ORIGINS = [frontend_url] if frontend_url else []
 
 CORS_ALLOW_CREDENTIALS = True
 CORS_PREFLIGHT_MAX_AGE = 86400
