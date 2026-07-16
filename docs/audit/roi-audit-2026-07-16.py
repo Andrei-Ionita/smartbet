@@ -89,6 +89,86 @@ def format_q1(ui_stats: dict, unfiltered_stats: dict) -> str:
     return "## Q1 — Sample size and time coverage\n\n" + block('UI-matching (conf ≥ 0.60)', ui_stats) + block('Unfiltered', unfiltered_stats)
 
 
+# ---- Q2: Bootstrap confidence interval --------------------------------
+
+def q2_bootstrap_ci(profits: np.ndarray, n_iter: int = 10000, seed: int = 42) -> dict:
+    """Bootstrap 95% CI on ROI (%). ROI = mean(profit_loss_10) / 10 * 100.
+
+    Returns NaN dict for empty input.
+    """
+    if len(profits) == 0:
+        return {'point_roi_pct': float('nan'),
+                'ci_lo': float('nan'), 'ci_hi': float('nan'), 'ci_median': float('nan')}
+
+    rng = np.random.default_rng(seed)
+    n = len(profits)
+    idx = rng.integers(0, n, size=(n_iter, n))
+    resamples = profits[idx]
+    roi_samples = resamples.mean(axis=1) / 10.0 * 100.0
+    return {
+        'point_roi_pct': float(profits.mean() / 10.0 * 100.0),
+        'ci_lo': float(np.percentile(roi_samples, 2.5)),
+        'ci_median': float(np.percentile(roi_samples, 50)),
+        'ci_hi': float(np.percentile(roi_samples, 97.5)),
+    }
+
+
+def format_q2(ui_ci: dict, un_ci: dict) -> str:
+    def line(label, r):
+        if any(map(np.isnan, [r['point_roi_pct'], r['ci_lo'], r['ci_hi']])):
+            return f"- {label}: no data\n"
+        return (f"- {label}: **{r['point_roi_pct']:.2f}%** "
+                f"(95% CI: {r['ci_lo']:.2f}% → {r['ci_hi']:.2f}%)\n")
+    return ("## Q2 — Point estimate and 95% confidence interval\n\n"
+            + line('UI-matching (conf ≥ 0.60)', ui_ci)
+            + line('Unfiltered', un_ci)
+            + "\n")
+
+
+# ---- Q3: Monthly ROI stability ----------------------------------------
+
+def q3_monthly_roi(df: pd.DataFrame) -> pd.DataFrame:
+    if len(df) == 0:
+        return pd.DataFrame(columns=['month', 'n', 'roi_pct', 'pl_total'])
+    g = df.assign(_m=df['prediction_logged_at'].dt.to_period('M').astype(str))
+    out = g.groupby('_m').agg(n=('profit_loss_10', 'size'),
+                              pl_total=('profit_loss_10', 'sum')).reset_index()
+    out = out.rename(columns={'_m': 'month'})
+    out['roi_pct'] = out['pl_total'] / (out['n'] * 10.0) * 100.0
+    return out.sort_values('month').reset_index(drop=True)
+
+
+def ascii_bar_chart(values: list[tuple[str, float]], width: int = 30) -> str:
+    """Render (label, value) pairs as a monospace horizontal bar chart.
+
+    Handles negatives by splitting positive/negative around a zero axis.
+    """
+    if not values:
+        return '(no data)'
+    max_abs = max(abs(v) for _, v in values) or 1.0
+    label_w = max(len(l) for l, _ in values)
+    lines = []
+    for label, v in values:
+        bar_len = int(round(abs(v) / max_abs * width))
+        bar = ('▆' * bar_len) if v >= 0 else ('▁' * bar_len)
+        sign = '+' if v >= 0 else '−'
+        lines.append(f"{label:<{label_w}}  {sign}{abs(v):6.2f}%  {bar}")
+    return '\n'.join(lines)
+
+
+def format_q3(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+    def block(label, d):
+        if len(d) == 0:
+            return f"**{label}:** no data.\n\n"
+        chart = ascii_bar_chart([(row['month'], row['roi_pct']) for _, row in d.iterrows()])
+        pos = int((d['roi_pct'] > 0).sum())
+        return (f"**{label}** — {pos}/{len(d)} months positive\n\n"
+                f"```\n{chart}\n```\n\n")
+    return ("## Q3 — Monthly ROI stability\n\n"
+            + block('UI-matching', ui_df)
+            + block('Unfiltered', un_df))
+
+
 # ---- Verdict gates ----------------------------------------------------
 
 def q1_gate(ui_stats: dict, unfiltered_stats: dict) -> tuple[str, str]:
@@ -125,7 +205,15 @@ def main(argv: Optional[list[str]] = None) -> int:
         print("HALTING at Q1 as designed.")
         return 2  # nonzero exit to indicate hard-stop verdict
 
-    # Q2-Q8 will be filled in by subsequent tasks.
+    ui_ci = q2_bootstrap_ci(ui_df['profit_loss_10'].to_numpy())
+    un_ci = q2_bootstrap_ci(unfiltered_df['profit_loss_10'].to_numpy())
+    print(format_q2(ui_ci, un_ci))
+
+    ui_month = q3_monthly_roi(ui_df)
+    un_month = q3_monthly_roi(unfiltered_df)
+    print(format_q3(ui_month, un_month))
+
+    # Q4-Q8 will be filled in by subsequent tasks.
     return 0
 
 
