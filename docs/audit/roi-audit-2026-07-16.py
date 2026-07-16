@@ -261,6 +261,80 @@ def format_q6(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
             f"**Unfiltered**\n```\n{_format_breakdown_df(un_df, 'league')}```\n\n")
 
 
+# ---- Q7: Profit concentration -----------------------------------------
+
+def q7_concentration(df: pd.DataFrame, top_ns: list[int] = None) -> dict:
+    if top_ns is None:
+        top_ns = [1, 5, 10, 25]
+    if len(df) == 0:
+        return {'total_profit': 0.0, 'total_bets': 0, 'top_shares': []}
+    profits = df['profit_loss_10'].to_numpy()
+    sorted_desc = np.sort(profits)[::-1]
+    total_net = float(profits.sum())
+    total_positive = float(profits[profits > 0].sum())
+    shares = []
+    for n in top_ns:
+        take = sorted_desc[:n].sum() if n <= len(sorted_desc) else sorted_desc.sum()
+        share_pos = float(take / total_positive * 100.0) if total_positive > 0 else float('nan')
+        share_net = float(take / total_net * 100.0) if total_net != 0 else float('nan')
+        shares.append((n, share_pos, share_net))
+    return {'total_profit': total_net, 'total_bets': len(df), 'top_shares': shares}
+
+
+def format_q7(ui_stats: dict, un_stats: dict) -> str:
+    def block(label, s):
+        if s['total_bets'] == 0:
+            return f"**{label}:** no data.\n\n"
+        lines = [f"- Total net profit (over {s['total_bets']} bets): {s['total_profit']:+.2f}"]
+        for n, sp, sn in s['top_shares']:
+            spf = f"{sp:.1f}%" if not np.isnan(sp) else 'n/a'
+            snf = f"{sn:.1f}%" if not np.isnan(sn) else 'n/a'
+            lines.append(f"- Top {n} bets: {spf} of gross positive profit, {snf} of net profit")
+        return f"**{label}**\n\n" + '\n'.join(lines) + "\n\n"
+    return ("## Q7 — Profit concentration\n\n"
+            + block('UI-matching', ui_stats)
+            + block('Unfiltered', un_stats))
+
+
+# ---- Q8: Odds sanity --------------------------------------------------
+
+def q8_odds_sanity(df: pd.DataFrame) -> pd.DataFrame:
+    if len(df) == 0:
+        return pd.DataFrame(columns=['bucket', 'n', 'avg_odds', 'avg_confidence', 'implied_prob_from_odds'])
+    d = df[df['odds'].notna() & (df['odds'] > 1.0)].copy()
+    d['_bucket'] = pd.cut(d['confidence'], bins=_CONF_EDGES,
+                          labels=_CONF_LABELS, right=False, include_lowest=True)
+    out = d.groupby('_bucket', observed=False).agg(
+        n=('odds', 'size'),
+        avg_odds=('odds', 'mean'),
+        avg_confidence=('confidence', 'mean'),
+    ).reset_index().rename(columns={'_bucket': 'bucket'})
+    out['implied_prob_from_odds'] = 1.0 / out['avg_odds']
+    return out
+
+
+def format_q8(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+    def block(label, d):
+        if len(d) == 0:
+            return f"**{label}:** no data.\n\n"
+        lines = []
+        prev_avg_odds = None
+        anomaly_note = ''
+        for _, row in d.iterrows():
+            lines.append(f"  {str(row['bucket']):<12} n={int(row['n']):>4}  "
+                         f"avg_odds={row['avg_odds']:5.2f}  "
+                         f"avg_conf={row['avg_confidence']:5.3f}  "
+                         f"implied_p={row['implied_prob_from_odds']:5.3f}")
+            if prev_avg_odds is not None and row['avg_odds'] > prev_avg_odds:
+                anomaly_note = ("\n⚠️ ANOMALY: average odds INCREASE as confidence rises. "
+                                "Expected inverse relationship — investigate odds capture.")
+            prev_avg_odds = row['avg_odds']
+        return f"**{label}**\n\n```\n" + '\n'.join(lines) + f"\n```{anomaly_note}\n\n"
+    return ("## Q8 — Odds sanity\n\n"
+            + block('UI-matching', ui_df)
+            + block('Unfiltered', un_df))
+
+
 # ---- Verdict gates ----------------------------------------------------
 
 def q1_gate(ui_stats: dict, unfiltered_stats: dict) -> tuple[str, str]:
@@ -308,8 +382,9 @@ def main(argv: Optional[list[str]] = None) -> int:
     print(format_q4(q4_confidence_buckets(ui_df), q4_confidence_buckets(unfiltered_df)))
     print(format_q5(q5_market_breakdown(ui_df), q5_market_breakdown(unfiltered_df)))
     print(format_q6(q6_league_breakdown(ui_df), q6_league_breakdown(unfiltered_df)))
+    print(format_q7(q7_concentration(ui_df), q7_concentration(unfiltered_df)))
+    print(format_q8(q8_odds_sanity(ui_df), q8_odds_sanity(unfiltered_df)))
 
-    # Q7-Q8 will be filled in by subsequent tasks.
     return 0
 
 
