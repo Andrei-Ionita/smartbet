@@ -135,7 +135,7 @@ def q3_monthly_roi(df: pd.DataFrame) -> pd.DataFrame:
                               pl_total=('profit_loss_10', 'sum')).reset_index()
     out = out.rename(columns={'_m': 'month'})
     out['roi_pct'] = out['pl_total'] / (out['n'] * 10.0) * 100.0
-    return out.sort_values('month').reset_index(drop=True)
+    return out[['month', 'n', 'roi_pct', 'pl_total']].sort_values('month').reset_index(drop=True)
 
 
 def ascii_bar_chart(values: list[tuple[str, float]], width: int = 30) -> str:
