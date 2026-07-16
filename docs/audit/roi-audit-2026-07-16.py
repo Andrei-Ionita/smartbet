@@ -169,6 +169,98 @@ def format_q3(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
             + block('Unfiltered', un_df))
 
 
+# ---- Q4: Confidence buckets -------------------------------------------
+
+_CONF_EDGES = [0.55, 0.60, 0.70, 0.80, 1.001]  # 1.001 to include 1.0
+_CONF_LABELS = ['0.55–0.60', '0.60–0.70', '0.70–0.80', '0.80–1.00']
+
+
+def q4_confidence_buckets(df: pd.DataFrame, min_n: int = 30) -> pd.DataFrame:
+    if len(df) == 0:
+        return pd.DataFrame(columns=['bucket', 'n', 'roi_pct', 'pl_total', 'underpowered'])
+    d = df.copy()
+    d['_bucket'] = pd.cut(d['confidence'], bins=_CONF_EDGES,
+                          labels=_CONF_LABELS, right=False, include_lowest=True)
+    out = d.groupby('_bucket', observed=False).agg(
+        n=('profit_loss_10', 'size'),
+        pl_total=('profit_loss_10', 'sum'),
+    ).reset_index().rename(columns={'_bucket': 'bucket'})
+    out['roi_pct'] = np.where(out['n'] > 0,
+                              out['pl_total'] / (out['n'].replace(0, 1) * 10.0) * 100.0, 0.0)
+    out['underpowered'] = out['n'] < min_n
+    return out
+
+
+def _format_breakdown_df(d: pd.DataFrame, key_col: str) -> str:
+    if len(d) == 0:
+        return '(no data)\n'
+    lines = []
+    for _, row in d.iterrows():
+        flag = ' ⚠️ n<30' if row['underpowered'] else ''
+        roi = f"{row['roi_pct']:+7.2f}%"
+        extra = ''
+        if 'win_rate_pct' in row:
+            extra = f"  win {row['win_rate_pct']:5.1f}%"
+        lines.append(f"  {str(row[key_col]):<28} n={int(row['n']):>4}  ROI {roi}{extra}{flag}")
+    return '\n'.join(lines) + '\n'
+
+
+def format_q4(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+    return ("## Q4 — Confidence bucket effect\n\n"
+            f"**UI-matching (conf ≥ 0.60)**\n```\n{_format_breakdown_df(ui_df, 'bucket')}```\n\n"
+            f"**Unfiltered**\n```\n{_format_breakdown_df(un_df, 'bucket')}```\n\n")
+
+
+# ---- Q5: Market breakdown ---------------------------------------------
+
+def q5_market_breakdown(df: pd.DataFrame, min_n: int = 30) -> pd.DataFrame:
+    if len(df) == 0:
+        return pd.DataFrame(columns=['market_type', 'n', 'roi_pct', 'win_rate_pct', 'underpowered'])
+    d = df.copy()
+    d['_won'] = pd.to_numeric(d.get('was_correct', 0), errors='coerce').fillna(0).astype(int)
+    out = d.groupby(d['market_type'].fillna('unknown')).agg(
+        n=('profit_loss_10', 'size'),
+        pl_total=('profit_loss_10', 'sum'),
+        wins=('_won', 'sum'),
+    ).reset_index().rename(columns={'market_type': 'market_type'})
+    out['roi_pct'] = out['pl_total'] / (out['n'] * 10.0) * 100.0
+    out['win_rate_pct'] = out['wins'] / out['n'] * 100.0
+    out['underpowered'] = out['n'] < min_n
+    return out[['market_type', 'n', 'roi_pct', 'win_rate_pct', 'underpowered']].sort_values('n', ascending=False)
+
+
+def format_q5(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+    return ("## Q5 — Market breakdown\n\n"
+            f"**UI-matching**\n```\n{_format_breakdown_df(ui_df, 'market_type')}```\n\n"
+            f"**Unfiltered**\n```\n{_format_breakdown_df(un_df, 'market_type')}```\n\n")
+
+
+# ---- Q6: League breakdown ---------------------------------------------
+
+def q6_league_breakdown(df: pd.DataFrame, top_n: int = 10, min_n: int = 30) -> pd.DataFrame:
+    if len(df) == 0:
+        return pd.DataFrame(columns=['league', 'n', 'roi_pct', 'win_rate_pct', 'underpowered'])
+    d = df.copy()
+    d['_won'] = pd.to_numeric(d.get('was_correct', 0), errors='coerce').fillna(0).astype(int)
+    out = d.groupby(d['league'].fillna('unknown')).agg(
+        n=('profit_loss_10', 'size'),
+        pl_total=('profit_loss_10', 'sum'),
+        wins=('_won', 'sum'),
+    ).reset_index().rename(columns={'league': 'league'})
+    out['roi_pct'] = out['pl_total'] / (out['n'] * 10.0) * 100.0
+    out['win_rate_pct'] = out['wins'] / out['n'] * 100.0
+    out['underpowered'] = out['n'] < min_n
+    return out.sort_values('n', ascending=False).head(top_n)[
+        ['league', 'n', 'roi_pct', 'win_rate_pct', 'underpowered']
+    ]
+
+
+def format_q6(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+    return ("## Q6 — League breakdown (top 10 by volume)\n\n"
+            f"**UI-matching**\n```\n{_format_breakdown_df(ui_df, 'league')}```\n\n"
+            f"**Unfiltered**\n```\n{_format_breakdown_df(un_df, 'league')}```\n\n")
+
+
 # ---- Verdict gates ----------------------------------------------------
 
 def q1_gate(ui_stats: dict, unfiltered_stats: dict) -> tuple[str, str]:
@@ -213,7 +305,11 @@ def main(argv: Optional[list[str]] = None) -> int:
     un_month = q3_monthly_roi(unfiltered_df)
     print(format_q3(ui_month, un_month))
 
-    # Q4-Q8 will be filled in by subsequent tasks.
+    print(format_q4(q4_confidence_buckets(ui_df), q4_confidence_buckets(unfiltered_df)))
+    print(format_q5(q5_market_breakdown(ui_df), q5_market_breakdown(unfiltered_df)))
+    print(format_q6(q6_league_breakdown(ui_df), q6_league_breakdown(unfiltered_df)))
+
+    # Q7-Q8 will be filled in by subsequent tasks.
     return 0
 
 
