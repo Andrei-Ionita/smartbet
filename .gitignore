@@ -132,3 +132,6 @@ smartbet-frontend/.turbo/
 *.csv.backup
 exports/
 backups/
+
+# Audit snapshots — regenerate from prod via steps in docs/audit/README.md
+docs/audit/*.sqlite
