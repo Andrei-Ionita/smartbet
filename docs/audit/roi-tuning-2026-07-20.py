@@ -176,6 +176,76 @@ def e1_recommendation(sweep_df: pd.DataFrame) -> dict:
             'best_n': 0, 'best_point': float('nan'), 'verdict': 'DISCARD'}
 
 
+# ---- E2: EV shrinkage sweep -------------------------------------------
+
+def e2_shrinkage_sweep(universe: pd.DataFrame, factors: list[float]) -> pd.DataFrame:
+    """For each shrinkage factor k, apply ev_shrunk = ev * k and keep rows
+    where ev_shrunk >= 0.05 (matches current frontend filter threshold)."""
+    rows = []
+    for k in factors:
+        subset = universe[(universe['expected_value'] * k) >= 0.05]
+        n = len(subset)
+        if n == 0:
+            rows.append({'factor': round(k, 2), 'n': 0, 'roi_pct': float('nan'),
+                         'ci_lo': float('nan'), 'ci_hi': float('nan'),
+                         'verdict': 'DISCARD'})
+            continue
+        ci = bootstrap_ci(subset['profit_loss_10'].to_numpy())
+        rows.append({
+            'factor': round(k, 2),
+            'n': n,
+            'roi_pct': ci['point_roi_pct'],
+            'ci_lo': ci['ci_lo'],
+            'ci_hi': ci['ci_hi'],
+            'verdict': classify_verdict(ci['ci_lo'], ci['point_roi_pct'], n),
+        })
+    return pd.DataFrame(rows)
+
+
+def format_e2(sweep_df: pd.DataFrame) -> str:
+    lines = ['## E2 - EV shrinkage factor sweep', '',
+             "**Hypothesis:** model's EV is ~20 pp too optimistic; shrinkage factor before the `ev >= 0.05` filter keeps only genuinely-value picks.",
+             '',
+             '```',
+             '  factor   n     ROI       CI_lo    CI_hi    verdict']
+    for _, r in sweep_df.iterrows():
+        if r['n'] == 0:
+            lines.append(f"  {r['factor']:>4.2f}     0     n/a       n/a      n/a      DISCARD")
+            continue
+        lines.append(
+            f"  {r['factor']:>4.2f}  {int(r['n']):>4}  "
+            f"{r['roi_pct']:+6.2f}%  {r['ci_lo']:+6.2f}%  {r['ci_hi']:+6.2f}%  {r['verdict']}"
+        )
+    lines.append('```')
+    lines.append('')
+    return '\n'.join(lines) + '\n'
+
+
+def e2_recommendation(sweep_df: pd.DataFrame) -> dict:
+    ships = sweep_df[sweep_df['verdict'] == 'SHIP']
+    if not ships.empty:
+        best = ships.sort_values('ci_lo', ascending=False).iloc[0]
+        return {
+            'best_factor': float(best['factor']),
+            'best_ci_lo': float(best['ci_lo']),
+            'best_n': int(best['n']),
+            'best_point': float(best['roi_pct']),
+            'verdict': 'SHIP',
+        }
+    investigates = sweep_df[sweep_df['verdict'] == 'INVESTIGATE']
+    if not investigates.empty:
+        best = investigates.sort_values('roi_pct', ascending=False).iloc[0]
+        return {
+            'best_factor': float(best['factor']),
+            'best_ci_lo': float(best['ci_lo']),
+            'best_n': int(best['n']),
+            'best_point': float(best['roi_pct']),
+            'verdict': 'INVESTIGATE',
+        }
+    return {'best_factor': float('nan'), 'best_ci_lo': float('nan'),
+            'best_n': 0, 'best_point': float('nan'), 'verdict': 'DISCARD'}
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -198,7 +268,18 @@ def main(argv: Optional[list[str]] = None) -> int:
               f"CI_lo = {e1_reco['best_ci_lo']:+.2f}%  n = {e1_reco['best_n']}")
     print()
 
-    # E2-E5 wired in by subsequent tasks.
+    factors = [round(0.5 + i * 0.05, 2) for i in range(int((1.0 - 0.5) / 0.05) + 1)]
+    e2_df = e2_shrinkage_sweep(universe, factors)
+    print(format_e2(e2_df))
+    e2_reco = e2_recommendation(e2_df)
+    print(f"### E2 recommendation: {e2_reco['verdict']}")
+    if e2_reco['verdict'] != 'DISCARD':
+        print(f"  best factor = {e2_reco['best_factor']:.2f}  "
+              f"point = {e2_reco['best_point']:+.2f}%  "
+              f"CI_lo = {e2_reco['best_ci_lo']:+.2f}%  n = {e2_reco['best_n']}")
+    print()
+
+    # E3-E5 wired in by subsequent tasks.
     return 0
 
 
