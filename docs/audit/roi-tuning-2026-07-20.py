@@ -246,6 +246,114 @@ def e2_recommendation(sweep_df: pd.DataFrame) -> dict:
             'best_n': 0, 'best_point': float('nan'), 'verdict': 'DISCARD'}
 
 
+# ---- E3: League analysis ----------------------------------------------
+
+def e3_league_analysis(universe: pd.DataFrame, min_n: int = 15) -> pd.DataFrame:
+    """Per-league ROI + CI. Category tags blacklist (CI_hi < 0),
+    whitelist (CI_lo > 0), or neutral."""
+    rows = []
+    for league, g in universe.groupby(universe['league'].fillna('unknown')):
+        if len(g) < min_n:
+            continue
+        ci = bootstrap_ci(g['profit_loss_10'].to_numpy())
+        if ci['ci_hi'] < 0:
+            category = 'blacklist'
+        elif ci['ci_lo'] > 0:
+            category = 'whitelist'
+        else:
+            category = 'neutral'
+        rows.append({
+            'league': league,
+            'n': len(g),
+            'roi_pct': ci['point_roi_pct'],
+            'ci_lo': ci['ci_lo'],
+            'ci_hi': ci['ci_hi'],
+            'category': category,
+        })
+    return pd.DataFrame(rows).sort_values('n', ascending=False)
+
+
+def e3_scenarios(universe: pd.DataFrame, per_league: pd.DataFrame) -> pd.DataFrame:
+    """Compute ROI under three scenarios."""
+    scenarios = []
+    # Current: entire universe
+    ci = bootstrap_ci(universe['profit_loss_10'].to_numpy())
+    scenarios.append({
+        'scenario': 'current',
+        'n': len(universe),
+        'roi_pct': ci['point_roi_pct'],
+        'ci_lo': ci['ci_lo'],
+        'ci_hi': ci['ci_hi'],
+        'verdict': classify_verdict(ci['ci_lo'], ci['point_roi_pct'], len(universe)),
+    })
+
+    blacklist_leagues = per_league[per_league['category'] == 'blacklist']['league'].tolist()
+    subset_bl = universe[~universe['league'].isin(blacklist_leagues)]
+    ci_bl = bootstrap_ci(subset_bl['profit_loss_10'].to_numpy())
+    scenarios.append({
+        'scenario': f'blacklist_applied ({len(blacklist_leagues)} leagues removed)',
+        'n': len(subset_bl),
+        'roi_pct': ci_bl['point_roi_pct'],
+        'ci_lo': ci_bl['ci_lo'],
+        'ci_hi': ci_bl['ci_hi'],
+        'verdict': classify_verdict(ci_bl['ci_lo'], ci_bl['point_roi_pct'], len(subset_bl)),
+    })
+
+    whitelist_leagues = per_league[per_league['category'] == 'whitelist']['league'].tolist()
+    subset_wl = universe[universe['league'].isin(whitelist_leagues)]
+    ci_wl = bootstrap_ci(subset_wl['profit_loss_10'].to_numpy())
+    scenarios.append({
+        'scenario': f'whitelist_only ({len(whitelist_leagues)} leagues kept)',
+        'n': len(subset_wl),
+        'roi_pct': ci_wl['point_roi_pct'],
+        'ci_lo': ci_wl['ci_lo'],
+        'ci_hi': ci_wl['ci_hi'],
+        'verdict': classify_verdict(ci_wl['ci_lo'], ci_wl['point_roi_pct'], len(subset_wl)),
+    })
+
+    return pd.DataFrame(scenarios)
+
+
+def format_e3(per_league: pd.DataFrame, scenarios: pd.DataFrame) -> str:
+    lines = ['## E3 - League blacklist/whitelist', '',
+             '**Hypothesis:** a few leagues drag overall ROI down; removing them lifts total edge.',
+             '',
+             '**Per-league (n >= 15):**', '',
+             '```',
+             '  league                        n     ROI       CI_lo    CI_hi    category']
+    for _, r in per_league.iterrows():
+        lines.append(
+            f"  {str(r['league']):<28} {int(r['n']):>4}  "
+            f"{r['roi_pct']:+6.2f}%  {r['ci_lo']:+6.2f}%  {r['ci_hi']:+6.2f}%  {r['category']}"
+        )
+    lines.append('```')
+    lines.append('')
+    lines.append('**Scenarios:**')
+    lines.append('')
+    lines.append('```')
+    lines.append('  scenario                                n     ROI       CI_lo    CI_hi    verdict')
+    for _, r in scenarios.iterrows():
+        lines.append(
+            f"  {str(r['scenario']):<38} {int(r['n']):>4}  "
+            f"{r['roi_pct']:+6.2f}%  {r['ci_lo']:+6.2f}%  {r['ci_hi']:+6.2f}%  {r['verdict']}"
+        )
+    lines.append('```')
+    lines.append('')
+    return '\n'.join(lines) + '\n'
+
+
+def e3_recommendation(scenarios: pd.DataFrame, per_league: pd.DataFrame) -> dict:
+    blacklist_row = scenarios[scenarios['scenario'].str.startswith('blacklist_applied')].iloc[0]
+    blacklist_leagues = per_league[per_league['category'] == 'blacklist']['league'].tolist()
+    return {
+        'blacklist_leagues': blacklist_leagues,
+        'scenario_verdict': str(blacklist_row['verdict']),
+        'scenario_ci_lo': float(blacklist_row['ci_lo']),
+        'scenario_n': int(blacklist_row['n']),
+        'scenario_point': float(blacklist_row['roi_pct']),
+    }
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -279,7 +387,17 @@ def main(argv: Optional[list[str]] = None) -> int:
               f"CI_lo = {e2_reco['best_ci_lo']:+.2f}%  n = {e2_reco['best_n']}")
     print()
 
-    # E3-E5 wired in by subsequent tasks.
+    e3_per_league = e3_league_analysis(universe)
+    e3_scen = e3_scenarios(universe, e3_per_league)
+    print(format_e3(e3_per_league, e3_scen))
+    e3_reco = e3_recommendation(e3_scen, e3_per_league)
+    print(f"### E3 recommendation: {e3_reco['scenario_verdict']}")
+    print(f"  proposed blacklist: {e3_reco['blacklist_leagues']}")
+    print(f"  post-blacklist: point={e3_reco['scenario_point']:+.2f}%  "
+          f"CI_lo={e3_reco['scenario_ci_lo']:+.2f}%  n={e3_reco['scenario_n']}")
+    print()
+
+    # E4-E5 wired in by subsequent tasks.
     return 0
 
 
