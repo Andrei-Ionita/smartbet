@@ -219,7 +219,7 @@ def q5_market_breakdown(df: pd.DataFrame, min_n: int = 30) -> pd.DataFrame:
     if len(df) == 0:
         return pd.DataFrame(columns=['market_type', 'n', 'roi_pct', 'win_rate_pct', 'underpowered'])
     d = df.copy()
-    d['_won'] = pd.to_numeric(d.get('was_correct', 0), errors='coerce').fillna(0).astype(int)
+    d['_won'] = _coerce_bool(d.get('was_correct', pd.Series([False] * len(d)))).astype(int)
     out = d.groupby(d['market_type'].fillna('unknown')).agg(
         n=('profit_loss_10', 'size'),
         pl_total=('profit_loss_10', 'sum'),
@@ -243,7 +243,7 @@ def q6_league_breakdown(df: pd.DataFrame, top_n: int = 10, min_n: int = 30) -> p
     if len(df) == 0:
         return pd.DataFrame(columns=['league', 'n', 'roi_pct', 'win_rate_pct', 'underpowered'])
     d = df.copy()
-    d['_won'] = pd.to_numeric(d.get('was_correct', 0), errors='coerce').fillna(0).astype(int)
+    d['_won'] = _coerce_bool(d.get('was_correct', pd.Series([False] * len(d)))).astype(int)
     out = d.groupby(d['league'].fillna('unknown')).agg(
         n=('profit_loss_10', 'size'),
         pl_total=('profit_loss_10', 'sum'),
