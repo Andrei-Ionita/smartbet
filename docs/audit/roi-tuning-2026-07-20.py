@@ -354,6 +354,71 @@ def e3_recommendation(scenarios: pd.DataFrame, per_league: pd.DataFrame) -> dict
     }
 
 
+# ---- E4: Market × confidence grid -------------------------------------
+
+_MARKETS = ['1x2', 'btts', 'over_under_2.5', 'double_chance']
+_CONF_EDGES = [0.55, 0.60, 0.70, 0.80, 1.001]
+_CONF_LABELS = ['0.55–0.60', '0.60–0.70', '0.70–0.80', '0.80–1.00']
+
+
+def e4_market_conf_grid(universe: pd.DataFrame) -> pd.DataFrame:
+    rows = []
+    for market in _MARKETS:
+        mkt_df = universe[universe['market_type'] == market]
+        for i, label in enumerate(_CONF_LABELS):
+            lo, hi = _CONF_EDGES[i], _CONF_EDGES[i + 1]
+            cell = mkt_df[(mkt_df['confidence'] >= lo) & (mkt_df['confidence'] < hi)]
+            n = len(cell)
+            if n == 0:
+                rows.append({'market': market, 'bucket': label, 'n': 0,
+                             'roi_pct': float('nan'), 'ci_lo': float('nan'),
+                             'ci_hi': float('nan'), 'verdict': 'DISCARD'})
+                continue
+            ci = bootstrap_ci(cell['profit_loss_10'].to_numpy())
+            # E4 uses looser n threshold (30) per spec
+            v = classify_verdict(ci['ci_lo'], ci['point_roi_pct'], n, ship_n_min=30)
+            rows.append({
+                'market': market,
+                'bucket': label,
+                'n': n,
+                'roi_pct': ci['point_roi_pct'],
+                'ci_lo': ci['ci_lo'],
+                'ci_hi': ci['ci_hi'],
+                'verdict': v,
+            })
+    return pd.DataFrame(rows)
+
+
+def format_e4(grid_df: pd.DataFrame) -> str:
+    lines = ['## E4 — Market × confidence 2D grid', '',
+             '**Hypothesis:** edge lives in specific market-confidence combinations, not uniformly.',
+             '',
+             '```',
+             '  market            bucket        n     ROI       CI_lo    CI_hi    verdict']
+    for _, r in grid_df.iterrows():
+        if r['n'] == 0:
+            lines.append(f"  {str(r['market']):<16}  {str(r['bucket']):<10}    0     n/a       n/a      n/a      DISCARD")
+            continue
+        lines.append(
+            f"  {str(r['market']):<16}  {str(r['bucket']):<10}  {int(r['n']):>3}  "
+            f"{r['roi_pct']:+6.2f}%  {r['ci_lo']:+6.2f}%  {r['ci_hi']:+6.2f}%  {r['verdict']}"
+        )
+    lines.append('```')
+    lines.append('')
+    return '\n'.join(lines) + '\n'
+
+
+def e4_recommendation(grid_df: pd.DataFrame) -> dict:
+    ships = grid_df[grid_df['verdict'] == 'SHIP']
+    ship_cells = ships.to_dict('records')
+    proposed_thresholds: dict[str, float] = {}
+    for market, g in ships.groupby('market'):
+        # Lowest bucket's lower edge (e.g., '0.55–0.60' -> 0.55)
+        lowest = g['bucket'].apply(lambda b: float(b.split('–')[0])).min()
+        proposed_thresholds[str(market)] = float(lowest)
+    return {'ship_cells': ship_cells, 'proposed_market_thresholds': proposed_thresholds}
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -397,7 +462,18 @@ def main(argv: Optional[list[str]] = None) -> int:
           f"CI_lo={e3_reco['scenario_ci_lo']:+.2f}%  n={e3_reco['scenario_n']}")
     print()
 
-    # E4-E5 wired in by subsequent tasks.
+    e4_df = e4_market_conf_grid(universe)
+    print(format_e4(e4_df))
+    e4_reco = e4_recommendation(e4_df)
+    print(f"### E4 recommendation: {len(e4_reco['ship_cells'])} SHIP cell(s)")
+    if e4_reco['ship_cells']:
+        for cell in e4_reco['ship_cells']:
+            print(f"  SHIP: {cell['market']} / {cell['bucket']} — "
+                  f"ROI={cell['roi_pct']:+.2f}% CI_lo={cell['ci_lo']:+.2f}% n={cell['n']}")
+        print(f"  proposed market thresholds: {e4_reco['proposed_market_thresholds']}")
+    print()
+
+    # E5 wired in by subsequent task.
     return 0
 
 
