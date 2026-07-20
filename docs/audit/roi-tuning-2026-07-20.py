@@ -419,6 +419,92 @@ def e4_recommendation(grid_df: pd.DataFrame) -> dict:
     return {'ship_cells': ship_cells, 'proposed_market_thresholds': proposed_thresholds}
 
 
+# ---- E5: Kelly sizing simulation ----------------------------------------
+
+def kelly_stake(bankroll: float, prob: float, odds: float, k_fraction: float = 0.25) -> float:
+    """Fractional Kelly stake in dollars.
+
+    Kelly: f* = (p*(o-1) - (1-p)) / (o-1) = (p*o - 1) / (o-1)
+    Returns 0 if edge is non-positive (never place a losing bet).
+    """
+    if odds <= 1.0 or prob <= 0 or prob >= 1:
+        return 0.0
+    edge = prob * odds - 1.0
+    if edge <= 0:
+        return 0.0
+    f_star = edge / (odds - 1.0)
+    return bankroll * k_fraction * f_star
+
+
+def e5_simulate(universe: pd.DataFrame, starting_bankroll: float = 1000.0,
+                k_fraction: float = 0.25) -> dict:
+    """Simulate flat and Kelly stake strategies chronologically through resolved bets."""
+    ordered = universe.sort_values('prediction_logged_at').copy()
+    # Rows must have valid odds AND probability estimate (confidence).
+    playable = ordered[ordered['odds'].notna() & (ordered['odds'] > 1.0)
+                       & ordered['confidence'].notna()]
+
+    # Flat baseline: $10 stake, win => +profit_loss_10, loss => -10
+    flat_bankroll = starting_bankroll
+    flat_peak = flat_bankroll
+    flat_max_dd = 0.0
+    for _, r in playable.iterrows():
+        flat_bankroll += float(r['profit_loss_10'])
+        flat_peak = max(flat_peak, flat_bankroll)
+        dd = (flat_peak - flat_bankroll) / flat_peak * 100.0
+        flat_max_dd = max(flat_max_dd, dd)
+
+    # Kelly: stake sized per row from current bankroll; P/L scales by stake/10
+    # because profit_loss_10 assumes $10 stake.
+    kelly_bankroll = starting_bankroll
+    kelly_peak = kelly_bankroll
+    kelly_max_dd = 0.0
+    for _, r in playable.iterrows():
+        stake = kelly_stake(kelly_bankroll, float(r['confidence']), float(r['odds']), k_fraction)
+        if stake > 0:
+            # profit_loss_10 already computed for $10 stake; scale
+            pl_scaled = float(r['profit_loss_10']) * (stake / 10.0)
+            kelly_bankroll += pl_scaled
+        kelly_peak = max(kelly_peak, kelly_bankroll)
+        dd = (kelly_peak - kelly_bankroll) / kelly_peak * 100.0
+        kelly_max_dd = max(kelly_max_dd, dd)
+
+    # Verdict
+    improvement_pct = (kelly_bankroll - flat_bankroll) / flat_bankroll * 100.0
+    if improvement_pct >= 5.0 and kelly_max_dd <= 50.0:
+        verdict = 'SHIP'
+    elif improvement_pct >= 5.0:
+        verdict = 'INVESTIGATE'  # Improvement but too much drawdown
+    else:
+        verdict = 'DISCARD'
+
+    return {
+        'starting_bankroll': starting_bankroll,
+        'flat_final': flat_bankroll,
+        'flat_max_dd_pct': flat_max_dd,
+        'kelly_final': kelly_bankroll,
+        'kelly_max_dd_pct': kelly_max_dd,
+        'n_bets': len(playable),
+        'improvement_pct': improvement_pct,
+        'verdict': verdict,
+    }
+
+
+def format_e5(sim: dict) -> str:
+    lines = ['## E5 — Kelly stake sizing simulation', '',
+             '**Hypothesis:** flat $10 stakes leave value on the table; Kelly-optimal fractional stakes capture more.',
+             '',
+             f"- Starting bankroll: ${sim['starting_bankroll']:.2f}",
+             f"- Bets simulated: {sim['n_bets']}",
+             f"- **Flat $10:** final ${sim['flat_final']:.2f}, max drawdown {sim['flat_max_dd_pct']:.1f}%",
+             f"- **Kelly (k=0.25):** final ${sim['kelly_final']:.2f}, max drawdown {sim['kelly_max_dd_pct']:.1f}%",
+             f"- Kelly vs Flat improvement: {sim['improvement_pct']:+.2f}%",
+             '',
+             f"### E5 recommendation: {sim['verdict']}",
+             '']
+    return '\n'.join(lines) + '\n'
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -473,7 +559,9 @@ def main(argv: Optional[list[str]] = None) -> int:
         print(f"  proposed market thresholds: {e4_reco['proposed_market_thresholds']}")
     print()
 
-    # E5 wired in by subsequent task.
+    e5_sim = e5_simulate(universe)
+    print(format_e5(e5_sim))
+
     return 0
 
 

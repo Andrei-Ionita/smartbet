@@ -40,3 +40,21 @@ def test_classify_verdict_discard():
 def test_classify_verdict_ship_needs_sample():
     # Point + CI look great but n too low.
     assert _roi_tuning.classify_verdict(ci_lo=2.0, point=8.0, n=50) == 'INVESTIGATE'
+
+
+def test_kelly_stake_positive_edge():
+    """Kelly formula: prob=0.6, odds=2.0 => edge = 0.6*2 - 1 = 0.2. Kelly f = 0.2/1 = 0.2.
+    Quarter Kelly on $1000 bankroll => stake = 1000 * 0.25 * 0.2 = 50."""
+    stake = _roi_tuning.kelly_stake(bankroll=1000.0, prob=0.6, odds=2.0, k_fraction=0.25)
+    assert abs(stake - 50.0) < 0.01
+
+
+def test_kelly_stake_zero_when_no_edge():
+    """prob * odds - 1 <= 0 => stake=0 (no bet)."""
+    stake = _roi_tuning.kelly_stake(bankroll=1000.0, prob=0.5, odds=2.0, k_fraction=0.25)
+    assert stake == 0.0
+
+
+def test_kelly_stake_zero_when_negative_edge():
+    stake = _roi_tuning.kelly_stake(bankroll=1000.0, prob=0.4, odds=2.0, k_fraction=0.25)
+    assert stake == 0.0
