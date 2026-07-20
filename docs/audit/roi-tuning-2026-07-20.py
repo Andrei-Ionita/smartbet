@@ -108,6 +108,74 @@ def classify_verdict(ci_lo: float, point: float, n: int,
     return 'DISCARD'
 
 
+# ---- E1: Threshold sweep ----------------------------------------------
+
+def e1_threshold_sweep(universe: pd.DataFrame, thresholds: list[float]) -> pd.DataFrame:
+    rows = []
+    for t in thresholds:
+        subset = universe[universe['confidence'] >= t]
+        n = len(subset)
+        if n == 0:
+            rows.append({'threshold': t, 'n': 0, 'roi_pct': float('nan'),
+                         'ci_lo': float('nan'), 'ci_hi': float('nan'),
+                         'verdict': 'DISCARD'})
+            continue
+        ci = bootstrap_ci(subset['profit_loss_10'].to_numpy())
+        rows.append({
+            'threshold': round(t, 2),
+            'n': n,
+            'roi_pct': ci['point_roi_pct'],
+            'ci_lo': ci['ci_lo'],
+            'ci_hi': ci['ci_hi'],
+            'verdict': classify_verdict(ci['ci_lo'], ci['point_roi_pct'], n),
+        })
+    return pd.DataFrame(rows)
+
+
+def format_e1(sweep_df: pd.DataFrame) -> str:
+    lines = ['## E1 - Confidence threshold sweep', '',
+             '**Hypothesis:** current `>= 0.60` filter is not optimal; the 0.55-0.60 bucket carries edge that is currently discarded.',
+             '',
+             '```',
+             '  threshold   n     ROI       CI_lo    CI_hi    verdict']
+    for _, r in sweep_df.iterrows():
+        if r['n'] == 0:
+            lines.append(f"  {r['threshold']:>5.2f}      0     n/a       n/a      n/a      DISCARD")
+            continue
+        lines.append(
+            f"  {r['threshold']:>5.2f}   {int(r['n']):>4}  "
+            f"{r['roi_pct']:+6.2f}%  {r['ci_lo']:+6.2f}%  {r['ci_hi']:+6.2f}%  {r['verdict']}"
+        )
+    lines.append('```')
+    lines.append('')
+    return '\n'.join(lines) + '\n'
+
+
+def e1_recommendation(sweep_df: pd.DataFrame) -> dict:
+    ships = sweep_df[sweep_df['verdict'] == 'SHIP']
+    if not ships.empty:
+        best = ships.sort_values('ci_lo', ascending=False).iloc[0]
+        return {
+            'best_threshold': float(best['threshold']),
+            'best_ci_lo': float(best['ci_lo']),
+            'best_n': int(best['n']),
+            'best_point': float(best['roi_pct']),
+            'verdict': 'SHIP',
+        }
+    investigates = sweep_df[sweep_df['verdict'] == 'INVESTIGATE']
+    if not investigates.empty:
+        best = investigates.sort_values('roi_pct', ascending=False).iloc[0]
+        return {
+            'best_threshold': float(best['threshold']),
+            'best_ci_lo': float(best['ci_lo']),
+            'best_n': int(best['n']),
+            'best_point': float(best['roi_pct']),
+            'verdict': 'INVESTIGATE',
+        }
+    return {'best_threshold': float('nan'), 'best_ci_lo': float('nan'),
+            'best_n': 0, 'best_point': float('nan'), 'verdict': 'DISCARD'}
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -119,7 +187,18 @@ def main(argv: Optional[list[str]] = None) -> int:
     universe = load_universe(args.snapshot)
     print(f"Universe loaded: {len(universe)} rows\n")
 
-    # E1-E5 sections wired in by subsequent tasks.
+    thresholds = [round(0.50 + i * 0.01, 2) for i in range(int((0.75 - 0.50) / 0.01) + 1)]
+    e1_df = e1_threshold_sweep(universe, thresholds)
+    print(format_e1(e1_df))
+    e1_reco = e1_recommendation(e1_df)
+    print(f"### E1 recommendation: {e1_reco['verdict']}")
+    if e1_reco['verdict'] != 'DISCARD':
+        print(f"  best threshold = {e1_reco['best_threshold']:.2f}  "
+              f"point = {e1_reco['best_point']:+.2f}%  "
+              f"CI_lo = {e1_reco['best_ci_lo']:+.2f}%  n = {e1_reco['best_n']}")
+    print()
+
+    # E2-E5 wired in by subsequent tasks.
     return 0
 
 
