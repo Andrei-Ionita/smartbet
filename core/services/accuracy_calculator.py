@@ -11,6 +11,14 @@ from decimal import Decimal
 
 from core.models import PredictionLog
 
+# Per-market confidence thresholds (ROI tuning E4, SHIP verdict).
+# See docs/audit/roi-tuning-2026-07-20.md — the 0.55-0.60 confidence bucket
+# for over_under_2.5 showed +31.50% ROI on n=49 (CI_lo +1.36%, significant),
+# but was being filtered out by the global >=0.60 threshold. Markets not
+# listed here keep the default 0.60 threshold.
+PER_MARKET_CONF_THRESHOLDS = {'over_under_2.5': 0.55}
+DEFAULT_CONF_THRESHOLD = 0.60
+
 
 class AccuracyCalculator:
     """
@@ -150,12 +158,22 @@ class AccuracyCalculator:
         """
         Calculate theoretical ROI if user followed all high-confidence recommendations.
         """
+        # Per-market confidence gate: over_under_2.5 uses a lowered threshold
+        # (0.55); every other market keeps the default (0.60). See
+        # PER_MARKET_CONF_THRESHOLDS above.
+        conf_filter = Q()
+        for market, thresh in PER_MARKET_CONF_THRESHOLDS.items():
+            conf_filter |= Q(market_type=market, confidence__gte=thresh)
+        conf_filter |= (
+            ~Q(market_type__in=PER_MARKET_CONF_THRESHOLDS.keys())
+            & Q(confidence__gte=DEFAULT_CONF_THRESHOLD)
+        )
+
         completed = PredictionLog.objects.filter(
             actual_outcome__isnull=False,
             is_recommended=True,
             profit_loss_10__isnull=False,
-            confidence__gte=0.60  # Only high confidence bets
-        )
+        ).filter(conf_filter)
         
         total_bets = completed.count()
         total_staked = total_bets * stake_per_bet
