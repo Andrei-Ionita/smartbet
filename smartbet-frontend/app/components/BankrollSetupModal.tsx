@@ -217,10 +217,16 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
               >
                 {stakingStrategies.map((strategy) => (
                   <option key={strategy.value} value={strategy.value}>
-                    {strategy.label} - {strategy.description}
+                    {strategy.label}
+                    {strategy.value === 'kelly_fractional' ? ' ⭐ (Recommended)' : ''} - {strategy.description}
                   </option>
                 ))}
               </select>
+              {formData.stakingStrategy === 'kelly_fractional' && (
+                <p className="text-xs text-green-600 mt-1">
+                  ⭐ Recommended: backtested +540% growth vs. flat staking over 275 bets.
+                </p>
+              )}
             </div>
 
             {/* Loss Limits */}
