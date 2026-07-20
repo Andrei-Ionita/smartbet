@@ -162,7 +162,13 @@ def format_q3(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
     def block(label, d):
         if len(d) == 0:
             return f"**{label}:** no data.\n\n"
-        chart = ascii_bar_chart([(row['month'], row['roi_pct']) for _, row in d.iterrows()])
+        # Annotate months with n<10 as underpowered
+        def annotate(row):
+            m = row['month']
+            return f"{m} (n={int(row['n'])})" if row['n'] < 10 else m
+        chart = ascii_bar_chart(
+            [(annotate(row), row['roi_pct']) for _, row in d.iterrows()]
+        )
         pos = int((d['roi_pct'] > 0).sum())
         return (f"**{label}** — {pos}/{len(d)} months positive\n\n"
                 f"```\n{chart}\n```\n\n")
@@ -207,10 +213,18 @@ def _format_breakdown_df(d: pd.DataFrame, key_col: str) -> str:
     return '\n'.join(lines) + '\n'
 
 
-def format_q4(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
+def format_q4(ui_df: pd.DataFrame, un_df: pd.DataFrame, ui_n: int, un_n: int) -> str:
+    def block(label, d, universe_n):
+        body = _format_breakdown_df(d, 'bucket')
+        shown = int(d['n'].sum()) if len(d) > 0 else 0
+        missing = universe_n - shown
+        footer = ""
+        if missing > 0:
+            footer = f"  (not shown: {missing} bet(s) with confidence < 0.55 or NaN)\n"
+        return f"**{label}**\n```\n{body}{footer}```\n\n"
     return ("## Q4 — Confidence bucket effect\n\n"
-            f"**UI-matching (conf ≥ 0.60)**\n```\n{_format_breakdown_df(ui_df, 'bucket')}```\n\n"
-            f"**Unfiltered**\n```\n{_format_breakdown_df(un_df, 'bucket')}```\n\n")
+            + block('UI-matching (conf ≥ 0.60)', ui_df, ui_n)
+            + block('Unfiltered', un_df, un_n))
 
 
 # ---- Q5: Market breakdown ---------------------------------------------
@@ -398,6 +412,24 @@ def derive_verdict(
             actions.append("Report concentration alongside headline ROI on the public track page.")
             conditional = True
 
+    if ui_odds['n'].sum() < 30 or (ui_odds['n'] > 0).sum() < 2:
+        total_ui_bets = ui_stats['n']
+        valid_odds = int(ui_odds['n'].sum())
+        coverage_pct = (valid_odds / total_ui_bets * 100.0) if total_ui_bets else 0.0
+        findings.append(
+            f"Q8 odds coverage is thin: only {valid_odds}/{total_ui_bets} "
+            f"UI-matching bets ({coverage_pct:.1f}%) have valid odds populated "
+            f"across ≥2 confidence buckets. Q8's inversion test could not run "
+            f"meaningfully on this dataset — treat Q8 as inconclusive."
+        )
+        actions.append(
+            "Investigate why the majority of resolved bets have missing or "
+            "invalid odds. Q8 (odds sanity) is the audit's foundational check "
+            "on the odds field; without odds coverage, the entire P&L calc "
+            "sits on data we haven't validated."
+        )
+        conditional = True
+
     if len(ui_odds) > 1:
         prev = None
         for _, row in ui_odds.iterrows():
@@ -514,7 +546,8 @@ def main(argv: Optional[list[str]] = None) -> int:
     sections.append(format_q3(ui_month, un_month))
 
     sections.append(format_q4(q4_confidence_buckets(ui_df),
-                              q4_confidence_buckets(unfiltered_df)))
+                              q4_confidence_buckets(unfiltered_df),
+                              len(ui_df), len(unfiltered_df)))
     sections.append(format_q5(q5_market_breakdown(ui_df),
                               q5_market_breakdown(unfiltered_df)))
     sections.append(format_q6(q6_league_breakdown(ui_df),
