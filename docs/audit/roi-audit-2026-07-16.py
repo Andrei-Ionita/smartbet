@@ -9,6 +9,8 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import datetime as _dt
+import os as _os
 import sqlite3
 import sys
 from typing import Optional
@@ -335,6 +337,136 @@ def format_q8(ui_df: pd.DataFrame, un_df: pd.DataFrame) -> str:
             + block('Unfiltered', un_df))
 
 
+# ---- Verdict + report assembly ----------------------------------------
+
+def _fmt_pct(v):
+    return 'n/a' if (v is None or (isinstance(v, float) and np.isnan(v))) else f"{v:+.2f}%"
+
+
+def derive_verdict(
+    ui_stats: dict, un_stats: dict,
+    ui_ci: dict, un_ci: dict,
+    ui_month: pd.DataFrame,
+    ui_conc: dict,
+    ui_odds: pd.DataFrame,
+) -> tuple[str, list[str], list[str]]:
+    """Return (verdict, findings, recommended_actions).
+
+    Rules (evaluated in order — first hard fail wins):
+    - Unfiltered n < 30 → DO NOT PUBLISH (sample too small)
+    - UI CI includes zero or crosses to negative → DO NOT PUBLISH
+    - UI n < 100 → CONDITIONAL TRUST + "collect more data" action
+    - Q3: < 50% of months positive → CONDITIONAL TRUST + "streak-dependent" note
+    - Q7: top 5 > 60% of positive profit → CONDITIONAL TRUST + "fragile concentration" note
+    - Q8: any inversion in avg_odds vs confidence → DO NOT PUBLISH (data quality)
+    - Otherwise → TRUST
+    """
+    findings: list[str] = []
+    actions: list[str] = []
+    hard_stop = False
+    conditional = False
+
+    if un_stats['n'] < 30:
+        findings.append(f"Unfiltered sample only {un_stats['n']} bets (< 30 floor).")
+        actions.append("Collect more resolved bets before re-auditing.")
+        hard_stop = True
+
+    if not any(map(np.isnan, [ui_ci['ci_lo'], ui_ci['ci_hi']])):
+        if ui_ci['ci_lo'] <= 0.0:
+            findings.append(f"UI-matching 95% CI includes zero or negative "
+                            f"({ui_ci['ci_lo']:+.2f}% → {ui_ci['ci_hi']:+.2f}%).")
+            actions.append("Do not publish a specific ROI figure until CI is entirely above zero.")
+            hard_stop = True
+
+    if ui_stats['n'] < 100 and not hard_stop:
+        findings.append(f"UI-matching sample is {ui_stats['n']} bets (< 100).")
+        actions.append("Add a sample-size disclosure to the public track record.")
+        conditional = True
+
+    if len(ui_month) > 0:
+        positive_months = int((ui_month['roi_pct'] > 0).sum())
+        if positive_months / len(ui_month) < 0.5:
+            findings.append(f"Only {positive_months}/{len(ui_month)} months positive — "
+                            f"streak-dependent, not consistent skill.")
+            actions.append("Investigate what drove the winning months before claiming edge.")
+            conditional = True
+
+    if ui_conc['total_bets'] > 0:
+        top5 = next((sp for n, sp, sn in ui_conc['top_shares'] if n == 5), None)
+        if top5 is not None and not np.isnan(top5) and top5 > 60.0:
+            findings.append(f"Top 5 bets contribute {top5:.1f}% of positive profit — fragile.")
+            actions.append("Report concentration alongside headline ROI on the public track page.")
+            conditional = True
+
+    if len(ui_odds) > 1:
+        prev = None
+        for _, row in ui_odds.iterrows():
+            if prev is not None and row['avg_odds'] > prev:
+                findings.append("Q8 anomaly: avg odds INCREASES as confidence rises.")
+                actions.append("Investigate odds capture pipeline — audit rests on this field.")
+                hard_stop = True
+                break
+            prev = row['avg_odds']
+
+    if hard_stop:
+        return ('DO NOT PUBLISH', findings, actions)
+    if conditional:
+        return ('CONDITIONAL TRUST', findings, actions)
+    return ('TRUST', findings, actions)
+
+
+def assemble_report(
+    snapshot_path: str,
+    ui_stats: dict, un_stats: dict,
+    section_bodies: list[str],
+    verdict: str,
+    findings: list[str],
+    actions: list[str],
+) -> str:
+    snap_size = _os.path.getsize(snapshot_path) if _os.path.exists(snapshot_path) else 0
+    now = _dt.datetime.now(_dt.timezone.utc).strftime('%Y-%m-%d %H:%M UTC')
+    findings_md = '\n'.join(f'- {f}' for f in findings) if findings else '- (none)'
+    actions_md = '\n'.join(f'- {a}' for a in actions) if actions else '- (none)'
+    verdict_reason = findings[0] if findings else 'All statistical gates passed.'
+    return f"""# ROI Audit Report — 2026-07-16
+
+**Verdict:** `{verdict}` — {verdict_reason}
+
+---
+
+## Data provenance
+
+- Snapshot file: `{snapshot_path}` ({snap_size:,} bytes)
+- Audit run at: {now}
+- Universe filter: `is_recommended=True AND actual_outcome IS NOT NULL AND match_status!='archived' AND is_audit_excluded!=True`
+- UI-matching filter adds: `confidence >= 0.60`
+- Sample sizes: {ui_stats['n']} (UI-matching), {un_stats['n']} (unfiltered)
+
+---
+
+{''.join(section_bodies)}
+
+## Findings
+
+{findings_md}
+
+## Recommended actions before publishing (or launching Phase 2)
+
+{actions_md}
+
+## Non-goals (this audit does NOT prove)
+
+- Odds achievability — logged odds are from one bookmaker at fetch time; whether a real user could place a bet at those odds 30 min before kickoff is not tested here.
+- Real-world friction — no accounting for bookmaker limits/bans, minimum stakes, currency conversion, tax.
+- Prospective validity — everything is retrospective. Only a sealed forward-test (Phase 2) can answer whether the future looks like the past.
+- Model attribution — the audit measures pipeline output, not which model/signal is producing the edge.
+
+---
+
+*Report generated by `docs/audit/roi-audit-2026-07-16.py`. Re-run against a fresh snapshot to regenerate.*
+"""
+
+
 # ---- Verdict gates ----------------------------------------------------
 
 def q1_gate(ui_stats: dict, unfiltered_stats: dict) -> tuple[str, str]:
@@ -360,32 +492,62 @@ def main(argv: Optional[list[str]] = None) -> int:
 
     ui_df, unfiltered_df = load_and_filter(args.snapshot)
 
+    sections: list[str] = []
+
     ui_stats = q1_sample_size(ui_df)
     un_stats = q1_sample_size(unfiltered_df)
-    print(format_q1(ui_stats, un_stats))
+    sections.append(format_q1(ui_stats, un_stats))
 
     severity, msg = q1_gate(ui_stats, un_stats)
+    print(sections[-1])
     print(f"### Q1 gate: {severity.upper()}\n\n{msg}\n")
 
-    if severity == 'stop':
-        print("HALTING at Q1 as designed.")
-        return 2  # nonzero exit to indicate hard-stop verdict
+    # Even if gate is 'stop' we still compute the remaining sections so the
+    # report is complete — verdict logic will reflect the hard stop.
 
     ui_ci = q2_bootstrap_ci(ui_df['profit_loss_10'].to_numpy())
     un_ci = q2_bootstrap_ci(unfiltered_df['profit_loss_10'].to_numpy())
-    print(format_q2(ui_ci, un_ci))
+    sections.append(format_q2(ui_ci, un_ci))
 
     ui_month = q3_monthly_roi(ui_df)
     un_month = q3_monthly_roi(unfiltered_df)
-    print(format_q3(ui_month, un_month))
+    sections.append(format_q3(ui_month, un_month))
 
-    print(format_q4(q4_confidence_buckets(ui_df), q4_confidence_buckets(unfiltered_df)))
-    print(format_q5(q5_market_breakdown(ui_df), q5_market_breakdown(unfiltered_df)))
-    print(format_q6(q6_league_breakdown(ui_df), q6_league_breakdown(unfiltered_df)))
-    print(format_q7(q7_concentration(ui_df), q7_concentration(unfiltered_df)))
-    print(format_q8(q8_odds_sanity(ui_df), q8_odds_sanity(unfiltered_df)))
+    sections.append(format_q4(q4_confidence_buckets(ui_df),
+                              q4_confidence_buckets(unfiltered_df)))
+    sections.append(format_q5(q5_market_breakdown(ui_df),
+                              q5_market_breakdown(unfiltered_df)))
+    sections.append(format_q6(q6_league_breakdown(ui_df),
+                              q6_league_breakdown(unfiltered_df)))
 
-    return 0
+    ui_conc = q7_concentration(ui_df)
+    un_conc = q7_concentration(unfiltered_df)
+    sections.append(format_q7(ui_conc, un_conc))
+
+    ui_odds = q8_odds_sanity(ui_df)
+    un_odds = q8_odds_sanity(unfiltered_df)
+    sections.append(format_q8(ui_odds, un_odds))
+
+    # Print all remaining sections
+    for s in sections[1:]:
+        print(s)
+
+    verdict, findings, actions = derive_verdict(
+        ui_stats, un_stats, ui_ci, un_ci, ui_month, ui_conc, ui_odds,
+    )
+    print(f"## Verdict: {verdict}\n")
+    for f in findings:
+        print(f"  - {f}")
+
+    if args.out:
+        report = assemble_report(
+            args.snapshot, ui_stats, un_stats, sections, verdict, findings, actions,
+        )
+        with open(args.out, 'w', encoding='utf-8') as fh:
+            fh.write(report)
+        print(f"\nReport written to {args.out}")
+
+    return 0 if verdict == 'TRUST' else 1
 
 
 if __name__ == '__main__':
