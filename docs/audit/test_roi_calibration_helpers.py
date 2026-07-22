@@ -68,3 +68,42 @@ def test_apply_platt_bounded_in_zero_one():
     result = _roi_calibration.apply_platt(conf, a=5.0, b=-2.0)
     assert result.min() >= 0.0
     assert result.max() <= 1.0
+
+
+def test_brier_score_perfect_prediction():
+    """Perfect predictions (prob=1 when outcome=1, prob=0 when outcome=0)
+    have Brier score 0."""
+    probs = np.array([1.0, 0.0, 1.0, 0.0])
+    outcomes = np.array([1, 0, 1, 0])
+    assert _roi_calibration.brier_score(probs, outcomes) == 0.0
+
+
+def test_brier_score_worst_prediction():
+    """Worst predictions (prob=0 when outcome=1) have Brier score 1."""
+    probs = np.array([0.0, 1.0, 0.0, 1.0])
+    outcomes = np.array([1, 0, 1, 0])
+    assert _roi_calibration.brier_score(probs, outcomes) == 1.0
+
+
+def test_brier_score_uniform_half():
+    """Prob=0.5 with outcome-agnostic gives Brier 0.25."""
+    probs = np.array([0.5, 0.5, 0.5, 0.5])
+    outcomes = np.array([1, 0, 1, 0])
+    assert abs(_roi_calibration.brier_score(probs, outcomes) - 0.25) < 1e-9
+
+
+def test_ece_perfect_calibration():
+    """When mean predicted == mean actual in each bin, ECE is 0."""
+    # 100 predictions at prob 0.6, half win (matches predicted rate)
+    probs = np.full(100, 0.6)
+    outcomes = np.array([1] * 60 + [0] * 40)
+    result = _roi_calibration.ece(probs, outcomes, n_bins=10)
+    assert result < 0.05  # near-zero (may be tiny due to binning)
+
+
+def test_ece_maximally_miscalibrated():
+    """Prob=0.9 but actual rate 0.1 → ECE ≈ 0.8."""
+    probs = np.full(100, 0.9)
+    outcomes = np.array([1] * 10 + [0] * 90)
+    result = _roi_calibration.ece(probs, outcomes, n_bins=10)
+    assert 0.75 < result < 0.85
