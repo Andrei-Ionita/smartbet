@@ -277,6 +277,116 @@ def format_global(cv: dict) -> str:
     )
 
 
+# ---- Segmentation heatmap ---------------------------------------------
+
+_CONF_EDGES = [0.55, 0.60, 0.70, 0.80, 1.001]
+_CONF_LABELS = ['0.55-0.60', '0.60-0.70', '0.70-0.80', '0.80-1.00']
+
+
+def _segment_row(segment_name: str, mask: np.ndarray,
+                 outcomes: np.ndarray, held_out_pre: np.ndarray,
+                 held_out_post: np.ndarray, min_n: int) -> dict:
+    n = int(mask.sum())
+    if n == 0:
+        return {'segment': segment_name, 'n': 0,
+                'mean_predicted_pre': float('nan'),
+                'mean_actual': float('nan'),
+                'gap_pre': float('nan'),
+                'mean_predicted_post': float('nan'),
+                'gap_post': float('nan'),
+                'underpowered': True}
+    mp_pre = float(held_out_pre[mask].mean())
+    mp_post = float(held_out_post[mask].mean())
+    ma = float(outcomes[mask].mean())
+    return {
+        'segment': segment_name,
+        'n': n,
+        'mean_predicted_pre': mp_pre,
+        'mean_actual': ma,
+        'gap_pre': mp_pre - ma,
+        'mean_predicted_post': mp_post,
+        'gap_post': mp_post - ma,
+        'underpowered': n < min_n,
+    }
+
+
+def segment_by_confidence_bucket(universe: pd.DataFrame,
+                                 held_out_pre: np.ndarray,
+                                 held_out_post: np.ndarray,
+                                 min_n: int = 15) -> pd.DataFrame:
+    conf = universe['confidence'].to_numpy()
+    outcomes = universe['was_correct'].to_numpy().astype(int)
+    rows = []
+    for i, label in enumerate(_CONF_LABELS):
+        lo, hi = _CONF_EDGES[i], _CONF_EDGES[i + 1]
+        mask = (conf >= lo) & (conf < hi)
+        rows.append(_segment_row(label, mask, outcomes,
+                                 held_out_pre, held_out_post, min_n))
+    return pd.DataFrame(rows)
+
+
+def segment_by_league(universe: pd.DataFrame,
+                      held_out_pre: np.ndarray,
+                      held_out_post: np.ndarray,
+                      top_n: int = 5, min_n: int = 15) -> pd.DataFrame:
+    outcomes = universe['was_correct'].to_numpy().astype(int)
+    league_counts = universe['league'].fillna('unknown').value_counts().head(top_n)
+    rows = []
+    for league in league_counts.index:
+        mask = (universe['league'].fillna('unknown') == league).to_numpy()
+        rows.append(_segment_row(str(league), mask, outcomes,
+                                 held_out_pre, held_out_post, min_n))
+    return pd.DataFrame(rows)
+
+
+def segment_by_time_period(universe: pd.DataFrame,
+                           held_out_pre: np.ndarray,
+                           held_out_post: np.ndarray,
+                           min_n: int = 15) -> pd.DataFrame:
+    outcomes = universe['was_correct'].to_numpy().astype(int)
+    # Use positional argsort to get the sort order
+    sort_pos = np.argsort(universe['prediction_logged_at'].values)
+    outcomes_sorted = outcomes[sort_pos]
+    pre_sorted = held_out_pre[sort_pos]
+    post_sorted = held_out_post[sort_pos]
+
+    half = len(outcomes_sorted) // 2
+    rows = []
+    first_mask = np.zeros(len(outcomes_sorted), dtype=bool)
+    first_mask[:half] = True
+    rows.append(_segment_row('first half (older)', first_mask,
+                             outcomes_sorted, pre_sorted, post_sorted, min_n))
+    second_mask = ~first_mask
+    rows.append(_segment_row('second half (newer)', second_mask,
+                             outcomes_sorted, pre_sorted, post_sorted, min_n))
+    return pd.DataFrame(rows)
+
+
+def format_segmentation(bucket_df: pd.DataFrame, league_df: pd.DataFrame,
+                        time_df: pd.DataFrame) -> str:
+    def _fmt(label, d):
+        lines = [f"**{label}**", '', '```',
+                 '  segment                       n     pred_pre  actual   gap_pre   pred_post  gap_post   underpowered']
+        for _, r in d.iterrows():
+            flag = ' *' if r['underpowered'] else ''
+            if r['n'] == 0:
+                lines.append(f"  {str(r['segment']):<28}    0     n/a       n/a      n/a       n/a         n/a       yes")
+                continue
+            lines.append(
+                f"  {str(r['segment']):<28}  {int(r['n']):>3}   {r['mean_predicted_pre']:>6.3f}    {r['mean_actual']:>6.3f}  "
+                f"{r['gap_pre']:+6.3f}   {r['mean_predicted_post']:>6.3f}    {r['gap_post']:+6.3f}   {r['underpowered']!s:>5}{flag}"
+            )
+        lines.append('```')
+        return '\n'.join(lines)
+
+    return (
+        "## Segmentation heatmap\n\n"
+        f"{_fmt('By confidence bucket', bucket_df)}\n\n"
+        f"{_fmt('By league (top 5 by volume)', league_df)}\n\n"
+        f"{_fmt('By time period (chronological halves)', time_df)}\n"
+    )
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -296,7 +406,15 @@ def main(argv: Optional[list[str]] = None) -> int:
     cv = cross_val_calibration(universe)
     print(format_global(cv))
 
-    # Task 3-5 wire in segmentation + verdicts.
+    bucket_df = segment_by_confidence_bucket(
+        universe, cv['held_out_pre'], cv['held_out_post'])
+    league_df = segment_by_league(
+        universe, cv['held_out_pre'], cv['held_out_post'])
+    time_df = segment_by_time_period(
+        universe, cv['held_out_pre'], cv['held_out_post'])
+    print(format_segmentation(bucket_df, league_df, time_df))
+
+    # Task 4-5 wire in verdicts.
     return 0
 
 
