@@ -387,6 +387,148 @@ def format_segmentation(bucket_df: pd.DataFrame, league_df: pd.DataFrame,
     )
 
 
+# ---- Per-target verdicts ---------------------------------------------
+
+def verdict_display(cv: dict) -> tuple[str, str]:
+    """Display target: APPLY if Brier improves ≥5% relative AND ECE
+    reduces ≥30% relative."""
+    if cv['brier_pre'] <= 0 or cv['ece_pre'] <= 0:
+        return ('INSUFFICIENT_SIGNAL',
+                'Pre-calibration Brier or ECE is zero; nothing to improve.')
+    brier_rel = (cv['brier_pre'] - cv['brier_post']) / cv['brier_pre']
+    ece_rel = (cv['ece_pre'] - cv['ece_post']) / cv['ece_pre']
+    if brier_rel >= 0.05 and ece_rel >= 0.30:
+        return ('APPLY',
+                f"Brier {brier_rel*100:+.1f}% (>= 5%), "
+                f"ECE {ece_rel*100:+.1f}% (>= 30%).")
+    return ('DO_NOT_APPLY',
+            f"Brier {brier_rel*100:+.1f}% (need >= 5%), "
+            f"ECE {ece_rel*100:+.1f}% (need >= 30%).")
+
+
+def verdict_kelly(cv: dict, bucket_df: pd.DataFrame,
+                  seed: int = 42, n_iter: int = 10000) -> tuple[str, str]:
+    """Kelly target: APPLY if
+      - model over-confident in 0.60-0.80 range (bucket gap > 0), AND
+      - Brier improves ≥5% relative, AND
+      - Bootstrap 95% CI on (raw - calibrated) gap in 0.60-0.80 excludes 0.
+    """
+    # Kelly-relevant buckets are 0.60-0.70 and 0.70-0.80
+    kelly_buckets = bucket_df[bucket_df['segment'].isin(
+        ['0.60-0.70', '0.70-0.80'])].copy()
+    if kelly_buckets['n'].sum() < 15:
+        return ('INSUFFICIENT_SIGNAL',
+                f"Only {int(kelly_buckets['n'].sum())} bets in Kelly-relevant "
+                f"buckets (0.60-0.80); need >= 15.")
+
+    # Over-confidence check: is the pre-calibration gap positive?
+    weighted_gap_pre = (kelly_buckets['n'] * kelly_buckets['gap_pre']).sum() \
+                      / kelly_buckets['n'].sum()
+    if weighted_gap_pre <= 0:
+        return ('DO_NOT_APPLY',
+                f"Model not over-confident in 0.60-0.80 range "
+                f"(weighted gap {weighted_gap_pre:+.3f}); calibration would "
+                f"grow stakes and increase risk.")
+
+    brier_rel = (cv['brier_pre'] - cv['brier_post']) / cv['brier_pre']
+    if brier_rel < 0.05:
+        return ('DO_NOT_APPLY',
+                f"Brier improvement {brier_rel*100:+.1f}% < 5%.")
+
+    # Bootstrap the raw-calibrated gap in the Kelly-relevant range
+    conf = np.concatenate([
+        np.full(int(row['n']), (row['mean_predicted_pre']))
+        for _, row in kelly_buckets.iterrows()
+    ])
+    # Approximate: use the mean gap in each bucket weighted by n
+    gaps = np.concatenate([
+        np.full(int(row['n']),
+                row['mean_predicted_pre'] - row['mean_predicted_post'])
+        for _, row in kelly_buckets.iterrows()
+    ])
+    if len(gaps) == 0:
+        return ('INSUFFICIENT_SIGNAL',
+                'No Kelly-relevant bucket rows to bootstrap.')
+    ci = bootstrap_ci(gaps, n_iter=n_iter, seed=seed)
+    if ci['ci_lo'] <= 0:
+        return ('DO_NOT_APPLY',
+                f"Bootstrap CI on raw-calibrated gap in 0.60-0.80 range "
+                f"({ci['ci_lo']:+.3f} to {ci['ci_hi']:+.3f}) includes zero.")
+    return ('APPLY',
+            f"Over-confident by {weighted_gap_pre*100:+.1f}pp in 0.60-0.80; "
+            f"Brier {brier_rel*100:+.1f}%; bootstrap CI on gap excludes zero.")
+
+
+def verdict_filter(universe: pd.DataFrame, cv: dict,
+                   threshold: float = 0.55) -> tuple[str, str, dict]:
+    """Filter target: APPLY if re-filtering on calibrated_prob >= 0.55
+    yields ROI > current + 2pp AND CI_lo >= +1%.
+    """
+    profits = universe['profit_loss_10'].to_numpy()
+    current_roi = float(profits.sum() / (len(profits) * 10.0) * 100.0)
+
+    calibrated = cv['held_out_post']
+    mask = calibrated >= threshold
+    refiltered_profits = profits[mask]
+    n_new = int(mask.sum())
+    if n_new < 100:
+        return ('INSUFFICIENT_SIGNAL',
+                f"Re-filtered subset n={n_new} < 100.",
+                {'current_roi': current_roi, 'refiltered_roi': float('nan'),
+                 'refiltered_ci_lo': float('nan'), 'refiltered_n': n_new})
+
+    refiltered_roi_values = refiltered_profits / 10.0 * 100.0
+    ci = bootstrap_ci(refiltered_roi_values)
+    refiltered_roi = float(refiltered_profits.sum() / (n_new * 10.0) * 100.0)
+
+    payload = {'current_roi': current_roi, 'refiltered_roi': refiltered_roi,
+               'refiltered_ci_lo': ci['ci_lo'], 'refiltered_n': n_new}
+    if refiltered_roi - current_roi < 2.0:
+        return ('DO_NOT_APPLY',
+                f"Re-filtered ROI {refiltered_roi:+.2f}% vs current "
+                f"{current_roi:+.2f}% (delta {refiltered_roi-current_roi:+.2f}pp "
+                f"< 2pp).",
+                payload)
+    if ci['ci_lo'] < 1.0:
+        return ('DO_NOT_APPLY',
+                f"Re-filtered ROI CI_lo {ci['ci_lo']:+.2f}% < +1%.",
+                payload)
+    return ('APPLY',
+            f"Re-filtered ROI {refiltered_roi:+.2f}% "
+            f"(delta {refiltered_roi-current_roi:+.2f}pp, "
+            f"CI_lo {ci['ci_lo']:+.2f}%).",
+            payload)
+
+
+def overall_verdict(display_v: str, kelly_v: str, filter_v: str,
+                    universe_n: int) -> str:
+    if universe_n < 100:
+        return 'INSUFFICIENT_SIGNAL'
+    if 'APPLY' in (display_v, kelly_v, filter_v):
+        return 'APPLY'
+    return 'DO_NOT_APPLY'
+
+
+def format_verdicts(display_r: tuple[str, str],
+                    kelly_r: tuple[str, str],
+                    filter_r: tuple[str, str, dict],
+                    overall: str) -> str:
+    display_v, display_j = display_r
+    kelly_v, kelly_j = kelly_r
+    filter_v, filter_j, filter_payload = filter_r
+    return (
+        "## Per-target verdicts\n\n"
+        f"- **Display:** `{display_v}` — {display_j}\n"
+        f"- **Kelly sizing:** `{kelly_v}` — {kelly_j}\n"
+        f"- **Filter re-selection:** `{filter_v}` — {filter_j}\n"
+        f"  - Current subset ROI: {filter_payload['current_roi']:+.2f}%\n"
+        f"  - Re-filtered ROI: {filter_payload['refiltered_roi']:+.2f}% "
+        f"(n={filter_payload['refiltered_n']}, "
+        f"CI_lo {filter_payload['refiltered_ci_lo']:+.2f}%)\n\n"
+        f"### Overall verdict: `{overall}`\n"
+    )
+
+
 # ---- Main -------------------------------------------------------------
 
 def main(argv: Optional[list[str]] = None) -> int:
@@ -414,7 +556,13 @@ def main(argv: Optional[list[str]] = None) -> int:
         universe, cv['held_out_pre'], cv['held_out_post'])
     print(format_segmentation(bucket_df, league_df, time_df))
 
-    # Task 4-5 wire in verdicts.
+    display_r = verdict_display(cv)
+    kelly_r = verdict_kelly(cv, bucket_df)
+    filter_r = verdict_filter(universe, cv)
+    overall = overall_verdict(display_r[0], kelly_r[0], filter_r[0], len(universe))
+    print(format_verdicts(display_r, kelly_r, filter_r, overall))
+
+    # Task 5 wires in report assembly.
     return 0
 
 
