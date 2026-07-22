@@ -224,7 +224,7 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
               </select>
               {formData.stakingStrategy === 'kelly_fractional' && (
                 <p className="text-xs text-green-600 mt-1">
-                  ⭐ Recommended: backtested +540% growth vs. flat staking over 275 bets.
+                  ⭐ Recommended: backtested +540% growth vs. flat staking over 275 bets (with 39.6% max drawdown — hold through losing streaks).
                 </p>
               )}
             </div>

@@ -1272,3 +1272,66 @@ class UpgradeTierEndpointTests(TestCase):
             HTTP_X_INTERNAL_AUTH='anything',
         )
         self.assertEqual(resp.status_code, 503)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ROI tuning E4 regression tests (added with the whole-branch review follow-up,
+# finding F5). Covers PER_MARKET_CONF_THRESHOLDS in
+# core/services/accuracy_calculator.py — over_under_2.5 gates at 0.55, every
+# other market keeps the 0.60 default. See docs/audit/roi-tuning-2026-07-20.md
+# for the analysis that justified lowering the O/U 2.5 threshold.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AccuracyCalculatorRoiFilterTests(TestCase):
+    """get_roi_simulation()'s per-market confidence gate."""
+
+    def _pred(self, fixture_id, market_type, confidence, correct=True):
+        kickoff = timezone.now() - timedelta(days=1)
+        return PredictionLog.objects.create(
+            fixture_id=fixture_id, home_team='A', away_team='B', league='Test League',
+            kickoff=kickoff, predicted_outcome='Home', market_type=market_type,
+            confidence=confidence,
+            probability_home=confidence, probability_draw=(1 - confidence) / 2,
+            probability_away=(1 - confidence) / 2,
+            actual_outcome='Home', was_correct=correct,
+            profit_loss_10=8.0 if correct else -10.0,
+            is_recommended=True,
+        )
+
+    def test_ou25_at_057_included(self):
+        # 0.57 is below the global 0.60 default but above the lowered
+        # 0.55 over_under_2.5 gate, so it should be counted.
+        self._pred(600001, 'over_under_2.5', 0.57)
+        # Decoy: below even the lowered 0.55 gate — proves the gate is
+        # selective, not "any over_under_2.5 row passes".
+        self._pred(600002, 'over_under_2.5', 0.50)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        result = AccuracyCalculator().get_roi_simulation()
+
+        self.assertEqual(result['total_bets'], 1)
+        self.assertEqual(result['total_profit_loss'], 8.0)
+
+    def test_1x2_at_057_excluded(self):
+        # 0.57 clears the over_under_2.5-specific 0.55 gate, but 1x2 isn't in
+        # PER_MARKET_CONF_THRESHOLDS so it keeps the 0.60 default and is
+        # excluded.
+        self._pred(600003, '1x2', 0.57)
+        # Decoy: a 1x2 row that does clear 0.60 — proves the market isn't
+        # blanket-excluded, only the sub-threshold confidence is filtered.
+        self._pred(600004, '1x2', 0.62)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        result = AccuracyCalculator().get_roi_simulation()
+
+        self.assertEqual(result['total_bets'], 1)
+
+    def test_1x2_at_062_included(self):
+        # 0.62 clears the 0.60 default threshold for a non-listed market.
+        self._pred(600005, '1x2', 0.62)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        result = AccuracyCalculator().get_roi_simulation()
+
+        self.assertEqual(result['total_bets'], 1)
+        self.assertEqual(result['total_profit_loss'], 8.0)

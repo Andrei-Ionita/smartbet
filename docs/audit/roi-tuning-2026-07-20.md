@@ -142,6 +142,39 @@
 
 ---
 
+## Deployment notes
+
+**E4 (`8f9c3fb`) — backend-only; frontend was already there.** Task 11's plan
+named both `core/services/accuracy_calculator.py` and
+`smartbet-frontend/app/api/recommendations/route.ts` as targets, but only the
+backend file was changed. The frontend recommendation engine has no
+confidence gate to lower for over/under 2.5 in the first place — it filters
+on `gap >= 0.12 && ev >= 0.05` (`route.ts:405, 451, 529, 573`), with no
+`confidence >= 0.60` (or `0.55`) check anywhere in that path. So the frontend
+had effectively been surfacing the 0.55-0.60 confidence bucket for O/U 2.5
+all along; the backend `get_roi_simulation()` filter was undercounting it
+because of the hardcoded `confidence__gte=0.60` gate. The E4 deploy fixed the
+*backend transparency dashboard's* count to match what users were already
+being recommended — it did not change what bets get recommended. Consequence:
+the reported 1.3% -> 9.6% live-ROI jump is partly a backend under-count catch-up
+(more of the O/U 2.5 bucket now counted in the simulation), not purely a
+result of loosening a live filter.
+
+**E5 (`4b87dc2`) — visual-only; the default was already Kelly.** The commit
+message ("E5 — Kelly (k=0.25) as default staking strategy") implies a default
+was changed, but `UserBankroll.staking_strategy` in `core/models.py` has
+defaulted to `kelly_fractional` since migration `0018` (2025-11) — nine
+months before this deploy. What `4b87dc2` actually shipped is a visual "⭐
+Recommended" badge next to the Kelly option in
+`BankrollSetupModal.tsx`, plus the backtest-growth caption. New bankroll
+records were already defaulting to Kelly before this change; the effect of
+this deploy is purely in the setup-modal UI (nudging users who change the
+dropdown back toward Kelly), not a backend behavior change. The commit
+message overstates what changed and should be read as "made the existing
+default visible/recommended in the UI," not "changed the default."
+
+---
+
 ## Non-goals (this tuning does NOT test)
 
 - Feature engineering (xG, lineups, injuries, referee, weather)
