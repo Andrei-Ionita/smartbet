@@ -8,7 +8,7 @@
 
 - Snapshot file: `docs/audit/snapshot-2026-07-16.sqlite` (319,488 bytes)
 - Universe size: 252 rows (over_under_2.5, recommended, resolved)
-- Report generated at: 2026-07-23 05:35 UTC
+- Report generated at: 2026-07-23 06:41 UTC
 - Same snapshot as prior audit and tuning; post-backfill state.
 - Fitted Platt (full-sample): `sigmoid(4.980 * confidence + -2.718)`
 
@@ -99,6 +99,14 @@
 ## Recommended next step
 
 No production changes recommended. The model is either well-calibrated on this slice or calibration would not improve the targets we care about. Revisit at n≥500 if the situation changes.
+
+**Filter target actively worsens ROI** (-5.22pp): applying Platt-in-the-loop for selection would push out the 0.55-0.60 confidence bucket (currently the platform's best empirical bucket). Do NOT attempt calibrated-threshold filtering until either (a) that bucket has enough n to fit a shape that respects its high empirical rate, or (b) a non-parametric calibrator (isotonic at n>=500) is available.
+
+---
+
+## Methodology notes
+
+**Platt implementation deviation from canonical (1999):** this study fits Platt using `sklearn.linear_model.LogisticRegression(C=1e10)` on raw binary targets. Canonical Platt (Platt, 1999) trains on Bernoulli-smoothed targets `y+ = (N+ + 1) / (N+ + 2)` and `y- = 1 / (N- + 2)` to prevent overfitting at small `n`; `sklearn.calibration.CalibratedClassifierCV(method='sigmoid')` implements this smoothing. At `n=252` the effect is small, but the fitted `(a, b)` may differ marginally from a canonical Platt fit — particularly in extreme bins where the empirical rate is 0.0 or 1.0 (here: the 0.70–0.80 bucket, `actual=1.000` on n=4).
 
 ---
 

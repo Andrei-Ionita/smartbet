@@ -406,7 +406,7 @@ def verdict_display(cv: dict) -> tuple[str, str]:
             f"ECE {ece_rel*100:+.1f}% (need >= 30%).")
 
 
-def verdict_kelly(cv: dict, bucket_df: pd.DataFrame,
+def verdict_kelly(cv: dict, bucket_df: pd.DataFrame, universe: pd.DataFrame,
                   seed: int = 42, n_iter: int = 10000) -> tuple[str, str]:
     """Kelly target: APPLY if
       - model over-confident in 0.60-0.80 range (bucket gap > 0), AND
@@ -435,17 +435,12 @@ def verdict_kelly(cv: dict, bucket_df: pd.DataFrame,
         return ('DO_NOT_APPLY',
                 f"Brier improvement {brier_rel*100:+.1f}% < 5%.")
 
-    # Bootstrap the raw-calibrated gap in the Kelly-relevant range
-    conf = np.concatenate([
-        np.full(int(row['n']), (row['mean_predicted_pre']))
-        for _, row in kelly_buckets.iterrows()
-    ])
-    # Approximate: use the mean gap in each bucket weighted by n
-    gaps = np.concatenate([
-        np.full(int(row['n']),
-                row['mean_predicted_pre'] - row['mean_predicted_post'])
-        for _, row in kelly_buckets.iterrows()
-    ])
+    # Bootstrap the raw-calibrated gap in the Kelly-relevant range, using
+    # per-row held-out gaps (not the constant bucket-mean gap) so the
+    # bootstrap reflects true within-bucket sampling variance.
+    conf_all = universe['confidence'].to_numpy()
+    kelly_mask = (conf_all >= 0.60) & (conf_all < 0.80)
+    gaps = cv['held_out_pre'][kelly_mask] - cv['held_out_post'][kelly_mask]
     if len(gaps) == 0:
         return ('INSUFFICIENT_SIGNAL',
                 'No Kelly-relevant bucket rows to bootstrap.')
@@ -536,10 +531,23 @@ def _recommended_next(overall: str, display_r, kelly_r, filter_r) -> str:
         return ("Collect more data; re-audit at n≥500. Any calibrator we might "
                 "fit today would not survive forward-testing at current sample size.")
     if overall == 'DO_NOT_APPLY':
-        return ("No production changes recommended. The model is either "
+        # Check whether Filter was actively destructive
+        filter_payload = filter_r[2]
+        filter_delta = filter_payload['refiltered_roi'] - filter_payload['current_roi']
+        base = ("No production changes recommended. The model is either "
                 "well-calibrated on this slice or calibration would not "
                 "improve the targets we care about. Revisit at n≥500 if the "
                 "situation changes.")
+        if filter_delta < -1.0:
+            base += (f"\n\n**Filter target actively worsens ROI** "
+                     f"({filter_delta:+.2f}pp): applying Platt-in-the-loop for "
+                     f"selection would push out the 0.55-0.60 confidence bucket "
+                     f"(currently the platform's best empirical bucket). Do NOT "
+                     f"attempt calibrated-threshold filtering until either "
+                     f"(a) that bucket has enough n to fit a shape that respects "
+                     f"its high empirical rate, or (b) a non-parametric calibrator "
+                     f"(isotonic at n>=500) is available.")
+        return base
     # APPLY
     apply_targets = []
     if display_r[0] == 'APPLY':
@@ -597,6 +605,12 @@ def assemble_report(snapshot_path: str, universe_n: int,
 
 ---
 
+## Methodology notes
+
+**Platt implementation deviation from canonical (1999):** this study fits Platt using `sklearn.linear_model.LogisticRegression(C=1e10)` on raw binary targets. Canonical Platt (Platt, 1999) trains on Bernoulli-smoothed targets `y+ = (N+ + 1) / (N+ + 2)` and `y- = 1 / (N- + 2)` to prevent overfitting at small `n`; `sklearn.calibration.CalibratedClassifierCV(method='sigmoid')` implements this smoothing. At `n=252` the effect is small, but the fitted `(a, b)` may differ marginally from a canonical Platt fit — particularly in extreme bins where the empirical rate is 0.0 or 1.0 (here: the 0.70–0.80 bucket, `actual=1.000` on n=4).
+
+---
+
 ## Non-goals (this study does NOT test)
 
 - Production code changes (deployment triggered by APPLY verdict gets a separate spec).
@@ -642,7 +656,7 @@ def main(argv: Optional[list[str]] = None) -> int:
     sections.append(format_segmentation(bucket_df, league_df, time_df))
 
     display_r = verdict_display(cv)
-    kelly_r = verdict_kelly(cv, bucket_df)
+    kelly_r = verdict_kelly(cv, bucket_df, universe)
     filter_r = verdict_filter(universe, cv)
     overall = overall_verdict(display_r[0], kelly_r[0], filter_r[0], len(universe))
     sections.append(format_verdicts(display_r, kelly_r, filter_r, overall))
