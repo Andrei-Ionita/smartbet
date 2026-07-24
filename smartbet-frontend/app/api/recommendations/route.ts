@@ -522,11 +522,35 @@ export async function GET(request: NextRequest) {
               }
 
               allMarketsData.push(marketData)
+
+              // Fulltime-result confluence gate. SportMonks runs a dedicated
+              // fulltime-result model (type_id 237, "Fulltime Result
+              // Probability") in parallel with the O/U 2.5 model (type_id 235).
+              // When 237's most-likely outcome exceeds 60% probability, the
+              // fixture is being modeled with high overall conviction and our
+              // O/U 2.5 picks land materially more often.
+              // Backtest (n=252, 2026-07-23):
+              //   baseline ROI +4.34% (wr 59.5%)
+              //   filter >=60 ROI +14.5% (wr 68%, n=114)
+              //   filter >=60 train-test split: train +7.97% / test +19.77%
+              //   consistent lift across both time halves.
+              const fulltimePred = predictions.find((p: any) => p.type_id === 237)
+              let fulltimeConfluenceOK = true
+              if (fulltimePred?.predictions) {
+                const p237 = fulltimePred.predictions
+                const maxProb237 = Math.max(
+                  Number(p237.home) || 0,
+                  Number(p237.away) || 0,
+                  Number(p237.draw) || 0
+                )
+                fulltimeConfluenceOK = maxProb237 >= 60
+              }
+
               // Hard-block Under 2.5: backtest on 203 settled rows shows dropping it
               // lifts yield from 13.76% to 21.60%. The model overrates this outcome
               // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
               // surfaces in `all_markets` for transparency; just not as a pick.
-              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05) {
+              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK) {
                 marketResults.push(marketData)
               }
             }
