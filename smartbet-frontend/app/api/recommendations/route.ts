@@ -305,7 +305,7 @@ export async function GET(request: NextRequest) {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
           api_token: token,
-          include: 'participants;league;metadata;predictions;odds;odds.bookmaker',
+          include: 'participants;league;metadata;predictions;odds;odds.bookmaker;sidelined',
           filters: `fixtureLeagues:${league.id}`,
           per_page: '50',
           page: '1',
@@ -560,11 +560,23 @@ export async function GET(request: NextRequest) {
               const valuebetPred = predictions.find((p: any) => p.type_id === 33)
               const valuebetConfluenceOK = !!valuebetPred
 
+              // Sidelined confluence gate — orthogonal STRUCTURAL signal (not
+              // derived from any prediction model). When teams have many injuries,
+              // defenses are compromised and OVER 2.5 picks land more often.
+              // Backtest on n=252 (2026-07-24):
+              //   sidelined>=4 alone: n=190, ROI +10.61%, wr 63.2% (vs baseline +4.34%)
+              //   sidelined 0-3 (fresh lineups): n=62, ROI -14.85% -- losing zone
+              //   Stacked on 237+33: n=25, ROI +57.46%, wr 92% (vs stack-only +41.75%)
+              // Removes 7 losing bets from the current stack (the "fresh lineup" outliers).
+              const sidelinedList = (fixture.sidelined || []) as any[]
+              const sidelinedTotal = sidelinedList.length
+              const sidelinedConfluenceOK = sidelinedTotal >= 4
+
               // Hard-block Under 2.5: backtest on 203 settled rows shows dropping it
               // lifts yield from 13.76% to 21.60%. The model overrates this outcome
               // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
               // surfaces in `all_markets` for transparency; just not as a pick.
-              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK && valuebetConfluenceOK) {
+              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK && valuebetConfluenceOK && sidelinedConfluenceOK) {
                 marketResults.push(marketData)
               }
             }
