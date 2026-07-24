@@ -546,11 +546,25 @@ export async function GET(request: NextRequest) {
                 fulltimeConfluenceOK = maxProb237 >= 60
               }
 
+              // Valuebet confluence gate. SportMonks runs a dedicated value-bet
+              // detector (type_id 33) that fires when it finds edge on ANY market
+              // for this fixture. Presence of the flag is itself a quality signal:
+              // fixtures where SportMonks can find value are being modeled well
+              // enough that our O/U 2.5 picks land materially more often.
+              // Backtest (n=252, 2026-07-24):
+              //   BOTH gates fire (237>=60 AND has_33): n=32, ROI +41.75%, wr 84.4%
+              //   Only 237 fires:                       n=25, ROI +14.86%, wr 76.0%
+              //   Only 33 fires:                        n=79, ROI +5.42%,  wr 57.0%
+              //   Neither:                              n=116, ROI -8.98%, wr 50.9%
+              // Stacking both gates gives max quality at the cost of ~80% volume drop.
+              const valuebetPred = predictions.find((p: any) => p.type_id === 33)
+              const valuebetConfluenceOK = !!valuebetPred
+
               // Hard-block Under 2.5: backtest on 203 settled rows shows dropping it
               // lifts yield from 13.76% to 21.60%. The model overrates this outcome
               // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
               // surfaces in `all_markets` for transparency; just not as a pick.
-              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK) {
+              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK && valuebetConfluenceOK) {
                 marketResults.push(marketData)
               }
             }
