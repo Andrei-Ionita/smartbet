@@ -1335,3 +1335,71 @@ class AccuracyCalculatorRoiFilterTests(TestCase):
 
         self.assertEqual(result['total_bets'], 1)
         self.assertEqual(result['total_profit_loss'], 8.0)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# AccuracyCalculator unification (2026-07-25): all public metrics denominate on
+# ONE universe — recommended, resolved bets passing the per-market confidence
+# gate. Previously the accuracy card counted ALL completed predictions (incl.
+# non-recommended) at a flat 0.60 gate, while ROI counted recommended bets at
+# the per-market gate, giving a ~120-row denominator mismatch on the dashboard.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class AccuracyCalculatorUnificationTests(TestCase):
+    """All AccuracyCalculator metrics share the recommended-bets universe."""
+
+    def _pred(self, fixture_id, market_type, confidence, correct=True,
+              is_recommended=True):
+        kickoff = timezone.now() - timedelta(days=1)
+        return PredictionLog.objects.create(
+            fixture_id=fixture_id, home_team='A', away_team='B', league='Test League',
+            kickoff=kickoff, predicted_outcome='Home', market_type=market_type,
+            confidence=confidence,
+            probability_home=confidence, probability_draw=(1 - confidence) / 2,
+            probability_away=(1 - confidence) / 2,
+            actual_outcome='Home', was_correct=correct,
+            profit_loss_10=8.0 if correct else -10.0,
+            is_recommended=is_recommended,
+        )
+
+    def test_overall_accuracy_excludes_non_recommended(self):
+        # A recommended pick and an equally-confident NON-recommended pick.
+        # Only the recommended one should count toward accuracy now.
+        self._pred(700001, '1x2', 0.65, correct=True, is_recommended=True)
+        self._pred(700002, '1x2', 0.65, correct=False, is_recommended=False)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        overall = AccuracyCalculator().get_overall_accuracy()['overall']
+
+        self.assertEqual(overall['total_predictions'], 1)
+        self.assertEqual(overall['correct_predictions'], 1)
+        self.assertEqual(overall['accuracy_percent'], 100.0)
+
+    def test_overall_accuracy_applies_per_market_gate(self):
+        # over_under_2.5 at 0.57 clears its lowered 0.55 gate → counted.
+        self._pred(700003, 'over_under_2.5', 0.57, is_recommended=True)
+        # 1x2 at 0.57 is below the 0.60 default for non-listed markets → excluded.
+        self._pred(700004, '1x2', 0.57, is_recommended=True)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        overall = AccuracyCalculator().get_overall_accuracy()['overall']
+
+        self.assertEqual(overall['total_predictions'], 1)
+
+    def test_accuracy_and_roi_denominate_on_same_universe(self):
+        # Mixed set: recommended O/U 2.5 (0.57, passes lowered gate), recommended
+        # 1x2 (0.62, passes default), recommended 1x2 (0.57, fails default),
+        # and a non-recommended O/U 2.5 (0.80, high conf but not recommended).
+        self._pred(700005, 'over_under_2.5', 0.57, is_recommended=True)
+        self._pred(700006, '1x2', 0.62, is_recommended=True)
+        self._pred(700007, '1x2', 0.57, is_recommended=True)          # excluded (gate)
+        self._pred(700008, 'over_under_2.5', 0.80, is_recommended=False)  # excluded (not rec)
+
+        from core.services.accuracy_calculator import AccuracyCalculator
+        calc = AccuracyCalculator()
+        overall = calc.get_overall_accuracy()['overall']
+        roi = calc.get_roi_simulation()
+
+        # Both cards must count the same 2 qualifying bets (700005 + 700006).
+        self.assertEqual(overall['total_predictions'], 2)
+        self.assertEqual(roi['total_bets'], 2)

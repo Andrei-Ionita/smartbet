@@ -23,17 +23,46 @@ DEFAULT_CONF_THRESHOLD = 0.60
 class AccuracyCalculator:
     """
     Calculate comprehensive accuracy metrics for SmartBet predictions.
+
+    All public metrics denominate on ONE universe: recommended, resolved bets
+    passing the per-market confidence gate. This matches the platform's
+    transparency thesis ("we track only what we recommend to you") and keeps
+    the accuracy card and ROI card consistent — previously accuracy counted all
+    completed predictions (incl. picks never recommended) at a flat 0.60 gate,
+    while ROI counted recommended bets at the per-market gate, producing a
+    confusing ~120-row denominator mismatch on the dashboard.
     """
-    
+
+    def _confidence_filter(self) -> Q:
+        """Per-market confidence gate as a Q object.
+
+        over_under_2.5 uses the lowered 0.55 threshold (ROI tuning E4); every
+        other market keeps the 0.60 default. Single source of truth for the
+        gate — all metric methods use this so thresholds never drift apart.
+        """
+        conf_filter = Q()
+        for market, thresh in PER_MARKET_CONF_THRESHOLDS.items():
+            conf_filter |= Q(market_type=market, confidence__gte=thresh)
+        conf_filter |= (
+            ~Q(market_type__in=PER_MARKET_CONF_THRESHOLDS.keys())
+            & Q(confidence__gte=DEFAULT_CONF_THRESHOLD)
+        )
+        return conf_filter
+
+    def _recommended_base_qs(self):
+        """Base queryset every public metric denominates on: recommended,
+        resolved bets passing the per-market confidence gate."""
+        return PredictionLog.objects.filter(
+            is_recommended=True,
+            actual_outcome__isnull=False,
+        ).filter(self._confidence_filter())
+
     def get_overall_accuracy(self) -> Dict:
         """
-        Get overall accuracy across all completed predictions with > 60% confidence.
+        Get overall accuracy across recommended, resolved bets passing the
+        per-market confidence gate (same universe as the ROI card).
         """
-        completed = PredictionLog.objects.filter(
-            actual_outcome__isnull=False,
-            was_correct__isnull=False,
-            confidence__gte=0.60  # Only high confidence bets
-        )
+        completed = self._recommended_base_qs().filter(was_correct__isnull=False)
         
         total = completed.count()
         correct = completed.filter(was_correct=True).count()
@@ -80,10 +109,15 @@ class AccuracyCalculator:
     
     def get_accuracy_by_confidence(self) -> List[Dict]:
         """
-        Get accuracy breakdown by confidence levels.
+        Get accuracy breakdown by confidence levels for recommended bets.
         Shows if higher confidence = higher accuracy.
+
+        Deliberately does NOT apply the per-market confidence gate — confidence
+        is the axis being bucketed here — but does restrict to is_recommended so
+        it denominates on the same recommended-bets universe as every other card.
         """
         completed = PredictionLog.objects.filter(
+            is_recommended=True,
             actual_outcome__isnull=False,
             was_correct__isnull=False
         )
@@ -117,13 +151,10 @@ class AccuracyCalculator:
     
     def get_accuracy_by_league(self) -> List[Dict]:
         """
-        Get accuracy breakdown by league for high confidence bets.
+        Get accuracy + ROI breakdown by league for recommended bets passing the
+        per-market confidence gate (same universe as the ROI card).
         """
-        completed = PredictionLog.objects.filter(
-            actual_outcome__isnull=False,
-            was_correct__isnull=False,
-            confidence__gte=0.60  # Only high confidence bets
-        )
+        completed = self._recommended_base_qs().filter(was_correct__isnull=False)
         
         # Get unique leagues
         leagues = completed.values_list('league', flat=True).distinct()
@@ -158,22 +189,9 @@ class AccuracyCalculator:
         """
         Calculate theoretical ROI if user followed all high-confidence recommendations.
         """
-        # Per-market confidence gate: over_under_2.5 uses a lowered threshold
-        # (0.55); every other market keeps the default (0.60). See
-        # PER_MARKET_CONF_THRESHOLDS above.
-        conf_filter = Q()
-        for market, thresh in PER_MARKET_CONF_THRESHOLDS.items():
-            conf_filter |= Q(market_type=market, confidence__gte=thresh)
-        conf_filter |= (
-            ~Q(market_type__in=PER_MARKET_CONF_THRESHOLDS.keys())
-            & Q(confidence__gte=DEFAULT_CONF_THRESHOLD)
-        )
-
-        completed = PredictionLog.objects.filter(
-            actual_outcome__isnull=False,
-            is_recommended=True,
-            profit_loss_10__isnull=False,
-        ).filter(conf_filter)
+        # Same recommended-bets + per-market-confidence universe as every other
+        # metric (see _recommended_base_qs), additionally requiring a settled P/L.
+        completed = self._recommended_base_qs().filter(profit_loss_10__isnull=False)
         
         total_bets = completed.count()
         total_staked = total_bets * stake_per_bet
@@ -205,14 +223,13 @@ class AccuracyCalculator:
     
     def get_performance_over_time(self, days: int = 30) -> List[Dict]:
         """
-        Get accuracy performance over time periods for high confidence bets.
+        Get accuracy performance over time for recommended bets passing the
+        per-market confidence gate (same universe as the ROI card).
         """
         cutoff_date = timezone.now() - timedelta(days=days)
-        
-        completed = PredictionLog.objects.filter(
-            actual_outcome__isnull=False,
-            kickoff__gte=cutoff_date,
-            confidence__gte=0.60  # Only high confidence bets
+
+        completed = self._recommended_base_qs().filter(
+            kickoff__gte=cutoff_date
         ).order_by('kickoff')
         
         # Group by week
