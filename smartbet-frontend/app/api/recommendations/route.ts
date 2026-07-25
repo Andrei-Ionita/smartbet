@@ -641,9 +641,20 @@ export async function GET(request: NextRequest) {
             }
 
             // ============= SELECT BEST MARKET =============
+            // Uniform confidence floor. The response advertises a 55% confidence
+            // threshold, but historically only over_under_2.5 enforced it — the
+            // 1x2/btts/dc branches gated on gap+ev only, letting sub-0.55 picks
+            // (1x2 coin-flips at ~0.48) reach the homepage whenever the tighter
+            // O/U 2.5 stack produced nothing. Enforce >= 0.55 on `probability`
+            // (max side probability, 0-1 scale) for EVERY market so the advertised
+            // threshold is real. If nothing clears the floor, the fixture is
+            // skipped (honest empty slot) rather than filled with a coin-flip.
+            const CONFIDENCE_FLOOR = 0.55
+            const qualifiedMarkets = marketResults.filter(m => m.probability >= CONFIDENCE_FLOOR)
+
             // Sort by market_score descending and pick the best
-            marketResults.sort((a, b) => b.market_score - a.market_score)
-            const bestMarket = marketResults[0]
+            qualifiedMarkets.sort((a, b) => b.market_score - a.market_score)
+            const bestMarket = qualifiedMarkets[0]
 
             // Skip if no valid market found
             if (!bestMarket || bestMarket.market_score < 0.15) {
