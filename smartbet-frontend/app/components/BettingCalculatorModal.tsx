@@ -120,8 +120,23 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
         stake = 0
     }
 
-    // Cap at 25% of bankroll for safety
-    stake = Math.min(stake, bankroll * 0.25)
+    // Defensive bankroll ceiling: never recommend more than 10% of bankroll on
+    // a single bet, regardless of strategy. Tightened from 25% (2026-07-25).
+    // Rationale: (1) 10% is the upper end of standard defensive practice and
+    // matches the backend's capped range (calculate_stake_amount uses a 5% default,
+    // up to 10% for the aggressive profile); 25% risked ruin. (2) Kelly here is
+    // sized on the model's raw `confidence`, which the ROI audit found to be
+    // systematically ~20pp over-optimistic (docs/audit/roi-audit-2026-07-16.md) —
+    // over-optimistic probabilities make Kelly over-lever, so a firm ceiling is
+    // the pragmatic guard until model probabilities are recalibrated.
+    const MAX_BANKROLL_FRACTION = 0.10
+    const capApplied = stake > bankroll * MAX_BANKROLL_FRACTION
+    stake = Math.min(stake, bankroll * MAX_BANKROLL_FRACTION)
+    if (capApplied) {
+      // When the ceiling binds, the bet is inherently high-risk regardless of
+      // the strategy label — surface that honestly.
+      risk = 'High'
+    }
 
     const potentialWin = stake * (odds - 1)
     const potentialLoss = stake
