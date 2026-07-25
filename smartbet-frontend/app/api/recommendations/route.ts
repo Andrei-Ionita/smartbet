@@ -37,7 +37,16 @@ const MARKET_CONFIG = {
   '1x2': {
     name: '1X2',
     display_name: 'Match Result',
-    type_ids: [233, 237, 238],  // Multiple models for 1X2
+    // Bugfix (2026-07-25): previously [233, 237, 238], averaged as if they were
+    // three models of the same 1X2 outcome. They are three DIFFERENT markets:
+    //   233 = First Half Winner Probability   (who leads at half-time)
+    //   237 = Fulltime Result Probability      (the actual match winner — real 1X2)
+    //   238 = Team To Score First Probability  (who scores first)
+    // All three return {home, draw, away} shape so the average did not error, it
+    // just produced a semantically meaningless blend (e.g. a side likely to score
+    // first but lose the match muddied the signal). 237 is the correct and only
+    // fulltime-result model. Verified via SportMonks /core/types lookup.
+    type_ids: [237],
     outcomes: ['home', 'draw', 'away'],
     odds_market_id: 1,
     min_gap: 0.12,  // 12% for home/away, 15% for draw (handled in code)
