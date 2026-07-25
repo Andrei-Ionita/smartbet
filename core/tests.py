@@ -1403,3 +1403,85 @@ class AccuracyCalculatorUnificationTests(TestCase):
         # Both cards must count the same 2 qualifying bets (700005 + 700006).
         self.assertEqual(overall['total_predictions'], 2)
         self.assertEqual(roi['total_bets'], 2)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Proof-card endpoint (2026-07-25): GET /api/proof/<fixture_id>/ returns the
+# payload for a shareable proof card. Only recommended picks are eligible.
+# ─────────────────────────────────────────────────────────────────────────────
+
+class ProofCardEndpointTests(TestCase):
+    """GET /api/proof/<fixture_id>/ payload shape + eligibility."""
+
+    def _pred(self, fixture_id, *, is_recommended=True, resolved=None,
+              confidence=0.64, odds=1.85):
+        # resolved: None = pending, True = win, False = loss
+        kickoff = timezone.now() + timedelta(hours=3)
+        was_correct = None
+        score_h = score_a = None
+        actual_outcome = None
+        if resolved is not None:
+            was_correct = resolved
+            score_h, score_a = (2, 1) if resolved else (0, 0)
+            actual_outcome = 'Over 2.5' if resolved else 'Under 2.5'
+        return PredictionLog.objects.create(
+            fixture_id=fixture_id, home_team='Almeria', away_team='Malaga',
+            league='La Liga 2', kickoff=kickoff, predicted_outcome='Over 2.5',
+            market_type='over_under_2.5', confidence=confidence, odds=odds,
+            probability_home=confidence, probability_draw=(1 - confidence) / 2,
+            probability_away=(1 - confidence) / 2,
+            actual_outcome=actual_outcome, actual_score_home=score_h,
+            actual_score_away=score_a, was_correct=was_correct,
+            is_recommended=is_recommended,
+            profit_loss_10=(8.0 if resolved else -10.0) if resolved is not None else None,
+        )
+
+    def test_pending_pick_returns_unresolved(self):
+        self._pred(800001, resolved=None)
+        resp = self.client.get('/api/proof/800001/')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.json()
+        self.assertTrue(data['found'])
+        self.assertEqual(data['result']['resolved'], False)
+        self.assertNotIn('was_correct', data['result'])
+        self.assertEqual(data['pick']['home_team'], 'Almeria')
+        self.assertEqual(data['pick']['predicted_outcome'], 'Over 2.5')
+
+    def test_resolved_win(self):
+        self._pred(800002, resolved=True)
+        data = self.client.get('/api/proof/800002/').json()
+        self.assertTrue(data['result']['resolved'])
+        self.assertEqual(data['result']['was_correct'], True)
+        self.assertEqual(data['result']['actual_score_home'], 2)
+        self.assertEqual(data['result']['actual_score_away'], 1)
+
+    def test_resolved_loss(self):
+        self._pred(800003, resolved=False)
+        data = self.client.get('/api/proof/800003/').json()
+        self.assertTrue(data['result']['resolved'])
+        self.assertEqual(data['result']['was_correct'], False)
+
+    def test_non_recommended_returns_404(self):
+        self._pred(800004, is_recommended=False, resolved=True)
+        resp = self.client.get('/api/proof/800004/')
+        self.assertEqual(resp.status_code, 404)
+        self.assertFalse(resp.json()['found'])
+
+    def test_unknown_fixture_returns_404(self):
+        resp = self.client.get('/api/proof/999999/')
+        self.assertEqual(resp.status_code, 404)
+
+    def test_confidence_normalised_to_percent(self):
+        # Stored 0-1; payload should expose 0-100 for display.
+        self._pred(800005, resolved=None, confidence=0.64)
+        data = self.client.get('/api/proof/800005/').json()
+        self.assertAlmostEqual(data['pick']['confidence'], 64.0, places=1)
+
+    def test_record_matches_roi_simulation(self):
+        self._pred(800006, resolved=True)   # 1 recommended resolved win
+        from core.services.accuracy_calculator import AccuracyCalculator
+        roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
+        data = self.client.get('/api/proof/800006/').json()
+        self.assertEqual(data['record']['wins'], roi['wins'])
+        self.assertEqual(data['record']['losses'], roi['losses'])
+        self.assertEqual(data['record']['roi_percent'], roi['roi_percent'])

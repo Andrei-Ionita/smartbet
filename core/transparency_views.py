@@ -270,24 +270,75 @@ def trigger_result_update(request):
     """
     Manually trigger result updates.
     Can be called by frontend refresh button.
-    
+
     POST /api/transparency/update-results/
     """
     try:
         from core.services.result_updater import ResultUpdaterService
-        
+
         updater = ResultUpdaterService()
         stats = updater.update_all_pending_results(max_predictions=50)
-        
+
         return Response({
             'success': True,
             'stats': stats,
             'message': f"Updated {stats['updated']} predictions with {stats.get('accuracy', 0)}% accuracy"
         })
-        
+
     except Exception as e:
         return Response({
             'success': False,
             'error': str(e)
         }, status=500)
+
+
+def proof_card_data(request, fixture_id):
+    """
+    GET /api/proof/<fixture_id>/ — payload for a shareable proof card.
+
+    Only recommended picks are eligible: we publish proof for the picks we
+    actually recommended, nothing else. Returns the pick, the result (always
+    present; {'resolved': False} while pending), and the cumulative record from
+    the same source the public dashboard uses so the card and the site agree.
+    """
+    try:
+        pred = PredictionLog.objects.get(fixture_id=fixture_id, is_recommended=True)
+    except PredictionLog.DoesNotExist:
+        return JsonResponse({'found': False}, status=404)
+
+    resolved = pred.was_correct is not None
+    result = {'resolved': bool(resolved)}
+    if resolved:
+        result.update({
+            'actual_score_home': pred.actual_score_home,
+            'actual_score_away': pred.actual_score_away,
+            'was_correct': pred.was_correct,
+        })
+
+    # Normalise confidence to a 0-100 percent for display (stored as 0-1 or 0-100).
+    conf = pred.confidence or 0.0
+    confidence_pct = round(conf * 100, 1) if conf <= 1 else round(conf, 1)
+
+    roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
+
+    return JsonResponse({
+        'found': True,
+        'pick': {
+            'home_team': pred.home_team,
+            'away_team': pred.away_team,
+            'league': pred.league,
+            'market_type': pred.market_type,
+            'predicted_outcome': pred.predicted_outcome,
+            'odds': pred.odds,
+            'confidence': confidence_pct,
+            'kickoff': pred.kickoff.isoformat(),
+            'prediction_logged_at': pred.prediction_logged_at.isoformat(),
+        },
+        'result': result,
+        'record': {
+            'wins': roi['wins'],
+            'losses': roi['losses'],
+            'roi_percent': roi['roi_percent'],
+        },
+    })
 
