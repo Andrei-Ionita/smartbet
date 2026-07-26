@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCircle, Clock, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
 import ProofCapturePanel from '../components/ProofCapturePanel';
+import ShareProofButton from '../components/ShareProofButton';
 
 interface PredictionWithResult {
   fixture_id: number;
@@ -470,6 +471,7 @@ export default function TrackRecordContent() {
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.ev')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.pl')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.date')}</th>
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Share</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200">
@@ -548,6 +550,9 @@ export default function TrackRecordContent() {
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {formatDate(pred.kickoff)}
+                    </td>
+                    <td className="px-6 py-4 text-right">
+                      <ShareProofButton fixtureId={pred.fixture_id} />
                     </td>
                   </tr>
                 ))}

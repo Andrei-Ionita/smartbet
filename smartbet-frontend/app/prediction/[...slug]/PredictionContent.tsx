@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, Shield, Trophy } from 'lucide-react'
 import ProofCapturePanel from '../../components/ProofCapturePanel'
+import ShareProofButton from '../../components/ShareProofButton'
 
 interface PredictionContentProps {
     recommendation: Recommendation
@@ -128,7 +129,8 @@ export default function PredictionContent({
                 </div>
             </div>
 
-            <div className="mb-12">
+            <div className="mb-12 flex flex-col gap-6">
+                <ShareProofButton fixtureId={recommendation.fixture_id} className="mt-2" />
                 <ProofCapturePanel
                     source="prediction_page"
                     leagueInterest={leagueName}
