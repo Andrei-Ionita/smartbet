@@ -127,7 +127,7 @@ export default async function Image({ params }: { params: { fixtureId: string } 
   const data = await fetchProof(params.fixtureId)
   // Node.js runtime (not edge) has filesystem access; `fetch(new URL(..., import.meta.url))`
   // only resolves reliably under the edge runtime, so read the bundled font from disk instead.
-  const fontBuffer = await readFile(join(process.cwd(), 'app/proof/[fixtureId]/Inter-Regular.woff'))
+  const fontBuffer = await readFile(join(process.cwd(), 'public/fonts/Inter-Regular.woff'))
   const fontData = fontBuffer.buffer.slice(fontBuffer.byteOffset, fontBuffer.byteOffset + fontBuffer.byteLength)
   const fontOpt = { fonts: [{ name: 'Inter', data: fontData, weight: 400 as const, style: 'normal' as const }], ...size }
 
