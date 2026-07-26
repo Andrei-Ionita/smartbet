@@ -33,12 +33,19 @@ export async function fetchProof(fixtureId: string): Promise<ProofPayload | null
   }
 }
 
-// Humanised "3h 28m before kickoff"; returns null if logged at/after kickoff.
+// Humanised "3h 28m before kickoff" (near-term) or "14d 16h before kickoff"
+// (≥48h out); returns null if logged at/after kickoff.
 export function beforeKickoffLabel(loggedAtIso: string, kickoffIso: string): string | null {
   const deltaMs = new Date(kickoffIso).getTime() - new Date(loggedAtIso).getTime()
   if (deltaMs <= 0) return null
   const mins = Math.floor(deltaMs / 60000)
-  const h = Math.floor(mins / 60)
+  const totalHours = Math.floor(mins / 60)
+  // Roll up to days for far-out picks — "352h 56m" reads slower than "14d 16h".
+  if (totalHours >= 48) {
+    const d = Math.floor(totalHours / 24)
+    const h = totalHours % 24
+    return `${d}d ${h}h before kickoff`
+  }
   const m = mins % 60
-  return h > 0 ? `${h}h ${m}m before kickoff` : `${m}m before kickoff`
+  return totalHours > 0 ? `${totalHours}h ${m}m before kickoff` : `${m}m before kickoff`
 }
