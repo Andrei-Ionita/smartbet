@@ -1,332 +1,744 @@
-# Hidden-Gem Selector — Design Spec
+# Hidden-Gem Selector — Design Spec (v2)
 
 **Date:** 2026-07-27
-**Status:** Approved for planning
+**Status:** APPROVE WITH DATA-DEPENDENT PARAMETERS — blocked on prerequisites (§14)
 **Author:** Andrei + Claude
-**Parent context:** Second build of the growth thread, following the proof-card
-generator (`2026-07-25-proof-card-generator-design.md`). The cards work; the
-open question was *which fixture to post*. This spec answers that.
+**Supersedes:** v1 of this file (commit `158f479`)
+**Parent context:** Second build of the growth thread, after the proof-card
+generator (`2026-07-25-proof-card-generator-design.md`).
 
 ---
 
-## 1. Purpose
+## 0. Change log vs v1
 
-Give the founder a ranked, defensible answer to **"which upcoming pick should I
-post to socials this week?"** — or an explicit **"none this week."**
+| # | Change | Driver |
+|---|---|---|
+| C1 | **`defensible_edge` formula replaced.** v1's shrink-toward-market provably reduces to `SHRINK × raw_EV` — a no-op on sign. Replaced with an empirical over-confidence haircut in probability space. | Review §1, verified §13.1 |
+| C2 | **Cell gate now uses shrunk ROI against a *positive* threshold.** A zero prior with a `> 0` gate is also a no-op; shrinkage only bites against a positive bar. | Review §2, corrected |
+| C3 | **Evidence strength added to ranking (30%); obscurity cut 35% → 10%.** | Review §3 |
+| C4 | **League-tier context check added — as a veto on known-bad, not a requirement of proven-good.** The strict reading is infeasible at n=276. | Review §4, modified |
+| C5 | **Timing window inverted** to favour 6–24h before kickoff. | Review §5, accepted and strengthened |
+| C6 | **Odds provenance + immutability**, promoted to a blocking prerequisite: the claim fields are currently overwritten on every re-run. | Review §6, escalated |
+| C7 | **CLV forward-compatibility**: metrics namespaced and kept separate. | Review §7 |
+| C8 | **Confidence semantics** must be established before launch; `confidence` is a provider-derived score, not a calibrated probability. | Review §8 |
+| C9 | **Obscurity mapping** by normalized exact name + explicit `UNKNOWN` (obscurity 0.5, never 1.0). `league_id` is unusable (always null). | Review §9, modified |
+| C10 | **Buckets made coarser, not finer** — production data shows the high buckets are nearly empty. | Review §10, direction reversed |
+| C11 | **Recent-deterioration check added**, on last-N-resolved rather than calendar windows. | Review §11 |
+| C12 | **Response split** into `recommended_for_posting` / `alternatives` / `on_deck`. | Review §12 |
+| C13 | **Card content hierarchy + four visual states** specified; implementation deferred to a follow-up task. | Review §13 |
+| C14 | **Caption templates** per platform, softened to signal-not-fact. | Review §14 |
+| C15 | **Alignment audit** added as a launch gate — a live contradiction already exists. | Review §15 |
 
-### 1.1 The reframe that drives this
+## 1. Purpose & positioning (unchanged from v1)
 
-The initial framing was "catchy = famous teams." That was wrong, and it fought
-our actual strengths. Marquee fixtures (EPL, UCL) sit in the sharpest, most
-efficient markets, where the ROI audit showed our edge barely survives. Our
-genuine edge lives in obscure leagues nobody is modelling closely.
+Answer **"which upcoming pick should I post?"** — or **"none this week."**
 
-The correct framing, from the founder: **catchy = a hidden gem** — an unglamorous
-fixture with a real, defensible mispricing. This is what the engine already does
-(scan 27 leagues nightly for value), so we lead with our strength instead of
-apologising for our weakness.
+**Catchy = hidden gem**, not famous teams. Marquee fixtures sit in the sharpest
+markets where our edge barely survives; our edge lives in obscure leagues. The
+target audience is **value bettors**, who care that the number is good.
 
-It also self-selects the right audience. We are not chasing "football fans"; we
-are chasing **value bettors**, who care that the number is good, not that the
-teams are famous — and who respect a timestamped, transparent record over a
-hype-man. The hook writes itself: *"Nobody's talking about this one. Our model
-says the market has it wrong. Logged before kickoff — come back and check."*
+**Maximum defensibility**, expressed as a **gate, not a weight**. We have no
+credibility reserve to absorb a blowup. The goal is not to maximise posts — it is
+to select the few picks we can defend publicly.
 
-### 1.2 Defensibility over spectacle
+**Non-goal:** cards and captions present transparent data, never a profit promise.
 
-The founder chose **maximum defensibility**. The design expresses that as a
-**gate, not a weight**: a blended score would let a shaky-but-thrilling pick buy
-its way to the top on obscurity points, and that is precisely the pick that blows
-up in public.
+## 2. Configuration — all tunable constants in one place
 
-The asymmetry justifies it. We have no audience to lose, but also **no
-credibility reserve to absorb a blowup**. The record is n=267. One loud
-overclaim that loses, in front of sharp bettors who *will* check, costs the only
-asset the brand has.
+```python
+# ── Confidence ────────────────────────────────────────────────────────────
+CONF_SCALE_THRESHOLD   = 1.0    # values > 1.0 are treated as 0–100 and divided
+MIN_CONF_FLOOR         = 0.55   # absolute floor; per-market gate still applies
 
-**Explicit non-goal, inherited from the parent thread:** cards and captions
-present transparent data, never a profit promise.
+# ── Confidence buckets (COARSE — production data is concentrated) ─────────
+# 60–65% holds 166/276 rows; >70% holds 4. Finer buckets create unusable cells.
+CONF_BUCKETS = [(0.55, 0.60), (0.60, 0.65), (0.65, 1.00)]
 
-## 2. Scope
+# ── Price band ────────────────────────────────────────────────────────────
+MIN_ODDS               = 1.40   # below: edge too thin to survive any error
+MAX_ODDS               = 3.50   # above: our resolved sample is negligible
 
-### What we build
-- A two-stage selector (defensibility gate → gem ranking) computed from data
-  already in `PredictionLog`.
-- One staff-only Django endpoint returning ranked gems + an "on deck" list.
-- One private frontend page (`/gems`) with copy-to-clipboard link and caption.
+# ── Conservative probability (§4.2) ───────────────────────────────────────
+SAFETY_EPS             = 0.01   # extra haircut beyond measured over-confidence
+MIN_MARGIN_SAMPLE      = 30     # min resolved rows to estimate a market's margin
+FALLBACK_MARGIN        = 0.05   # used when a market lacks MIN_MARGIN_SAMPLE
+MIN_DEFENSIBLE_EDGE    = 0.02   # required post-haircut edge (2%)
 
-### What already exists (reuse, do not rebuild)
-- `PredictionLog` — every field needed: `fixture_id`, `home_team`, `away_team`,
-  `league`, `league_id`, `kickoff`, `market_type`, `predicted_outcome`,
-  `confidence`, `odds`, `expected_value`, `was_correct`, `is_recommended`,
-  `is_audit_excluded`. Indexed on `('is_recommended', '-kickoff')`.
-- `core/services/accuracy_calculator.py` — `_confidence_filter()` and
-  `PER_MARKET_CONF_THRESHOLDS` are the **single source of truth** for the
-  per-market confidence gate. Reuse; do not fork.
-- `/api/proof/<fixture_id>/` and `/proof/<fixtureId>` — the card and share
-  surface. The selector only produces a fixture_id and a link to it.
-- DRF auth (`permission_classes`, Bearer tokens) and frontend `AuthContext`.
+# ── Historical evidence (§4.3) ────────────────────────────────────────────
+PRIOR_ROI              = 0.0    # zero prior: most conservative (see §4.3)
+PRIOR_STRENGTH_K       = 50     # pseudo-observations pulling toward PRIOR_ROI
+MIN_CELL_N             = 40     # DATA-DEPENDENT — confirm via D3 before locking
+MIN_SHRUNK_ROI         = 2.0    # percent; MUST be > 0 or shrinkage is a no-op
 
-### Not in scope
-No new model, no migration, no change to the prediction engine, no change to
-what gets recommended.
+# ── League-tier context (§4.4) ────────────────────────────────────────────
+MIN_TIER_N             = 15     # below this, tier evidence is "insufficient"
+TIER_VETO_ROI          = -3.0   # percent; tier with enough n and worse ROI vetoes
 
-## 3. Selection logic
+# ── Recent deterioration (§4.5) ───────────────────────────────────────────
+RECENT_WINDOW_N        = 50     # last N *resolved* rows in the cell (not calendar)
+MIN_RECENT_N           = 20     # below this, recency is "insufficient", not a veto
+RECENT_VETO_ROI        = -5.0   # percent
 
-### 3.1 Stage 1 — Defensibility gate (pass/fail, no trade-offs)
+# ── Evidence strength (§4.6) ──────────────────────────────────────────────
+EVIDENCE_SAT_N         = 200    # sample size at which the size component saturates
+EVIDENCE_ROI_FULL      = 10.0   # shrunk ROI (%) scoring full marks
 
-A pick is eligible only if **all** of the following hold:
+# ── Ranking weights (must sum to 1.0) ─────────────────────────────────────
+W_EDGE                 = 0.40
+W_EVIDENCE             = 0.30
+W_TIMING               = 0.20
+W_OBSCURITY            = 0.10
+EDGE_NORM_FULL         = 0.15   # defensible edge scoring full marks
 
-1. **Live published claim:** `is_recommended=True`, `was_correct IS NULL`,
-   `kickoff > now`, `is_audit_excluded=False`.
-2. **Priceable:** `odds` is not null and `1.4 <= odds <= 3.5`. Outside that band
-   our sample is too thin to defend.
-3. **Clears the per-market confidence threshold**, via the existing
-   `_confidence_filter()` (0.55 for `over_under_2.5`, 0.60 otherwise).
-4. **Proven cell:** the pick's `(market_type, confidence_bucket)` slice has
-   **`roi_percent > 0` on our own resolved history** with **n >= 30**. All ROI
-   figures in this spec are percentages, matching
-   `get_roi_simulation()['roi_percent']`.
-5. **Positive shrunk edge:** `defensible_edge > 0` (see §3.3). If the edge
-   evaporates once we correct for model over-confidence, it is not a gem.
-
-If nothing passes, the selector returns **no gems**. This is a valid, intended
-output — see §3.5.
-
-**Confidence buckets** are fixed 0.05-wide bands on the 0–1 scale:
-`[0.55,0.60)`, `[0.60,0.65)`, `[0.65,0.70)`, `[0.70,0.75)`, `[0.75,1.00]`.
-Picks below 0.55 cannot pass rule 3 and are never bucketed.
-
-**Cell ROI** is computed over resolved, non-audit-excluded, `is_recommended=True`
-rows in that cell, using the same profit convention as
-`AccuracyCalculator.get_roi_simulation()` (flat stake), so the gate and the
-public record never disagree.
-
-### 3.2 Anti-calcification (a required property, not an optimisation)
-
-The gate must **not** freeze us into the slices that worked historically.
-
-- **The gate filters what we POST, never what we PREDICT.** The engine keeps
-  recommending across every slice; `PredictionLog` keeps logging all of them;
-  the track record keeps accumulating everywhere. Selection for publication is
-  strictly downstream of selection for prediction, so there is **no feedback
-  loop into the model** and no slice is starved of data.
-- **Cell ROI is a live query, not a hardcoded whitelist.** It is computed from
-  `PredictionLog` at request time. Therefore a slice that becomes profitable
-  **graduates in automatically** with no code change or redeploy, and a slice
-  that decays **drops out automatically**. Every engine improvement (confluence
-  filters, SportMonks squeeze, future calibration) flows straight through.
-- **Hardcoding eligible cells as a constant is explicitly forbidden** by this
-  spec. It is the failure mode this section exists to prevent.
-
-### 3.3 Stage 2 — Gem ranking (survivors only)
-
-`gem_score = 0.45 * edge_norm + 0.35 * obscurity + 0.20 * timing`
-
-Weights are named constants, tunable in one place.
-
-**Defensible edge** — deliberately *not* raw model EV, which runs ~20pp hot per
-the calibration study (`2026-07-22` study, verdict DO_NOT_APPLY for correction,
-but the direction of the bias is established).
-
-```
-market_implied = 1 / odds
-shrunk_prob    = market_implied + SHRINK * (model_conf - market_implied)   # SHRINK = 0.5
-defensible_edge = shrunk_prob * odds - 1
-edge_norm      = clamp(defensible_edge / 0.15, 0, 1)                        # +15% edge = full marks
+# ── Output ────────────────────────────────────────────────────────────────
+MAX_INTERNAL_CANDIDATES = 5     # internal shortlist; only ONE is recommended
+STALE_ODDS_WARN_HOURS   = 48    # older than this → display a staleness warning
 ```
 
-`1 / odds` includes the bookmaker's vig, so it *overstates* the market's true
-probability and therefore *understates* our edge. That conservative direction is
-intentional; de-vigging is not worth the complexity here.
+Every constant is a module-level named value with a comment. None may be
+inlined at a call site.
 
-**Obscurity** — the hidden-gem hook. Three tiers matched on `league` name
-(case-insensitive substring; `league_id` may be null so name is authoritative):
+## 3. Confidence — semantics and normalisation (BLOCKING)
 
-- **Tier A — mainstream (0.0):** Premier League, La Liga, Serie A, Bundesliga,
-  Ligue 1, Champions League, Europa League, World Cup, European Championship.
-- **Tier B — well-known second tier (0.5):** Championship, Eredivisie,
-  Primeira Liga, Scottish Premiership, MLS, Liga MX.
-- **Tier C — everything else (1.0):** the real gems. Default tier.
+### 3.1 What `confidence` actually is
 
-In practice obscurity mostly acts as a **penalty for mainstream** rather than a
-fine-grained differentiator, since most qualifying picks are Tier C. That is
-accepted and honest.
+`PredictionLog.confidence` originates from SportMonks provider probabilities
+(e.g. BTTS probability `0.6426`), passed through the engine's market selection.
+It is **not an empirically calibrated probability**.
 
-**Timing fit** — a step function on hours-to-kickoff, chosen over interpolation
-because it is trivial to test and reason about:
+**Consequence:** it must never be presented publicly as an exact probability
+without qualification. Cards and captions say **"model probability"** and always
+show the **bookmaker implied probability** next to it, so the reader sees the
+comparison rather than a bare claim.
+
+### 3.2 Normalisation (single helper, used everywhere)
+
+```python
+def normalize_confidence(raw: float | None) -> float | None:
+    if raw is None:
+        return None
+    p = raw / 100.0 if raw > CONF_SCALE_THRESHOLD else raw
+    if not (0.0 < p <= 1.0):
+        log_anomaly(raw)          # never silently coerce
+        return None
+    return p
+```
+
+`raw == 1.0` is treated as 100%, not 1% (a 1% pick is implausible and would
+never have been recommended). This is documented ambiguity, not a silent choice.
+
+**Risk:** bucketing on the wrong scale silently empties the gate — every pick
+falls outside every bucket and the selector returns "no gems" forever, looking
+like correct conservative behaviour. Diagnostic **D1** (§14) must confirm the
+real distribution, and a unit test asserts both scales bucket identically.
+
+## 4. Selection logic
+
+### 4.1 Stage 1 — Defensibility gate (pass/fail, no trade-offs)
+
+A pick is eligible only if **all** hold. Each rule returns a machine-readable
+reason on failure, surfaced in the API.
+
+| # | Rule | Constant |
+|---|---|---|
+| G1 | Live published claim: `is_recommended=True`, `was_correct IS NULL`, `kickoff > now`, `is_audit_excluded=False` | — |
+| G2 | Priceable: `odds` not null and `MIN_ODDS <= odds <= MAX_ODDS` | §2 |
+| G3 | Confidence normalises successfully and clears the per-market threshold via the existing `_confidence_filter()` | §3.2 |
+| G4 | **Broad evidence:** cell `n >= MIN_CELL_N` and `shrunk_roi >= MIN_SHRUNK_ROI` | §4.3 |
+| G5 | **League-tier context:** not vetoed | §4.4 |
+| G6 | **Recent performance:** not vetoed | §4.5 |
+| G7 | **Conservative edge:** `defensible_edge >= MIN_DEFENSIBLE_EDGE` | §4.2 |
+| G8 | **Claim integrity:** the pick's claim fields are locked (§9). Unlocked ⇒ ineligible. | §9 |
+
+If nothing passes, return **no gems** — a valid, intended output (§7).
+
+### 4.2 Conservative probability and defensible edge (replaces v1's formula)
+
+**Why v1 was wrong.** With `m = 1/odds`:
+
+```
+edge = odds·[m + S·(p − m)] − 1 = S·(p·odds − 1) = S · raw_EV
+```
+
+Verified over 100k random cases: identical to 3.6e-15, with **zero** sign
+disagreements. So v1's rule "positive shrunk edge" was exactly "positive raw EV",
+and its stated rationale (an edge can evaporate under shrinkage) was false.
+Multiplicative shrinkage toward the market **cannot** correct a *bias*.
+
+**Replacement — an empirical over-confidence haircut in probability space:**
+
+```python
+# Measured per market from resolved history — a LIVE query, never a constant.
+margin(market) = max(0, mean_normalized_confidence(resolved rows)
+                        − win_rate(resolved rows))
+# If the market has < MIN_MARGIN_SAMPLE resolved rows, use FALLBACK_MARGIN.
+
+p_cons          = clamp(p_model − margin(market) − SAFETY_EPS, 0.0, 1.0)
+defensible_edge = p_cons · odds − 1
+```
+
+**What this means:** *"Even after docking the model by the amount it has
+historically been over-confident in this market, plus a safety epsilon, a positive
+edge remains at the recorded price."*
+
+**What it does NOT mean:** it is not a calibration, not a calibrated probability,
+and not a claim the true probability equals `p_cons`. The calibration study
+(`2026-07-22`, verdict DO_NOT_APPLY) found miscalibration is **non-monotone**, so
+no global mapping is justified. This is a deliberately blunt conservative haircut.
+
+**It can genuinely flip sign.** Worked example — Cardiff (btts, `p=0.643`,
+`odds=1.8`): with `margin=0.06` → `p_cons=0.573`, edge `+3.1%` (passes). With
+`margin=0.10` → `p_cons=0.533`, edge `−4.1%` (fails). Unlike v1, the haircut
+changes outcomes.
+
+**Deliberately not adopted:** review §1 Option A (a bare `MIN_DEFENSIBLE_EDGE` on
+the v1 formula). It is only a rescaled raw-EV bar and would have to be documented
+as such; the haircut above is grounded in measured behaviour and self-updates.
+
+### 4.3 Historical evidence — shrunk cell ROI
+
+```python
+shrunk_roi = (n / (n + PRIOR_STRENGTH_K)) · cell_roi
+           + (PRIOR_STRENGTH_K / (n + PRIOR_STRENGTH_K)) · PRIOR_ROI
+
+# G4:  n >= MIN_CELL_N  AND  shrunk_roi >= MIN_SHRUNK_ROI
+```
+
+**`MIN_SHRUNK_ROI` must stay > 0.** With `PRIOR_ROI = 0`, shrinkage preserves
+sign in 100% of cases (verified), so a `> 0` gate would be a no-op. Against a
+positive bar it bites correctly — smaller samples must show more:
+
+| n | raw ROI needed to clear `shrunk_roi ≥ 2%` |
+|---|---|
+| 20 | 7.00% |
+| 40 | 4.50% |
+| 100 | 3.00% |
+| 300 | 2.33% |
+
+**Prior justification — `PRIOR_ROI = 0`, chosen over the alternatives:**
+- *Overall recommended ROI (+10.6%)* would pull thin cells **upward**, letting a
+  weak cell borrow credibility from the portfolio. That is the wrong direction
+  for a defensibility gate.
+- *Market-level ROI* has the same defect within a market, and risks circularity
+  (the market ROI is partly composed of the cell being judged).
+- *Zero* assumes no edge until evidence overcomes it. It is the only prior that
+  makes the gate strictly harder, which is what "maximum defensibility" means.
+
+**Cell ROI uses the same flat-stake convention as
+`AccuracyCalculator.get_roi_simulation()`**, so the gate and the public record
+can never disagree.
+
+### 4.4 League-tier context — a veto, not a requirement
+
+**The concern is valid** (review §4): a cell can be profitable because it works in
+mainstream leagues while the gem we post is Tier C. That would contradict the
+public story that we find edge in overlooked competitions.
+
+**The strict reading is infeasible.** Total resolved n = 276. Splitting
+`market_type × bucket` already yields ~12 cells; adding `league_tier` yields ~36,
+averaging <8 rows each. Requiring proven-positive tier evidence would return
+nothing permanently — which is indistinguishable from a broken tool.
+
+**Adopted rule — asymmetric:**
+
+```
+tier_cell = (market_type, conf_bucket, league_tier)
+
+VETO   if tier_n >= MIN_TIER_N and tier_roi < TIER_VETO_ROI
+PASS   otherwise
+```
+
+- With enough tier evidence that is materially negative → **blocked**.
+- With insufficient tier evidence → **passes**, but the response carries
+  `tier_evidence: "insufficient"` and the founder sees it before posting.
+
+This blocks the failure mode the review identified (posting into a tier we know
+performs badly) without demanding a sample we do not have. Revisit once volume
+supports the symmetric rule.
+
+### 4.5 Recent deterioration
+
+Uses the **last `RECENT_WINDOW_N` resolved rows in the cell**, not a calendar
+window — fixture volume swings seasonally (the current pre-season lull would make
+any calendar window meaningless), and last-N is robust to that.
+
+```
+VETO   if recent_n >= MIN_RECENT_N and recent_roi < RECENT_VETO_ROI
+PASS   otherwise (including when recent_n is too small to conclude)
+```
+
+Deliberately tolerant of a handful of recent losses; it fires only on material
+deterioration with adequate sample. Only one window is used — no window sweep, to
+avoid selecting a threshold that flatters the current data.
+
+### 4.6 Evidence strength (new ranking component)
+
+All components bounded to `[0, 1]`:
+
+```python
+ev_sample    = min(1.0, log(1 + n) / log(1 + EVIDENCE_SAT_N))
+ev_roi       = clamp(shrunk_roi / EVIDENCE_ROI_FULL, 0.0, 1.0)
+ev_stability = 1.0 if recent_roi >= shrunk_roi            # holding up or improving
+               else 0.5 if recent_n < MIN_RECENT_N        # unknown, not penalised hard
+               else clamp(recent_roi / shrunk_roi, 0.0, 1.0)
+
+evidence_strength = 0.40·ev_sample + 0.40·ev_roi + 0.20·ev_stability
+```
+
+`ev_sample` is logarithmic so that going from n=40 to n=80 matters much more than
+n=300 to n=340 — diminishing returns, matching how evidence actually accrues.
+
+### 4.7 Obscurity (revised classification)
+
+`league_id` is **hardcoded `None`** at write time (`api_views.py:771`), so the
+review's preferred exact-id mapping is unavailable. Substring matching is rejected
+as unsafe — `"Liga"` matches *La Liga*, *Liga MX*, *Primeira Liga* and
+*Superliga*, silently misclassifying a Danish fixture as mainstream.
+
+**Adopted:** normalise (casefold, strip punctuation/diacritics, collapse
+whitespace) then **exact match** against a centralised map.
+
+| Tier | Score | Members |
+|---|---|---|
+| A — mainstream | 0.0 | Premier League, La Liga, Serie A, Bundesliga, Ligue 1, Champions League, Europa League, World Cup, European Championship |
+| B — well-known second tier | 0.5 | Championship, Eredivisie, Primeira Liga, Scottish Premiership, MLS, Liga MX |
+| C — genuine gem | 1.0 | Explicitly mapped members only |
+| **UNKNOWN** | **0.5** | Unmapped competitions |
+
+**`UNKNOWN` never receives maximum obscurity** and emits a warning listing the
+unmapped name, so the map is maintained by observation rather than assumption.
+`UNKNOWN` forms its own league tier for §4.4.
+
+*Optional follow-up (not in scope):* populate `league_id` at write time so future
+mapping can key on a stable id.
+
+### 4.8 Timing (revised — v1 was backwards)
+
+**v1 favoured 2–7 days out, reasoning that the audience needs time to return.
+That reasoning was wrong**, for a reason the review implies and that the shipped
+card makes decisive:
+
+> The card renders `prediction_logged_at`, which is immutable and set when the
+> **model** logged the pick — not when we post. Cardiff was logged 14 days out;
+> posting it 12 hours before kickoff still renders *"14d 16h before kickoff."*
+
+So **posting later costs nothing in proof strength** while gaining: live team
+news, a price closer to what a reader can still get, higher fixture attention,
+and a **shorter wait to the result card** — which tightens the return loop rather
+than loosening it. A 7-day gap invites the audience to forget.
 
 | Hours to kickoff | Score | Rationale |
 |---|---|---|
-| `< 24` | 0.1 | too late to post and still get a return loop |
-| `24–48` | 0.5 | usable but tight |
-| `48–168` (2–7d) | 1.0 | ideal: time to post, time for people to come back |
-| `168–240` (7–10d) | 0.6 | getting stale |
-| `> 240` | 0.3 | too far out to hold attention |
+| `< 2` | 0.3 | too late to be seen and acted on |
+| `2–6` | 0.7 | good attention, tight window |
+| `6–24` | **1.0** | ideal: team news known, price live, result soon |
+| `24–48` | 0.8 | still strong |
+| `48–96` | 0.5 | attention fading, price drift risk |
+| `> 96` | 0.2 | too far out to hold attention |
 
-Return **at most the top 5** gems, ordered by `gem_score` descending.
+Weights and boundaries are constants so the window can later be **learned** from
+engagement and odds-movement data rather than argued.
 
-### 3.4 On deck (discovery, not selection)
+**Interaction with stale odds (§9.2):** posting nearer kickoff makes the recorded
+price older relative to the market. This is handled by honest presentation, not by
+suppression — see §9.2.
 
-The panel also surfaces slices *close to graduating*, so the gate reads as a
-discovery dashboard rather than a fence, and the founder can watch new edge
-forming:
+### 4.9 Final gem score
 
-- cells with `ROI > 0` and `10 <= n < 30` (promising, not yet proven), or
-- cells with `n >= 30` and `-5 <= ROI <= 0` (borderline, may recover).
+```
+gem_score = W_EDGE      · edge_norm            # 0.40
+          + W_EVIDENCE  · evidence_strength    # 0.30
+          + W_TIMING    · timing               # 0.20
+          + W_OBSCURITY · obscurity            # 0.10
 
-On-deck cells are **reported only** — they never make a pick postable.
+edge_norm = clamp(defensible_edge / EDGE_NORM_FULL, 0.0, 1.0)
+```
 
-### 3.5 The empty state is a feature
+Statistical quality carries **70%** (edge + evidence); presentation and logistics
+carry 30%. Obscurity at 0.10 can break ties and add interest but **cannot let a
+materially weaker candidate outrank a stronger one** — the review's explicit
+requirement. A unit test asserts exactly this.
 
-If no pick clears the gate, the response is an empty gem list and the page says
-**"No gem worth posting right now."** Tools that always produce an answer quietly
-pressure the user into posting garbage on a slow week. Silence protects the feed.
+## 5. Anti-calcification (unchanged requirement, restated)
 
-**Expected at launch:** with only ~4 live picks and a thin record, the gate may
-legitimately return nothing. Implementation must report what the real data
-yields so the founder knows whether the tool is working-but-quiet or broken.
+- **The selector filters what we PUBLISH, never what we PREDICT.** The engine
+  keeps recommending across every slice; `PredictionLog` keeps logging all of
+  them. There is **no feedback loop into the model** and no slice is starved.
+- **Every historical quantity is a live query** — cell ROI, over-confidence
+  margin, tier ROI, recent ROI. A slice that becomes profitable **graduates
+  automatically**; a decaying slice **drops out automatically**.
+- **Hardcoding eligible cells is forbidden.** This is the failure mode the
+  section exists to prevent, and it has a dedicated regression test (§12).
 
-## 4. Architecture
+## 6. On deck (discovery)
 
-### 4.1 Confidence scale — pin this down first
+Cells that do not yet qualify, reported so the founder can watch edge forming:
 
-`PredictionLog.confidence` is documented as "e.g., 62.5" (0–100), while
-`PER_MARKET_CONF_THRESHOLDS` uses 0.55/0.60 (0–1), and `/api/proof/` normalises
-defensively (`c * 100 if c <= 1 else c`). This ambiguity is a live bug risk for
-any threshold comparison.
+- `ROI > 0` and `MIN_TIER_N <= n < MIN_CELL_N` → `promising_low_n`
+- `n >= MIN_CELL_N` and `0 < shrunk_roi < MIN_SHRUNK_ROI` → `below_roi_bar`
+- vetoed by §4.4 or §4.5 → `tier_veto` / `recent_veto`
 
-**Requirement:** the selector defines **one** normalisation helper converting
-confidence to the 0–1 scale, uses it for every comparison and bucketing, and the
-implementation **verifies the real distribution in production data** before
-trusting either convention. Bucketing on the wrong scale silently empties the
-gate.
+On-deck cells are **reported only** and never make a pick postable.
 
-### 4.2 Backend
+## 7. The empty state is a feature
 
-`GET /api/gems/` — staff-only (`IsAdminUser`, matching the existing
-`permission_classes` pattern in `core/`).
+No qualifying pick ⇒ empty `recommended_for_posting`, and the page reads
+**"No gem worth posting right now."** Tools that always produce an answer pressure
+the user into posting weak material.
+
+**Expected at launch.** With n=276 total and `MIN_CELL_N = 40`, only the largest
+cells can qualify. Diagnostic **D3** must report how many cells clear the bar
+*before* implementation locks the constants, so an empty result is understood as
+correct rather than broken.
+
+## 8. Metric separation (CLV forward-compatibility)
+
+Four distinct metrics, **never presented as interchangeable**, each namespaced
+separately in responses and on the proof page:
+
+| Metric | Meaning | Available now |
+|---|---|---|
+| `accuracy` | share of picks that won | yes |
+| `realized_roi` | flat-stake profit on settled picks | yes |
+| `expected_value` | model's pre-match estimate | yes (uncalibrated, §3.1) |
+| `clv` | recorded price vs closing price | **no** — needs closing odds |
+
+CLV is the metric that distinguishes genuine mispricing detection from luck (a
+good bet can lose; a bad bet can win). It is **not required for MVP**, but the
+architecture must not obstruct it: the response schema reserves a `clv` block,
+and §9 records the price and its timestamp so closing-line comparison becomes a
+pure addition. Capturing closing odds requires a new field and a scheduled job —
+a separate spec.
+
+## 9. Odds provenance and claim immutability (BLOCKING)
+
+### 9.1 The defect
+
+`core/api_views.py:797–802` overwrites **every** field on an existing row on each
+re-run, including `odds`, `confidence`, `predicted_outcome` and `market_type`,
+while `prediction_logged_at` (`auto_now_add`) never changes. A published card can
+therefore display a **different pick or price than the one posted**, while still
+claiming the original timestamp.
+
+For a brand whose entire thesis is "we never edit history," this is
+disqualifying. **No public posting may occur until it is fixed.**
+
+### 9.2 Requirement
+
+The **claim fields** — `predicted_outcome`, `market_type`, `odds`, `bookmaker`,
+`confidence` — must be **immutable once the pick is eligible for publication**.
+
+Two viable approaches; the implementation plan must choose one explicitly:
+
+- **A — first-write-wins on claim fields.** Re-runs may refresh non-claim fields
+  only. Simplest; changes engine write behaviour. Needs a decision on whether
+  re-runs are *intended* to refine picks.
+- **B — publication snapshot.** A small immutable record captures the claim at
+  selection time; the card renders the snapshot. Leaves engine behaviour intact;
+  requires a migration.
+
+**Provenance inventory** (what exists vs. what is needed):
+
+| Field | Status |
+|---|---|
+| `odds`, `bookmaker`, `market_type`, `predicted_outcome`, `confidence` | exist — but **mutable** (§9.1) |
+| `kickoff`, `prediction_logged_at` | exist, immutable |
+| odds capture time | **proxy** — equals `prediction_logged_at` (same pipeline run); must be documented as a proxy, not asserted as measured |
+| model run id / version | partial — `ensemble_strategy`, `model_count`, `consensus`, `variance`; no run id |
+| closing odds | absent (§8) |
+| publication time | absent; not required (posting is manual) |
+
+**Stale price handling.** Because posting now targets 6–24h before kickoff (§4.8)
+while the price was recorded at prediction time, the recorded price may be
+days old. This is handled by **honest presentation, never suppression**:
+
+- The card shows the recorded price **with its timestamp** — proving foresight,
+  not offering a bet slip.
+- `odds_age_hours` is returned and displayed; beyond `STALE_ODDS_WARN_HOURS` the
+  panel warns the founder.
+- The caption directs readers to check the current price.
+- **Recommended enhancement (not MVP):** fetch live odds for the ≤5 shortlisted
+  fixtures at selection time and display recorded vs current side by side. This
+  also lays the groundwork for CLV (§8). The original value is **never**
+  overwritten.
+
+## 10. Architecture
+
+### 10.1 Backend
+
+`GET /api/gems/` — staff-only (`IsAdminUser`, matching existing
+`permission_classes` usage in `core/`).
 
 ```json
 {
-  "generated_at": "2026-07-27T09:00:00Z",
-  "gems": [
-    {
-      "fixture_id": 19726943,
-      "home_team": "Cardiff City", "away_team": "Swindon Town",
-      "league": "Carabao Cup",
-      "kickoff": "2026-08-08T17:00:00Z",
-      "market_type": "btts", "predicted_outcome": "BTTS Yes",
-      "odds": 1.8, "confidence": 0.643,
-      "gem_score": 0.71,
-      "components": {
-        "edge_norm": 0.52, "defensible_edge": 0.079,
-        "obscurity": 1.0, "timing": 1.0
-      },
-      "cell": { "key": "btts@0.60-0.65", "n": 41, "roi_percent": 6.2 },
-      "proof_url": "https://www.betglitch.com/proof/19726943",
-      "caption": "Nobody's talking about this one..."
-    }
+  "generated_at": "2026-07-27T15:00:00Z",
+  "recommended_for_posting": {
+    "fixture_id": 19726943,
+    "home_team": "Cardiff City", "away_team": "Swindon Town",
+    "league": "Carabao Cup", "league_tier": "C",
+    "kickoff": "2026-08-08T17:00:00Z", "hours_to_kickoff": 14.2,
+    "market_type": "btts", "predicted_outcome": "BTTS Yes",
+    "gem_score": 0.68,
+    "probability": {
+      "model": 0.643,
+      "bookmaker_implied": 0.556,
+      "conservative": 0.573,
+      "note": "model probability is provider-derived and not calibrated"
+    },
+    "edge": { "defensible_edge": 0.031, "edge_norm": 0.21,
+              "margin_applied": 0.06, "margin_source": "measured:btts" },
+    "evidence": {
+      "cell_key": "btts@0.60-0.65", "n": 96, "cell_roi": 6.2,
+      "shrunk_roi": 4.07, "recent_n": 50, "recent_roi": 5.1,
+      "tier_evidence": "insufficient", "tier_n": 11,
+      "evidence_strength": 0.55
+    },
+    "components": { "edge_norm": 0.21, "evidence_strength": 0.55,
+                    "timing": 1.0, "obscurity": 1.0 },
+    "provenance": {
+      "odds": 1.80, "bookmaker": "bet365",
+      "odds_captured_at": "2026-07-25T00:03:31Z",
+      "odds_captured_at_is_proxy": true,
+      "odds_age_hours": 63.0, "stale_price_warning": true,
+      "prediction_logged_at": "2026-07-25T00:03:31Z",
+      "claim_locked": true,
+      "ensemble_strategy": "consensus_ensemble", "model_count": 3
+    },
+    "clv": null,
+    "proof_url": "https://www.betglitch.com/proof/19726943",
+    "captions": { "x": "…", "reddit": "…", "telegram": "…" }
+  },
+  "alternatives": [ { "fixture_id": 19714004, "gem_score": 0.51, "…": "…" } ],
+  "rejected": [
+    { "fixture_id": 19726975, "reasons": ["G3_below_market_threshold"],
+      "detail": "1x2 confidence 0.554 < 0.60" }
   ],
   "on_deck": [
-    { "key": "double_chance@0.65-0.70", "n": 18, "roi_percent": 4.1,
+    { "cell_key": "double_chance@0.65-1.00", "n": 18, "roi_percent": 4.1,
       "reason": "promising_low_n" }
-  ]
+  ],
+  "diagnostics": { "unmapped_leagues": ["Carabao Cup"], "total_candidates": 4 }
 }
 ```
 
-`components` and `cell` are returned so the founder can see **why** a pick ranked
-first and overrule it. An opaque score would be untrustworthy.
+`rejected` with machine-readable `reasons` makes every gate decision auditable —
+and makes an empty result explainable rather than mysterious.
 
-### 4.3 Frontend
+### 10.2 Frontend
 
-`/gems` — `noindex`, gated through the existing `AuthContext`. Per gem: the
-pick, its score breakdown, the proven-cell stats, **Copy proof link**, **Copy
-caption**. Below: the on-deck list. Empty state per §3.5.
+`/gems` — `noindex`, gated via the existing `AuthContext`, not in public nav.
 
-Not linked from public navigation.
+Layout follows the response: **one** recommended pick shown prominently with its
+full evidence breakdown and copy controls; `alternatives` collapsed below;
+`rejected` and `on_deck` in a diagnostics section. Empty state per §7.
 
-### 4.4 The caption
+**The interface must not encourage posting five picks because five exist** — only
+`recommended_for_posting` gets primary copy controls.
 
-A **starting draft the founder edits**, never an auto-post. Honest framing, no
-profit promise:
+## 11. Proof card and captions
 
-> Nobody's talking about this one. Our model has the market mispriced here.
-> Logged before kickoff — result auto-verifies at full-time, win or lose.
-> <proof_url>
+### 11.1 Card content hierarchy (implementation deferred to a follow-up task)
 
-### 4.5 Data flow
+The card image attracts attention; the **proof page** carries the audit trail.
 
-```
-/gems → gate → rank → founder copies link + caption
-      → posts to a value-betting community
-      → link unfurls into the Pick card (pre-kickoff proof)
-      → audience returns after full-time for the Result card
-```
+**On the image — primary:** fixture, league, market + selection, recorded odds,
+kickoff.
+**On the image — core credibility:** model probability *vs* bookmaker implied
+probability, conservative edge, "logged before kickoff" timestamp, "result
+verifies automatically after full-time."
+**Proof page only — secondary:** cell sample size and shrunk ROI, tier evidence,
+bookmaker and capture time, ensemble info, full methodology link, current vs
+recorded price.
 
-## 5. Testing
+Do not put every metric on the image.
 
-Backend unit tests in `core/tests.py`:
+### 11.2 Four visual states
 
-- **Each gate rule in isolation:** resolved pick excluded; past kickoff excluded;
-  null odds excluded; odds outside 1.4–3.5 excluded; below-threshold confidence
-  excluded; `is_audit_excluded` row excluded; unproven cell (n < 30) excluded;
-  negative-ROI cell excluded; negative shrunk edge excluded.
-- **Empty state:** no qualifying picks → `gems: []`, HTTP 200 (not 404).
-- **Ranking order:** given three synthetic survivors, assert the expected order
-  and that weights produce it.
-- **Cell ROI is live:** adding resolved rows that flip a cell positive makes a
-  previously-gated pick eligible **without any code change** — the explicit
-  regression test for §3.2.
-- **Confidence normalisation:** rows stored on both 0–1 and 0–100 scales bucket
-  identically.
-- **Access control:** anonymous and non-staff authenticated users are rejected;
-  staff succeeds.
-- **On deck:** a cell with n=18 and positive ROI appears in `on_deck` and its
-  picks do **not** appear in `gems`.
+| State | Trigger | Treatment |
+|---|---|---|
+| `PICK — PENDING` | `was_correct IS NULL`, kickoff future | blue "LOGGED" pill (shipped) |
+| `RESULT — WON` | `was_correct = True` | green "WON" pill (shipped) |
+| `RESULT — LOST` | `was_correct = False` | red "LOST" pill — **identical layout, prominence and quality to WON** (shipped) |
+| `VOID / CANCELLED` | `match_status` in {`CANC`, `POSTP`, `ABAN`} | **new** — neutral grey "VOID — no result", excluded from record |
 
-Existing suite must stay green. No frontend test framework exists; the page is
-verified visually (consistent with the parent thread).
+The VOID state is a genuine gap: `match_status` already stores `'CANC'`, but the
+shipped card treats any unresolved row as pending, so a cancelled fixture would
+display "awaiting result" indefinitely.
 
-## 6. Non-goals (YAGNI)
+### 11.3 Caption templates
 
-- **No auto-posting** to any platform. The founder posts by hand; automation is
-  premature before we know anyone cares.
-- **No scheduling / weekly digest / email.**
-- **No share analytics or UTM machinery.**
-- **No public exposure** of the panel or the gem ranking.
-- **No new model, migration, or change to the prediction engine.**
-- **No bootstrap confidence intervals per cell** — `n >= 30 AND ROI > 0` is the
-  v1 gate. Tightening to a CI lower bound is a future option once volume
-  supports it; applied now it would gate out everything.
+**Banned vocabulary:** guaranteed, lock, banker, sure bet, easy money, "the
+market is wrong" as fact, any profit promise, win-only framing.
 
-## 7. Risks
+Language presents a **model signal**, not an established fact.
 
-- **Gate returns nothing at launch** (§3.5). Mitigated by treating that as a
-  valid output and by reporting real-data results during implementation.
-- **Small-n luck:** a cell can look positive by chance at n=30. Mitigated by
-  displaying n and ROI so the founder can eyeball solidity, and by the deferred
-  CI tightening in §6.
-- **Confidence-scale mismatch** (§4.1) silently empties the gate. Mitigated by a
-  single normalisation helper, a dedicated test, and production verification.
-- **Obscurity tier lists drift** as leagues are added. Mitigated by keeping them
-  as short, clearly-commented constants in one place.
-- **Reputational exposure**, inherited: posting makes BetGlitch more visible
-  while the edge is thin. Mitigated by the entire design — defensibility as a
-  hard gate, shrunk edge rather than raw EV, and captions that sell transparency
-  rather than profit.
+**X:**
+> Hidden fixture, measurable signal.
+> {home} v {away} — {selection} @ {odds}
+> Model: {model_p}% · Bookmaker implies: {implied_p}%
+> Logged before kickoff, verified after full-time — win or lose.
+> {proof_url}
 
-## 8. Success criteria
+**Reddit** (context-first, link last):
+> {league} — {home} v {away}. Our model estimates {model_p}% for {selection};
+> the price implies {implied_p}%. Recorded at {odds} on {captured_at} (check the
+> current price — it moves). The pick was logged before kickoff and the result
+> verifies automatically at full-time, win or lose. Full record, losses
+> included: {proof_url}
 
-1. `/gems` returns a ranked, defensible shortlist — or an honest empty state.
-2. Every returned gem passes all five gate rules, verifiable from the response.
-3. The founder can see *why* each pick ranked, and overrule it.
-4. One click yields a proof link and a caption ready to paste.
-5. A newly-profitable slice becomes postable with **no code change** (§3.2 test).
-6. Backend tests pass; existing suite stays green.
+**Telegram:**
+> ⚡ {home} v {away} — {selection} @ {odds}
+> Model {model_p}% vs implied {implied_p}%.
+> Logged before kickoff. Auto-verified at full-time, win or lose.
+> {proof_url}
 
-## 9. Next step
+**Result follow-up — WON:**
+> Result: {home} {hs}–{as} {away}. {selection} — won.
+> Posted before kickoff at {odds}. Season: {W}W–{L}L · {roi}% ROI.
+> {proof_url}
 
-Invoke `superpowers:writing-plans` to produce the task-by-task implementation
-plan (confidence-scale verification → cell-ROI service + tests → gate + ranking
-+ tests → endpoint + access control → `/gems` page → real-data validation).
+**Result follow-up — LOST** (same prominence, no excuses):
+> Result: {home} {hs}–{as} {away}. {selection} — lost.
+> Posted before kickoff at {odds}. We post these too.
+> Season: {W}W–{L}L · {roi}% ROI. {proof_url}
+
+## 12. Testing
+
+**Gate rules, each isolated:** resolved pick; past kickoff; null odds; odds below
+`MIN_ODDS`; odds above `MAX_ODDS`; `is_audit_excluded`; below per-market
+threshold; cell `n < MIN_CELL_N`; `shrunk_roi < MIN_SHRUNK_ROI`; tier veto fires;
+tier "insufficient" does **not** veto; recent veto fires; recent insufficient does
+**not** veto; `defensible_edge < MIN_DEFENSIBLE_EDGE`; unlocked claim rejected.
+
+**Formula correctness:**
+- `defensible_edge` **flips sign** when the measured margin grows — the explicit
+  regression test for the v1 defect (a pick passing at `margin=0.06` must fail at
+  `margin=0.10`).
+- `shrunk_roi` with a **positive** bar rejects a high-ROI/low-n cell that a
+  `> 0` bar would have accepted — the regression test for the review §2 no-op.
+- `normalize_confidence` buckets 0–1 and 0–100 rows identically; out-of-range
+  values are rejected and logged, never coerced.
+- Evidence and timing components are bounded to `[0, 1]` across extreme inputs.
+
+**Ranking:**
+- Deterministic order for synthetic candidates.
+- **Obscurity cannot flip a materially stronger candidate below a weaker one**
+  (Tier A with strong edge+evidence outranks Tier C with weak edge+evidence).
+- Weights sum to 1.0.
+
+**Anti-calcification:** adding resolved rows that flip a cell above the bar makes
+a previously-gated pick eligible **with no code change** (§5).
+
+**League mapping:** normalized exact match; `"Superliga"` is **not** classified
+mainstream by substring collision; unmapped league yields `UNKNOWN` with
+obscurity 0.5 and a warning.
+
+**Output shape:** at most one `recommended_for_posting`; `alternatives` capped at
+`MAX_INTERNAL_CANDIDATES − 1`; every rejected candidate carries a reason; empty
+state returns HTTP 200 with nulls, not 404.
+
+**Access control:** anonymous rejected; authenticated non-staff rejected; staff
+succeeds.
+
+Existing suite stays green. No frontend test framework exists; `/gems` and card
+states are verified visually.
+
+## 13. Production diagnostics — run BEFORE locking parameters
+
+| # | Diagnostic | Blocks |
+|---|---|---|
+| **D1** | Distribution of raw `confidence` — min/max/mean, and count of rows `> 1.0` vs `<= 1.0`, per market. Confirms the storage scale. | §3.2 |
+| **D2** | Per-market measured over-confidence: `mean(normalized confidence) − win_rate`, with n. Sets `margin` and validates `FALLBACK_MARGIN`. Also re-tests whether the "~20pp" figure still holds. | §4.2 |
+| **D3** | Cell census: for each `(market_type, bucket)` → n, ROI, shrunk ROI. **How many clear `MIN_CELL_N` and `MIN_SHRUNK_ROI`?** If zero, constants must be relaxed or launch deferred. | §4.3, §7 |
+| **D4** | Tier census: `(market, bucket, league_tier)` → n, ROI. Confirms whether §4.4's veto ever has enough sample to fire. | §4.4 |
+| **D5** | Distinct `league` values with counts, and which fail exact-name mapping. Seeds the tier map. | §4.7 |
+| **D6** | Count of rows whose claim fields changed across re-runs (audit `updated_count` history). Quantifies the §9.1 defect. | §9 |
+| **D7** | Odds age distribution: `kickoff − prediction_logged_at`. Validates `STALE_ODDS_WARN_HOURS` and the §4.8 window. | §4.8, §9.2 |
+| **D8** | Alignment audit (§15 below). | launch |
+
+**Already observed (2026-07-27 production):** n=276 resolved, ROI 10.6%;
+confidence buckets 60–65% n=166, 65–70% n=49, 70–100% n=4 — the basis for the
+coarse buckets in §2 and the warning in §7. Separately, `accuracy_by_league`
+returns 241 rows with duplicated entries (e.g. Eredivisie repeated identically) —
+a **pre-existing dashboard bug** that must be investigated before any league-level
+figure is published, though it does not block the selector, which computes tiers
+from `PredictionLog` directly.
+
+## 14. Prerequisites (blocking)
+
+1. **P1 — Claim immutability (§9).** Choose approach A or B, implement, test. No
+   public posting before this lands.
+2. **P2 — Confidence scale confirmed (D1).** Bucketing on the wrong scale
+   silently empties the gate.
+3. **P3 — Cell census (D3) shows at least one qualifying cell**, or constants are
+   consciously relaxed with the weakening documented.
+
+## 15. Alignment audit (launch gate)
+
+The live methodology block states **"Minimum 60% confidence AND positive Expected
+Value"** while `over_under_2.5` ships at **0.55** — a contradiction visible in
+production today. Before promotion, reconcile across the marketing site,
+methodology text, proof card, API, selector and engine:
+
+- per-market confidence thresholds (55 vs 60);
+- odds band actually applied vs advertised;
+- EV definition (`expected_value` vs `raw_expected_value`);
+- what "confidence" is claimed to mean (§3.1);
+- model/ensemble count claims;
+- recommendation criteria.
+
+They must describe **one** system. Fix the text or fix the code — but not
+neither.
+
+## 16. Non-goals (YAGNI)
+
+- No auto-posting, scheduling, or digests.
+- No share analytics or UTM machinery.
+- No public exposure of the panel or ranking.
+- No bootstrap CIs per cell in v1 (shrinkage against a positive bar is the
+  chosen MVP treatment; CIs revisit at higher volume).
+- No change to what the prediction engine recommends.
+- No closing-odds capture in v1 (architecture stays open — §8).
+- Card redesign (§11.1) is specified here but implemented as a follow-up task.
+
+## 17. Risks
+
+- **Selector returns nothing at current volume.** Most likely failure. Mitigated
+  by D3 before implementation, the `rejected` reasons in the response, and
+  treating silence as correct behaviour.
+- **Over-fitting the gate to 276 rows.** Every threshold is a judgement on a thin
+  sample. Mitigated by single-window recency (no sweeps), a zero prior, and
+  constants centralised for revision as n grows.
+- **Measured margin is itself noisy** (D2). Mitigated by `MIN_MARGIN_SAMPLE`,
+  `FALLBACK_MARGIN`, and `SAFETY_EPS`.
+- **Claim mutability** (§9) — blocking, addressed by P1.
+- **Stale advertised price** — addressed by honest display, not suppression
+  (§9.2).
+- **Reputational exposure** while the edge is thin — mitigated by the whole
+  design: hard gate, conservative haircut, signal-not-fact captions, honest
+  losses.
+
+## 18. Success criteria
+
+1. `/gems` returns at most one recommended pick with full evidence, or an honest
+   empty state with machine-readable reasons.
+2. Every returned gem passes G1–G8, verifiable from the response.
+3. `defensible_edge` demonstrably flips sign under a larger measured margin.
+4. `shrunk_roi` against a positive bar rejects high-ROI/low-n cells.
+5. Obscurity cannot outrank a materially stronger candidate.
+6. A newly-profitable slice becomes postable with no code change.
+7. Claim fields are immutable post-publication (P1).
+8. Backend tests pass; existing suite green.
+
+## 19. Recommendation
+
+**APPROVE WITH DATA-DEPENDENT PARAMETERS.**
+
+The architecture is sound and the review materially improved it. Implementation
+must not begin until **P1–P3** (§14) are resolved, and the constants in §2 marked
+DATA-DEPENDENT must be set from D1–D7 rather than from the illustrative values
+written here.
+
+## 20. Next step
+
+Run diagnostics D1–D7, resolve P1, then invoke `superpowers:writing-plans`.
