@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { selectOdds, type OddsProvenance } from '@/app/lib/oddsSelection'
+
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -33,6 +35,10 @@ function getApiToken(): string {
 
 // ============= MULTI-MARKET CONFIGURATION =============
 // Market Type IDs from SportMonks API
+// NOTE: SportMonks odds market_ids deliberately live in app/lib/oddsSelection.ts
+// (MARKET_SPECS), not here. The stale values previously in this block (28/18/12)
+// were wrong — 28 is "1st Half Goals" — and contributed to the 2026-07-29
+// odds-capture defect. Do not reintroduce them.
 const MARKET_CONFIG = {
   '1x2': {
     name: '1X2',
@@ -48,7 +54,6 @@ const MARKET_CONFIG = {
     // fulltime-result model. Verified via SportMonks /core/types lookup.
     type_ids: [237],
     outcomes: ['home', 'draw', 'away'],
-    odds_market_id: 1,
     min_gap: 0.12,  // 12% for home/away, 15% for draw (handled in code)
   },
   'btts': {
@@ -56,7 +61,6 @@ const MARKET_CONFIG = {
     display_name: 'Both Teams to Score',
     type_ids: [231],
     outcomes: ['yes', 'no'],
-    odds_market_id: 28,  // BTTS market
     min_gap: 0.12,
   },
   'over_under_2.5': {
@@ -64,7 +68,6 @@ const MARKET_CONFIG = {
     display_name: 'Over/Under 2.5 Goals',
     type_ids: [235],
     outcomes: ['yes', 'no'],  // yes = over, no = under
-    odds_market_id: 18,  // Over/Under market
     min_gap: 0.12,
   },
   'double_chance': {
@@ -72,7 +75,6 @@ const MARKET_CONFIG = {
     display_name: 'Double Chance',
     type_ids: [239],
     outcomes: ['draw_home', 'draw_away', 'home_away'],  // 1X, X2, 12
-    odds_market_id: 12,  // Double Chance market
     min_gap: 0.10,  // Lower gap since each outcome has ~33% base
   }
 } as const
@@ -106,6 +108,14 @@ interface MarketPrediction {
   expected_value: number
   market_score: number
   raw_predictions: Record<string, number>
+  /**
+   * Full audit trail for the selected price (market, line, label, bookmaker).
+   * Null when no valid quote exists for the exact market — in that case the
+   * market must NOT be recommended (see the 2026-07-29 odds-capture audit).
+   */
+  odds_provenance: OddsProvenance | null
+  /** Why a price was unavailable, when it was. */
+  odds_unavailable_reason?: string
 }
 
 // Calculate MarketScore = (probability_gap × 0.4) + (expected_value × 0.3) + (confidence × 0.3)
@@ -385,12 +395,9 @@ export async function GET(request: NextRequest) {
               if (maxProb === avgHome) outcome = 'home'
               else if (maxProb === avgAway) outcome = 'away'
 
-              // Get odds for this market
-              const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
-              let oddsValue = 1
-              for (const odd of x12Odds) {
-                if (odd.label?.toLowerCase() === outcome) oddsValue = parseFloat(odd.value) || 1
-              }
+              // Deterministic price: market_id 1 ("Fulltime Result"), exact label.
+              const x12Selection = selectOdds(fixture.odds, '1x2', outcome)
+              const oddsValue = x12Selection.ok ? x12Selection.provenance.odds : 1
 
               const ev = (maxProb * oddsValue) - 1
               const minGap = outcome === 'draw' ? 0.15 : 0.12
@@ -404,7 +411,9 @@ export async function GET(request: NextRequest) {
                 odds: oddsValue,
                 expected_value: ev,
                 market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-                raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
+                raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway },
+                odds_provenance: x12Selection.ok ? x12Selection.provenance : null,
+                odds_unavailable_reason: x12Selection.ok ? undefined : x12Selection.reason
               }
 
               // Always add to display array
@@ -425,22 +434,10 @@ export async function GET(request: NextRequest) {
               const maxProb = Math.max(yesProb, noProb)
               const outcome = yesProb > noProb ? 'yes' : 'no'
 
-              // Phase 4a fix: BTTS lives at market_id=14, not 28. The previous
-              // value (28) is actually "Goals Over/Under 1st Half" — no BTTS odds
-              // ever matched, so EV stayed at -1 and BTTS picks never surfaced.
-              // Also accept market_description fallback for resilience to schema drift.
-              const bttsOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 14 ||
-                odd.market_description?.toLowerCase() === 'both teams to score' ||
-                odd.name?.toLowerCase().includes('btts')
-              )
-              let oddsValue = 1
-              for (const odd of bttsOdds) {
-                const label = odd.label?.toLowerCase()
-                if ((outcome === 'yes' && label === 'yes') || (outcome === 'no' && label === 'no')) {
-                  oddsValue = parseFloat(odd.value) || 1
-                }
-              }
+              // Deterministic price: market_id 14 ("Both Teams to Score") only —
+              // markets 15/16 are the 1st/2nd half variants and must never match.
+              const bttsSelection = selectOdds(fixture.odds, 'btts', outcome)
+              const oddsValue = bttsSelection.ok ? bttsSelection.provenance.odds : 1
 
               const ev = (maxProb * oddsValue) - 1
 
@@ -453,7 +450,9 @@ export async function GET(request: NextRequest) {
                 odds: oddsValue,
                 expected_value: ev,
                 market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-                raw_predictions: { yes: yesProb, no: noProb }
+                raw_predictions: { yes: yesProb, no: noProb },
+                odds_provenance: bttsSelection.ok ? bttsSelection.provenance : null,
+                odds_unavailable_reason: bttsSelection.ok ? undefined : bttsSelection.reason
               }
 
               allMarketsData.push(marketData)
@@ -471,47 +470,14 @@ export async function GET(request: NextRequest) {
               const maxProb = Math.max(overProb, underProb)
               const outcome = overProb > underProb ? 'over' : 'under'
 
-              // Get O/U 2.5 odds - be specific about the 2.5 threshold!
-              // SportMonks market_id 18 is "Over/Under" but we need to match the specific 2.5 line
-              const ouOdds = fixture.odds.filter((odd: any) => {
-                // Must contain "2.5" in the name or label to be the right market
-                const nameMatch = odd.name?.toLowerCase().includes('2.5') ||
-                  odd.label?.toLowerCase().includes('2.5')
-                // Alternatively, check market_id 18 with specific label containing over/under
-                const marketMatch = odd.market_id === 18 &&
-                  (odd.label?.toLowerCase().includes('over 2.5') ||
-                    odd.label?.toLowerCase().includes('under 2.5'))
-                return nameMatch || marketMatch
-              })
-
-              let oddsValue = 1
-              for (const odd of ouOdds) {
-                const label = odd.label?.toLowerCase() || ''
-                const name = odd.name?.toLowerCase() || ''
-
-                // STRICT matching: MUST contain "2.5" somewhere to be the right market
-                const has25 = label.includes('2.5') || name.includes('2.5')
-                if (!has25) continue  // Skip if not 2.5 line
-
-                // Match Over 2.5
-                if (outcome === 'over' && label.includes('over')) {
-                  const value = parseFloat(odd.value)
-                  // Reasonable Over 2.5 odds range: 1.30 - 3.00
-                  if (value >= 1.30 && value <= 3.50) {
-                    oddsValue = value
-                    break
-                  }
-                }
-                // Match Under 2.5
-                if (outcome === 'under' && label.includes('under')) {
-                  const value = parseFloat(odd.value)
-                  // Reasonable Under 2.5 odds range: 1.30 - 3.50
-                  if (value >= 1.30 && value <= 3.50) {
-                    oddsValue = value
-                    break
-                  }
-                }
-              }
+              // 2026-07-29 DEFECT FIX. The previous matcher accepted ANY market
+              // whose name/label contained "2.5" and took the first in arbitrary
+              // API order — so a SECOND-HALF Over 2.5 quote (market_id 53,
+              // legitimately ~3.50) could price a FULL-TIME pick worth ~1.60.
+              // That inflated portfolio ROI from -4.90% to +10.61%.
+              // Now: market_id 80/7 only, exact 2.5 line, exact label.
+              const ouSelection = selectOdds(fixture.odds, 'over_under_2.5', outcome)
+              const oddsValue = ouSelection.ok ? ouSelection.provenance.odds : 1
 
               // If no valid odds found, don't include this market in recommendations
               // (oddsValue stays at 1, which means EV will be negative)
@@ -527,7 +493,9 @@ export async function GET(request: NextRequest) {
                 odds: oddsValue,
                 expected_value: ev,
                 market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-                raw_predictions: { over: overProb, under: underProb }
+                raw_predictions: { over: overProb, under: underProb },
+                odds_provenance: ouSelection.ok ? ouSelection.provenance : null,
+                odds_unavailable_reason: ouSelection.ok ? undefined : ouSelection.reason
               }
 
               allMarketsData.push(marketData)
@@ -606,28 +574,15 @@ export async function GET(request: NextRequest) {
               if (maxProb === awayOrDraw) outcome = 'X2'
               else if (maxProb === homeOrAway) outcome = '12'
 
-              // Phase 4a fix: Double Chance lives at market_id=2, not 12. Labels are
-              // "Home/Draw" / "Home/Away" / "Draw/Away" (some bookmakers also use
-              // team-name labels like "Team A or Team B" — skipped here since most
-              // bookmakers use the standard format and one bookmaker per outcome is enough).
-              const dcOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 2 ||
-                odd.market_description?.toLowerCase() === 'double chance'
-              )
-              const dcLabelByOutcome: Record<string, string> = {
-                '1X': 'home/draw',     // home or draw
-                'X2': 'draw/away',     // draw or away
-                '12': 'home/away',     // home or away (no draw)
-              }
-              const targetLabel = dcLabelByOutcome[outcome]
-              let oddsValue = 1
-              for (const odd of dcOdds) {
-                const label = odd.label?.toLowerCase().replace(/\s/g, '')
-                if (label === targetLabel) {
-                  oddsValue = parseFloat(odd.value) || 1
-                  break
-                }
-              }
+              // Deterministic price: market_id 2 ("Double Chance") only — market 47
+              // is the half-time variant. Real payloads label these with TEAM NAMES
+              // ("Cambuur Leeuwarden or Draw"), which the previous exact-string
+              // match never handled, so DC odds effectively never resolved.
+              const dcSelection = selectOdds(fixture.odds, 'double_chance', outcome, {
+                homeTeam: fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name,
+                awayTeam: fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name,
+              })
+              const oddsValue = dcSelection.ok ? dcSelection.provenance.odds : 1
 
               const ev = (maxProb * oddsValue) - 1
 
@@ -640,7 +595,9 @@ export async function GET(request: NextRequest) {
                 odds: oddsValue,
                 expected_value: ev,
                 market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-                raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
+                raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway },
+                odds_provenance: dcSelection.ok ? dcSelection.provenance : null,
+                odds_unavailable_reason: dcSelection.ok ? undefined : dcSelection.reason
               }
 
               allMarketsData.push(marketData)
@@ -842,6 +799,8 @@ export async function GET(request: NextRequest) {
               ev: adjustedEV,
               // Best market odds for display
               odds: bestMarket.odds,
+              // Full provenance so the recorded price can be independently audited.
+              odds_provenance: bestMarket.odds_provenance,
               // Keep 1X2 probabilities for backwards compatibility
               probabilities: predictionData,
               odds_data: oddsData,
@@ -860,7 +819,9 @@ export async function GET(request: NextRequest) {
                 expected_value: adjustedEV, // Using adjusted
                 market_score: adjustedScore, // Using adjusted
                 original_probability: bestMarket.probability,
-                original_ev: bestMarket.expected_value
+                original_ev: bestMarket.expected_value,
+                // Audit trail for the published price (2026-07-29 defect fix).
+                odds_provenance: bestMarket.odds_provenance
               },
               all_markets: allMarketsData.sort((a, b) => b.market_score - a.market_score).map(m => ({
                 type: m.market_type,
