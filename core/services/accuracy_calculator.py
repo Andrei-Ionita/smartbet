@@ -10,14 +10,19 @@ from typing import Dict, List
 from decimal import Decimal
 
 from core.models import PredictionLog
+from core.services import public_universe
 
 # Per-market confidence thresholds (ROI tuning E4, SHIP verdict).
 # See docs/audit/roi-tuning-2026-07-20.md — the 0.55-0.60 confidence bucket
 # for over_under_2.5 showed +31.50% ROI on n=49 (CI_lo +1.36%, significant),
-# but was being filtered out by the global >=0.60 threshold. Markets not
-# listed here keep the default 0.60 threshold.
-PER_MARKET_CONF_THRESHOLDS = {'over_under_2.5': 0.55}
-DEFAULT_CONF_THRESHOLD = 0.60
+# but was being filtered out by the global >=0.60 threshold.
+#
+# These names are re-exported from core.services.public_universe, which is now
+# THE single definition of the public verified universe. Do not redefine them
+# here — divergent filters are how the 2026-07-29 audit found the public ROI
+# reading +10.61% against a defensible -4.90%.
+PER_MARKET_CONF_THRESHOLDS = public_universe.PER_MARKET_CONF_THRESHOLDS
+DEFAULT_CONF_THRESHOLD = public_universe.DEFAULT_CONF_THRESHOLD
 
 
 class AccuracyCalculator:
@@ -34,28 +39,19 @@ class AccuracyCalculator:
     """
 
     def _confidence_filter(self) -> Q:
-        """Per-market confidence gate as a Q object.
-
-        over_under_2.5 uses the lowered 0.55 threshold (ROI tuning E4); every
-        other market keeps the 0.60 default. Single source of truth for the
-        gate — all metric methods use this so thresholds never drift apart.
-        """
-        conf_filter = Q()
-        for market, thresh in PER_MARKET_CONF_THRESHOLDS.items():
-            conf_filter |= Q(market_type=market, confidence__gte=thresh)
-        conf_filter |= (
-            ~Q(market_type__in=PER_MARKET_CONF_THRESHOLDS.keys())
-            & Q(confidence__gte=DEFAULT_CONF_THRESHOLD)
-        )
-        return conf_filter
+        """Per-market confidence gate. Delegates to the shared definition."""
+        return public_universe.confidence_filter()
 
     def _recommended_base_qs(self):
-        """Base queryset every public metric denominates on: recommended,
-        resolved bets passing the per-market confidence gate."""
-        return PredictionLog.objects.filter(
-            is_recommended=True,
-            actual_outcome__isnull=False,
-        ).filter(self._confidence_filter())
+        """Base queryset every public metric denominates on.
+
+        Delegates to `public_universe.resolved_qs()`, which additionally
+        excludes quarantined rows and any pick whose price provenance is not
+        verified. Before 2026-07-29 this method omitted BOTH exclusions, so 8
+        quarantined NULL-odds rows inflated the published ROI from 5.59% to
+        10.61% while every audit script excluded them.
+        """
+        return public_universe.resolved_qs()
 
     def get_overall_accuracy(self) -> Dict:
         """
@@ -157,7 +153,11 @@ class AccuracyCalculator:
         completed = self._recommended_base_qs().filter(was_correct__isnull=False)
         
         # Get unique leagues
-        leagues = completed.values_list('league', flat=True).distinct()
+        # `.order_by()` is REQUIRED: PredictionLog.Meta.ordering = ['-kickoff']
+        # otherwise injects `kickoff` into the SELECT for ORDER BY, so DISTINCT
+        # de-duplicates on (league, kickoff) pairs. That returned 241 rows for
+        # 25 leagues on production (2026-07-29 audit, finding F8).
+        leagues = completed.order_by().values_list('league', flat=True).distinct()
         
         results = []
         

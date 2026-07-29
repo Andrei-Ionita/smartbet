@@ -10,12 +10,14 @@ from django.utils import timezone
 from datetime import datetime, timedelta, timezone as dt_timezone
 import json
 import os
+import uuid
 import requests
 from django.db.models import Q
 
 from .models import EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll
 from .bankroll_utils import calculate_stake_amount
 from .services.marketing import MarketingSyncError, sync_marketing_profile
+from .services import public_universe
 
 
 # Phase 2a: hard-blocks at the write boundary. The primary filter lives in the
@@ -680,6 +682,10 @@ def log_recommendations(request):
         skipped_high_ev = 0
         skipped_watchlist = 0
 
+        # Identifies this pipeline run in every row it writes, so a batch can be
+        # traced (or quarantined) as a unit.
+        prediction_run_id = uuid.uuid4().hex
+
         for rec in recommendations:
             fixture_id = rec.get('fixture_id')
             if not fixture_id:
@@ -756,6 +762,12 @@ def log_recommendations(request):
             # the right value for O/U / BTTS / DC markets — those need rec['odds'].
             best_market = rec.get('best_market') or {}
             bet_odds = rec.get('odds') or best_market.get('odds')
+            # Price audit trail from the deterministic selector
+            # (smartbet-frontend/app/lib/oddsSelection.ts). Absent for any pick
+            # priced by the pre-2026-07-29 pipeline.
+            odds_provenance = (
+                rec.get('odds_provenance') or best_market.get('odds_provenance') or None
+            )
             # The original (pre-clamp) EV, when the engine sent it.
             raw_ev = best_market.get('original_ev')
             if raw_ev is not None and abs(raw_ev) > 1:
@@ -792,17 +804,32 @@ def log_recommendations(request):
                 'market_type': best_market.get('type', '1x2'),
                 'market_type_id': best_market.get('type_id') or rec.get('debug_info', {}).get('market_type_id'),
                 'market_score': best_market.get('market_score'),
+                # 2026-07-29 audit: persist the full price audit trail so any
+                # published price can be independently verified after the fact.
+                'odds_provenance': odds_provenance,
+                'prediction_run_id': prediction_run_id,
             }
-            
+
             if existing:
                 # Update existing
                 for key, value in prediction_data.items():
                     setattr(existing, key, value)
                 existing.is_recommended = True
+                existing.pricing_integrity_status = public_universe.status_for(
+                    odds_provenance,
+                    existing.prediction_logged_at,
+                    existing.is_audit_excluded,
+                    bet_odds,
+                )
                 existing.save()
                 updated_count += 1
             else:
-                # Create new
+                # Create new. prediction_logged_at is auto_now_add, so classify
+                # against "now" — a fresh row is always on the current side of
+                # the pricing-integrity cutoff.
+                prediction_data['pricing_integrity_status'] = public_universe.status_for(
+                    odds_provenance, timezone.now(), False, bet_odds
+                )
                 PredictionLog.objects.create(fixture_id=fixture_id, **prediction_data)
                 logged_count += 1
         

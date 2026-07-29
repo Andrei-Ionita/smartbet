@@ -11,7 +11,7 @@ from django.http import JsonResponse
 from django.utils import timezone
 from datetime import timedelta
 
-from core.models import PredictionLog
+from core.models import PredictionLog, PublishedClaim
 from core.services.accuracy_calculator import AccuracyCalculator
 
 
@@ -296,15 +296,49 @@ def proof_card_data(request, fixture_id):
     """
     GET /api/proof/<fixture_id>/ — payload for a shareable proof card.
 
-    Only recommended picks are eligible: we publish proof for the picks we
-    actually recommended, nothing else. Returns the pick, the result (always
-    present; {'resolved': False} while pending), and the cumulative record from
-    the same source the public dashboard uses so the card and the site agree.
+    Resolution order (2026-07-29 audit, finding F7):
+      1. the immutable PublishedClaim snapshot, when one exists — this is what
+         we actually posted, and it can never change;
+      2. otherwise the live PredictionLog row, clearly flagged as unpublished.
+
+    PredictionLog is mutable — the pipeline overwrites odds, confidence and the
+    selection on every re-run — so serving it for a *published* claim would let
+    a public proof URL silently change while still asserting its original
+    timestamp. Only recommended picks are eligible.
     """
-    try:
-        pred = PredictionLog.objects.get(fixture_id=fixture_id, is_recommended=True)
-    except PredictionLog.DoesNotExist:
-        return JsonResponse({'found': False}, status=404)
+    claim = (
+        PublishedClaim.objects.filter(fixture_id=fixture_id)
+        .select_related('prediction')
+        .order_by('-published_at')
+        .first()
+    )
+
+    if claim is not None:
+        pred = claim.prediction
+        source = 'published_claim'
+        pick_odds = claim.odds
+        pick_conf = claim.confidence
+        pick_outcome = claim.predicted_outcome
+        pick_market = claim.market_type
+        home_team, away_team, league = claim.home_team, claim.away_team, claim.league
+        kickoff, generated_at = claim.kickoff, claim.prediction_generated_at
+        provenance = claim.odds_provenance
+        integrity = claim.pricing_integrity_status
+    else:
+        try:
+            pred = PredictionLog.objects.get(fixture_id=fixture_id, is_recommended=True)
+        except PredictionLog.DoesNotExist:
+            return JsonResponse({'found': False}, status=404)
+        claim = None
+        source = 'live_prediction'
+        pick_odds = pred.odds
+        pick_conf = pred.confidence
+        pick_outcome = pred.predicted_outcome
+        pick_market = pred.market_type
+        home_team, away_team, league = pred.home_team, pred.away_team, pred.league
+        kickoff, generated_at = pred.kickoff, pred.prediction_logged_at
+        provenance = pred.odds_provenance
+        integrity = pred.pricing_integrity_status
 
     resolved = pred.was_correct is not None
     result = {'resolved': bool(resolved)}
@@ -314,31 +348,56 @@ def proof_card_data(request, fixture_id):
             'actual_score_away': pred.actual_score_away,
             'was_correct': pred.was_correct,
         })
+    # Settlement state, including VOID/CANCELLED, which a bare was_correct
+    # cannot express.
+    if claim is not None:
+        result['status'] = claim.result_status
+    else:
+        match_status = (pred.match_status or '').upper()
+        if match_status in ('CANC', 'CANCELLED'):
+            result['status'] = 'CANCELLED'
+        elif match_status in ('POSTP', 'ABAN', 'SUSP'):
+            result['status'] = 'VOID'
+        elif not resolved:
+            result['status'] = 'PENDING'
+        else:
+            result['status'] = 'WON' if pred.was_correct else 'LOST'
 
-    # Normalise confidence to a 0-100 percent for display (stored as 0-1 or 0-100).
-    conf = pred.confidence or 0.0
+    # Confidence is stored 0-1 (verified 2026-07-29: zero rows above 1.0). The
+    # 0-100 branch is retained defensively for any future writer.
+    conf = pick_conf or 0.0
     confidence_pct = round(conf * 100, 1) if conf <= 1 else round(conf, 1)
 
     roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
 
     return JsonResponse({
         'found': True,
+        # Tells the card whether it is rendering an immutable published claim.
+        'source': source,
+        'claim_id': str(claim.claim_id) if claim is not None else None,
+        'claim_hash': claim.claim_hash if claim is not None else None,
+        'pricing_integrity_status': integrity,
         'pick': {
-            'home_team': pred.home_team,
-            'away_team': pred.away_team,
-            'league': pred.league,
-            'market_type': pred.market_type,
-            'predicted_outcome': pred.predicted_outcome,
-            'odds': pred.odds,
+            'home_team': home_team,
+            'away_team': away_team,
+            'league': league,
+            'market_type': pick_market,
+            'predicted_outcome': pick_outcome,
+            'odds': pick_odds,
             'confidence': confidence_pct,
-            'kickoff': pred.kickoff.isoformat(),
-            'prediction_logged_at': pred.prediction_logged_at.isoformat(),
+            'kickoff': kickoff.isoformat(),
+            'prediction_logged_at': generated_at.isoformat(),
+            # Lets a reader check the price against the exact market we used.
+            'odds_provenance': provenance,
         },
         'result': result,
         'record': {
             'wins': roi['wins'],
             'losses': roi['losses'],
             'roi_percent': roi['roi_percent'],
+            # Public record restarts at the pricing-integrity cutoff; earlier
+            # picks are preserved but cannot be price-verified.
+            'verified_record_only': True,
         },
     })
 

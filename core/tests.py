@@ -698,6 +698,29 @@ class MarketingAutomationTests(TestCase):
 # the invariants we just spent a session establishing.
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _verified_pricing(odds=1.85):
+    """Provenance blob that satisfies the public verified universe.
+
+    Mirrors OddsProvenance from smartbet-frontend/app/lib/oddsSelection.ts.
+    Tests that exercise public metrics must create pricing-verified rows,
+    otherwise they are correctly excluded (2026-07-29 odds-capture audit).
+    """
+    return {
+        'odds': odds,
+        'odds_market_id': 80,
+        'odds_market_description': 'Goals Over/Under',
+        'odds_line': 2.5,
+        'odds_label': 'Over',
+        'odds_bookmaker_id': 2,
+        'odds_bookmaker_count': 5,
+        'odds_min': odds - 0.02,
+        'odds_max': odds + 0.02,
+        'odds_captured_at': '2026-07-30 10:00:00',
+        'odds_fixture_id': None,
+        'odds_entry_id': 1,
+        'odds_selection_policy': 'lower_median_v1',
+    }
+
 def _make_pred(fixture_id, **overrides):
     """Helper: a valid PredictionLog kwargs dict with sane defaults; override what you need."""
     base = dict(
@@ -1296,6 +1319,8 @@ class AccuracyCalculatorRoiFilterTests(TestCase):
             actual_outcome='Home', was_correct=correct,
             profit_loss_10=8.0 if correct else -10.0,
             is_recommended=True,
+            odds=1.85, odds_provenance=_verified_pricing(),
+            pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
         )
 
     def test_ou25_at_057_included(self):
@@ -1360,6 +1385,8 @@ class AccuracyCalculatorUnificationTests(TestCase):
             actual_outcome='Home', was_correct=correct,
             profit_loss_10=8.0 if correct else -10.0,
             is_recommended=is_recommended,
+            odds=1.85, odds_provenance=_verified_pricing(),
+            pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
         )
 
     def test_overall_accuracy_excludes_non_recommended(self):
@@ -1434,6 +1461,8 @@ class ProofCardEndpointTests(TestCase):
             actual_score_away=score_a, was_correct=was_correct,
             is_recommended=is_recommended,
             profit_loss_10=(8.0 if resolved else -10.0) if resolved is not None else None,
+            odds_provenance=_verified_pricing(odds),
+            pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
         )
 
     def test_pending_pick_returns_unresolved(self):

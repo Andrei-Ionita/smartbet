@@ -55,6 +55,40 @@ class PredictionLog(models.Model):
     # Set when a row is excluded from public stats because we don't trust its data
     # (e.g. corrupt EV/odds from a known prior bug window). Counted in DB, hidden in UI.
     is_audit_excluded = models.BooleanField(default=False, db_index=True)
+
+    # ── Pricing integrity (2026-07-29 odds-capture audit) ────────────────────
+    # Until 2026-07-29 the recommendation pipeline selected odds by substring
+    # ("2.5" anywhere in a market name/label) and took the first match in
+    # arbitrary API order, so full-time picks could be priced with SECOND-HALF
+    # quotes (market_id 53). Every price-dependent public statistic computed
+    # before the fix is therefore unverifiable. Original point-in-time odds
+    # cannot be reconstructed — SportMonks odds endpoints are not historical —
+    # so those rows are preserved but permanently excluded from public pricing
+    # statistics rather than back-filled with approximations.
+    PRICING_VERIFIED = 'verified'
+    PRICING_LEGACY_UNVERIFIED = 'legacy_unverified'
+    PRICING_AUDIT_EXCLUDED = 'audit_excluded'
+    PRICING_MISSING_PROVENANCE = 'missing_provenance'
+    PRICING_INTEGRITY_CHOICES = [
+        (PRICING_VERIFIED, 'Verified — price captured by the deterministic selector'),
+        (PRICING_LEGACY_UNVERIFIED, 'Legacy — original odds cannot be verified'),
+        (PRICING_AUDIT_EXCLUDED, 'Quarantined — known bad data'),
+        (PRICING_MISSING_PROVENANCE, 'Missing or invalid price provenance'),
+    ]
+    pricing_integrity_status = models.CharField(
+        max_length=24,
+        choices=PRICING_INTEGRITY_CHOICES,
+        default=PRICING_LEGACY_UNVERIFIED,
+        db_index=True,
+        help_text='Only PRICING_VERIFIED rows may appear in public pricing statistics.',
+    )
+    # Full audit trail for the recorded price: market_id, market description,
+    # line, label, bookmaker, quote count/min/max, capture time, source entry id
+    # and the selection policy. Shape mirrors OddsProvenance in
+    # smartbet-frontend/app/lib/oddsSelection.ts.
+    odds_provenance = models.JSONField(null=True, blank=True)
+    # Identifies the pipeline run that produced this prediction.
+    prediction_run_id = models.CharField(max_length=64, null=True, blank=True, db_index=True)
     
     # Ensemble Info
     model_count = models.IntegerField(default=0)
@@ -277,6 +311,134 @@ class PredictionLog(models.Model):
         
         self.result_logged_at = timezone.now()
         self.save()
+
+
+class PublishedClaim(models.Model):
+    """
+    An immutable, insert-only snapshot of a claim made publicly.
+
+    WHY THIS EXISTS
+    ---------------
+    `PredictionLog` rows are MUTABLE: the recommendation pipeline overwrites
+    every field on each re-run (see core/api_views.py), while
+    `prediction_logged_at` is `auto_now_add` and never changes. A public proof
+    URL could therefore display a different pick or price than the one actually
+    posted, while still asserting the original timestamp — the precise
+    behaviour BetGlitch's transparency claim exists to rule out.
+
+    This model separates two genuinely different objects:
+      * the LIVE prediction (PredictionLog) — free to keep improving;
+      * the PUBLISHED CLAIM (here) — frozen the moment it goes public.
+
+    Settlement never rewrites a claim: results are read from the linked
+    PredictionLog and rendered separately.
+    """
+    STATUS_PENDING = 'PENDING'
+    STATUS_WON = 'WON'
+    STATUS_LOST = 'LOST'
+    STATUS_VOID = 'VOID'
+    STATUS_CANCELLED = 'CANCELLED'
+    RESULT_STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_WON, 'Won'),
+        (STATUS_LOST, 'Lost'),
+        (STATUS_VOID, 'Void'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    claim_id = models.UUIDField(primary_key=True, editable=False)
+    prediction = models.ForeignKey(
+        PredictionLog, on_delete=models.PROTECT, related_name='published_claims'
+    )
+
+    # ── Frozen claim fields (never updated after insert) ─────────────────────
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100)
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField()
+    market_type = models.CharField(max_length=20)
+    predicted_outcome = models.CharField(max_length=32)
+    confidence = models.FloatField()
+    odds = models.FloatField()
+
+    # Price provenance, copied from the selector (see oddsSelection.ts).
+    odds_provenance = models.JSONField()
+    odds_captured_at = models.DateTimeField(null=True, blank=True)
+
+    prediction_generated_at = models.DateTimeField()
+    published_at = models.DateTimeField(default=timezone.now)
+    model_version = models.CharField(max_length=64, null=True, blank=True)
+    prediction_run_id = models.CharField(max_length=64, null=True, blank=True)
+
+    pricing_integrity_status = models.CharField(
+        max_length=24,
+        choices=PredictionLog.PRICING_INTEGRITY_CHOICES,
+        default=PredictionLog.PRICING_VERIFIED,
+    )
+    # sha256 over the frozen claim fields — lets anyone verify the claim was
+    # never altered, without trusting us.
+    claim_hash = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        ordering = ['-published_at']
+        indexes = [
+            models.Index(fields=['fixture_id']),
+            models.Index(fields=['-published_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.home_team} v {self.away_team} — {self.predicted_outcome} @ {self.odds}'
+
+    # ── Immutability ─────────────────────────────────────────────────────────
+    CLAIM_FIELDS = (
+        'fixture_id', 'home_team', 'away_team', 'league', 'league_id', 'kickoff',
+        'market_type', 'predicted_outcome', 'confidence', 'odds',
+        'odds_provenance', 'odds_captured_at', 'prediction_generated_at',
+        'published_at', 'model_version', 'prediction_run_id',
+    )
+
+    def compute_hash(self):
+        """Stable sha256 over the frozen claim fields."""
+        import hashlib
+
+        payload = {}
+        for f in self.CLAIM_FIELDS:
+            v = getattr(self, f)
+            payload[f] = v.isoformat() if hasattr(v, 'isoformat') else v
+        blob = json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str)
+        return hashlib.sha256(blob.encode('utf-8')).hexdigest()
+
+    def save(self, *args, **kwargs):
+        """Insert-only. Any attempt to update a published claim is a bug."""
+        if not self._state.adding:
+            raise ValueError(
+                'PublishedClaim is immutable — a published claim can never be '
+                'updated. Record settlement on the linked PredictionLog instead.'
+            )
+        import uuid
+
+        if not self.claim_id:
+            self.claim_id = uuid.uuid4()
+        self.claim_hash = self.compute_hash()
+        super().save(*args, **kwargs)
+
+    def verify_integrity(self):
+        """True when the stored hash still matches the stored fields."""
+        return self.claim_hash == self.compute_hash()
+
+    @property
+    def result_status(self):
+        """Settlement state, derived from the live prediction — never frozen."""
+        pred = self.prediction
+        if (pred.match_status or '').upper() in ('CANC', 'CANCELLED'):
+            return self.STATUS_CANCELLED
+        if (pred.match_status or '').upper() in ('POSTP', 'ABAN', 'SUSP'):
+            return self.STATUS_VOID
+        if pred.was_correct is None:
+            return self.STATUS_PENDING
+        return self.STATUS_WON if pred.was_correct else self.STATUS_LOST
 
 
 class PerformanceSnapshot(models.Model):
