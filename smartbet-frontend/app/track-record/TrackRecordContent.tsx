@@ -260,20 +260,34 @@ export default function TrackRecordContent() {
               </p>
             </div>
 
-            {/* ROI */}
-            <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
-              ? 'bg-green-50 border-green-200'
-              : 'bg-red-50 border-red-200'
-              }`}>
-              <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
-              <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
+            {/* ROI — a zero-sample record must never render as profitable.
+                The verified pricing record restarts at the integrity cutoff, so
+                total_bets is legitimately 0 until new picks settle. Showing
+                "+0%" in green would read as break-even performance rather than
+                "no results yet". */}
+            {roiStats.total_bets === 0 ? (
+              <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
+                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
+                <p className="text-2xl font-bold text-gray-500 mb-2">No verified results yet</p>
+                <p className="text-sm text-gray-600">
+                  Our verified pricing record restarted and fills in as matches settle.
+                </p>
+              </div>
+            ) : (
+              <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
+                ? 'bg-green-50 border-green-200'
+                : 'bg-red-50 border-red-200'
                 }`}>
-                {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
-              </p>
-              <p className="text-sm text-gray-700">
-                {roiStats.roi_percent >= 0 ? '+' : ''}${roiStats.total_profit_loss.toFixed(2)} total
-              </p>
-            </div>
+                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
+                <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
+                  }`}>
+                  {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
+                </p>
+                <p className="text-sm text-gray-700">
+                  {roiStats.roi_percent >= 0 ? '+' : ''}${roiStats.total_profit_loss.toFixed(2)} total
+                </p>
+              </div>
+            )}
 
             {/* Total Predictions */}
             <div className="bg-white rounded-lg border border-gray-200 p-6">

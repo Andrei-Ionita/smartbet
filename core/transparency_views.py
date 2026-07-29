@@ -4,7 +4,7 @@ Public endpoints showing SmartBet's real performance
 """
 
 from rest_framework.decorators import api_view, permission_classes
-from rest_framework.permissions import AllowAny
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
@@ -13,6 +13,7 @@ from datetime import timedelta
 
 from core.models import PredictionLog, PublishedClaim
 from core.services.accuracy_calculator import AccuracyCalculator
+from core.services import public_universe
 
 
 @csrf_exempt
@@ -292,19 +293,37 @@ def trigger_result_update(request):
         }, status=500)
 
 
+# Public message shown when a fixture has no immutable published claim.
+UNPUBLISHED_PROOF_MESSAGE = (
+    'This prediction has not been published as an immutable BetGlitch claim.'
+)
+
+
+def _record_block():
+    roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
+    return {
+        'wins': roi['wins'],
+        'losses': roi['losses'],
+        'roi_percent': roi['roi_percent'],
+        'total_bets': roi['total_bets'],
+        # The public record counts only pricing-verified results; it restarts
+        # at the pricing-integrity cutoff.
+        'verified_record_only': True,
+    }
+
+
 def proof_card_data(request, fixture_id):
     """
-    GET /api/proof/<fixture_id>/ — payload for a shareable proof card.
+    GET /api/proof/<fixture_id>/ — PUBLIC proof payload.
 
-    Resolution order (2026-07-29 audit, finding F7):
-      1. the immutable PublishedClaim snapshot, when one exists — this is what
-         we actually posted, and it can never change;
-      2. otherwise the live PredictionLog row, clearly flagged as unpublished.
+    Serves the immutable PublishedClaim and NOTHING ELSE. When no claim exists
+    the response is an explicit unpublished state.
 
-    PredictionLog is mutable — the pipeline overwrites odds, confidence and the
-    selection on every re-run — so serving it for a *published* claim would let
-    a public proof URL silently change while still asserting its original
-    timestamp. Only recommended picks are eligible.
+    It must never fall back to PredictionLog: that row is mutable — the
+    pipeline overwrites odds, confidence and the selection on every re-run —
+    so serving it publicly would present a changeable value under
+    "logged before kickoff" language. Staff previews live at
+    /api/proof/<id>/preview/ and are never exposed here.
     """
     claim = (
         PublishedClaim.objects.filter(fixture_id=fixture_id)
@@ -313,91 +332,96 @@ def proof_card_data(request, fixture_id):
         .first()
     )
 
-    if claim is not None:
-        pred = claim.prediction
-        source = 'published_claim'
-        pick_odds = claim.odds
-        pick_conf = claim.confidence
-        pick_outcome = claim.predicted_outcome
-        pick_market = claim.market_type
-        home_team, away_team, league = claim.home_team, claim.away_team, claim.league
-        kickoff, generated_at = claim.kickoff, claim.prediction_generated_at
-        provenance = claim.odds_provenance
-        integrity = claim.pricing_integrity_status
-    else:
-        try:
-            pred = PredictionLog.objects.get(fixture_id=fixture_id, is_recommended=True)
-        except PredictionLog.DoesNotExist:
-            return JsonResponse({'found': False}, status=404)
-        claim = None
-        source = 'live_prediction'
-        pick_odds = pred.odds
-        pick_conf = pred.confidence
-        pick_outcome = pred.predicted_outcome
-        pick_market = pred.market_type
-        home_team, away_team, league = pred.home_team, pred.away_team, pred.league
-        kickoff, generated_at = pred.kickoff, pred.prediction_logged_at
-        provenance = pred.odds_provenance
-        integrity = pred.pricing_integrity_status
+    if claim is None:
+        return JsonResponse({
+            'found': True,
+            'published': False,
+            'state': 'unpublished',
+            'message': UNPUBLISHED_PROOF_MESSAGE,
+            'record': _record_block(),
+        }, status=200)
 
+    pred = claim.prediction
     resolved = pred.was_correct is not None
-    result = {'resolved': bool(resolved)}
+    result = {'resolved': bool(resolved), 'status': claim.result_status}
     if resolved:
         result.update({
             'actual_score_home': pred.actual_score_home,
             'actual_score_away': pred.actual_score_away,
             'was_correct': pred.was_correct,
         })
-    # Settlement state, including VOID/CANCELLED, which a bare was_correct
-    # cannot express.
-    if claim is not None:
-        result['status'] = claim.result_status
-    else:
-        match_status = (pred.match_status or '').upper()
-        if match_status in ('CANC', 'CANCELLED'):
-            result['status'] = 'CANCELLED'
-        elif match_status in ('POSTP', 'ABAN', 'SUSP'):
-            result['status'] = 'VOID'
-        elif not resolved:
-            result['status'] = 'PENDING'
-        else:
-            result['status'] = 'WON' if pred.was_correct else 'LOST'
 
     # Confidence is stored 0-1 (verified 2026-07-29: zero rows above 1.0). The
     # 0-100 branch is retained defensively for any future writer.
-    conf = pick_conf or 0.0
+    conf = claim.confidence or 0.0
     confidence_pct = round(conf * 100, 1) if conf <= 1 else round(conf, 1)
-
-    roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
 
     return JsonResponse({
         'found': True,
-        # Tells the card whether it is rendering an immutable published claim.
-        'source': source,
-        'claim_id': str(claim.claim_id) if claim is not None else None,
-        'claim_hash': claim.claim_hash if claim is not None else None,
-        'pricing_integrity_status': integrity,
+        'published': True,
+        'state': 'published',
+        'claim_id': str(claim.claim_id),
+        'claim_hash': claim.claim_hash,
+        'pricing_integrity_status': claim.pricing_integrity_status,
         'pick': {
-            'home_team': home_team,
-            'away_team': away_team,
-            'league': league,
-            'market_type': pick_market,
-            'predicted_outcome': pick_outcome,
-            'odds': pick_odds,
+            'home_team': claim.home_team,
+            'away_team': claim.away_team,
+            'league': claim.league,
+            'market_type': claim.market_type,
+            'predicted_outcome': claim.predicted_outcome,
+            'odds': claim.odds,
             'confidence': confidence_pct,
-            'kickoff': kickoff.isoformat(),
-            'prediction_logged_at': generated_at.isoformat(),
+            'kickoff': claim.kickoff.isoformat(),
+            'prediction_logged_at': claim.prediction_generated_at.isoformat(),
+            'published_at': claim.published_at.isoformat(),
             # Lets a reader check the price against the exact market we used.
-            'odds_provenance': provenance,
+            'odds_provenance': claim.odds_provenance,
         },
         'result': result,
-        'record': {
-            'wins': roi['wins'],
-            'losses': roi['losses'],
-            'roi_percent': roi['roi_percent'],
-            # Public record restarts at the pricing-integrity cutoff; earlier
-            # picks are preserved but cannot be price-verified.
-            'verified_record_only': True,
+        'record': _record_block(),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def proof_preview(request, fixture_id):
+    """
+    GET /api/proof/<fixture_id>/preview/ — STAFF ONLY.
+
+    Renders the CURRENT, MUTABLE prediction so the team can preview a pick
+    before it is published. Deliberately separate from the public proof URL,
+    and explicitly labelled: none of this is an immutable claim, and it carries
+    no "logged before kickoff" guarantee.
+    """
+    try:
+        pred = PredictionLog.objects.get(fixture_id=fixture_id, is_recommended=True)
+    except PredictionLog.DoesNotExist:
+        return Response({'found': False}, status=404)
+
+    conf = pred.confidence or 0.0
+    return Response({
+        'found': True,
+        'published': False,
+        'state': 'staff_preview',
+        'warning': (
+            'MUTABLE PREVIEW — these values come from the live prediction and '
+            'can change on any pipeline re-run. Not an immutable claim.'
+        ),
+        'pricing_integrity_status': pred.pricing_integrity_status,
+        'pick': {
+            'home_team': pred.home_team,
+            'away_team': pred.away_team,
+            'league': pred.league,
+            'market_type': pred.market_type,
+            'predicted_outcome': pred.predicted_outcome,
+            'odds': pred.odds,
+            'confidence': round(conf * 100, 1) if conf <= 1 else round(conf, 1),
+            'kickoff': pred.kickoff.isoformat(),
+            'prediction_logged_at': pred.prediction_logged_at.isoformat(),
+            'odds_provenance': pred.odds_provenance,
         },
+        'provenance_problems': public_universe.missing_provenance_fields(
+            pred.odds_provenance, pred.market_type
+        ),
     })
 

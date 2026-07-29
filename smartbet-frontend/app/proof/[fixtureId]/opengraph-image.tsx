@@ -135,7 +135,7 @@ export default async function Image({ params }: { params: { fixtureId: string } 
     return new ImageResponse(
       <div style={{ width: '100%', height: '100%', display: 'flex', alignItems: 'center',
         justifyContent: 'center', background: NAVY, color: MUTED, fontSize: 40, fontFamily: 'Inter' }}>
-        Proof not found
+        Not published as a BetGlitch claim
       </div>, fontOpt)
   }
   const card = data.result.resolved ? <ResultCard data={data} /> : <PickCard data={data} />

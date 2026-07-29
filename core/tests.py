@@ -712,6 +712,7 @@ def _verified_pricing(odds=1.85):
         'odds_line': 2.5,
         'odds_label': 'Over',
         'odds_bookmaker_id': 2,
+        'odds_bookmaker_name': 'bet365',
         'odds_bookmaker_count': 5,
         'odds_min': odds - 0.02,
         'odds_max': odds + 0.02,
@@ -1438,7 +1439,12 @@ class AccuracyCalculatorUnificationTests(TestCase):
 # ─────────────────────────────────────────────────────────────────────────────
 
 class ProofCardEndpointTests(TestCase):
-    """GET /api/proof/<fixture_id>/ payload shape + eligibility."""
+    """GET /api/proof/<fixture_id>/ payload shape + eligibility.
+
+    Contract changed 2026-07-29: the public endpoint serves ONLY immutable
+    PublishedClaim snapshots. A fixture with no claim returns an explicit
+    unpublished state (HTTP 200) rather than live, mutable prediction data.
+    """
 
     def _pred(self, fixture_id, *, is_recommended=True, resolved=None,
               confidence=0.64, odds=1.85):
@@ -1465,49 +1471,75 @@ class ProofCardEndpointTests(TestCase):
             pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
         )
 
+    def _published(self, fixture_id, **kwargs):
+        """A prediction that has been published as an immutable claim."""
+        from core.models import PublishedClaim
+        pred = self._pred(fixture_id, **kwargs)
+        PublishedClaim.objects.create(
+            prediction=pred, fixture_id=pred.fixture_id,
+            home_team=pred.home_team, away_team=pred.away_team,
+            league=pred.league, kickoff=pred.kickoff,
+            market_type=pred.market_type, predicted_outcome=pred.predicted_outcome,
+            confidence=pred.confidence, odds=pred.odds,
+            odds_provenance=pred.odds_provenance,
+            prediction_generated_at=pred.prediction_logged_at,
+        )
+        return pred
+
     def test_pending_pick_returns_unresolved(self):
-        self._pred(800001, resolved=None)
+        self._published(800001, resolved=None)
         resp = self.client.get('/api/proof/800001/')
         self.assertEqual(resp.status_code, 200)
         data = resp.json()
         self.assertTrue(data['found'])
+        self.assertTrue(data['published'])
         self.assertEqual(data['result']['resolved'], False)
+        self.assertEqual(data['result']['status'], 'PENDING')
         self.assertNotIn('was_correct', data['result'])
         self.assertEqual(data['pick']['home_team'], 'Almeria')
         self.assertEqual(data['pick']['predicted_outcome'], 'Over 2.5')
 
     def test_resolved_win(self):
-        self._pred(800002, resolved=True)
+        self._published(800002, resolved=True)
         data = self.client.get('/api/proof/800002/').json()
         self.assertTrue(data['result']['resolved'])
         self.assertEqual(data['result']['was_correct'], True)
+        self.assertEqual(data['result']['status'], 'WON')
         self.assertEqual(data['result']['actual_score_home'], 2)
         self.assertEqual(data['result']['actual_score_away'], 1)
 
     def test_resolved_loss(self):
-        self._pred(800003, resolved=False)
+        self._published(800003, resolved=False)
         data = self.client.get('/api/proof/800003/').json()
         self.assertTrue(data['result']['resolved'])
         self.assertEqual(data['result']['was_correct'], False)
+        self.assertEqual(data['result']['status'], 'LOST')
 
-    def test_non_recommended_returns_404(self):
-        self._pred(800004, is_recommended=False, resolved=True)
+    def test_unpublished_prediction_is_not_served_as_proof(self):
+        # Recommended and resolved, but never published as a claim.
+        self._pred(800004, is_recommended=True, resolved=True)
         resp = self.client.get('/api/proof/800004/')
-        self.assertEqual(resp.status_code, 404)
-        self.assertFalse(resp.json()['found'])
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertFalse(body['published'])
+        self.assertEqual(body['state'], 'unpublished')
+        self.assertNotIn('pick', body)
 
-    def test_unknown_fixture_returns_404(self):
+    def test_unknown_fixture_returns_unpublished_state(self):
         resp = self.client.get('/api/proof/999999/')
-        self.assertEqual(resp.status_code, 404)
+        self.assertEqual(resp.status_code, 200)
+        body = resp.json()
+        self.assertFalse(body['published'])
+        self.assertNotIn('pick', body)
 
     def test_confidence_normalised_to_percent(self):
         # Stored 0-1; payload should expose 0-100 for display.
-        self._pred(800005, resolved=None, confidence=0.64)
+        self._published(800005, resolved=None, confidence=0.64)
         data = self.client.get('/api/proof/800005/').json()
         self.assertAlmostEqual(data['pick']['confidence'], 64.0, places=1)
 
     def test_record_matches_roi_simulation(self):
-        self._pred(800006, resolved=True)   # 1 recommended resolved win
+        self._published(800006, resolved=True)   # 1 recommended resolved win
         from core.services.accuracy_calculator import AccuracyCalculator
         roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
         data = self.client.get('/api/proof/800006/').json()

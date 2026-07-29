@@ -47,6 +47,9 @@ urlpatterns = [
     path('api/transparency/quick-stats/', transparency_views.quick_stats, name='quick_stats'),
     path('api/transparency/update-results/', transparency_views.trigger_result_update, name='trigger_result_update'),
     path('api/proof/<int:fixture_id>/', transparency_views.proof_card_data, name='proof_card_data'),
+    # Staff-only mutable preview. Deliberately a different path from the public
+    # proof URL so a mutable prediction can never be served as public proof.
+    path('api/proof/<int:fixture_id>/preview/', transparency_views.proof_preview, name='proof_preview'),
     
     # Email Capture / Newsletter
     path('api/subscribe/', api_views.subscribe_email, name='subscribe_email'),

@@ -1,5 +1,10 @@
 export interface ProofPayload {
   found: boolean
+  /** True only for an immutable PublishedClaim snapshot. */
+  published: boolean
+  state: 'published' | 'unpublished'
+  claim_id?: string | null
+  claim_hash?: string | null
   pick: {
     home_team: string
     away_team: string
@@ -27,7 +32,11 @@ export async function fetchProof(fixtureId: string): Promise<ProofPayload | null
     })
     if (!res.ok) return null
     const data = (await res.json()) as ProofPayload
-    return data.found ? data : null
+    // A fixture without an immutable published claim is NOT proof. Returning
+    // null here is what stops the page and the OG card from ever rendering
+    // mutable prediction values under "logged before kickoff" language.
+    // See docs/audit/gem-selector-diagnostics-2026-07-29.md (finding F7).
+    return data.found && data.published ? data : null
   } catch {
     return null
   }

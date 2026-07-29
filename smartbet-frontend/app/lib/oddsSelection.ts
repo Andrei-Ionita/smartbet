@@ -37,6 +37,8 @@ export interface SportMonksOdd {
   stopped?: boolean | null
   suspended?: boolean | null
   latest_bookmaker_update?: string | null
+  /** Present when the request includes `odds.bookmaker`. */
+  bookmaker?: { id?: number | null; name?: string | null } | null
 }
 
 /** Everything needed to audit a published price after the fact. */
@@ -47,6 +49,7 @@ export interface OddsProvenance {
   odds_line: number | null
   odds_label: string
   odds_bookmaker_id: number | null
+  odds_bookmaker_name: string | null
   odds_bookmaker_count: number
   odds_min: number
   odds_max: number
@@ -89,13 +92,37 @@ export const ODDS_SELECTION_POLICY = 'lower_median_v1'
 
 /** Markets whose quotes we accept, keyed by our product market. */
 interface MarketSpec {
+  /** Human-readable name of the bet this prices. */
+  description: string
   /** SportMonks market_ids that genuinely price this bet. Order is irrelevant. */
   marketIds: number[]
   /** Exact goal line required (e.g. 2.5). `null` for markets without a line. */
   requiredLine: number | null
+  /** Every predicted outcome this product market can emit. */
+  outcomes: string[]
   /** Build the set of acceptable labels for a predicted outcome. */
   labelsFor: (outcome: string, ctx: TeamContext) => string[]
+  /**
+   * SportMonks markets that price a DIFFERENT bet but are easy to confuse with
+   * this one. Documented per market, and asserted in table-driven tests, so a
+   * future edit cannot quietly widen the allowlist.
+   */
+  rejects: { marketId: number; description: string }[]
 }
+
+/**
+ * Markets that must never price a full-match goals bet. Kept as one named list
+ * because several product markets share the same confusable neighbours.
+ */
+const GOALS_CONFUSABLES = [
+  { marketId: 28, description: '1st Half Goals' },
+  { marketId: 53, description: '2nd Half Goals' },
+  { marketId: 37, description: 'Result / Total Goals' },
+  { marketId: 81, description: 'Alternative Total Goals' },
+  { marketId: 86, description: 'Team Total Goals' },
+  { marketId: 105, description: 'Alternative Goal Line (combined lines)' },
+  { marketId: 107, description: 'Alternative 1st Half Goal Line' },
+]
 
 export interface TeamContext {
   homeTeam?: string | null
@@ -128,27 +155,51 @@ const GOALS_OVER_UNDER_MARKETS = [80, 7]
 
 export const MARKET_SPECS: Record<ProductMarket, MarketSpec> = {
   'over_under_2.5': {
+    description: 'Full-match total goals, 2.5 line',
     marketIds: GOALS_OVER_UNDER_MARKETS,
     requiredLine: 2.5,
+    outcomes: ['over', 'under'],
     labelsFor: (outcome) => (norm(outcome) === 'over' ? ['over'] : ['under']),
+    rejects: GOALS_CONFUSABLES,
   },
   '1x2': {
     // market_id 1 = "Fulltime Result" (a.k.a. "Full Time Result").
+    description: 'Full-match result',
     marketIds: [1],
     requiredLine: null,
+    outcomes: ['home', 'draw', 'away'],
     labelsFor: (outcome) => [norm(outcome)],
+    rejects: [
+      { marketId: 6, description: '1st Half Result' },
+      { marketId: 37, description: 'Result / Total Goals' },
+      { marketId: 126, description: 'Result / Both Teams To Score' },
+    ],
   },
   btts: {
     // market_id 14 = "Both Teams to Score". 15 and 16 are the 1st/2nd half
     // variants and must never match.
+    description: 'Both teams to score, full match',
     marketIds: [14],
     requiredLine: null,
+    outcomes: ['yes', 'no'],
     labelsFor: (outcome) => (norm(outcome) === 'yes' ? ['yes'] : ['no']),
+    rejects: [
+      { marketId: 15, description: 'Both Teams to Score in 1st Half' },
+      { marketId: 16, description: 'Both Teams to Score in 2nd Half' },
+      { marketId: 125, description: 'BTTS in Both Halves' },
+      { marketId: 88, description: 'Result / BTTS combination' },
+    ],
   },
   double_chance: {
     // market_id 2 = "Double Chance". 47 is "Half Time Double Chance".
+    description: 'Double chance, full match',
     marketIds: [2],
     requiredLine: null,
+    outcomes: ['1X', 'X2', '12'],
+    rejects: [
+      { marketId: 47, description: 'Half Time Double Chance' },
+      { marketId: 122, description: 'Double Chance / BTTS combination' },
+    ],
     labelsFor: (outcome, ctx) => {
       const home = norm(ctx.homeTeam)
       const away = norm(ctx.awayTeam)
@@ -256,6 +307,10 @@ export function selectOdds(
       odds_line: spec.requiredLine,
       odds_label: String(chosen.odd.label ?? ''),
       odds_bookmaker_id: chosen.odd.bookmaker_id ?? null,
+      // Requires the `odds.bookmaker` include. A verified record demands it —
+      // if the include is ever dropped this goes null and the row is correctly
+      // classified missing_provenance rather than silently accepted.
+      odds_bookmaker_name: chosen.odd.bookmaker?.name ?? null,
       odds_bookmaker_count: priced.length,
       odds_min: prices[0],
       odds_max: prices[prices.length - 1],

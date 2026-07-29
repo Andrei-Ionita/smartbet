@@ -9,7 +9,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const data = await fetchProof(params.fixtureId)
   if (!data) {
-    return { title: 'Proof not found · BetGlitch' }
+    return { title: 'Not published as a claim · BetGlitch' }
   }
   const p = data.pick
   const outcome = p.predicted_outcome.toUpperCase()
@@ -34,8 +34,13 @@ export default async function ProofPage({ params }: { params: { fixtureId: strin
   if (!data) {
     return (
       <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Proof not found</h1>
-        <p className="mt-3 text-gray-600">This pick isn't in our published, recommended track record.</p>
+        <h1 className="text-2xl font-bold text-gray-900">Not published as a claim</h1>
+        <p className="mt-3 text-gray-600">
+          This prediction has not been published as an immutable BetGlitch claim.
+        </p>
+        <p className="mt-2 text-sm text-gray-500">
+          We only publish proof for picks we have snapshotted and hashed before kickoff.
+        </p>
         <Link href="/track-record" className="mt-6 inline-block font-semibold text-blue-700 hover:text-blue-900">
           Review the full public track record →
         </Link>

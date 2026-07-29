@@ -836,6 +836,7 @@ def log_recommendations(request):
                     existing.prediction_logged_at,
                     existing.is_audit_excluded,
                     bet_odds,
+                    prediction_data.get('market_type'),
                 )
                 existing.save()
                 updated_count += 1
@@ -844,7 +845,8 @@ def log_recommendations(request):
                 # against "now" — a fresh row is always on the current side of
                 # the pricing-integrity cutoff.
                 prediction_data['pricing_integrity_status'] = public_universe.status_for(
-                    odds_provenance, timezone.now(), False, bet_odds
+                    odds_provenance, timezone.now(), False, bet_odds,
+                    prediction_data.get('market_type'),
                 )
                 PredictionLog.objects.create(fixture_id=fixture_id, **prediction_data)
                 logged_count += 1
