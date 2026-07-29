@@ -514,6 +514,7 @@ def get_recommended_predictions_with_outcomes(request):
                 'odds_away': pred.odds_away,
                 'bookmaker': pred.bookmaker,
                 'is_audit_excluded': pred.is_audit_excluded,
+                'pricing_integrity_status': pred.pricing_integrity_status,
                 'actual_outcome': pred.actual_outcome.capitalize() if pred.actual_outcome else None,
                 'actual_outcome_raw': pred.actual_outcome,  # For comparison
                 'actual_score_home': pred.actual_score_home,
@@ -546,8 +547,19 @@ def get_recommended_predictions_with_outcomes(request):
         completed = [r for r in results if r['is_completed'] and not r.get('is_audit_excluded')]
         quarantined = [r for r in results if r['is_completed'] and r.get('is_audit_excluded')]
         correct = [r for r in completed if r['was_correct']]
-        total_pl = sum([r['profit_loss_10'] for r in completed if r['profit_loss_10'] is not None])
-        avg_roi = sum([r['roi_percent'] for r in completed if r['roi_percent'] is not None]) / len(completed) if completed else 0
+
+        # 2026-07-29 audit: every PRICE-dependent figure must denominate on
+        # pricing-verified rows only. Legacy rows were priced by substring
+        # matching across seven SportMonks markets, so their odds — and
+        # therefore any P/L, ROI or implied-probability figure derived from
+        # them — cannot be verified. Accuracy counts are not price-dependent
+        # and remain on `completed`, flagged as provisional in the payload.
+        priced = [
+            r for r in completed
+            if r.get('pricing_integrity_status') == PredictionLog.PRICING_VERIFIED
+        ]
+        total_pl = sum([r['profit_loss_10'] for r in priced if r['profit_loss_10'] is not None])
+        avg_roi = sum([r['roi_percent'] for r in priced if r['roi_percent'] is not None]) / len(priced) if priced else 0
 
         # Per-Market Accuracy Breakdown (also excludes quarantined rows)
         market_types = ['1x2', 'btts', 'over_under_2.5', 'double_chance']
@@ -555,11 +567,14 @@ def get_recommended_predictions_with_outcomes(request):
         for market in market_types:
             market_completed = [r for r in completed if r.get('market_type') == market]
             market_correct = [r for r in market_completed if r['was_correct']]
+            market_priced = [r for r in priced if r.get('market_type') == market]
             by_market[market] = {
                 'total': len(market_completed),
                 'correct': len(market_correct),
                 'accuracy': round((len(market_correct) / len(market_completed) * 100), 1) if market_completed else None,
-                'profit_loss': round(sum([r['profit_loss_10'] for r in market_completed if r['profit_loss_10'] is not None]), 2)
+                # Price-dependent -> verified rows only.
+                'profit_loss': round(sum([r['profit_loss_10'] for r in market_priced if r['profit_loss_10'] is not None]), 2),
+                'priced_sample': len(market_priced),
             }
         
         # ============= BASELINE COMPARISON =============
@@ -567,8 +582,9 @@ def get_recommended_predictions_with_outcomes(request):
         # priced the predicted outcome perfectly? Always use `r['odds']` (the actual bet-time
         # odds for the predicted outcome — works for any market). Fall back to per-outcome
         # 1X2 columns only for legacy rows where `odds` is null (pre-Stage-A data).
+        # Price-derived: verified rows only.
         implied_probabilities = []
-        for r in completed:
+        for r in priced:
             odds = r.get('odds')
             if not odds:
                 outcome = (r.get('predicted_outcome_raw') or r.get('predicted_outcome', '')).lower()
