@@ -24,17 +24,31 @@ from core.services import public_universe
 logger = logging.getLogger(__name__)
 
 
+def as_aware(value):
+    """Coerce a datetime or datetime string to an aware UTC datetime.
+
+    The ingest payload carries kickoff as a naive string; comparing that against
+    aware timestamps raises. Normalising here keeps every snapshot timestamp
+    comparable.
+    """
+    if value is None:
+        return None
+    if isinstance(value, str):
+        parsed = parse_datetime(value.replace(' ', 'T', 1))
+        if parsed is None:
+            return None
+        value = parsed
+    if timezone.is_naive(value):
+        value = timezone.make_aware(value, dt_timezone.utc)
+    return value
+
+
 def parse_odds_captured_at(provenance):
     """Capture timestamp from provenance, as an aware datetime or None."""
     raw = (provenance or {}).get('odds_captured_at')
     if not raw:
         return None
-    parsed = parse_datetime(str(raw).replace(' ', 'T', 1))
-    if parsed is None:
-        return None
-    if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed, dt_timezone.utc)
-    return parsed
+    return as_aware(str(raw))
 
 
 @transaction.atomic
@@ -50,7 +64,8 @@ def record_snapshot(
     `PredictionLog.prediction_logged_at`, which is the fixture's first-seen time
     and would pair an old timestamp with a freshly captured price.
     """
-    generated = prediction_generated_at or timezone.now()
+    generated = as_aware(prediction_generated_at) or timezone.now()
+    kickoff = as_aware(kickoff)
 
     existing = PredictionSnapshot.objects.filter(
         prediction_run_id=prediction_run_id,

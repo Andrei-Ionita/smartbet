@@ -119,8 +119,12 @@ def publish_prediction_claim(snapshot_id, published_by=None, now=None):
     now = now or timezone.now()
 
     try:
+        # `of=('self',)` is REQUIRED: select_related on the nullable
+        # `prediction` FK produces a LEFT OUTER JOIN, and Postgres refuses
+        # "FOR UPDATE cannot be applied to the nullable side of an outer join".
+        # SQLite ignores this, so only a real Postgres run catches it.
         snapshot = (
-            PredictionSnapshot.objects.select_for_update()
+            PredictionSnapshot.objects.select_for_update(of=('self',))
             .select_related('prediction').get(pk=snapshot_id)
         )
     except (PredictionSnapshot.DoesNotExist, ValueError, TypeError):
