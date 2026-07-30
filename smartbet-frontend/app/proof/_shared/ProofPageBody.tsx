@@ -1,6 +1,9 @@
 import Link from 'next/link'
 
 import type { ProofPayload } from './proofData'
+import {
+  formatBookmaker, formatModelScore, formatOdds, formatSelection, formatUtc,
+} from './format'
 
 /** Shared page body for both the claim route and the fixture route. */
 export function UnpublishedState() {
@@ -56,15 +59,15 @@ export function ProofPageBody(
       <dl className="mt-6 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Row label="Fixture" value={`${p.home_team} vs ${p.away_team}`} />
         <Row label="League" value={p.league} />
-        <Row label="Kickoff" value={fmt(p.kickoff)} />
-        <Row label="Market" value={`${p.market_type} — ${p.predicted_outcome}`} />
-        <Row label="Recorded odds" value={p.odds != null ? String(p.odds) : 'n/a'} />
-        <Row label="Bookmaker" value={p.bookmaker ?? 'n/a'} />
+        <Row label="Kickoff" value={formatUtc(p.kickoff)} />
+        <Row label="Market" value={formatSelection(p.market_type, p.predicted_outcome, { long: true })} />
+        <Row label="Recorded odds" value={formatOdds(p.odds)} />
+        <Row label="Bookmaker" value={formatBookmaker(p.bookmaker) ?? 'n/a'} />
         <Row label="Odds market" value={p.odds_market ?? 'n/a'} />
-        <Row label="Odds captured" value={fmt(p.odds_captured_at)} />
-        <Row label="Prediction generated" value={fmt(p.prediction_logged_at)} />
-        <Row label="Published" value={fmt(p.published_at)} />
-        <Row label="Model score" value={`${p.model_score_percent}% (model score, not a calibrated probability)`} />
+        <Row label="Odds captured" value={formatUtc(p.odds_captured_at)} />
+        <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
+        <Row label="Claim published" value={formatUtc(p.published_at)} />
+        <Row label="Model score" value={`${formatModelScore(p.model_score_percent)} (model score, not a calibrated probability)`} />
         <Row label="Claim ID" value={data.claim_id ?? 'n/a'} />
       </dl>
 

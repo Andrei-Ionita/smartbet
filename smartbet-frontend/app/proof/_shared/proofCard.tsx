@@ -9,7 +9,11 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { ImageResponse } from 'next/og'
 
-import { beforeKickoffLabel, type ProofPayload } from './proofData'
+import { type ProofPayload } from './proofData'
+import {
+  beforeKickoffFromPublication, formatBookmaker, formatModelScore,
+  formatOdds, formatSelection, formatUtc,
+} from './format'
 
 export const size = { width: 1200, height: 630 }
 
@@ -52,25 +56,15 @@ function Pill({ text, bg }: { text: string; bg: string }) {
 function RecordFooter({ record }: { record: ProofPayload['record'] }) {
   if (!record || record.total_bets === 0) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-        <div style={{ display: 'flex', fontSize: 30, color: MUTED }}>
-          Building our verified record
-        </div>
-        <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>
-          —— we post our losses too ——
-        </div>
+      <div style={{ display: 'flex', fontSize: 26, color: MUTED }}>
+        Building our verified record — every result posted, win or lose
       </div>
     )
   }
   const roi = record.roi_percent
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', fontSize: 34, color: TEXT }}>
-        Verified: {record.wins}W – {record.losses}L · {roi >= 0 ? '+' : ''}{roi}% ROI
-      </div>
-      <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>
-        —— we post our losses too ——
-      </div>
+    <div style={{ display: 'flex', fontSize: 30, color: TEXT }}>
+      Verified: {record.wins}W – {record.losses}L · {roi >= 0 ? '+' : ''}{roi}% ROI
     </div>
   )
 }
@@ -97,37 +91,61 @@ function Shell({ children, badge }: { children: React.ReactNode; badge: string }
   )
 }
 
+function Meta({ label, value }: { label: string; value: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+      <div style={{ display: 'flex', fontSize: 20, color: MUTED, letterSpacing: 1 }}>
+        {label}
+      </div>
+      <div style={{ display: 'flex', fontSize: 30, color: TEXT }}>{value}</div>
+    </div>
+  )
+}
+
 function priceLine(p: ProofPayload['pick']) {
-  const odds = p.odds ? `@ ${p.odds}` : '@ n/a'
-  return p.bookmaker ? `${odds} (${p.bookmaker})` : odds
+  const book = formatBookmaker(p.bookmaker)
+  return book
+    ? `${formatOdds(p.odds)} · ${book.toUpperCase()}`
+    : formatOdds(p.odds)
+}
+
+function Fixture({ p }: { p: ProofPayload['pick'] }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+      <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>{p.league}</div>
+      <div style={{ display: 'flex', fontSize: 34, color: TEXT }}>
+        {p.home_team} vs {p.away_team}
+      </div>
+    </div>
+  )
 }
 
 function PickCard({ data }: { data: ProofPayload }) {
   const p = data.pick
-  const before = beforeKickoffLabel(p.prediction_logged_at, p.kickoff)
-  const loggedUtc =
-    new Date(p.prediction_logged_at).toISOString().slice(0, 16).replace('T', ' ') + ' UTC'
+  // The public proof timestamp is PUBLICATION, not model generation.
+  const before = beforeKickoffFromPublication(p.published_at, p.kickoff)
   return (
-    <Shell badge="PUBLISHED BEFORE KICKOFF">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-        <div style={{ display: 'flex', fontSize: 26, color: MUTED }}>
-          {p.league} · {p.home_team} vs {p.away_team}
-        </div>
-        <div style={{ display: 'flex', fontSize: 52, color: TEXT }}>
-          {p.predicted_outcome.toUpperCase()} {priceLine(p)}
-        </div>
-        <div style={{ display: 'flex', fontSize: 26, color: MUTED }}>
-          Model score {Math.round(p.model_score_percent)}%
-        </div>
-      </div>
+    <Shell badge="PICK — PENDING · PUBLISHED BEFORE KICKOFF">
+      <Fixture p={p} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-          <Pill text="LOGGED" bg={BLUE} />
-          <div style={{ display: 'flex', fontSize: 28, color: TEXT }}>{loggedUtc}</div>
+        <div style={{ display: 'flex', fontSize: 54, color: TEXT }}>
+          {formatSelection(p.market_type, p.predicted_outcome)}
         </div>
-        {before ? <div style={{ display: 'flex', fontSize: 26, color: GREEN }}>{before}</div> : null}
+        <Meta label="RECORDED ODDS" value={priceLine(p)} />
+        <Meta label="MODEL SCORE" value={formatModelScore(p.model_score_percent)} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+          <Pill text="PUBLISHED" bg={BLUE} />
+          <div style={{ display: 'flex', fontSize: 28, color: TEXT }}>
+            {formatUtc(p.published_at)}
+          </div>
+        </div>
+        {before ? (
+          <div style={{ display: 'flex', fontSize: 26, color: GREEN }}>{before}</div>
+        ) : null}
         <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>
-          The result will be shown here after settlement — win or lose
+          Result added automatically after full-time — win or lose.
         </div>
       </div>
       <RecordFooter record={data.record} />
@@ -139,19 +157,33 @@ function ResultCard({ data }: { data: ProofPayload }) {
   const p = data.pick
   const r = data.result
   const won = r.status === 'WON'
-  const scoreLine = (r.actual_score_home != null && r.actual_score_away != null)
-    ? `${p.home_team} ${r.actual_score_home} – ${r.actual_score_away} ${p.away_team}  (FT)`
-    : `${p.home_team} vs ${p.away_team}  (FT)`
+  const score = (r.actual_score_home != null && r.actual_score_away != null)
+    ? `${r.actual_score_home} – ${r.actual_score_away}`
+    : '—'
   return (
-    <Shell badge="THIRD-PARTY SETTLED">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', fontSize: 40, color: TEXT }}>{scoreLine}</div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', fontSize: 32, color: MUTED }}>
-            Our pick: {p.predicted_outcome.toUpperCase()} {priceLine(p)}
+    <Shell badge={`RESULT — ${r.status} · SETTLED BY THIRD-PARTY DATA`}>
+      <Fixture p={p} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', fontSize: 54, color: TEXT }}>
+            {p.home_team.split(' ')[0]} {score} {p.away_team.split(' ')[0]}
           </div>
           <Pill text={won ? 'WON' : 'LOST'} bg={won ? GREEN : RED} />
         </div>
+        <div style={{ display: 'flex', fontSize: 30, color: MUTED }}>
+          Our pick: {formatSelection(p.market_type, p.predicted_outcome)}
+        </div>
+        <Meta label="RECORDED ODDS" value={priceLine(p)} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+        <div style={{ display: 'flex', fontSize: 22, color: MUTED }}>
+          PUBLISHED {formatUtc(p.published_at)}
+        </div>
+        {r.settled_at ? (
+          <div style={{ display: 'flex', fontSize: 22, color: MUTED }}>
+            SETTLED {formatUtc(r.settled_at)}
+          </div>
+        ) : null}
       </div>
       <RecordFooter record={data.record} />
     </Shell>
@@ -162,20 +194,22 @@ function VoidCard({ data }: { data: ProofPayload }) {
   const p = data.pick
   const cancelled = data.result.status === 'CANCELLED'
   return (
-    <Shell badge="THIRD-PARTY SETTLED">
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-        <div style={{ display: 'flex', fontSize: 40, color: TEXT }}>
-          {p.home_team} vs {p.away_team}
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <div style={{ display: 'flex', fontSize: 32, color: MUTED }}>
-            Our pick: {p.predicted_outcome.toUpperCase()} {priceLine(p)}
+    <Shell badge={`${data.result.status} · SETTLED BY THIRD-PARTY DATA`}>
+      <Fixture p={p} />
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+          <div style={{ display: 'flex', fontSize: 44, color: TEXT }}>
+            {formatSelection(p.market_type, p.predicted_outcome)}
           </div>
           <Pill text={cancelled ? 'CANCELLED' : 'VOID'} bg={GREY} />
         </div>
+        <Meta label="RECORDED ODDS" value={priceLine(p)} />
         <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>
           No result — excluded from our record entirely
         </div>
+      </div>
+      <div style={{ display: 'flex', fontSize: 22, color: MUTED }}>
+        PUBLISHED {formatUtc(p.published_at)}
       </div>
       <RecordFooter record={data.record} />
     </Shell>

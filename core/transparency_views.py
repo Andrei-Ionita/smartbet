@@ -510,6 +510,118 @@ def _serialize_snapshot(snapshot, newest_generated_at=None):
     }
 
 
+# Ordering bands for the publication queue, by hours to kickoff. This is a
+# PRACTICAL SHARING WINDOW, not a ranking: it says nothing about which pick is
+# better, only which is most useful to publish now. Ranking on historical ROI is
+# deliberately absent — the historical sample is contaminated (2026-07-29 audit)
+# and the gem selector is not built.
+PUBLICATION_QUEUE_BANDS = (
+    (6, 24, 0, '6-24h — ideal sharing window'),
+    (24, 48, 1, '24-48h'),
+    (2, 6, 2, '2-6h — close to kickoff'),
+    (48, 10 ** 6, 3, 'further out'),
+    (0, 2, 4, 'under 2h — very late'),
+)
+
+
+def _queue_band(hours_to_kickoff):
+    for low, high, order, label in PUBLICATION_QUEUE_BANDS:
+        if low <= hours_to_kickoff < high:
+            return order, label
+    return 9, 'unknown'
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminUser])
+def publication_queue(request):
+    """
+    GET /api/proof/queue/ — STAFF ONLY.
+
+    Every verified snapshot that is currently publishable, ordered by how useful
+    it is to publish NOW.
+
+    This is NOT the gem selector. Nothing here is ranked by historical
+    performance and nothing is claimed to be statistically proven — the
+    historical sample is contaminated and the selector is not built. Nothing is
+    ever published automatically.
+    """
+    from core.models import PredictionSnapshot
+    from core.services import claim_publication
+
+    now = timezone.now()
+    candidates = (
+        PredictionSnapshot.objects
+        .filter(
+            pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
+            is_audit_excluded=False,
+            is_recommended=True,
+            kickoff__gt=now,
+        )
+        .filter(superseded_by__isnull=True)
+        .filter(published_claims__isnull=True)      # not already published
+        .select_related('prediction')
+        .order_by('kickoff')
+    )
+
+    rows = []
+    for snap in candidates:
+        if not snap.verify_integrity():
+            continue
+        blockers = claim_publication.check_snapshot_publication_eligibility(
+            snap, now=now
+        )
+        if blockers:
+            continue
+
+        hours = (snap.kickoff - now).total_seconds() / 3600.0
+        order, band = _queue_band(hours)
+        prov = snap.odds_provenance or {}
+        conf = snap.confidence or 0.0
+
+        rows.append({
+            '_order': order,
+            '_hours': hours,
+            'snapshot_id': str(snap.snapshot_id),
+            'fixture_id': snap.fixture_id,
+            'fixture': f'{snap.home_team} vs {snap.away_team}',
+            'league': snap.league,
+            'kickoff': snap.kickoff.isoformat(),
+            'hours_to_kickoff': round(hours, 1),
+            'window': band,
+            'market_type': snap.market_type,
+            'predicted_outcome': snap.predicted_outcome,
+            'model_score_percent': round(conf * 100, 1) if conf <= 1 else round(conf, 1),
+            'odds': snap.odds,
+            'bookmaker': prov.get('odds_bookmaker_name'),
+            'odds_market': prov.get('odds_market_description'),
+            'odds_captured_at': (
+                snap.odds_captured_at.isoformat() if snap.odds_captured_at else None
+            ),
+            'prediction_generated_at': snap.prediction_generated_at.isoformat(),
+            'prediction_run_id': snap.prediction_run_id,
+            'model_version': snap.model_version,
+            'publication_blockers': [],
+            'preview_url': f'/api/proof/{snap.fixture_id}/preview/',
+            'publish_endpoint': f'/api/proof/snapshot/{snap.snapshot_id}/publish/',
+        })
+
+    rows.sort(key=lambda r: (r['_order'], r['_hours']))
+    for r in rows:
+        r.pop('_order')
+        r.pop('_hours')
+
+    return Response({
+        'count': len(rows),
+        'generated_at': now.isoformat(),
+        'note': (
+            'Publishable verified snapshots, ordered by sharing window. Not a '
+            'ranking — no historical performance is used, and nothing is '
+            'published automatically.'
+        ),
+        'candidates': rows,
+    })
+
+
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def publish_snapshot_view(request, snapshot_id):

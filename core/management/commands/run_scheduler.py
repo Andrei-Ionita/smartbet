@@ -77,6 +77,12 @@ class Command(BaseCommand):
         
         # Task 3: Refresh recommendation flags
         self.run_task('mark_recommended_predictions', **{'min_confidence': 60.0, 'min_ev': 15.0})
+
+        # Task 4: Settle published claims whose fixtures have finished.
+        # MUST run after update_results, which is what grades the underlying
+        # predictions. Without this the public lifecycle never completes and
+        # every published claim stays PENDING forever.
+        self.run_task('settle_published_claims')
         
         self.stdout.write(self.style.SUCCESS('✅ All tasks completed successfully.\n'))
 

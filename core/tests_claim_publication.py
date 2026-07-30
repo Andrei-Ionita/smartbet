@@ -532,3 +532,85 @@ class PublicPerformanceStillClaimBasedTests(TestCase):
         roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
         self.assertEqual(roi['total_bets'], 1)
         self.assertEqual(roi['total_profit_loss'], 10.0)
+
+
+class PublicationQueueTests(TestCase):
+    """Staff-only list of publishable snapshots. NOT the gem selector."""
+
+    def _staff(self, name='qroot'):
+        root = User.objects.create_superuser(name, f'{name}@e.com', 'pw12345!')
+        api = APIClient()
+        api.force_authenticate(user=root)
+        return api
+
+    def _candidate(self, fixture_id, hours_to_kickoff):
+        pred = latest_state(fixture_id, kickoff_in=timedelta(hours=hours_to_kickoff))
+        snap, _ = record(pred, run_id=f'run-{fixture_id}')
+        return pred, snap
+
+    def test_queue_is_staff_only(self):
+        self.assertIn(APIClient().get('/api/proof/queue/').status_code, (401, 403))
+
+    def test_lists_only_publishable_verified_snapshots(self):
+        _, good = self._candidate(990001, 12)
+        # Legacy: not verified.
+        legacy_pred = latest_state(990002, kickoff_in=timedelta(hours=12))
+        before = public_universe.PRICING_INTEGRITY_CUTOFF - timedelta(days=3)
+        record(legacy_pred, run_id='old', generated_at=before,
+               captured_at=before - timedelta(hours=1))
+        # Already kicked off.
+        started = latest_state(990003, kickoff_in=-timedelta(hours=1))
+        record(started, run_id='run-started')
+
+        body = json.loads(self._staff().get('/api/proof/queue/').content)
+        ids = {c['snapshot_id'] for c in body['candidates']}
+        self.assertEqual(ids, {str(good.snapshot_id)})
+
+    def test_already_published_snapshots_drop_out(self):
+        _, snap = self._candidate(990010, 12)
+        api = self._staff('qroot2')
+        self.assertEqual(len(json.loads(api.get('/api/proof/queue/').content)['candidates']), 1)
+
+        claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertEqual(len(json.loads(api.get('/api/proof/queue/').content)['candidates']), 0)
+
+    def test_ordering_prefers_the_6_to_24h_window(self):
+        self._candidate(990020, 100)   # further out
+        self._candidate(990021, 12)    # ideal
+        self._candidate(990022, 36)    # 24-48h
+        self._candidate(990023, 3)     # 2-6h
+
+        body = json.loads(self._staff('qroot3').get('/api/proof/queue/').content)
+        windows = [c['window'] for c in body['candidates']]
+        self.assertTrue(windows[0].startswith('6-24h'))
+        self.assertEqual(windows[1], '24-48h')
+        self.assertTrue(windows[2].startswith('2-6h'))
+        self.assertEqual(windows[3], 'further out')
+
+    def test_each_row_carries_what_the_founder_needs(self):
+        self._candidate(990030, 12)
+        body = json.loads(self._staff('qroot4').get('/api/proof/queue/').content)
+        row = body['candidates'][0]
+        for key in ('fixture', 'league', 'kickoff', 'hours_to_kickoff',
+                    'market_type', 'predicted_outcome', 'model_score_percent',
+                    'odds', 'bookmaker', 'odds_captured_at',
+                    'prediction_generated_at', 'model_version',
+                    'publication_blockers', 'preview_url', 'publish_endpoint'):
+            self.assertIn(key, row)
+        self.assertEqual(row['publication_blockers'], [])
+
+    def test_queue_makes_no_performance_claim(self):
+        self._candidate(990040, 12)
+        body = json.loads(self._staff('qroot5').get('/api/proof/queue/').content)
+        # Candidate rows must carry no performance framing at all.
+        blob = json.dumps(body['candidates']).lower()
+        for banned in ('roi', 'proven', 'edge', 'profit', 'best bet', 'rank',
+                       'score_rank', 'confidence_rank'):
+            self.assertNotIn(banned, blob, f'queue leaked a performance claim: {banned}')
+        # And the payload explicitly disclaims being a ranking.
+        self.assertIn('not a ranking', body['note'].lower())
+
+    def test_queue_never_publishes_anything(self):
+        self._candidate(990050, 12)
+        self._staff('qroot6').get('/api/proof/queue/')
+        self.assertEqual(PublishedClaim.objects.count(), 0)
