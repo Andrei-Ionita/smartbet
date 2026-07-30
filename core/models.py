@@ -314,6 +314,208 @@ class PredictionLog(models.Model):
         self.save()
 
 
+class PredictionSnapshot(models.Model):
+    """An IMMUTABLE record of one prediction, as it existed at one moment.
+
+    WHY THIS EXISTS
+    ---------------
+    `PredictionLog` was doing two incompatible jobs: (a) the mutable latest state
+    for a fixture, and (b) a historical prediction generated at a specific time.
+    Because `prediction_logged_at` is `auto_now_add`, a fixture first seen weeks
+    ago kept that original timestamp forever — so a fresh model run against an
+    existing fixture produced a row pairing an OLD prediction timestamp with a
+    NEWLY captured price. That combination cannot be published truthfully, which
+    is why nothing was publishable after the 2026-07-30 pricing cutoff.
+
+    A snapshot fixes that by recording one coherent prediction state: the run
+    that produced it, when that run generated the prediction, and the price that
+    run captured. Every genuinely new run appends a new snapshot; nothing is ever
+    overwritten.
+
+        Prediction run -> immutable PredictionSnapshot -> update latest-state
+                                                          PredictionLog
+
+    Snapshots are evidence CANDIDATES. They enter public performance only once
+    explicitly published as a PublishedClaim.
+    """
+    snapshot_id = models.UUIDField(primary_key=True, editable=False)
+
+    # Which run produced this, and the latest-state row it corresponds to.
+    prediction_run_id = models.CharField(max_length=64, db_index=True)
+    prediction = models.ForeignKey(
+        'PredictionLog', on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='snapshots',
+        help_text='Latest-state row for this fixture. Convenience only — never '
+                  'the authoritative source for a published claim.',
+    )
+
+    # Fixture identity, frozen.
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100)
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField()
+
+    # The prediction, frozen.
+    market_type = models.CharField(max_length=20)
+    predicted_outcome = models.CharField(max_length=32)
+    confidence = models.FloatField()
+    expected_value = models.FloatField(null=True, blank=True)
+    is_recommended = models.BooleanField(default=False)
+    model_version = models.CharField(max_length=64, null=True, blank=True)
+
+    # The price, frozen, with full provenance.
+    odds = models.FloatField(null=True, blank=True)
+    odds_provenance = models.JSONField(null=True, blank=True)
+    odds_captured_at = models.DateTimeField(null=True, blank=True)
+
+    # Timestamps. `prediction_generated_at` is the RUN's generation time — not
+    # PredictionLog.prediction_logged_at, which is the fixture's first-seen time.
+    prediction_generated_at = models.DateTimeField()
+    snapshot_created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    pricing_integrity_status = models.CharField(
+        max_length=24,
+        choices=PredictionLog.PRICING_INTEGRITY_CHOICES,
+        default=PredictionLog.PRICING_LEGACY_UNVERIFIED,
+        db_index=True,
+    )
+    is_audit_excluded = models.BooleanField(default=False, db_index=True)
+
+    # Tamper detection over the frozen fields. Uses the SHARED canonical hasher
+    # (core/services/integrity.py) rather than a second implementation — the
+    # snapshot is the evidence a claim is built from, so a raw DB edit here must
+    # be detectable, not merely discouraged.
+    SNAPSHOT_HASH_VERSION = 'v1'
+    snapshot_hash = models.CharField(max_length=64, db_index=True)
+    snapshot_hash_version = models.CharField(max_length=8, default='v1')
+
+    # A correction appends a new snapshot pointing at the one it replaces.
+    supersedes = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='superseded_by',
+    )
+    correction_reason = models.CharField(max_length=255, null=True, blank=True)
+
+    class Meta:
+        ordering = ['-prediction_generated_at']
+        # UNIQUENESS POLICY: one run produces at most one prediction per fixture
+        # and market, so a retry of the same run is idempotent rather than
+        # duplicative. Two DIFFERENT runs over the same fixture legitimately
+        # produce two snapshots, even when the outcome is identical — they are
+        # distinct time-specific observations.
+        constraints = [
+            models.UniqueConstraint(
+                fields=['prediction_run_id', 'fixture_id', 'market_type',
+                        'predicted_outcome'],
+                name='uniq_snapshot_per_run_fixture_market_outcome',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['fixture_id', '-prediction_generated_at']),
+            models.Index(fields=['pricing_integrity_status']),
+        ]
+        verbose_name = 'Prediction Snapshot'
+
+    def __str__(self):
+        return (f'{self.home_team} v {self.away_team} — {self.predicted_outcome} '
+                f'@ {self.odds} ({self.prediction_generated_at:%Y-%m-%d %H:%M})')
+
+    # ── Immutability ─────────────────────────────────────────────────────────
+    def canonical_payload(self):
+        from core.services.integrity import norm_dt, norm_num
+
+        prov = self.odds_provenance or {}
+        return {
+            'snapshot_hash_version': self.SNAPSHOT_HASH_VERSION,
+            'prediction_run_id': self.prediction_run_id,
+            'fixture_id': self.fixture_id,
+            'home_team': self.home_team,
+            'away_team': self.away_team,
+            'league': self.league,
+            'league_id': self.league_id,
+            'kickoff': norm_dt(self.kickoff),
+            'market_type': self.market_type,
+            'predicted_outcome': self.predicted_outcome,
+            'confidence': norm_num(self.confidence),
+            'expected_value': norm_num(self.expected_value),
+            'is_recommended': self.is_recommended,
+            'model_version': self.model_version,
+            'odds': norm_num(self.odds),
+            'odds_market_id': prov.get('odds_market_id'),
+            'odds_market_description': prov.get('odds_market_description'),
+            'odds_line': norm_num(prov.get('odds_line')),
+            'odds_label': prov.get('odds_label'),
+            'odds_bookmaker_id': prov.get('odds_bookmaker_id'),
+            'odds_bookmaker_name': prov.get('odds_bookmaker_name'),
+            'odds_selection_policy': prov.get('odds_selection_policy'),
+            'odds_captured_at': norm_dt(self.odds_captured_at),
+            'prediction_generated_at': norm_dt(self.prediction_generated_at),
+            'supersedes': str(self.supersedes_id) if self.supersedes_id else None,
+            'correction_reason': self.correction_reason,
+        }
+
+    def compute_hash(self):
+        from core.services.integrity import canonical_sha256
+
+        return canonical_sha256(self.canonical_payload())
+
+    def verify_integrity(self):
+        return bool(self.snapshot_hash) and self.snapshot_hash == self.compute_hash()
+
+    def save(self, *args, **kwargs):
+        """Append-only. A snapshot is never rewritten."""
+        if not self._state.adding:
+            raise ValueError(
+                'PredictionSnapshot is immutable — a new model run must append a '
+                'new snapshot. Use correct() to record a superseding snapshot.'
+            )
+        import uuid
+
+        if not self.snapshot_id:
+            self.snapshot_id = uuid.uuid4()
+        self.snapshot_hash_version = self.SNAPSHOT_HASH_VERSION
+        self.snapshot_hash = self.compute_hash()
+        super().save(*args, **kwargs)
+
+    CORRECTABLE_FIELDS = (
+        'prediction_run_id', 'prediction', 'fixture_id', 'home_team', 'away_team',
+        'league', 'league_id', 'kickoff', 'market_type', 'predicted_outcome',
+        'confidence', 'expected_value', 'is_recommended', 'model_version',
+        'odds', 'odds_provenance', 'odds_captured_at', 'prediction_generated_at',
+        'pricing_integrity_status', 'is_audit_excluded',
+    )
+
+    def correct(self, reason, **changes):
+        """Append a superseding snapshot; never rewrite this one.
+
+        The correction gets a DERIVED run id (`<original>+corr:<short-uuid>`).
+        The uniqueness key includes `prediction_run_id`, and a correction is a
+        distinct recording event rather than a retry of the original run, so
+        reusing the original id would collide. Keeping the original id as a
+        prefix preserves the lineage.
+        """
+        import uuid
+
+        fields = {f: getattr(self, f) for f in self.CORRECTABLE_FIELDS}
+        fields.update(changes)
+        fields['prediction_run_id'] = (
+            f'{self.prediction_run_id}+corr:{uuid.uuid4().hex[:8]}'
+        )
+        return PredictionSnapshot.objects.create(
+            supersedes=self, correction_reason=reason, **fields
+        )
+
+    @property
+    def is_superseded(self):
+        return self.superseded_by.exists()
+
+    @property
+    def is_published(self):
+        return self.published_claims.exists()
+
+
 class PublishedClaim(models.Model):
     """
     An immutable, insert-only snapshot of a claim made publicly.
@@ -348,6 +550,13 @@ class PublishedClaim(models.Model):
     ]
 
     claim_id = models.UUIDField(primary_key=True, editable=False)
+    # The IMMUTABLE snapshot this claim was frozen from — the authoritative
+    # source. Nullable only for claims created before the snapshot layer existed.
+    snapshot = models.ForeignKey(
+        'PredictionSnapshot', on_delete=models.PROTECT, null=True, blank=True,
+        related_name='published_claims',
+    )
+    # Latest-state row, for convenience joins and settlement lookups only.
     prediction = models.ForeignKey(
         PredictionLog, on_delete=models.PROTECT, related_name='published_claims'
     )
@@ -416,21 +625,14 @@ class PublishedClaim(models.Model):
 
     def canonical_payload(self):
         """The exact dict that is hashed. Documented and stable."""
+        from core.services.integrity import norm_dt as _dt, norm_num as _num
+
         prov = self.odds_provenance or {}
-
-        def _dt(v):
-            if v is None:
-                return None
-            return v.astimezone(dt_timezone.utc).isoformat(timespec='microseconds')
-
-        def _num(v):
-            if v is None or v == '':
-                return None
-            return format(Decimal(str(v)).normalize(), 'f')
 
         return {
             'claim_hash_version': self.CLAIM_HASH_VERSION,
-            # source prediction reference
+            # source references
+            'source_snapshot_id': str(self.snapshot_id) if self.snapshot_id else None,
             'source_prediction_id': self.prediction_id,
             # fixture identity
             'fixture_id': self.fixture_id,
@@ -464,13 +666,9 @@ class PublishedClaim(models.Model):
 
     def compute_hash(self):
         """SHA-256 over the canonical payload. THE authoritative computation."""
-        import hashlib
+        from core.services.integrity import canonical_sha256
 
-        blob = json.dumps(
-            self.canonical_payload(),
-            sort_keys=True, separators=(',', ':'), ensure_ascii=False,
-        )
-        return hashlib.sha256(blob.encode('utf-8')).hexdigest()
+        return canonical_sha256(self.canonical_payload())
 
     def verify_integrity(self):
         """THE authoritative verification method. True when untampered."""

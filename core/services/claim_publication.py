@@ -47,163 +47,182 @@ class SettlementError(Exception):
 
 
 # ── Uniqueness / claim identity ─────────────────────────────────────────────
-# A claim's identity is its SOURCE PREDICTION, not its fixture. `PredictionLog`
-# is unique per fixture today, but the product is expected to support several
-# markets per fixture later, so keying on fixture_id would wrongly block a second
-# legitimate claim. Publishing is therefore idempotent per
-# (source prediction, market_type, predicted_outcome):
+# A claim's identity is its SOURCE SNAPSHOT — the immutable prediction state it
+# was frozen from. Publishing is idempotent per snapshot:
 #
-#   * an existing, non-superseded claim for that triple  -> return it unchanged
-#   * the source has since changed                       -> still return the
-#     original; never rewrite or replace it (use claim.correct() to record a
-#     correction as a NEW superseding claim)
+#   * a non-superseded claim already exists for that snapshot -> return it
+#   * the latest-state PredictionLog has since changed        -> irrelevant; the
+#     claim was frozen from the snapshot, not the mutable row
 #
-# Every claim also carries its own immutable `claim_id` UUID, which is the stable
-# public identifier.
-def _existing_claim(prediction, market_type, predicted_outcome):
+# Every claim also carries its own immutable `claim_id` UUID, the stable public
+# identifier.
+def _existing_claim_for_snapshot(snapshot):
     return (
         PublishedClaim.objects
-        .filter(
-            prediction=prediction,
-            market_type=market_type,
-            predicted_outcome=predicted_outcome,
-        )
+        .filter(snapshot=snapshot)
         .filter(superseded_by__isnull=True)
         .order_by('-published_at')
         .first()
     )
 
 
-def check_publication_eligibility(prediction, now=None):
-    """Return a list of machine-readable reasons this may NOT be published.
-
-    Empty list means eligible. Pure — performs no writes.
-    """
+def check_snapshot_publication_eligibility(snapshot, now=None):
+    """Machine-readable reasons this snapshot may NOT be published. Pure."""
     now = now or timezone.now()
     problems = []
 
-    if not prediction.is_recommended:
+    if not snapshot.is_recommended:
         problems.append('not_recommended')
-    if prediction.is_audit_excluded:
+    if snapshot.is_audit_excluded:
         problems.append('audit_excluded')
-    if prediction.pricing_integrity_status != PredictionLog.PRICING_VERIFIED:
-        problems.append(f'pricing_not_verified:{prediction.pricing_integrity_status}')
-    if prediction.odds is None:
+    if snapshot.pricing_integrity_status != PredictionLog.PRICING_VERIFIED:
+        problems.append(f'pricing_not_verified:{snapshot.pricing_integrity_status}')
+    if snapshot.odds is None:
         problems.append('no_odds')
 
     missing = public_universe.missing_provenance_fields(
-        prediction.odds_provenance, prediction.market_type
+        snapshot.odds_provenance, snapshot.market_type
     )
     if missing:
         problems.append('incomplete_provenance:' + ','.join(missing))
 
+    # Timestamp coherence, per the documented capture sequence.
+    for problem in public_universe.snapshot_timestamp_problems(snapshot):
+        problems.append(problem)
+
     # A claim asserts foresight, so publication must precede kickoff.
-    if prediction.kickoff is None:
+    if snapshot.kickoff is None:
         problems.append('no_kickoff')
-    elif prediction.kickoff <= now:
+    elif snapshot.kickoff <= now:
         problems.append('fixture_already_started')
 
-    # The prediction must have been generated before its own kickoff, and the
-    # price must have been captured no later than publication.
-    generated = prediction.prediction_logged_at
-    if generated and prediction.kickoff and generated > prediction.kickoff:
-        problems.append('prediction_generated_after_kickoff')
+    # A snapshot replaced by a correction must not be published.
+    if snapshot.is_superseded:
+        problems.append('snapshot_superseded')
 
-    captured_at = _odds_captured_at(prediction)
-    if captured_at and prediction.kickoff and captured_at > prediction.kickoff:
-        problems.append('odds_captured_after_kickoff')
-    if captured_at and generated and captured_at < generated - _CAPTURE_SLACK:
-        # A price captured materially BEFORE the prediction was generated means
-        # the two do not describe the same moment.
-        problems.append('odds_captured_before_prediction')
+    # The price must not have been captured after we publish it.
+    if snapshot.odds_captured_at and snapshot.odds_captured_at > now:
+        problems.append('odds_captured_after_publication')
 
     return problems
 
 
-def _odds_captured_at(prediction):
-    """Parse the capture timestamp out of provenance, if present."""
-    prov = prediction.odds_provenance or {}
-    raw = prov.get('odds_captured_at')
-    if not raw:
-        return None
-    from django.utils.dateparse import parse_datetime
-
-    parsed = parse_datetime(str(raw).replace(' ', 'T', 1))
-    if parsed is None:
-        return None
-    if timezone.is_naive(parsed):
-        parsed = timezone.make_aware(parsed, dt_timezone.utc)
-    return parsed
-
-
 @transaction.atomic
-def publish_prediction_claim(prediction_id, published_by=None, now=None):
-    """Freeze a verified prediction into an immutable public claim.
+def publish_prediction_claim(snapshot_id, published_by=None, now=None):
+    """Freeze an immutable PredictionSnapshot into a public claim.
 
-    Idempotent: publishing the same prediction twice returns the first claim.
-    Raises PublicationError with a machine-readable `reason` when ineligible.
+    The snapshot is the AUTHORITATIVE input: every claim field is copied from it,
+    never from the mutable PredictionLog. Idempotent per snapshot.
     """
+    from core.models import PredictionSnapshot
+
     now = now or timezone.now()
 
     try:
-        # Lock the source row so two concurrent publishes cannot both insert.
-        prediction = (
-            PredictionLog.objects.select_for_update().get(pk=prediction_id)
+        snapshot = (
+            PredictionSnapshot.objects.select_for_update()
+            .select_related('prediction').get(pk=snapshot_id)
         )
-    except PredictionLog.DoesNotExist:
-        raise PublicationError('prediction_not_found', str(prediction_id))
+    except (PredictionSnapshot.DoesNotExist, ValueError, TypeError):
+        raise PublicationError('snapshot_not_found', str(snapshot_id))
 
-    existing = _existing_claim(
-        prediction, prediction.market_type, prediction.predicted_outcome
-    )
+    existing = _existing_claim_for_snapshot(snapshot)
     if existing is not None:
-        # Never rewritten, even if the source has since changed.
-        logger.info('Claim already published for prediction %s -> %s',
-                    prediction_id, existing.claim_id)
+        logger.info('Claim already published for snapshot %s -> %s',
+                    snapshot_id, existing.claim_id)
         return existing
 
-    problems = check_publication_eligibility(prediction, now=now)
+    # A snapshot that has been tampered with in the database must never become a
+    # published claim.
+    if not snapshot.verify_integrity():
+        raise PublicationError('snapshot_integrity_failed', str(snapshot_id))
+
+    problems = check_snapshot_publication_eligibility(snapshot, now=now)
     if problems:
         raise PublicationError('ineligible', '; '.join(problems))
 
-    prov = prediction.odds_provenance or {}
+    if snapshot.prediction_id is None:
+        raise PublicationError(
+            'no_latest_state_row',
+            'settlement needs a PredictionLog to read third-party results from',
+        )
+
     claim = PublishedClaim(
-        prediction=prediction,
-        fixture_id=prediction.fixture_id,
-        home_team=prediction.home_team,
-        away_team=prediction.away_team,
-        league=prediction.league,
-        league_id=prediction.league_id,
-        kickoff=prediction.kickoff,
-        market_type=prediction.market_type,
-        predicted_outcome=prediction.predicted_outcome,
-        confidence=prediction.confidence,
-        odds=prediction.odds,
-        # Snapshot, not a reference: the claim never reads mutable source fields
-        # again at render time.
-        odds_provenance=dict(prov),
-        odds_captured_at=_odds_captured_at(prediction),
-        prediction_generated_at=prediction.prediction_logged_at,
+        snapshot=snapshot,
+        prediction=snapshot.prediction,
+        fixture_id=snapshot.fixture_id,
+        home_team=snapshot.home_team,
+        away_team=snapshot.away_team,
+        league=snapshot.league,
+        league_id=snapshot.league_id,
+        kickoff=snapshot.kickoff,
+        market_type=snapshot.market_type,
+        predicted_outcome=snapshot.predicted_outcome,
+        confidence=snapshot.confidence,
+        odds=snapshot.odds,
+        odds_provenance=dict(snapshot.odds_provenance or {}),
+        odds_captured_at=snapshot.odds_captured_at,
+        # The RUN's generation time, from the snapshot — not the fixture's
+        # first-seen time on the mutable row.
+        prediction_generated_at=snapshot.prediction_generated_at,
         published_at=now,
-        model_version=prediction.ensemble_strategy,
-        prediction_run_id=prediction.prediction_run_id,
-        pricing_integrity_status=prediction.pricing_integrity_status,
+        model_version=snapshot.model_version,
+        prediction_run_id=snapshot.prediction_run_id,
+        pricing_integrity_status=snapshot.pricing_integrity_status,
     )
     try:
         claim.save()
     except IntegrityError as exc:
-        # Lost a race, or an identical claim already exists (same hash).
-        raced = _existing_claim(
-            prediction, prediction.market_type, prediction.predicted_outcome
-        )
+        raced = _existing_claim_for_snapshot(snapshot)
         if raced is not None:
             return raced
         raise PublicationError('integrity_error', str(exc))
 
-    logger.info('Published claim %s for prediction %s by %s',
-                claim.claim_id, prediction_id,
+    logger.info('Published claim %s from snapshot %s by %s',
+                claim.claim_id, snapshot_id,
                 getattr(published_by, 'username', 'system'))
     return claim
+
+
+def eligible_snapshots_for_prediction(prediction, now=None):
+    """Publishable snapshots for a latest-state row, newest first."""
+    from core.models import PredictionSnapshot
+
+    out = []
+    for snap in (PredictionSnapshot.objects.filter(prediction=prediction)
+                 .order_by('-prediction_generated_at')):
+        if not check_snapshot_publication_eligibility(snap, now=now):
+            out.append(snap)
+    return out
+
+
+def publish_for_prediction(prediction_id, published_by=None, now=None):
+    """COMPATIBILITY wrapper. Resolves to ONE unambiguous eligible snapshot.
+
+    Refuses when several candidates exist — the founder must choose the exact
+    snapshot rather than have "latest" silently picked for them.
+    """
+    try:
+        prediction = PredictionLog.objects.get(pk=prediction_id)
+    except PredictionLog.DoesNotExist:
+        raise PublicationError('prediction_not_found', str(prediction_id))
+
+    candidates = eligible_snapshots_for_prediction(prediction, now=now)
+    if not candidates:
+        raise PublicationError(
+            'no_eligible_snapshot',
+            'no immutable snapshot for this prediction is publishable',
+        )
+    if len(candidates) > 1:
+        raise PublicationError(
+            'ambiguous_snapshot',
+            'several eligible snapshots exist: '
+            + ', '.join(str(c.snapshot_id) for c in candidates)
+            + ' — publish one explicitly',
+        )
+    return publish_prediction_claim(
+        candidates[0].snapshot_id, published_by=published_by, now=now
+    )
 
 
 # ── Settlement ──────────────────────────────────────────────────────────────

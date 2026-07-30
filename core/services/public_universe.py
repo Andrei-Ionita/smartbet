@@ -12,6 +12,7 @@ Background: `docs/audit/gem-selector-diagnostics-2026-07-29.md`.
 """
 import logging
 import os
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 
 from django.core.exceptions import ImproperlyConfigured
@@ -289,3 +290,86 @@ def classify_row(pred: PredictionLog) -> str:
         pred.odds,
         pred.market_type,
     )
+
+# ── Snapshot timestamp coherence ────────────────────────────────────────────
+# THE DOCUMENTED CAPTURE SEQUENCE.
+#
+# The recommendation pipeline fetches fixtures WITH their odds in a single
+# SportMonks request, then computes model output from the same response. So the
+# real order is:
+#
+#   odds_captured_at   (the bookmaker's own last-update time — necessarily
+#                       BEFORE our fetch)
+#     <=  prediction_generated_at   (when that run produced the prediction)
+#     <=  snapshot_created_at       (when we recorded it)
+#     <   publication time
+#     <   kickoff
+#
+# We deliberately do NOT require `prediction_generated_at <= odds_captured_at`:
+# a price legitimately exists before we read it. What we DO enforce is that no
+# timestamp implies a price or prediction existed earlier than it actually did,
+# and that the price is not stale relative to the prediction it is paired with —
+# the exact defect that made pre-cutoff rows unpublishable (an old prediction
+# timestamp beside a freshly captured price).
+MAX_ODDS_AGE_FOR_VERIFIED = timedelta(hours=72)
+# Small tolerance for clock skew between the odds feed and our own clock.
+_CLOCK_SKEW = timedelta(minutes=10)
+
+
+def snapshot_timestamp_problems(snapshot):
+    """Machine-readable timestamp-coherence failures. Pure."""
+    problems = []
+    generated = snapshot.prediction_generated_at
+    captured = snapshot.odds_captured_at
+    created = snapshot.snapshot_created_at
+    kickoff = snapshot.kickoff
+
+    if generated is None:
+        return ['no_prediction_generated_at']
+
+    # Nothing may claim to predate its own recording.
+    if created is not None and generated > created + _CLOCK_SKEW:
+        problems.append('prediction_generated_after_snapshot_created')
+    if created is not None and captured is not None and captured > created + _CLOCK_SKEW:
+        problems.append('odds_captured_after_snapshot_created')
+
+    # A price paired with a prediction must belong to the same run window.
+    if captured is not None:
+        if captured > generated + _CLOCK_SKEW:
+            problems.append('odds_captured_after_prediction')
+        elif generated - captured > MAX_ODDS_AGE_FOR_VERIFIED:
+            # This is the pre-cutoff defect: old prediction, fresh price — or
+            # equally, fresh prediction paired with a long-stale price.
+            problems.append('odds_stale_relative_to_prediction')
+
+    if kickoff is not None:
+        if generated >= kickoff:
+            problems.append('prediction_generated_after_kickoff')
+        if captured is not None and captured >= kickoff:
+            problems.append('odds_captured_after_kickoff')
+
+    return problems
+
+
+def classify_snapshot(snapshot):
+    """Pricing-integrity status a snapshot should carry. Pure — no writes.
+
+    A snapshot is `verified` only when it was generated after the clean cutoff,
+    carries complete provenance, is not quarantined, and its timestamps are
+    coherent (see the documented capture sequence above).
+    """
+    if snapshot.is_audit_excluded:
+        return PredictionLog.PRICING_AUDIT_EXCLUDED
+
+    generated = snapshot.prediction_generated_at
+    if generated is None or generated < PRICING_INTEGRITY_CUTOFF:
+        return PredictionLog.PRICING_LEGACY_UNVERIFIED
+
+    if snapshot.odds is None:
+        return PredictionLog.PRICING_MISSING_PROVENANCE
+    if missing_provenance_fields(snapshot.odds_provenance, snapshot.market_type):
+        return PredictionLog.PRICING_MISSING_PROVENANCE
+    if snapshot_timestamp_problems(snapshot):
+        return PredictionLog.PRICING_MISSING_PROVENANCE
+
+    return PredictionLog.PRICING_VERIFIED

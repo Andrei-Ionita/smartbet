@@ -14,10 +14,11 @@ import uuid
 import requests
 from django.db.models import Q
 
-from .models import EmailSubscriber, MarketingEvent, PredictionLog, UserBankroll
+from .models import (EmailSubscriber, MarketingEvent, PredictionLog,
+                     PredictionSnapshot, UserBankroll)
 from .bankroll_utils import calculate_stake_amount
 from .services.marketing import MarketingSyncError, sync_marketing_profile
-from .services import public_universe
+from .services import public_universe, snapshot_recording
 
 
 # Phase 2a: hard-blocks at the write boundary. The primary filter lives in the
@@ -737,6 +738,12 @@ def log_recommendations(request):
         # Identifies this pipeline run in every row it writes, so a batch can be
         # traced (or quarantined) as a unit.
         prediction_run_id = uuid.uuid4().hex
+        # ONE generation timestamp for the whole run. Snapshots record this, not
+        # PredictionLog.prediction_logged_at (the fixture's first-seen time) —
+        # pairing an old prediction timestamp with a freshly captured price is
+        # exactly what made pre-cutoff rows unpublishable.
+        run_generated_at = timezone.now()
+        snapshots_created = 0
 
         for rec in recommendations:
             fixture_id = rec.get('fixture_id')
@@ -862,6 +869,32 @@ def log_recommendations(request):
                 'prediction_run_id': prediction_run_id,
             }
 
+            # ── Append the immutable snapshot for this run FIRST ──────────
+            # The snapshot is the authoritative record of what this run
+            # predicted at what price; PredictionLog below is only the
+            # latest-state view.
+            snapshot_row, snapshot_is_new = snapshot_recording.record_snapshot(
+                prediction_run_id=prediction_run_id,
+                prediction=existing,
+                fixture_id=fixture_id,
+                home_team=prediction_data.get('home_team'),
+                away_team=prediction_data.get('away_team'),
+                league=prediction_data.get('league'),
+                league_id=prediction_data.get('league_id'),
+                kickoff=prediction_data.get('kickoff'),
+                market_type=prediction_data.get('market_type'),
+                predicted_outcome=prediction_data.get('predicted_outcome'),
+                confidence=prediction_data.get('confidence'),
+                expected_value=prediction_data.get('expected_value'),
+                is_recommended=True,
+                model_version=prediction_data.get('ensemble_strategy'),
+                odds=bet_odds,
+                odds_provenance=odds_provenance,
+                prediction_generated_at=run_generated_at,
+            )
+            if snapshot_is_new:
+                snapshots_created += 1
+
             if existing:
                 # Update existing
                 for key, value in prediction_data.items():
@@ -884,13 +917,22 @@ def log_recommendations(request):
                     odds_provenance, timezone.now(), False, bet_odds,
                     prediction_data.get('market_type'),
                 )
-                PredictionLog.objects.create(fixture_id=fixture_id, **prediction_data)
+                created_row = PredictionLog.objects.create(
+                    fixture_id=fixture_id, **prediction_data
+                )
                 logged_count += 1
+                # Backfill the snapshot's convenience FK now the row exists.
+                if snapshot_row is not None and snapshot_row.prediction_id is None:
+                    PredictionSnapshot.objects.filter(
+                        pk=snapshot_row.snapshot_id
+                    ).update(prediction=created_row)
         
         return JsonResponse({
             'success': True,
             'logged_count': logged_count,
             'updated_count': updated_count,
+            'prediction_run_id': prediction_run_id,
+            'snapshots_created': snapshots_created,
             'skipped_blacklist': skipped_blacklist,
             'skipped_outcome': skipped_outcome,
             'skipped_high_ev': skipped_high_ev,

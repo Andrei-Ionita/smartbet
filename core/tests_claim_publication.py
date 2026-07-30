@@ -1,9 +1,14 @@
 """
-The claim-publication lifecycle: eligibility, publication, integrity, settlement.
+The claim lifecycle, now sourced from immutable PredictionSnapshots.
 
-`publish_prediction_claim` is the ONLY supported way to create a public claim —
-the manual staff workflow and the future gem selector both call it, so neither
-can drift from these rules.
+    Prediction run -> PredictionSnapshot (append-only)
+                   -> update latest-state PredictionLog
+                   -> staff chooses ONE snapshot
+                   -> PublishedClaim (immutable)
+                   -> PublishedClaimResult (immutable)
+
+`publish_prediction_claim(snapshot_id)` is the ONLY supported way to create a
+claim; the future gem selector will call it with a snapshot it ranked.
 """
 import json
 from datetime import timedelta
@@ -13,117 +18,386 @@ from django.test import TestCase
 from django.utils import timezone
 from rest_framework.test import APIClient
 
-from core.models import PredictionLog, PublishedClaim, PublishedClaimResult
-from core.services import claim_publication, public_universe
-from core.tests import _verified_pricing
+from core.models import (PredictionLog, PredictionSnapshot, PublishedClaim,
+                         PublishedClaimResult)
+from core.services import claim_publication, public_universe, snapshot_recording
 
 User = get_user_model()
 
 
-def make_prediction(fixture_id=960001, *, odds=1.85, confidence=0.64,
-                    kickoff_in=timedelta(days=2), recommended=True,
-                    status=PredictionLog.PRICING_VERIFIED, audit_excluded=False,
-                    provenance='ok', market='over_under_2.5'):
-    prov = None
-    if provenance == 'ok':
-        prov = _verified_pricing(odds)
-        prov['odds_captured_at'] = timezone.now().isoformat()
-    elif provenance == 'incomplete':
-        prov = dict(_verified_pricing(odds), odds_bookmaker_name=None)
+def provenance(odds=1.85, captured_at=None):
+    """Complete provenance, with a capture time coherent with `now`."""
+    captured = captured_at or (timezone.now() - timedelta(hours=1))
+    return {
+        'odds': odds,
+        'odds_market_id': 80,
+        'odds_market_description': 'Goals Over/Under',
+        'odds_line': 2.5,
+        'odds_label': 'Over',
+        'odds_bookmaker_id': 2,
+        'odds_bookmaker_name': 'bet365',
+        'odds_bookmaker_count': 5,
+        'odds_min': odds - 0.02,
+        'odds_max': odds + 0.02,
+        'odds_captured_at': captured.isoformat(),
+        'odds_fixture_id': None,
+        'odds_entry_id': 1,
+        'odds_selection_policy': 'lower_median_v1',
+    }
 
-    pred = PredictionLog.objects.create(
+
+def latest_state(fixture_id, *, odds=1.85, confidence=0.64,
+                 kickoff_in=timedelta(days=2), market='over_under_2.5',
+                 outcome='Over 2.5'):
+    """The mutable latest-state row for a fixture."""
+    return PredictionLog.objects.create(
         fixture_id=fixture_id, home_team='Falkirk', away_team='St. Mirren',
         league='Premiership', kickoff=timezone.now() + kickoff_in,
-        predicted_outcome='Over 2.5', market_type=market,
+        predicted_outcome=outcome, market_type=market,
         confidence=confidence, odds=odds,
         probability_home=0.5, probability_draw=0.25, probability_away=0.25,
-        is_recommended=recommended, is_audit_excluded=audit_excluded,
-        odds_provenance=prov, prediction_run_id='run-abc',
+        is_recommended=True, odds_provenance=provenance(odds),
     )
-    PredictionLog.objects.filter(pk=pred.pk).update(pricing_integrity_status=status)
-    pred.refresh_from_db()
-    return pred
 
 
-class EligibilityTests(TestCase):
+def record(pred, *, run_id='run-1', odds=1.85, confidence=0.64,
+           generated_at=None, prov='ok', captured_at=None,
+           is_recommended=True, audit_excluded=False, outcome=None,
+           market=None):
+    """Append a snapshot for a run, then classify it."""
+    if prov == 'ok':
+        prov_dict = provenance(odds, captured_at=captured_at)
+    elif prov == 'incomplete':
+        prov_dict = dict(provenance(odds, captured_at=captured_at),
+                         odds_bookmaker_name=None)
+    else:
+        prov_dict = None
 
-    def test_genuinely_verified_future_prediction_is_accepted(self):
-        pred = make_prediction(960010)
-        self.assertEqual(claim_publication.check_publication_eligibility(pred), [])
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        self.assertIsInstance(claim, PublishedClaim)
+    snap, created = snapshot_recording.record_snapshot(
+        prediction_run_id=run_id,
+        prediction=pred,
+        fixture_id=pred.fixture_id,
+        home_team=pred.home_team, away_team=pred.away_team,
+        league=pred.league, league_id=pred.league_id, kickoff=pred.kickoff,
+        market_type=market or pred.market_type,
+        predicted_outcome=outcome or pred.predicted_outcome,
+        confidence=confidence, expected_value=0.05,
+        is_recommended=is_recommended, model_version='consensus_ensemble',
+        odds=odds, odds_provenance=prov_dict,
+        prediction_generated_at=generated_at or timezone.now(),
+        is_audit_excluded=audit_excluded,
+    )
+    return snap, created
 
-    def test_legacy_source_rejected(self):
-        pred = make_prediction(960011, status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
+
+# ─────────────────────────────────────────────────────────────────────────────
+class SnapshotCreationTests(TestCase):
+
+    def test_new_fixture_creates_a_snapshot(self):
+        pred = latest_state(970001)
+        snap, created = record(pred, run_id='runA')
+        self.assertTrue(created)
+        self.assertEqual(PredictionSnapshot.objects.count(), 1)
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_VERIFIED)
+
+    def test_existing_fixture_in_a_NEW_run_creates_another_snapshot(self):
+        """The blocker this layer exists to solve."""
+        pred = latest_state(970002)
+        a, _ = record(pred, run_id='runA', odds=1.80)
+        b, _ = record(pred, run_id='runB', odds=1.70)
+
+        self.assertNotEqual(a.snapshot_id, b.snapshot_id)
+        self.assertEqual(PredictionSnapshot.objects.count(), 2)
+        self.assertEqual(a.odds, 1.80)
+        self.assertEqual(b.odds, 1.70)
+
+    def test_retrying_the_same_run_is_idempotent(self):
+        pred = latest_state(970003)
+        first, created1 = record(pred, run_id='runA')
+        second, created2 = record(pred, run_id='runA')
+        self.assertTrue(created1)
+        self.assertFalse(created2)
+        self.assertEqual(first.snapshot_id, second.snapshot_id)
+        self.assertEqual(PredictionSnapshot.objects.count(), 1)
+
+    def test_same_outcome_from_distinct_runs_is_two_observations(self):
+        pred = latest_state(970004)
+        record(pred, run_id='r09')
+        record(pred, run_id='r14')
+        record(pred, run_id='r19')
+        self.assertEqual(PredictionSnapshot.objects.count(), 3)
+
+    def test_snapshot_fields_are_internally_coherent(self):
+        pred = latest_state(970005, odds=1.9)
+        snap, _ = record(pred, run_id='runA', odds=1.9)
+        prov = snap.odds_provenance
+        self.assertEqual(snap.odds, prov['odds'])
+        self.assertEqual(snap.odds_captured_at.isoformat(),
+                         prov['odds_captured_at'])
+        self.assertLessEqual(snap.odds_captured_at, snap.prediction_generated_at)
+        self.assertLess(snap.prediction_generated_at, snap.kickoff)
+        self.assertEqual(public_universe.snapshot_timestamp_problems(snap), [])
+
+    def test_incomplete_provenance_creates_a_non_verified_snapshot(self):
+        pred = latest_state(970006)
+        snap, _ = record(pred, run_id='runA', prov='incomplete')
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_MISSING_PROVENANCE)
+
+    def test_pre_cutoff_run_cannot_create_a_verified_snapshot(self):
+        pred = latest_state(970007)
+        before = public_universe.PRICING_INTEGRITY_CUTOFF - timedelta(days=3)
+        snap, _ = record(pred, run_id='old', generated_at=before,
+                         captured_at=before - timedelta(hours=1))
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_LEGACY_UNVERIFIED)
+
+    def test_audit_excluded_snapshot_is_quarantined(self):
+        pred = latest_state(970008)
+        snap, _ = record(pred, run_id='runA', audit_excluded=True)
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_AUDIT_EXCLUDED)
+
+
+class SnapshotImmutabilityTests(TestCase):
+
+    def test_protected_fields_cannot_be_updated(self):
+        pred = latest_state(971001)
+        snap, _ = record(pred, run_id='runA')
+        snap.odds = 9.99
+        with self.assertRaises(ValueError):
+            snap.save()
+
+    def test_latest_state_changes_do_not_change_the_snapshot(self):
+        pred = latest_state(971002, odds=1.78)
+        snap, _ = record(pred, run_id='runA', odds=1.78)
+
+        pred.odds = 3.50
+        pred.predicted_outcome = 'Under 2.5'
+        pred.confidence = 0.99
+        pred.save()
+
+        snap.refresh_from_db()
+        self.assertEqual(snap.odds, 1.78)
+        self.assertEqual(snap.predicted_outcome, 'Over 2.5')
+        self.assertTrue(snap.verify_integrity())
+
+    def test_new_model_output_appends_rather_than_rewrites(self):
+        pred = latest_state(971003, odds=1.78)
+        old, _ = record(pred, run_id='runA', odds=1.78, confidence=0.64)
+        new, _ = record(pred, run_id='runB', odds=2.10, confidence=0.61)
+
+        old.refresh_from_db()
+        self.assertEqual(old.odds, 1.78)
+        self.assertEqual(old.confidence, 0.64)
+        self.assertEqual(new.odds, 2.10)
+        self.assertTrue(old.verify_integrity())
+        self.assertTrue(new.verify_integrity())
+
+    def test_correction_leaves_the_original_snapshot_intact(self):
+        pred = latest_state(971004, odds=1.78)
+        original, _ = record(pred, run_id='runA', odds=1.78)
+        original_hash = original.snapshot_hash
+
+        corrected = original.correct('price restated', odds=1.72)
+
+        original.refresh_from_db()
+        self.assertEqual(original.odds, 1.78)
+        self.assertEqual(original.snapshot_hash, original_hash)
+        self.assertTrue(original.verify_integrity())
+        self.assertEqual(corrected.supersedes_id, original.snapshot_id)
+        self.assertTrue(original.is_superseded)
+
+    def test_raw_db_tampering_is_detected(self):
+        pred = latest_state(971005)
+        snap, _ = record(pred, run_id='runA')
+        PredictionSnapshot.objects.filter(pk=snap.snapshot_id).update(odds=42.0)
+        snap.refresh_from_db()
+        self.assertFalse(snap.verify_integrity())
+
+
+class TimestampIntegrityTests(TestCase):
+
+    def test_same_run_coherent_timestamps_accepted(self):
+        pred = latest_state(972001)
+        snap, _ = record(pred, run_id='runA')
+        self.assertEqual(public_universe.snapshot_timestamp_problems(snap), [])
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_VERIFIED)
+
+    def test_old_prediction_with_fresh_odds_is_rejected(self):
+        """The exact pre-cutoff defect: stale prediction, fresh price."""
+        pred = latest_state(972002)
+        snap = PredictionSnapshot(
+            prediction_run_id='bad', prediction=pred,
+            fixture_id=pred.fixture_id, home_team=pred.home_team,
+            away_team=pred.away_team, league=pred.league, kickoff=pred.kickoff,
+            market_type=pred.market_type, predicted_outcome=pred.predicted_outcome,
+            confidence=0.64, is_recommended=True, odds=1.85,
+            odds_provenance=provenance(1.85, captured_at=timezone.now()),
+            odds_captured_at=timezone.now(),
+            # Generated 10 days ago, priced now -> incoherent.
+            prediction_generated_at=timezone.now() - timedelta(days=10),
+        )
+        problems = public_universe.snapshot_timestamp_problems(snap)
+        self.assertIn('odds_captured_after_prediction', problems)
+
+    def test_stale_odds_with_fresh_prediction_is_rejected(self):
+        pred = latest_state(972003)
+        snap, _ = record(pred, run_id='runA',
+                         captured_at=timezone.now() - timedelta(days=10))
+        self.assertIn('odds_stale_relative_to_prediction',
+                      public_universe.snapshot_timestamp_problems(snap))
+        self.assertEqual(snap.pricing_integrity_status,
+                         PredictionLog.PRICING_MISSING_PROVENANCE)
+
+    def test_post_kickoff_snapshot_is_rejected(self):
+        pred = latest_state(972004, kickoff_in=timedelta(hours=1))
+        snap, _ = record(pred, run_id='runA',
+                         generated_at=timezone.now() + timedelta(hours=2))
+        problems = public_universe.snapshot_timestamp_problems(snap)
+        self.assertIn('prediction_generated_after_kickoff', problems)
+
+    def test_odds_captured_after_kickoff_is_rejected(self):
+        pred = latest_state(972005, kickoff_in=timedelta(hours=2))
+        snap = PredictionSnapshot(
+            prediction_run_id='bad2', prediction=pred,
+            fixture_id=pred.fixture_id, home_team=pred.home_team,
+            away_team=pred.away_team, league=pred.league, kickoff=pred.kickoff,
+            market_type=pred.market_type, predicted_outcome=pred.predicted_outcome,
+            confidence=0.64, is_recommended=True, odds=1.85,
+            odds_provenance=provenance(1.85),
+            odds_captured_at=pred.kickoff + timedelta(hours=1),
+            prediction_generated_at=pred.kickoff + timedelta(hours=2),
+        )
+        self.assertIn('odds_captured_after_kickoff',
+                      public_universe.snapshot_timestamp_problems(snap))
+
+    def test_odds_captured_before_prediction_is_normal(self):
+        """The documented capture sequence: a price exists before we read it."""
+        pred = latest_state(972006)
+        snap, _ = record(pred, run_id='runA',
+                         captured_at=timezone.now() - timedelta(hours=6))
+        self.assertEqual(public_universe.snapshot_timestamp_problems(snap), [])
+
+
+class PublicationFromSnapshotTests(TestCase):
+
+    def test_verified_snapshot_can_be_published(self):
+        pred = latest_state(973001, odds=1.78)
+        snap, _ = record(pred, run_id='runA', odds=1.78)
+        claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
+
+        self.assertEqual(claim.snapshot_id, snap.snapshot_id)
+        self.assertEqual(claim.odds, 1.78)
+        self.assertEqual(claim.prediction_generated_at, snap.prediction_generated_at)
+        self.assertTrue(claim.verify_integrity())
+
+    def test_source_snapshot_id_is_preserved(self):
+        pred = latest_state(973002)
+        snap, _ = record(pred, run_id='runA')
+        claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertEqual(str(claim.snapshot_id), str(snap.snapshot_id))
+        self.assertIn(str(snap.snapshot_id),
+                      json.dumps(claim.canonical_payload()))
+
+    def test_legacy_snapshot_cannot_be_published(self):
+        pred = latest_state(973003)
+        before = public_universe.PRICING_INTEGRITY_CUTOFF - timedelta(days=3)
+        snap, _ = record(pred, run_id='old', generated_at=before,
+                         captured_at=before - timedelta(hours=1))
         with self.assertRaises(claim_publication.PublicationError) as ctx:
-            claim_publication.publish_prediction_claim(pred.pk)
-        self.assertEqual(ctx.exception.reason, 'ineligible')
+            claim_publication.publish_prediction_claim(snap.snapshot_id)
         self.assertIn('pricing_not_verified', ctx.exception.detail)
 
-    def test_audit_excluded_source_rejected(self):
-        pred = make_prediction(960012, audit_excluded=True,
-                               status=PredictionLog.PRICING_AUDIT_EXCLUDED)
+    def test_incomplete_provenance_snapshot_cannot_be_published(self):
+        pred = latest_state(973004)
+        snap, _ = record(pred, run_id='runA', prov='incomplete')
         with self.assertRaises(claim_publication.PublicationError):
-            claim_publication.publish_prediction_claim(pred.pk)
+            claim_publication.publish_prediction_claim(snap.snapshot_id)
 
-    def test_incomplete_provenance_rejected(self):
-        pred = make_prediction(960013, provenance='incomplete')
-        problems = claim_publication.check_publication_eligibility(pred)
-        self.assertTrue(any(p.startswith('incomplete_provenance') for p in problems))
-        with self.assertRaises(claim_publication.PublicationError):
-            claim_publication.publish_prediction_claim(pred.pk)
+    def test_latest_state_mutation_affects_neither_snapshot_nor_claim(self):
+        pred = latest_state(973005, odds=1.78)
+        snap, _ = record(pred, run_id='runA', odds=1.78)
+        claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
 
-    def test_started_fixture_rejected(self):
-        pred = make_prediction(960014, kickoff_in=-timedelta(hours=1))
-        problems = claim_publication.check_publication_eligibility(pred)
-        self.assertIn('fixture_already_started', problems)
-        with self.assertRaises(claim_publication.PublicationError):
-            claim_publication.publish_prediction_claim(pred.pk)
+        pred.odds = 9.99
+        pred.predicted_outcome = 'Under 2.5'
+        pred.save()
 
-    def test_non_recommended_source_rejected(self):
-        pred = make_prediction(960015, recommended=False)
-        self.assertIn('not_recommended',
-                      claim_publication.check_publication_eligibility(pred))
+        snap.refresh_from_db()
+        claim.refresh_from_db()
+        self.assertEqual(snap.odds, 1.78)
+        self.assertEqual(claim.odds, 1.78)
+        self.assertEqual(claim.predicted_outcome, 'Over 2.5')
+        self.assertTrue(claim.verify_integrity())
 
-    def test_old_row_updated_after_cutoff_is_rejected_while_legacy(self):
-        """A pre-cutoff row given fresh provenance is still not publishable.
+    def test_repeated_publication_is_idempotent(self):
+        pred = latest_state(973006)
+        snap, _ = record(pred, run_id='runA')
+        a = claim_publication.publish_prediction_claim(snap.snapshot_id)
+        b = claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertEqual(a.claim_id, b.claim_id)
+        self.assertEqual(PublishedClaim.objects.count(), 1)
 
-        Its prediction timestamp predates the cutoff, so pairing it with a
-        freshly captured price would itself be a false claim.
-        """
-        pred = make_prediction(960016, status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
-        PredictionLog.objects.filter(pk=pred.pk).update(
-            prediction_logged_at=public_universe.PRICING_INTEGRITY_CUTOFF
-            - timedelta(days=5)
-        )
-        pred.refresh_from_db()
-        # Even with complete provenance, classification keeps it legacy...
-        self.assertEqual(public_universe.classify_row(pred),
-                         PredictionLog.PRICING_LEGACY_UNVERIFIED)
-        # ...and publication refuses it.
-        with self.assertRaises(claim_publication.PublicationError):
-            claim_publication.publish_prediction_claim(pred.pk)
-
-    def test_odds_captured_after_kickoff_rejected(self):
-        pred = make_prediction(960017)
-        prov = dict(pred.odds_provenance)
-        prov['odds_captured_at'] = (pred.kickoff + timedelta(hours=1)).isoformat()
-        PredictionLog.objects.filter(pk=pred.pk).update(odds_provenance=prov)
-        pred.refresh_from_db()
-        self.assertIn('odds_captured_after_kickoff',
-                      claim_publication.check_publication_eligibility(pred))
-
-    def test_unknown_prediction_reports_not_found(self):
+    def test_tampered_snapshot_cannot_be_published(self):
+        pred = latest_state(973007)
+        snap, _ = record(pred, run_id='runA')
+        PredictionSnapshot.objects.filter(pk=snap.snapshot_id).update(odds=42.0)
         with self.assertRaises(claim_publication.PublicationError) as ctx:
-            claim_publication.publish_prediction_claim(123456789)
-        self.assertEqual(ctx.exception.reason, 'prediction_not_found')
+            claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertEqual(ctx.exception.reason, 'snapshot_integrity_failed')
+
+    def test_superseded_snapshot_cannot_be_published(self):
+        pred = latest_state(973008)
+        snap, _ = record(pred, run_id='runA')
+        snap.correct('restated', odds=1.70)
+        with self.assertRaises(claim_publication.PublicationError) as ctx:
+            claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertIn('snapshot_superseded', ctx.exception.detail)
+
+    def test_unknown_snapshot_reports_not_found(self):
+        with self.assertRaises(claim_publication.PublicationError) as ctx:
+            claim_publication.publish_prediction_claim(
+                '00000000-0000-4000-8000-000000000000')
+        self.assertEqual(ctx.exception.reason, 'snapshot_not_found')
+
+    def test_publishing_an_OLDER_snapshot_requires_an_explicit_choice(self):
+        pred = latest_state(973009)
+        older, _ = record(pred, run_id='runA', odds=1.80)
+        newer, _ = record(pred, run_id='runB', odds=1.70)
+
+        # The compatibility wrapper refuses to choose between them.
+        with self.assertRaises(claim_publication.PublicationError) as ctx:
+            claim_publication.publish_for_prediction(pred.pk)
+        self.assertEqual(ctx.exception.reason, 'ambiguous_snapshot')
+
+        # An explicit choice of the older snapshot still works.
+        claim = claim_publication.publish_prediction_claim(older.snapshot_id)
+        self.assertEqual(claim.odds, 1.80)
+
+    def test_compatibility_wrapper_works_when_unambiguous(self):
+        pred = latest_state(973010)
+        snap, _ = record(pred, run_id='runA')
+        claim = claim_publication.publish_for_prediction(pred.pk)
+        self.assertEqual(claim.snapshot_id, snap.snapshot_id)
+
+    def test_no_partial_claim_on_failure(self):
+        pred = latest_state(973011)
+        snap, _ = record(pred, run_id='runA', prov='incomplete')
+        with self.assertRaises(claim_publication.PublicationError):
+            claim_publication.publish_prediction_claim(snap.snapshot_id)
+        self.assertEqual(PublishedClaim.objects.count(), 0)
+        self.assertEqual(PublishedClaimResult.objects.count(), 0)
 
 
 class PublicationEndpointTests(TestCase):
 
     def setUp(self):
-        self.pred = make_prediction(961001)
-        self.url = f'/api/proof/{self.pred.pk}/publish/'
+        self.pred = latest_state(974001)
+        self.snap, _ = record(self.pred, run_id='runA')
+        self.url = f'/api/proof/snapshot/{self.snap.snapshot_id}/publish/'
 
     def _api(self, user=None):
         api = APIClient()
@@ -137,9 +411,8 @@ class PublicationEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 201)
         body = json.loads(resp.content)
         self.assertTrue(body['success'])
+        self.assertEqual(body['source_snapshot_id'], str(self.snap.snapshot_id))
         self.assertIn('/proof/claim/', body['proof_url'])
-        self.assertEqual(len(body['claim_hash']), 64)
-        self.assertEqual(PublishedClaim.objects.count(), 1)
 
     def test_anonymous_cannot_publish(self):
         self.assertIn(self._api().post(self.url).status_code, (401, 403))
@@ -152,352 +425,110 @@ class PublicationEndpointTests(TestCase):
 
     def test_get_cannot_create_a_claim(self):
         root = User.objects.create_superuser('root2', 'r2@e.com', 'pw12345!')
-        resp = self._api(root).get(self.url)
-        self.assertEqual(resp.status_code, 405)
+        self.assertEqual(self._api(root).get(self.url).status_code, 405)
         self.assertEqual(PublishedClaim.objects.count(), 0)
 
     def test_repeated_post_is_idempotent(self):
         root = User.objects.create_superuser('root3', 'r3@e.com', 'pw12345!')
         api = self._api(root)
-        first = json.loads(api.post(self.url).content)
-        second = json.loads(api.post(self.url).content)
-        self.assertEqual(first['claim_id'], second['claim_id'])
+        a = json.loads(api.post(self.url).content)
+        b = json.loads(api.post(self.url).content)
+        self.assertEqual(a['claim_id'], b['claim_id'])
         self.assertEqual(PublishedClaim.objects.count(), 1)
-
-    def test_ineligible_source_returns_a_reason_not_a_claim(self):
-        legacy = make_prediction(961002,
-                                 status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
-        root = User.objects.create_superuser('root4', 'r4@e.com', 'pw12345!')
-        resp = self._api(root).post(f'/api/proof/{legacy.pk}/publish/')
-        self.assertEqual(resp.status_code, 400)
-        body = json.loads(resp.content)
-        self.assertFalse(body['success'])
-        self.assertEqual(body['reason'], 'ineligible')
-        self.assertEqual(PublishedClaim.objects.count(), 0)
 
     def test_publication_is_never_automatic(self):
-        """Becoming verified must not publish anything on its own."""
-        make_prediction(961003)
+        latest_state(974002)
         self.assertEqual(PublishedClaim.objects.count(), 0)
 
 
-class IdempotencyAndImmutabilityTests(TestCase):
+class StaffPreviewShowsSnapshotsTests(TestCase):
 
-    def test_source_mutation_after_publication_does_not_affect_the_claim(self):
-        pred = make_prediction(962001, odds=1.78)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        original_hash = claim.claim_hash
+    def _staff_api(self, name='root4'):
+        root = User.objects.create_superuser(name, f'{name}@e.com', 'pw12345!')
+        api = APIClient()
+        api.force_authenticate(user=root)
+        return api
 
-        pred.odds = 3.50
-        pred.predicted_outcome = 'Under 2.5'
-        pred.confidence = 0.99
-        pred.save()
-
-        claim.refresh_from_db()
-        self.assertEqual(claim.odds, 1.78)
-        self.assertEqual(claim.predicted_outcome, 'Over 2.5')
-        self.assertEqual(claim.claim_hash, original_hash)
-        self.assertTrue(claim.verify_integrity())
-
-    def test_republishing_after_source_mutation_returns_the_original(self):
-        pred = make_prediction(962002, odds=1.78)
-        first = claim_publication.publish_prediction_claim(pred.pk)
-        pred.odds = 3.50
-        pred.save()
-        again = claim_publication.publish_prediction_claim(pred.pk)
-        self.assertEqual(first.claim_id, again.claim_id)
-        self.assertEqual(again.odds, 1.78)
-        self.assertEqual(PublishedClaim.objects.count(), 1)
-
-    def test_duplicate_claim_creation_is_prevented(self):
-        pred = make_prediction(962003)
-        for _ in range(4):
-            claim_publication.publish_prediction_claim(pred.pk)
-        self.assertEqual(PublishedClaim.objects.count(), 1)
-
-    def test_ineligible_publication_leaves_no_partial_claim(self):
-        pred = make_prediction(962004, provenance=None)
-        with self.assertRaises(claim_publication.PublicationError):
-            claim_publication.publish_prediction_claim(pred.pk)
-        self.assertEqual(PublishedClaim.objects.count(), 0)
-        self.assertEqual(PublishedClaimResult.objects.count(), 0)
-
-
-class CanonicalHashTests(TestCase):
-
-    def test_hash_is_deterministic(self):
-        pred = make_prediction(963001)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        self.assertEqual(claim.compute_hash(), claim.compute_hash())
-        self.assertEqual(claim.claim_hash_version, 'v1')
-
-    def test_provenance_key_order_does_not_change_the_hash(self):
-        pred = make_prediction(963002)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        baseline = claim.compute_hash()
-        # Same content, different insertion order.
-        claim.odds_provenance = dict(reversed(list(claim.odds_provenance.items())))
-        self.assertEqual(claim.compute_hash(), baseline)
-
-    def test_decimal_formatting_is_stable(self):
-        pred = make_prediction(963003, odds=1.8)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        baseline = claim.compute_hash()
-        claim.odds = 1.80  # same number, different literal
-        self.assertEqual(claim.compute_hash(), baseline)
-
-    def test_mutating_any_protected_field_fails_verification(self):
-        cases = [
-            ('odds', 9.99),
-            ('predicted_outcome', 'Under 2.5'),
-            ('confidence', 0.99),
-            ('market_type', '1x2'),
-            ('home_team', 'Someone Else'),
-            ('league', 'Другая лига'),
-        ]
-        for i, (field, value) in enumerate(cases):
-            pred = make_prediction(963100 + i)
-            claim = claim_publication.publish_prediction_claim(pred.pk)
-            self.assertTrue(claim.verify_integrity())
-
-            # A raw UPDATE bypasses save(), the way a direct DB edit would.
-            PublishedClaim.objects.filter(pk=claim.claim_id).update(**{field: value})
-            claim.refresh_from_db()
-            self.assertFalse(claim.verify_integrity(),
-                             f'tampering with {field} was not detected')
-
-    def test_settlement_does_not_invalidate_the_claim_hash(self):
-        pred = make_prediction(963005)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        before = claim.claim_hash
-
-        pred.was_correct = True
-        pred.actual_score_home, pred.actual_score_away = 3, 1
-        pred.save()
-        claim_publication.settle_published_claim(claim)
-
-        claim.refresh_from_db()
-        self.assertEqual(claim.claim_hash, before)
-        self.assertTrue(claim.verify_integrity())
-
-    def test_tampered_claim_never_enters_performance(self):
-        pred = make_prediction(963006)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        pred.was_correct = True
-        pred.save()
-        claim_publication.settle_published_claim(claim)
-        self.assertEqual(len(public_universe.resolved_claims()), 1)
-
-        PublishedClaim.objects.filter(pk=claim.claim_id).update(odds=50.0)
-        self.assertEqual(len(public_universe.resolved_claims()), 0)
-
-
-class SettlementTests(TestCase):
-
-    def _published(self, fixture_id):
-        pred = make_prediction(fixture_id)
-        return pred, claim_publication.publish_prediction_claim(pred.pk)
-
-    def test_pending_until_settled(self):
-        _, claim = self._published(964001)
-        self.assertEqual(claim.result_status, PublishedClaim.STATUS_PENDING)
-        self.assertFalse(claim.is_resolved)
-
-    def test_valid_transitions_from_pending(self):
-        cases = [
-            (964010, {'was_correct': True}, PublishedClaim.STATUS_WON),
-            (964011, {'was_correct': False}, PublishedClaim.STATUS_LOST),
-            (964012, {'match_status': 'POSTP'}, PublishedClaim.STATUS_VOID),
-            (964013, {'match_status': 'CANC'}, PublishedClaim.STATUS_CANCELLED),
-        ]
-        for fixture_id, updates, expected in cases:
-            pred, claim = self._published(fixture_id)
-            for k, v in updates.items():
-                setattr(pred, k, v)
-            pred.save()
-            claim_publication.settle_published_claim(claim)
-            self.assertEqual(claim.result_status, expected, f'{fixture_id}')
-
-    def test_settlement_is_idempotent(self):
-        pred, claim = self._published(964020)
-        pred.was_correct = True
-        pred.save()
-        first = claim_publication.settle_published_claim(claim)
-        second = claim_publication.settle_published_claim(claim)
-        self.assertEqual(first.pk, second.pk)
-        self.assertEqual(PublishedClaimResult.objects.count(), 1)
-
-    def test_contradictory_settlement_is_rejected(self):
-        pred, claim = self._published(964021)
-        pred.was_correct = True
-        pred.save()
-        claim_publication.settle_published_claim(claim)
-
-        with self.assertRaises(claim_publication.SettlementError) as ctx:
-            claim_publication.settle_published_claim(
-                claim, status=PublishedClaim.STATUS_LOST)
-        self.assertEqual(ctx.exception.reason, 'contradictory_settlement')
-        self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
-
-    def test_cannot_settle_back_to_pending(self):
-        _, claim = self._published(964022)
-        with self.assertRaises(claim_publication.SettlementError):
-            claim_publication.settle_published_claim(
-                claim, status=PublishedClaim.STATUS_PENDING)
-
-    def test_settling_an_unsettled_fixture_is_refused(self):
-        _, claim = self._published(964023)
-        with self.assertRaises(claim_publication.SettlementError) as ctx:
-            claim_publication.settle_published_claim(claim)
-        self.assertEqual(ctx.exception.reason, 'not_settled_yet')
-
-    def test_result_record_is_itself_immutable(self):
-        pred, claim = self._published(964024)
-        pred.was_correct = True
-        pred.save()
-        result = claim_publication.settle_published_claim(claim)
-        result.status = PublishedClaim.STATUS_LOST
-        with self.assertRaises(ValueError):
-            result.save()
-
-    def test_settlement_records_the_third_party_source(self):
-        pred, claim = self._published(964025)
-        pred.was_correct = True
-        pred.match_status = 'FT'
-        pred.save()
-        result = claim_publication.settle_published_claim(claim)
-        self.assertEqual(result.result_source, 'sportmonks')
-        self.assertIn(str(pred.fixture_id), result.result_reference)
-
-    def test_void_and_cancelled_are_excluded_from_performance(self):
-        for fixture_id, status in [(964030, 'POSTP'), (964031, 'CANC')]:
-            pred, claim = self._published(fixture_id)
-            pred.match_status = status
-            pred.save()
-            claim_publication.settle_published_claim(claim)
-        self.assertEqual(len(public_universe.resolved_claims()), 0)
-
-    def test_original_claim_fields_survive_settlement(self):
-        pred, claim = self._published(964040)
-        snapshot = {f: getattr(claim, f) for f in
-                    ('odds', 'confidence', 'predicted_outcome', 'market_type',
-                     'kickoff', 'published_at', 'prediction_generated_at')}
-        pred.was_correct = False
-        pred.save()
-        claim_publication.settle_published_claim(claim)
-
-        claim.refresh_from_db()
-        for field, value in snapshot.items():
-            self.assertEqual(getattr(claim, field), value, field)
-
-    def test_win_and_loss_receive_equal_treatment(self):
-        pred_w, claim_w = self._published(964050)
-        pred_w.was_correct = True
-        pred_w.save()
-        claim_publication.settle_published_claim(claim_w)
-
-        pred_l, claim_l = self._published(964051)
-        pred_l.was_correct = False
-        pred_l.save()
-        claim_publication.settle_published_claim(claim_l)
-
-        won = json.loads(self.client.get(f'/api/proof/claim/{claim_w.claim_id}/').content)
-        lost = json.loads(self.client.get(f'/api/proof/claim/{claim_l.claim_id}/').content)
-
-        self.assertEqual(won['result']['status'], 'WON')
-        self.assertEqual(lost['result']['status'], 'LOST')
-        # Identical shape — a loss is presented exactly like a win.
-        self.assertEqual(set(won.keys()), set(lost.keys()))
-        self.assertEqual(set(won['pick'].keys()), set(lost['pick'].keys()))
-        self.assertEqual(set(won['result'].keys()), set(lost['result'].keys()))
-
-
-class StableClaimUrlTests(TestCase):
-
-    def test_claim_url_serves_only_frozen_fields(self):
-        pred = make_prediction(965001, odds=1.78)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-
-        pred.odds = 9.99
-        pred.save()
+    def test_multiple_snapshots_are_shown_distinctly(self):
+        pred = latest_state(975001)
+        older, _ = record(pred, run_id='r09', odds=1.80)
+        newer, _ = record(pred, run_id='r14', odds=1.70)
 
         body = json.loads(
-            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
-        self.assertEqual(body['pick']['odds'], 1.78)
-        self.assertTrue(body['integrity_ok'])
-        self.assertEqual(body['claim_id'], str(claim.claim_id))
+            self._staff_api().get(f'/api/proof/{pred.fixture_id}/preview/').content)
+        snaps = body['snapshots']
+        self.assertEqual(len(snaps), 2)
+        ids = {s['snapshot_id'] for s in snaps}
+        self.assertEqual(ids, {str(older.snapshot_id), str(newer.snapshot_id)})
 
-    def test_unknown_claim_uuid_is_unpublished(self):
-        resp = self.client.get(
-            '/api/proof/claim/00000000-0000-4000-8000-000000000000/')
-        self.assertEqual(resp.status_code, 404)
+        by_id = {s['snapshot_id']: s for s in snaps}
+        self.assertTrue(by_id[str(newer.snapshot_id)]['is_newest'])
+        self.assertTrue(by_id[str(older.snapshot_id)]['newer_snapshot_exists'])
+        # Each row carries what the founder needs to choose.
+        for s in snaps:
+            for key in ('prediction_run_id', 'prediction_generated_at', 'odds',
+                        'bookmaker', 'odds_captured_at', 'model_version',
+                        'pricing_integrity_status', 'publication_blockers',
+                        'model_score_percent', 'publish_endpoint'):
+                self.assertIn(key, s)
+
+    def test_the_exact_snapshot_selected_is_the_one_published(self):
+        pred = latest_state(975002)
+        older, _ = record(pred, run_id='r09', odds=1.80)
+        record(pred, run_id='r14', odds=1.70)
+
+        api = self._staff_api('root5')
+        resp = api.post(f'/api/proof/snapshot/{older.snapshot_id}/publish/')
+        self.assertEqual(resp.status_code, 201)
         body = json.loads(resp.content)
+        self.assertEqual(body['source_snapshot_id'], str(older.snapshot_id))
+        self.assertEqual(body['frozen']['odds'], 1.80)
+
+    def test_public_endpoints_do_not_expose_unpublished_snapshots(self):
+        pred = latest_state(975003)
+        snap, _ = record(pred, run_id='runA')
+
+        body = json.loads(self.client.get(f'/api/proof/{pred.fixture_id}/').content)
         self.assertFalse(body['published'])
         self.assertNotIn('pick', body)
+        self.assertNotIn(str(snap.snapshot_id), json.dumps(body))
 
-    def test_pending_card_uses_restrained_language(self):
-        pred = make_prediction(965002)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        body = json.loads(
-            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
-
-        self.assertEqual(body['result']['status'], 'PENDING')
-        self.assertIn('Published before kickoff', body['note'])
-        blob = json.dumps(body).lower()
-        for banned in ('proven accuracy', 'guaranteed', 'sure bet',
-                       'easy money', 'you need to win'):
-            self.assertNotIn(banned, blob)
-
-    def test_pending_card_exposes_the_frozen_price_provenance(self):
-        pred = make_prediction(965003)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        pick = json.loads(
-            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)['pick']
-
-        self.assertEqual(pick['bookmaker'], 'bet365')
-        self.assertEqual(pick['odds_market'], 'Goals Over/Under')
-        self.assertIsNotNone(pick['odds_captured_at'])
-        self.assertIsNotNone(pick['published_at'])
-        # Model score must be labelled as a score, not a calibrated probability.
-        self.assertIn('model_score_percent', pick)
-
-    def test_tampered_claim_returns_a_safe_integrity_error_state(self):
-        pred = make_prediction(965004)
-        claim = claim_publication.publish_prediction_claim(pred.pk)
-        PublishedClaim.objects.filter(pk=claim.claim_id).update(odds=50.0)
-
-        body = json.loads(
-            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
-        self.assertFalse(body['integrity_ok'])
-        self.assertIn('integrity check', body['integrity_error'])
+    def test_preview_is_staff_only(self):
+        pred = latest_state(975004)
+        record(pred, run_id='runA')
+        url = f'/api/proof/{pred.fixture_id}/preview/'
+        self.assertIn(APIClient().get(url).status_code, (401, 403))
 
 
-class StaffPreviewShowsWhatWillBeFrozenTests(TestCase):
+class PublicPerformanceStillClaimBasedTests(TestCase):
 
-    def test_preview_lists_frozen_fields_and_publish_endpoint(self):
-        pred = make_prediction(966001)
-        root = User.objects.create_superuser('root5', 'r5@e.com', 'pw12345!')
-        api = APIClient()
-        api.force_authenticate(user=root)
+    def test_snapshots_alone_do_not_enter_performance(self):
+        from core.services.accuracy_calculator import AccuracyCalculator
 
-        body = json.loads(api.get(f'/api/proof/{pred.fixture_id}/preview/').content)
-        self.assertEqual(body['state'], 'staff_preview')
-        self.assertIn('MUTABLE PREVIEW', body['warning'])
-        self.assertTrue(body['publishable'])
-        self.assertEqual(body['publication_blockers'], [])
-        for field in ('fixture_id', 'market_type', 'predicted_outcome', 'odds',
-                      'bookmaker', 'odds_captured_at', 'prediction_generated_at'):
-            self.assertIn(field, body['will_freeze'])
-        self.assertEqual(body['publish_endpoint'], f'/api/proof/{pred.pk}/publish/')
+        pred = latest_state(976001, kickoff_in=-timedelta(days=1))
+        record(pred, run_id='runA', generated_at=timezone.now() - timedelta(days=2),
+               captured_at=timezone.now() - timedelta(days=2, hours=1))
+        pred.was_correct = True
+        pred.actual_outcome = 'Over 2.5'
+        pred.save()
 
-    def test_preview_reports_blockers_for_an_ineligible_source(self):
-        pred = make_prediction(966002,
-                               status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
-        root = User.objects.create_superuser('root6', 'r6@e.com', 'pw12345!')
-        api = APIClient()
-        api.force_authenticate(user=root)
+        self.assertEqual(len(public_universe.resolved_claims()), 0)
+        self.assertEqual(
+            AccuracyCalculator().get_roi_simulation()['total_bets'], 0)
 
-        body = json.loads(api.get(f'/api/proof/{pred.fixture_id}/preview/').content)
-        self.assertFalse(body['publishable'])
-        self.assertTrue(
-            any('pricing_not_verified' in b for b in body['publication_blockers']))
+    def test_published_and_settled_claim_enters_performance(self):
+        from core.services.accuracy_calculator import AccuracyCalculator
+
+        pred = latest_state(976002, odds=2.0)
+        snap, _ = record(pred, run_id='runA', odds=2.0)
+        claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
+
+        pred.was_correct = True
+        pred.actual_outcome = 'Over 2.5'
+        pred.save()
+        claim_publication.settle_published_claim(claim)
+
+        self.assertEqual(len(public_universe.resolved_claims()), 1)
+        roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
+        self.assertEqual(roi['total_bets'], 1)
+        self.assertEqual(roi['total_profit_loss'], 10.0)

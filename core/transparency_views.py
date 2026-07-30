@@ -450,6 +450,108 @@ def proof_by_claim(request, claim_id):
     return Response(_serialize_claim(claim))
 
 
+def _snapshot_list_for(pred):
+    """Every snapshot for this fixture, newest first, with publishability."""
+    from core.models import PredictionSnapshot
+
+    snaps = list(
+        PredictionSnapshot.objects.filter(fixture_id=pred.fixture_id)
+        .order_by('-prediction_generated_at')
+    )
+    if not snaps:
+        return []
+    newest = snaps[0].prediction_generated_at
+    return [_serialize_snapshot(s, newest_generated_at=newest) for s in snaps]
+
+
+def _serialize_snapshot(snapshot, newest_generated_at=None):
+    """Staff-facing view of one immutable snapshot and its publishability."""
+    from core.services import claim_publication
+
+    prov = snapshot.odds_provenance or {}
+    conf = snapshot.confidence or 0.0
+    blockers = claim_publication.check_snapshot_publication_eligibility(snapshot)
+    existing = snapshot.published_claims.filter(superseded_by__isnull=True).first()
+
+    return {
+        'snapshot_id': str(snapshot.snapshot_id),
+        'prediction_run_id': snapshot.prediction_run_id,
+        'prediction_generated_at': snapshot.prediction_generated_at.isoformat(),
+        'snapshot_created_at': snapshot.snapshot_created_at.isoformat(),
+        'market_type': snapshot.market_type,
+        'predicted_outcome': snapshot.predicted_outcome,
+        'model_score_percent': round(conf * 100, 1) if conf <= 1 else round(conf, 1),
+        'odds': snapshot.odds,
+        'bookmaker': prov.get('odds_bookmaker_name'),
+        'odds_market': prov.get('odds_market_description'),
+        'odds_line': prov.get('odds_line'),
+        'odds_captured_at': (
+            snapshot.odds_captured_at.isoformat() if snapshot.odds_captured_at else None
+        ),
+        'model_version': snapshot.model_version,
+        'kickoff': snapshot.kickoff.isoformat(),
+        'pricing_integrity_status': snapshot.pricing_integrity_status,
+        'integrity_ok': snapshot.verify_integrity(),
+        'is_recommended': snapshot.is_recommended,
+        'is_superseded': snapshot.is_superseded,
+        'publication_blockers': blockers,
+        'publishable': not blockers,
+        # So the founder can see they are not looking at the freshest state.
+        'is_newest': (
+            newest_generated_at is None
+            or snapshot.prediction_generated_at >= newest_generated_at
+        ),
+        'newer_snapshot_exists': (
+            newest_generated_at is not None
+            and snapshot.prediction_generated_at < newest_generated_at
+        ),
+        'already_published_claim_id': str(existing.claim_id) if existing else None,
+        'publish_endpoint': f'/api/proof/snapshot/{snapshot.snapshot_id}/publish/',
+    }
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def publish_snapshot_view(request, snapshot_id):
+    """
+    POST /api/proof/snapshot/<snapshot_uuid>/publish/ — STAFF ONLY.
+
+    The PRIMARY publication route. Freezes one explicitly chosen immutable
+    snapshot into a public claim. Publication is never automatic and never
+    silently picks "latest".
+    """
+    from core.services import claim_publication
+
+    try:
+        claim = claim_publication.publish_prediction_claim(
+            snapshot_id, published_by=request.user
+        )
+    except claim_publication.PublicationError as exc:
+        status_code = 404 if exc.reason == 'snapshot_not_found' else 400
+        return Response({
+            'success': False, 'reason': exc.reason, 'detail': exc.detail,
+        }, status=status_code)
+
+    app_url = os.environ.get('APP_URL', 'https://www.betglitch.com').rstrip('/')
+    return Response({
+        'success': True,
+        'claim_id': str(claim.claim_id),
+        'claim_hash': claim.claim_hash,
+        'claim_hash_version': claim.claim_hash_version,
+        'source_snapshot_id': str(claim.snapshot_id),
+        'proof_url': f'{app_url}/proof/claim/{claim.claim_id}',
+        'published_at': claim.published_at.isoformat(),
+        'frozen': {
+            'fixture_id': claim.fixture_id,
+            'market_type': claim.market_type,
+            'predicted_outcome': claim.predicted_outcome,
+            'odds': claim.odds,
+            'confidence': claim.confidence,
+            'prediction_generated_at': claim.prediction_generated_at.isoformat(),
+        },
+    }, status=201)
+
+
 @api_view(['POST'])
 @permission_classes([IsAdminUser])
 def publish_claim_view(request, prediction_id):
@@ -466,7 +568,9 @@ def publish_claim_view(request, prediction_id):
     from core.services import claim_publication
 
     try:
-        claim = claim_publication.publish_prediction_claim(
+        # Compatibility: resolves to ONE unambiguous eligible snapshot, and
+        # refuses when several candidates exist.
+        claim = claim_publication.publish_for_prediction(
             prediction_id, published_by=request.user
         )
     except claim_publication.PublicationError as exc:
@@ -485,6 +589,7 @@ def publish_claim_view(request, prediction_id):
         'claim_hash_version': claim.claim_hash_version,
         'proof_url': f'{app_url}/proof/claim/{claim.claim_id}',
         'legacy_fixture_url': f'{app_url}/proof/{claim.fixture_id}',
+        'source_snapshot_id': str(claim.snapshot_id) if claim.snapshot_id else None,
         'published_at': claim.published_at.isoformat(),
         'frozen': {
             'fixture_id': claim.fixture_id,
@@ -537,10 +642,8 @@ def proof_preview(request, fixture_id):
         'provenance_problems': public_universe.missing_provenance_fields(
             pred.odds_provenance, pred.market_type
         ),
-        # Exactly why this may or may not be published, from the one
-        # authoritative eligibility check the publish endpoint also uses.
-        'publication_blockers': claim_publication.check_publication_eligibility(pred),
-        'publishable': not claim_publication.check_publication_eligibility(pred),
+        # Publishability is a property of an immutable SNAPSHOT, never of this
+        # mutable row — see the `snapshots` list below.
         # The precise field set that publication would freeze.
         'will_freeze': {
             'fixture_id': pred.fixture_id,
@@ -560,5 +663,9 @@ def proof_preview(request, fixture_id):
             'prediction_run_id': pred.prediction_run_id,
         },
         'publish_endpoint': f'/api/proof/{pred.pk}/publish/',
+        # ── The immutable snapshots available to publish ───────────────────
+        # The founder must choose one EXPLICITLY. "Latest" is labelled, never
+        # auto-selected.
+        'snapshots': _snapshot_list_for(pred),
     })
 

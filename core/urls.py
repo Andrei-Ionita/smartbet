@@ -53,7 +53,9 @@ urlpatterns = [
     # STABLE public proof identity. A fixture may carry several claims (different
     # markets), so the claim UUID — not the fixture id — is canonical.
     path('api/proof/claim/<uuid:claim_id>/', transparency_views.proof_by_claim, name='proof_by_claim'),
-    # Staff-only, POST-only explicit publication.
+    # Staff-only, POST-only explicit publication of ONE chosen snapshot.
+    path('api/proof/snapshot/<uuid:snapshot_id>/publish/', transparency_views.publish_snapshot_view, name='publish_snapshot'),
+    # Compatibility: resolves to one unambiguous eligible snapshot, else refuses.
     path('api/proof/<int:prediction_id>/publish/', transparency_views.publish_claim_view, name='publish_claim'),
     
     # Email Capture / Newsletter
