@@ -25,6 +25,13 @@ PER_MARKET_CONF_THRESHOLDS = public_universe.PER_MARKET_CONF_THRESHOLDS
 DEFAULT_CONF_THRESHOLD = public_universe.DEFAULT_CONF_THRESHOLD
 
 
+def _claim_won(claim):
+    """Win/loss from the RECORDED settlement, never the mutable prediction."""
+    from core.models import PublishedClaim
+
+    return claim.result_status == PublishedClaim.STATUS_WON
+
+
 class AccuracyCalculator:
     """
     Calculate comprehensive accuracy metrics for SmartBet predictions.
@@ -67,12 +74,12 @@ class AccuracyCalculator:
         """Overall accuracy across resolved, verified published claims."""
         claims = self._resolved_claims()
         total = len(claims)
-        correct = sum(1 for c in claims if c.prediction.was_correct)
+        correct = sum(1 for c in claims if _claim_won(c))
         accuracy = (correct / total * 100) if total > 0 else 0
 
         def outcome_block(name):
             subset = [c for c in claims if c.predicted_outcome == name]
-            hits = sum(1 for c in subset if c.prediction.was_correct)
+            hits = sum(1 for c in subset if _claim_won(c))
             return {
                 'total': len(subset),
                 'correct': hits,
@@ -111,7 +118,7 @@ class AccuracyCalculator:
             subset = [c for c in claims if min_conf <= (c.confidence or 0) < max_conf]
             if not subset:
                 continue
-            hits = sum(1 for c in subset if c.prediction.was_correct)
+            hits = sum(1 for c in subset if _claim_won(c))
             results.append({
                 'confidence_range': label,
                 'category': category,
@@ -137,7 +144,7 @@ class AccuracyCalculator:
         results = []
         for league, subset in by_league.items():
             total = len(subset)
-            correct = sum(1 for c in subset if c.prediction.was_correct)
+            correct = sum(1 for c in subset if _claim_won(c))
             pls = [public_universe.claim_profit_loss(c) for c in subset]
             total_pl = sum(v for v in pls if v is not None)
             results.append({
@@ -172,7 +179,7 @@ class AccuracyCalculator:
         total_pl = sum(pl for _, pl in entries)
         roi = (total_pl / total_staked * 100) if total_staked > 0 else 0
 
-        wins = sum(1 for c, _ in entries if c.prediction.was_correct)
+        wins = sum(1 for c, _ in entries if _claim_won(c))
         losses = total_bets - wins
         win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
 

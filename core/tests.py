@@ -722,12 +722,14 @@ def _verified_pricing(odds=1.85):
         'odds_selection_policy': 'lower_median_v1',
     }
 
-def publish_claim(pred, **overrides):
+def publish_claim(pred, settle=None, **overrides):
     """Publish a PredictionLog as an immutable claim.
 
-    Public performance denominates on PublishedClaim, so any test asserting on
-    accuracy/ROI must publish first. See
-    docs/audit/gem-selector-diagnostics-2026-07-29.md.
+    Public performance denominates on resolved PublishedClaims, so a test
+    asserting on accuracy/ROI must both publish AND settle. For convenience, a
+    source prediction that is already resolved is settled automatically; pass
+    `settle=False` to publish and leave it PENDING.
+    See docs/audit/gem-selector-diagnostics-2026-07-29.md.
     """
     from core.models import PublishedClaim
     fields = dict(
@@ -740,7 +742,23 @@ def publish_claim(pred, **overrides):
         prediction_generated_at=pred.prediction_logged_at,
     )
     fields.update(overrides)
-    return PublishedClaim.objects.create(**fields)
+    claim = PublishedClaim.objects.create(**fields)
+
+    if settle is None:
+        settle = pred.was_correct is not None or bool(pred.match_status)
+    if settle:
+        settle_claim(claim)
+    return claim
+
+
+def settle_claim(claim, status=None):
+    """Record settlement for a published claim (test helper)."""
+    from core.services import claim_publication
+
+    try:
+        return claim_publication.settle_published_claim(claim, status=status)
+    except claim_publication.SettlementError:
+        return None
 
 def _make_pred(fixture_id, **overrides):
     """Helper: a valid PredictionLog kwargs dict with sane defaults; override what you need."""
@@ -1510,7 +1528,7 @@ class ProofCardEndpointTests(TestCase):
         """A prediction that has been published as an immutable claim."""
         from core.models import PublishedClaim
         pred = self._pred(fixture_id, **kwargs)
-        PublishedClaim.objects.create(
+        claim = PublishedClaim.objects.create(
             prediction=pred, fixture_id=pred.fixture_id,
             home_team=pred.home_team, away_team=pred.away_team,
             league=pred.league, kickoff=pred.kickoff,
@@ -1519,6 +1537,8 @@ class ProofCardEndpointTests(TestCase):
             odds_provenance=pred.odds_provenance,
             prediction_generated_at=pred.prediction_logged_at,
         )
+        if pred.was_correct is not None:
+            settle_claim(claim)
         return pred
 
     def test_pending_pick_returns_unresolved(self):

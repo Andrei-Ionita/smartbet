@@ -150,7 +150,7 @@ def _claim_base():
         .filter(pricing_integrity_status=PredictionLog.PRICING_VERIFIED)
         .exclude(prediction__is_audit_excluded=True)
         .exclude(superseded_by__isnull=False)   # a correction replaced it
-        .select_related('prediction')
+        .select_related('prediction', 'result')
     )
 
 
@@ -176,25 +176,36 @@ def verified_claims():
 
 
 def resolved_claims():
-    """Verified claims whose match has settled. The public performance set."""
-    from core.models import PublishedClaim
+    """Verified claims with a recorded WON/LOST settlement.
 
-    return [
-        c for c in verified_claims()
-        if c.prediction.was_correct is not None
-        and c.result_status in (PublishedClaim.STATUS_WON, PublishedClaim.STATUS_LOST)
-    ]
+    Settlement is read from the separate PublishedClaimResult row — never
+    derived from the mutable prediction — so a claim counts only once its result
+    has been explicitly recorded.
+
+    VOID/CANCELLED POLICY: a voided or cancelled fixture is excluded from BOTH
+    the numerator and the denominator of every public figure (win rate, ROI,
+    accuracy). No stake was ever settled, so counting it either way would
+    misstate the record. Such claims remain publicly visible with their own
+    status; they simply do not score.
+
+    PENDING claims (no result recorded) are likewise excluded.
+    """
+    return [c for c in verified_claims() if c.is_resolved]
 
 
 def claim_profit_loss(claim, stake=10.0):
     """Flat-stake P/L for a settled claim, computed from the CLAIM's price.
 
     Deliberately not `prediction.profit_loss_10`: that was derived from the
-    mutable row's odds. Public money figures must use the published price.
+    mutable row's odds. Public money figures must use the published price and
+    the recorded settlement.
     """
-    if claim.prediction.was_correct is None or not claim.odds:
+    from core.models import PublishedClaim
+
+    if not claim.is_resolved or not claim.odds:
         return None
-    return stake * (claim.odds - 1) if claim.prediction.was_correct else -stake
+    won = claim.result_status == PublishedClaim.STATUS_WON
+    return stake * (claim.odds - 1) if won else -stake
 
 
 # ── Provenance completeness ─────────────────────────────────────────────────

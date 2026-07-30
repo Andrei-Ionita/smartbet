@@ -16,7 +16,7 @@ from django.utils import timezone
 from core.models import PredictionLog, PublishedClaim
 from core.services import public_universe
 from core.services.accuracy_calculator import AccuracyCalculator
-from core.tests import _verified_pricing, publish_claim
+from core.tests import _verified_pricing, publish_claim, settle_claim
 
 
 def _pred(fixture_id, *, correct=True, resolved=True, odds=2.0,
@@ -139,7 +139,10 @@ class CorrectionsAreRecordedSeparatelyTests(TestCase):
     def test_only_the_current_claim_counts_after_a_correction(self):
         pred = _pred(947002, correct=True, odds=2.0)
         original = publish_claim(pred)
-        original.correct('price restated', odds=1.5)
+        corrected = original.correct('price restated', odds=1.5)
+        # Settlement is per-claim: a superseding claim is settled in its own
+        # right, so a correction can never inherit a stale result row.
+        settle_claim(corrected)
 
         claims = public_universe.resolved_claims()
         self.assertEqual(len(claims), 1)

@@ -50,6 +50,11 @@ urlpatterns = [
     # Staff-only mutable preview. Deliberately a different path from the public
     # proof URL so a mutable prediction can never be served as public proof.
     path('api/proof/<int:fixture_id>/preview/', transparency_views.proof_preview, name='proof_preview'),
+    # STABLE public proof identity. A fixture may carry several claims (different
+    # markets), so the claim UUID — not the fixture id — is canonical.
+    path('api/proof/claim/<uuid:claim_id>/', transparency_views.proof_by_claim, name='proof_by_claim'),
+    # Staff-only, POST-only explicit publication.
+    path('api/proof/<int:prediction_id>/publish/', transparency_views.publish_claim_view, name='publish_claim'),
     
     # Email Capture / Newsletter
     path('api/subscribe/', api_views.subscribe_email, name='subscribe_email'),

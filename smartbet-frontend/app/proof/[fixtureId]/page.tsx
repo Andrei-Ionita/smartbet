@@ -1,75 +1,60 @@
-import Link from 'next/link'
 import type { Metadata } from 'next'
-import { fetchProof } from './proofData'
+
+import { ProofPageBody, UnpublishedState } from '../_shared/ProofPageBody'
+import { fetchProof } from '../_shared/proofData'
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
 
+/**
+ * Compatibility path: /proof/<fixtureId> resolves the fixture's current
+ * (non-superseded) claim. The STABLE public identity is
+ * /proof/claim/<claim_uuid> — a fixture may eventually carry several claims for
+ * different markets.
+ */
 export async function generateMetadata(
-  { params }: { params: { fixtureId: string } }
+  { params }: { params: { fixtureId: string } },
 ): Promise<Metadata> {
   const data = await fetchProof(params.fixtureId)
-  if (!data) {
-    return { title: 'Not published as a claim · BetGlitch' }
-  }
+  if (!data) return { title: 'Not published as a claim · BetGlitch' }
+
   const p = data.pick
   const outcome = p.predicted_outcome.toUpperCase()
-  const title = data.result.resolved
-    ? `${p.home_team} vs ${p.away_team} — ${outcome} · verified result`
-    : `${p.home_team} vs ${p.away_team} — ${outcome} · logged before kickoff`
-  const description = `Every pick timestamped before kickoff, every result verified. Season ${data.record.wins}W–${data.record.losses}L · ${data.record.roi_percent >= 0 ? '+' : ''}${data.record.roi_percent}% ROI. We post our losses too.`
-  // Next auto-adds og:image from opengraph-image.tsx; we set the rest.
+  const status = data.result?.status ?? 'PENDING'
+  const title = status === 'PENDING'
+    ? `${p.home_team} vs ${p.away_team} — ${outcome} · published before kickoff`
+    : `${p.home_team} vs ${p.away_team} — ${outcome} · settled ${status.toLowerCase()}`
+  const description =
+    'Published before kickoff and frozen with a SHA-256 integrity hash. '
+    + 'The result is shown after settlement — win or lose.'
+
+  // Canonicalise onto the stable claim URL when we know it.
+  const canonical = data.claim_id
+    ? `${APP_URL}/proof/claim/${data.claim_id}`
+    : `${APP_URL}/proof/${params.fixtureId}`
+
   return {
     title,
     description,
-    openGraph: { title, description, type: 'website', url: `${APP_URL}/proof/${params.fixtureId}` },
+    alternates: { canonical },
+    openGraph: { title, description, type: 'website', url: canonical },
     twitter: { card: 'summary_large_image', title, description },
   }
 }
 
 export default async function ProofPage({ params }: { params: { fixtureId: string } }) {
   const data = await fetchProof(params.fixtureId)
-  const imageUrl = `${APP_URL}/proof/${params.fixtureId}/opengraph-image`
-  const shareUrl = `${APP_URL}/proof/${params.fixtureId}`
-
-  if (!data) {
-    return (
-      <div className="mx-auto max-w-xl px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Not published as a claim</h1>
-        <p className="mt-3 text-gray-600">
-          This prediction has not been published as an immutable BetGlitch claim.
-        </p>
-        <p className="mt-2 text-sm text-gray-500">
-          We only publish proof for picks we have snapshotted and hashed before kickoff.
-        </p>
-        <Link href="/track-record" className="mt-6 inline-block font-semibold text-blue-700 hover:text-blue-900">
-          Review the full public track record →
-        </Link>
-      </div>
-    )
-  }
+  if (!data) return <UnpublishedState />
 
   return (
-    <div className="mx-auto max-w-2xl px-4 py-12">
-      <img
-        src={imageUrl}
-        alt="BetGlitch verified proof card"
-        width={1200}
-        height={630}
-        className="w-full rounded-2xl border border-gray-200 shadow-sm"
-      />
-      <div className="mt-6 flex flex-wrap items-center gap-3">
-        <a
-          href={imageUrl}
-          download={`betglitch-proof-${params.fixtureId}.png`}
-          className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700"
-        >
-          Download PNG
-        </a>
-        <Link href="/track-record" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-          See full track record →
-        </Link>
-      </div>
-      <p className="mt-6 text-xs text-gray-500 break-all">Share link: {shareUrl}</p>
-    </div>
+    <ProofPageBody
+      data={data}
+      imageUrl={`${APP_URL}/proof/${params.fixtureId}/opengraph-image`}
+      shareUrl={
+        data.claim_id
+          ? `${APP_URL}/proof/claim/${data.claim_id}`
+          : `${APP_URL}/proof/${params.fixtureId}`
+      }
+      downloadName={`betglitch-proof-${params.fixtureId}.png`}
+    />
   )
 }

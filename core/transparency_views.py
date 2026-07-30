@@ -9,11 +9,12 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
+import os
 from datetime import timedelta
 
 from core.models import PredictionLog, PublishedClaim
 from core.services.accuracy_calculator import AccuracyCalculator
-from core.services import public_universe
+from core.services import claim_publication, public_universe
 
 
 @csrf_exempt
@@ -321,6 +322,77 @@ def _record_block():
     }
 
 
+def _serialize_claim(claim):
+    """Public payload for an immutable claim. Reads ONLY frozen claim fields."""
+    prov = claim.odds_provenance or {}
+    conf = claim.confidence or 0.0
+    confidence_pct = round(conf * 100, 1) if conf <= 1 else round(conf, 1)
+
+    result = {'status': claim.result_status, 'resolved': claim.is_resolved}
+    settlement = getattr(claim, 'result', None)
+    if settlement is not None:
+        result.update({
+            'actual_score_home': settlement.actual_score_home,
+            'actual_score_away': settlement.actual_score_away,
+            'settled_at': settlement.settled_at.isoformat(),
+            'result_source': settlement.result_source,
+        })
+        # Convenience for card rendering, derived from the RECORDED status —
+        # never read from the mutable prediction. None for VOID/CANCELLED, which
+        # are neither a win nor a loss.
+        if claim.is_resolved:
+            result['was_correct'] = (
+                settlement.status == PublishedClaim.STATUS_WON
+            )
+
+    integrity_ok = claim.verify_integrity()
+    return {
+        'found': True,
+        'published': True,
+        'state': 'published',
+        'claim_id': str(claim.claim_id),
+        'claim_hash': claim.claim_hash,
+        'claim_hash_version': claim.claim_hash_version,
+        # A tampered claim must never render as valid.
+        'integrity_ok': integrity_ok,
+        'integrity_error': None if integrity_ok else (
+            'This claim failed its integrity check and is excluded from our '
+            'public record.'
+        ),
+        'pricing_integrity_status': claim.pricing_integrity_status,
+        'superseded': claim.is_superseded,
+        'pick': {
+            'home_team': claim.home_team,
+            'away_team': claim.away_team,
+            'league': claim.league,
+            'market_type': claim.market_type,
+            'predicted_outcome': claim.predicted_outcome,
+            'odds': claim.odds,
+            # Labelled accurately: a provider-derived model score, NOT a
+            # calibrated probability (2026-07-29 audit, finding F3).
+            'model_score_percent': confidence_pct,
+            # Kept for existing consumers; same value, clearer name above.
+            'confidence': confidence_pct,
+            'bookmaker': prov.get('odds_bookmaker_name'),
+            'odds_market': prov.get('odds_market_description'),
+            'odds_line': prov.get('odds_line'),
+            'odds_captured_at': (
+                claim.odds_captured_at.isoformat() if claim.odds_captured_at else None
+            ),
+            'kickoff': claim.kickoff.isoformat(),
+            'prediction_logged_at': claim.prediction_generated_at.isoformat(),
+            'published_at': claim.published_at.isoformat(),
+            'odds_provenance': prov,
+        },
+        'result': result,
+        'record': _record_block(),
+        'note': (
+            'Published before kickoff. The result will be shown here after '
+            'settlement\u2014win or lose.'
+        ),
+    }
+
+
 def proof_card_data(request, fixture_id):
     """
     GET /api/proof/<fixture_id>/ — PUBLIC proof payload.
@@ -350,45 +422,78 @@ def proof_card_data(request, fixture_id):
             'record': _record_block(),
         }, status=200)
 
-    pred = claim.prediction
-    resolved = pred.was_correct is not None
-    result = {'resolved': bool(resolved), 'status': claim.result_status}
-    if resolved:
-        result.update({
-            'actual_score_home': pred.actual_score_home,
-            'actual_score_away': pred.actual_score_away,
-            'was_correct': pred.was_correct,
-        })
+    return JsonResponse(_serialize_claim(claim))
 
-    # Confidence is stored 0-1 (verified 2026-07-29: zero rows above 1.0). The
-    # 0-100 branch is retained defensively for any future writer.
-    conf = claim.confidence or 0.0
-    confidence_pct = round(conf * 100, 1) if conf <= 1 else round(conf, 1)
 
-    return JsonResponse({
-        'found': True,
-        'published': True,
-        'state': 'published',
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def proof_by_claim(request, claim_id):
+    """
+    GET /api/proof/claim/<claim_uuid>/ — the STABLE public proof identity.
+
+    A fixture may eventually carry several claims (different markets), so the
+    claim UUID — not the fixture id — is the canonical public identifier.
+    Reads exclusively from PublishedClaim.
+    """
+    claim = (
+        PublishedClaim.objects.filter(claim_id=claim_id)
+        .select_related('prediction', 'result')
+        .first()
+    )
+    if claim is None:
+        return Response({
+            'found': False,
+            'published': False,
+            'state': 'unpublished',
+            'message': UNPUBLISHED_PROOF_MESSAGE,
+        }, status=404)
+    return Response(_serialize_claim(claim))
+
+
+@api_view(['POST'])
+@permission_classes([IsAdminUser])
+def publish_claim_view(request, prediction_id):
+    """
+    POST /api/proof/<prediction_id>/publish/ — STAFF ONLY.
+
+    Explicitly freezes a verified prediction into an immutable public claim.
+    Publication is never automatic: becoming pricing-verified does not publish
+    anything. POST only — a GET can never create a claim.
+
+    Delegates entirely to `claim_publication.publish_prediction_claim`, the one
+    authoritative service the future gem selector will also call.
+    """
+    from core.services import claim_publication
+
+    try:
+        claim = claim_publication.publish_prediction_claim(
+            prediction_id, published_by=request.user
+        )
+    except claim_publication.PublicationError as exc:
+        status_code = 404 if exc.reason == 'prediction_not_found' else 400
+        return Response({
+            'success': False,
+            'reason': exc.reason,
+            'detail': exc.detail,
+        }, status=status_code)
+
+    app_url = os.environ.get('APP_URL', 'https://www.betglitch.com').rstrip('/')
+    return Response({
+        'success': True,
         'claim_id': str(claim.claim_id),
         'claim_hash': claim.claim_hash,
-        'pricing_integrity_status': claim.pricing_integrity_status,
-        'pick': {
-            'home_team': claim.home_team,
-            'away_team': claim.away_team,
-            'league': claim.league,
+        'claim_hash_version': claim.claim_hash_version,
+        'proof_url': f'{app_url}/proof/claim/{claim.claim_id}',
+        'legacy_fixture_url': f'{app_url}/proof/{claim.fixture_id}',
+        'published_at': claim.published_at.isoformat(),
+        'frozen': {
+            'fixture_id': claim.fixture_id,
             'market_type': claim.market_type,
             'predicted_outcome': claim.predicted_outcome,
             'odds': claim.odds,
-            'confidence': confidence_pct,
-            'kickoff': claim.kickoff.isoformat(),
-            'prediction_logged_at': claim.prediction_generated_at.isoformat(),
-            'published_at': claim.published_at.isoformat(),
-            # Lets a reader check the price against the exact market we used.
-            'odds_provenance': claim.odds_provenance,
+            'confidence': claim.confidence,
         },
-        'result': result,
-        'record': _record_block(),
-    })
+    }, status=201)
 
 
 @api_view(['GET'])
@@ -432,5 +537,28 @@ def proof_preview(request, fixture_id):
         'provenance_problems': public_universe.missing_provenance_fields(
             pred.odds_provenance, pred.market_type
         ),
+        # Exactly why this may or may not be published, from the one
+        # authoritative eligibility check the publish endpoint also uses.
+        'publication_blockers': claim_publication.check_publication_eligibility(pred),
+        'publishable': not claim_publication.check_publication_eligibility(pred),
+        # The precise field set that publication would freeze.
+        'will_freeze': {
+            'fixture_id': pred.fixture_id,
+            'home_team': pred.home_team,
+            'away_team': pred.away_team,
+            'league': pred.league,
+            'kickoff': pred.kickoff.isoformat() if pred.kickoff else None,
+            'market_type': pred.market_type,
+            'predicted_outcome': pred.predicted_outcome,
+            'confidence': pred.confidence,
+            'odds': pred.odds,
+            'bookmaker': (pred.odds_provenance or {}).get('odds_bookmaker_name'),
+            'odds_market': (pred.odds_provenance or {}).get('odds_market_description'),
+            'odds_line': (pred.odds_provenance or {}).get('odds_line'),
+            'odds_captured_at': (pred.odds_provenance or {}).get('odds_captured_at'),
+            'prediction_generated_at': pred.prediction_logged_at.isoformat(),
+            'prediction_run_id': pred.prediction_run_id,
+        },
+        'publish_endpoint': f'/api/proof/{pred.pk}/publish/',
     })
 

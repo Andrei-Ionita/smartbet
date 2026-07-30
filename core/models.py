@@ -8,6 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from datetime import timezone as dt_timezone
 from decimal import Decimal
 import json
 
@@ -381,6 +382,7 @@ class PublishedClaim(models.Model):
     # not prevent it. Prevention comes from save() refusing updates and from
     # corrections being recorded as new, superseding claims.
     claim_hash = models.CharField(max_length=64, unique=True)
+    claim_hash_version = models.CharField(max_length=8, default='v1')
 
     # Corrections are recorded SEPARATELY rather than rewriting the original.
     # A corrected claim is a NEW row pointing at the one it replaces; the
@@ -401,31 +403,115 @@ class PublishedClaim(models.Model):
     def __str__(self):
         return f'{self.home_team} v {self.away_team} — {self.predicted_outcome} @ {self.odds}'
 
-    # ── Immutability ─────────────────────────────────────────────────────────
-    CLAIM_FIELDS = (
-        'fixture_id', 'home_team', 'away_team', 'league', 'league_id', 'kickoff',
-        'market_type', 'predicted_outcome', 'confidence', 'odds',
-        'odds_provenance', 'odds_captured_at', 'prediction_generated_at',
-        'published_at', 'model_version', 'prediction_run_id',
-        'supersedes_id', 'correction_reason',
-    )
+    # ── Immutability & canonical integrity hash ──────────────────────────────
+    # The hash covers a DETERMINISTIC canonical payload: explicit field order via
+    # sorted JSON keys, timestamps normalised to UTC microsecond ISO-8601,
+    # decimals normalised through Decimal so 1.80 and 1.8 hash identically, and
+    # an explicit schema version so future changes can verify older claims.
+    #
+    # Settlement is deliberately NOT part of this payload — it lives in a
+    # separate PublishedClaimResult row, so recording a result can never alter a
+    # claim's hash.
+    CLAIM_HASH_VERSION = 'v1'
+
+    def canonical_payload(self):
+        """The exact dict that is hashed. Documented and stable."""
+        prov = self.odds_provenance or {}
+
+        def _dt(v):
+            if v is None:
+                return None
+            return v.astimezone(dt_timezone.utc).isoformat(timespec='microseconds')
+
+        def _num(v):
+            if v is None or v == '':
+                return None
+            return format(Decimal(str(v)).normalize(), 'f')
+
+        return {
+            'claim_hash_version': self.CLAIM_HASH_VERSION,
+            # source prediction reference
+            'source_prediction_id': self.prediction_id,
+            # fixture identity
+            'fixture_id': self.fixture_id,
+            'home_team': self.home_team,
+            'away_team': self.away_team,
+            'league': self.league,
+            'league_id': self.league_id,
+            'kickoff': _dt(self.kickoff),
+            # the claim itself
+            'market_type': self.market_type,
+            'predicted_outcome': self.predicted_outcome,
+            'confidence': _num(self.confidence),
+            'odds': _num(self.odds),
+            # price provenance
+            'odds_market_id': prov.get('odds_market_id'),
+            'odds_market_description': prov.get('odds_market_description'),
+            'odds_line': _num(prov.get('odds_line')),
+            'odds_label': prov.get('odds_label'),
+            'odds_bookmaker_id': prov.get('odds_bookmaker_id'),
+            'odds_bookmaker_name': prov.get('odds_bookmaker_name'),
+            'odds_selection_policy': prov.get('odds_selection_policy'),
+            'odds_captured_at': _dt(self.odds_captured_at),
+            # timestamps and lineage
+            'prediction_generated_at': _dt(self.prediction_generated_at),
+            'published_at': _dt(self.published_at),
+            'prediction_run_id': self.prediction_run_id,
+            'model_version': self.model_version,
+            'supersedes': str(self.supersedes_id) if self.supersedes_id else None,
+            'correction_reason': self.correction_reason,
+        }
+
+    def compute_hash(self):
+        """SHA-256 over the canonical payload. THE authoritative computation."""
+        import hashlib
+
+        blob = json.dumps(
+            self.canonical_payload(),
+            sort_keys=True, separators=(',', ':'), ensure_ascii=False,
+        )
+        return hashlib.sha256(blob.encode('utf-8')).hexdigest()
+
+    def verify_integrity(self):
+        """THE authoritative verification method. True when untampered."""
+        return bool(self.claim_hash) and self.claim_hash == self.compute_hash()
+
+    def save(self, *args, **kwargs):
+        """Insert-only. Any attempt to update a published claim is a bug."""
+        if not self._state.adding:
+            raise ValueError(
+                'PublishedClaim is immutable — a published claim can never be '
+                'updated. Record settlement on PublishedClaimResult, or publish '
+                'a correcting claim via correct().'
+            )
+        import uuid
+
+        if not self.claim_id:
+            self.claim_id = uuid.uuid4()
+        self.claim_hash_version = self.CLAIM_HASH_VERSION
+        self.claim_hash = self.compute_hash()
+        super().save(*args, **kwargs)
 
     @property
     def is_superseded(self):
         """True when a later, corrected claim replaced this one."""
         return self.superseded_by.exists()
 
+    CORRECTABLE_FIELDS = (
+        'fixture_id', 'home_team', 'away_team', 'league', 'league_id', 'kickoff',
+        'market_type', 'predicted_outcome', 'confidence', 'odds',
+        'odds_provenance', 'odds_captured_at', 'prediction_generated_at',
+        'model_version', 'prediction_run_id',
+    )
+
     def correct(self, reason, **changes):
         """Record a correction as a NEW claim; never rewrite this one.
 
-        Returns the superseding claim. The original remains readable with its
+        Returns the superseding claim. The original stays readable with its
         original hash intact — which is what makes "corrections are recorded
         separately" a true statement rather than a slogan.
         """
-        fields = {
-            f: getattr(self, f) for f in self.CLAIM_FIELDS
-            if f not in ('supersedes_id', 'correction_reason', 'published_at')
-        }
+        fields = {f: getattr(self, f) for f in self.CORRECTABLE_FIELDS}
         fields.update(changes)
         return PublishedClaim.objects.create(
             prediction=self.prediction,
@@ -435,46 +521,75 @@ class PublishedClaim(models.Model):
             **fields,
         )
 
-    def compute_hash(self):
-        """Stable sha256 over the frozen claim fields."""
-        import hashlib
-
-        payload = {}
-        for f in self.CLAIM_FIELDS:
-            v = getattr(self, f)
-            payload[f] = v.isoformat() if hasattr(v, 'isoformat') else v
-        blob = json.dumps(payload, sort_keys=True, separators=(',', ':'), default=str)
-        return hashlib.sha256(blob.encode('utf-8')).hexdigest()
-
-    def save(self, *args, **kwargs):
-        """Insert-only. Any attempt to update a published claim is a bug."""
-        if not self._state.adding:
-            raise ValueError(
-                'PublishedClaim is immutable — a published claim can never be '
-                'updated. Record settlement on the linked PredictionLog instead.'
-            )
-        import uuid
-
-        if not self.claim_id:
-            self.claim_id = uuid.uuid4()
-        self.claim_hash = self.compute_hash()
-        super().save(*args, **kwargs)
-
-    def verify_integrity(self):
-        """True when the stored hash still matches the stored fields."""
-        return self.claim_hash == self.compute_hash()
-
     @property
     def result_status(self):
-        """Settlement state, derived from the live prediction — never frozen."""
-        pred = self.prediction
-        if (pred.match_status or '').upper() in ('CANC', 'CANCELLED'):
-            return self.STATUS_CANCELLED
-        if (pred.match_status or '').upper() in ('POSTP', 'ABAN', 'SUSP'):
-            return self.STATUS_VOID
-        if pred.was_correct is None:
-            return self.STATUS_PENDING
-        return self.STATUS_WON if pred.was_correct else self.STATUS_LOST
+        """Settlement state, read from the separate result record.
+
+        PENDING means no settlement has been recorded. Never derived from the
+        mutable prediction row — settlement is an explicit, recorded event.
+        """
+        result = getattr(self, 'result', None)
+        return result.status if result is not None else self.STATUS_PENDING
+
+    @property
+    def is_resolved(self):
+        """Counts toward win/loss and ROI. VOID/CANCELLED deliberately do not."""
+        return self.result_status in (self.STATUS_WON, self.STATUS_LOST)
+
+
+class PublishedClaimResult(models.Model):
+    """Settlement of a published claim, recorded SEPARATELY from the claim.
+
+    WHY A SEPARATE TABLE (rather than result fields on PublishedClaim)
+    -----------------------------------------------------------------
+    1. PublishedClaim stays strictly insert-only. Its `save()` can refuse EVERY
+       update, so immutability is structural rather than a policy someone has to
+       remember. With result columns on the claim, `save()` would need to permit
+       some writes, and the invariant would rest on a field allowlist.
+    2. The claim hash covers claim fields only. A separate table makes it
+       impossible for settlement to enter the hashed payload by accident.
+    3. Settlement has its own metadata — when it settled, which third-party
+       source said so — that has no meaning at publication time.
+    4. It models the domain honestly: what we claimed, and separately, what
+       happened.
+
+    Transitions are PENDING (no row) -> WON | LOST | VOID | CANCELLED. Recording
+    a contradictory status is rejected, not silently applied.
+    """
+    claim = models.OneToOneField(
+        PublishedClaim, on_delete=models.PROTECT, related_name='result',
+        primary_key=True,
+    )
+    status = models.CharField(
+        max_length=12,
+        choices=[
+            (PublishedClaim.STATUS_WON, 'Won'),
+            (PublishedClaim.STATUS_LOST, 'Lost'),
+            (PublishedClaim.STATUS_VOID, 'Void'),
+            (PublishedClaim.STATUS_CANCELLED, 'Cancelled'),
+        ],
+    )
+    actual_score_home = models.IntegerField(null=True, blank=True)
+    actual_score_away = models.IntegerField(null=True, blank=True)
+    settled_at = models.DateTimeField(default=timezone.now)
+    # Which third party settled it, and the reference we can be checked against.
+    result_source = models.CharField(max_length=64, default='sportmonks')
+    result_reference = models.CharField(max_length=128, null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Published Claim Result'
+
+    def __str__(self):
+        return f'{self.claim_id} -> {self.status}'
+
+    def save(self, *args, **kwargs):
+        """Insert-only, exactly like the claim it settles."""
+        if not self._state.adding:
+            raise ValueError(
+                'PublishedClaimResult is immutable — a recorded settlement can '
+                'never be rewritten.'
+            )
+        super().save(*args, **kwargs)
 
 
 class PerformanceSnapshot(models.Model):

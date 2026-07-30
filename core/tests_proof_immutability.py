@@ -98,11 +98,14 @@ class PublicProofNeverServesMutableDataTests(TestCase):
 
     def test_settlement_updates_result_without_touching_the_claim(self):
         pred = self._prediction(920014)
-        self._publish(pred)
+        claim = self._publish(pred)
 
         pred.was_correct = True
         pred.actual_score_home, pred.actual_score_away = 2, 1
         pred.save()
+        # Settlement is an explicit recorded event, not a derived read.
+        from core.services import claim_publication
+        claim_publication.settle_published_claim(claim)
 
         _, body = self._get(920014)
         self.assertEqual(body['result']['status'], 'WON')

@@ -203,23 +203,21 @@ class PublishedClaimImmutabilityTests(TestCase):
         self.assertTrue(claim.verify_integrity())
 
     def test_result_status_tracks_settlement_without_rewriting_the_claim(self):
+        from core.services import claim_publication
+
         pred, claim = self._claim()
         self.assertEqual(claim.result_status, PublishedClaim.STATUS_PENDING)
 
         pred.was_correct = True
         pred.save()
+        claim_publication.settle_published_claim(claim)
         self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
 
+        # A contradictory settlement is rejected, never applied.
         pred.was_correct = False
         pred.save()
-        self.assertEqual(claim.result_status, PublishedClaim.STATUS_LOST)
-
-        pred.match_status = 'CANC'
-        pred.save()
-        self.assertEqual(claim.result_status, PublishedClaim.STATUS_CANCELLED)
-
-        pred.match_status = 'POSTP'
-        pred.save()
-        self.assertEqual(claim.result_status, PublishedClaim.STATUS_VOID)
+        with self.assertRaises(claim_publication.SettlementError):
+            claim_publication.settle_published_claim(claim)
+        self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
 
         self.assertTrue(claim.verify_integrity())
