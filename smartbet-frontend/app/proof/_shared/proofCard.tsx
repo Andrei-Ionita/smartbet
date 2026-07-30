@@ -42,8 +42,8 @@ function Brand() {
 function Pill({ text, bg }: { text: string; bg: string }) {
   return (
     <div style={{
-      display: 'flex', alignItems: 'center', padding: '8px 20px', borderRadius: 999,
-      background: bg, color: '#fff', fontSize: 30,
+      display: 'flex', alignItems: 'center', padding: '6px 18px', borderRadius: 999,
+      background: bg, color: '#fff', fontSize: 26,
     }}>{text}</div>
   )
 }
@@ -56,14 +56,14 @@ function Pill({ text, bg }: { text: string; bg: string }) {
 function RecordFooter({ record }: { record: ProofPayload['record'] }) {
   if (!record || record.total_bets === 0) {
     return (
-      <div style={{ display: 'flex', fontSize: 26, color: MUTED }}>
+      <div style={{ display: 'flex', fontSize: 21, color: MUTED }}>
         Building our verified record — every result posted, win or lose
       </div>
     )
   }
   const roi = record.roi_percent
   return (
-    <div style={{ display: 'flex', fontSize: 30, color: TEXT }}>
+    <div style={{ display: 'flex', fontSize: 24, color: TEXT }}>
       Verified: {record.wins}W – {record.losses}L · {roi >= 0 ? '+' : ''}{roi}% ROI
     </div>
   )
@@ -73,18 +73,18 @@ function Shell({ children, badge }: { children: React.ReactNode; badge: string }
   return (
     <div style={{
       width: '100%', height: '100%', display: 'flex', flexDirection: 'column',
-      background: NAVY, padding: 56, fontFamily: 'Inter',
+      background: NAVY, padding: 44, fontFamily: 'Inter',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Brand />
         <div style={{ display: 'flex', fontSize: 22, color: MUTED, letterSpacing: 1 }}>{badge}</div>
       </div>
       <div style={{
-        display: 'flex', flexDirection: 'column', flex: 1, marginTop: 36, padding: 40,
+        display: 'flex', flexDirection: 'column', flex: 1, marginTop: 22, padding: 32,
         borderRadius: 24, background: CARD, border: '1px solid #1E2A44',
         justifyContent: 'space-between',
       }}>{children}</div>
-      <div style={{ display: 'flex', marginTop: 22, fontSize: 24, color: MUTED }}>
+      <div style={{ display: 'flex', marginTop: 16, fontSize: 20, color: MUTED }}>
         betglitch.com/track-record
       </div>
     </div>
@@ -94,10 +94,10 @@ function Shell({ children, badge }: { children: React.ReactNode; badge: string }
 function Meta({ label, value }: { label: string; value: string }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-      <div style={{ display: 'flex', fontSize: 20, color: MUTED, letterSpacing: 1 }}>
+      <div style={{ display: 'flex', fontSize: 17, color: MUTED, letterSpacing: 1 }}>
         {label}
       </div>
-      <div style={{ display: 'flex', fontSize: 30, color: TEXT }}>{value}</div>
+      <div style={{ display: 'flex', fontSize: 26, color: TEXT }}>{value}</div>
     </div>
   )
 }
@@ -112,8 +112,8 @@ function priceLine(p: ProofPayload['pick']) {
 function Fixture({ p }: { p: ProofPayload['pick'] }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-      <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>{p.league}</div>
-      <div style={{ display: 'flex', fontSize: 34, color: TEXT }}>
+      <div style={{ display: 'flex', fontSize: 21, color: MUTED }}>{p.league}</div>
+      <div style={{ display: 'flex', fontSize: 29, color: TEXT }}>
         {p.home_team} vs {p.away_team}
       </div>
     </div>
@@ -128,7 +128,7 @@ function PickCard({ data }: { data: ProofPayload }) {
     <Shell badge="PICK — PENDING · PUBLISHED BEFORE KICKOFF">
       <Fixture p={p} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-        <div style={{ display: 'flex', fontSize: 54, color: TEXT }}>
+        <div style={{ display: 'flex', fontSize: 46, color: TEXT }}>
           {formatSelection(p.market_type, p.predicted_outcome)}
         </div>
         <Meta label="RECORDED ODDS" value={priceLine(p)} />
@@ -137,14 +137,14 @@ function PickCard({ data }: { data: ProofPayload }) {
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
           <Pill text="PUBLISHED" bg={BLUE} />
-          <div style={{ display: 'flex', fontSize: 28, color: TEXT }}>
+          <div style={{ display: 'flex', fontSize: 24, color: TEXT }}>
             {formatUtc(p.published_at)}
           </div>
         </div>
         {before ? (
-          <div style={{ display: 'flex', fontSize: 26, color: GREEN }}>{before}</div>
+          <div style={{ display: 'flex', fontSize: 22, color: GREEN }}>{before}</div>
         ) : null}
-        <div style={{ display: 'flex', fontSize: 24, color: MUTED }}>
+        <div style={{ display: 'flex', fontSize: 20, color: MUTED }}>
           Result added automatically after full-time — win or lose.
         </div>
       </div>
@@ -165,12 +165,12 @@ function ResultCard({ data }: { data: ProofPayload }) {
       <Fixture p={p} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ display: 'flex', fontSize: 54, color: TEXT }}>
+          <div style={{ display: 'flex', fontSize: 46, color: TEXT }}>
             {p.home_team.split(' ')[0]} {score} {p.away_team.split(' ')[0]}
           </div>
           <Pill text={won ? 'WON' : 'LOST'} bg={won ? GREEN : RED} />
         </div>
-        <div style={{ display: 'flex', fontSize: 30, color: MUTED }}>
+        <div style={{ display: 'flex', fontSize: 25, color: MUTED }}>
           Our pick: {formatSelection(p.market_type, p.predicted_outcome)}
         </div>
         <Meta label="RECORDED ODDS" value={priceLine(p)} />
@@ -198,7 +198,7 @@ function VoidCard({ data }: { data: ProofPayload }) {
       <Fixture p={p} />
       <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-          <div style={{ display: 'flex', fontSize: 44, color: TEXT }}>
+          <div style={{ display: 'flex', fontSize: 38, color: TEXT }}>
             {formatSelection(p.market_type, p.predicted_outcome)}
           </div>
           <Pill text={cancelled ? 'CANCELLED' : 'VOID'} bg={GREY} />
