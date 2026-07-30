@@ -5,6 +5,7 @@ This ensures recommended predictions are tracked for accuracy monitoring.
 
 import os
 import sys
+import json
 import requests
 import django
 
@@ -73,167 +74,54 @@ class Command(BaseCommand):
             
             self.stdout.write(f'Found {len(recommendations)} recommendations from homepage\n')
             
-            logged_count = 0
-            updated_count = 0
-            skipped_count = 0
-            
-            # Phase 2a + 2b + 2c filters — reuse the same source-of-truth from
-            # api_views so this command and the live POST endpoint behave identically.
-            from core.api_views import (
-                PHASE_2A_BLACKLISTED_LEAGUES,
-                PHASE_2A_BLOCKED_OUTCOMES,
-                PHASE_2B_MAX_EV,
-                PHASE_2C_WATCHLIST_LEAGUES,
-            )
+            # ── ONE write path ────────────────────────────────────────────
+            # This command previously duplicated ~130 lines of the persistence
+            # logic in core.api_views.log_recommendations. The two drifted: when
+            # the immutable-snapshot layer landed in the view, this command kept
+            # writing PredictionLog rows WITHOUT recording snapshots, so a
+            # scheduled run would have produced nothing publishable.
+            #
+            # It now invokes the view itself, so there is exactly one place that
+            # decides how a prediction run is persisted.
+            if dry_run:
+                self.stdout.write(self.style.WARNING(
+                    f'DRY RUN: would ingest {len(recommendations)} recommendations '
+                    'through core.api_views.log_recommendations'
+                ))
+                logged_count = updated_count = skipped_count = 0
+                snapshots_created = 0
+            else:
+                from django.test import RequestFactory
+                from core.api_views import log_recommendations
 
-            for rec in recommendations:
-                fixture_id = rec.get('fixture_id')
-                if not fixture_id:
-                    continue
+                request = RequestFactory().post(
+                    '/api/log-recommendations/',
+                    data=json.dumps({'recommendations': recommendations}),
+                    content_type='application/json',
+                )
+                response = log_recommendations(request)
+                payload = json.loads(response.content)
 
-                if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
-                    skipped_count += 1
-                    continue
-                if any(needle in (rec.get('predicted_outcome') or '').lower()
-                       for needle in PHASE_2A_BLOCKED_OUTCOMES):
-                    skipped_count += 1
-                    continue
-                incoming_ev = rec.get('expected_value') or rec.get('ev')
-                normalized_ev = None
-                if incoming_ev is not None:
-                    normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
-                    if normalized_ev > PHASE_2B_MAX_EV:
-                        skipped_count += 1
-                        continue
-                watch = PHASE_2C_WATCHLIST_LEAGUES.get(rec.get('league'))
-                if watch is not None:
-                    incoming_conf = rec.get('confidence') or 0
-                    normalized_conf = incoming_conf / 100.0 if incoming_conf > 1 else incoming_conf
-                    effective_ev = normalized_ev if normalized_ev is not None else 0
-                    if normalized_conf < watch['min_confidence'] or effective_ev < watch['min_ev']:
-                        skipped_count += 1
-                        continue
+                if not payload.get('success'):
+                    self.stdout.write(self.style.ERROR(
+                        f"Ingest failed: {payload.get('error')}"
+                    ))
+                    return
 
-                # Check if already exists
-                existing = PredictionLog.objects.filter(fixture_id=fixture_id).first()
-                
-                # Prepare prediction data
-                kickoff_str = rec.get('kickoff')
-                if isinstance(kickoff_str, str):
-                    try:
-                        # Parse ISO format datetime
-                        kickoff = datetime.fromisoformat(kickoff_str.replace('Z', '+00:00'))
-                    except:
-                        try:
-                            from dateutil import parser
-                            kickoff = parser.parse(kickoff_str)
-                        except:
-                            self.stdout.write(self.style.WARNING(f'Could not parse kickoff date for fixture {fixture_id}'))
-                            skipped_count += 1
-                            continue
-                else:
-                    kickoff = timezone.now()
-                
-                # Normalize probabilities
-                probabilities = rec.get('probabilities', {})
-                prob_home = probabilities.get('home', 0)
-                prob_draw = probabilities.get('draw', 0)
-                prob_away = probabilities.get('away', 0)
-                
-                # Normalize confidence - could be percentage (55) or decimal (0.55)
-                confidence = rec.get('confidence', 0)
-                if confidence > 1:
-                    confidence = confidence / 100  # Convert percentage to decimal
-                
-                # Normalize EV - API returns as percentage (10.0 = 10%), convert to decimal for storage
-                expected_value = rec.get('expected_value') or rec.get('ev')
-                if expected_value is not None:
-                    if expected_value > 1:
-                        expected_value = expected_value / 100  # Convert percentage to decimal
-                
-                # Normalize probabilities - convert percentages to decimals if needed
-                if prob_home > 1:
-                    prob_home = prob_home / 100
-                if prob_draw > 1:
-                    prob_draw = prob_draw / 100
-                if prob_away > 1:
-                    prob_away = prob_away / 100
-                
-                odds_data = rec.get('odds_data', {})
+                logged_count = payload.get('logged_count', 0)
+                updated_count = payload.get('updated_count', 0)
+                snapshots_created = payload.get('snapshots_created', 0)
+                skipped_count = (
+                    payload.get('skipped_blacklist', 0)
+                    + payload.get('skipped_outcome', 0)
+                    + payload.get('skipped_high_ev', 0)
+                    + payload.get('skipped_watchlist', 0)
+                )
+                self.stdout.write(
+                    f"Run {payload.get('prediction_run_id')}: "
+                    f'{snapshots_created} immutable snapshots appended'
+                )
 
-                # Extract best_market info for multi-market support
-                best_market = rec.get('best_market', {})
-                market_type = best_market.get('type', '1x2') if best_market else '1x2'
-                market_type_id = best_market.get('type_id')  # Might be None for 1x2 checks
-
-                # If best_market info is missing, try to infer from debug_info
-                if not market_type_id and rec.get('debug_info'):
-                     market_type = rec.get('debug_info', {}).get('market_type', '1x2')
-
-                # Bet-time odds for the predicted outcome. odds_data is 1X2-only; for O/U /
-                # BTTS / DC the actual bet odds live in rec['odds'] or best_market['odds'].
-                bet_odds = rec.get('odds') or best_market.get('odds')
-                raw_ev = best_market.get('original_ev')
-                if raw_ev is not None and abs(raw_ev) > 1:
-                    raw_ev = raw_ev / 100.0
-
-                prediction_data = {
-                    'fixture_id': fixture_id,
-                    'home_team': rec.get('home_team', 'Unknown'),
-                    'away_team': rec.get('away_team', 'Unknown'),
-                    'league': rec.get('league', 'Unknown'),
-                    'league_id': None,  # Not provided by API
-                    'kickoff': kickoff,
-                    'predicted_outcome': rec.get('predicted_outcome', 'Home'),  # Don't lowercase yet, keep original casing
-                    'confidence': confidence,
-                    'probability_home': prob_home,
-                    'probability_draw': prob_draw,
-                    'probability_away': prob_away,
-                    'odds_home': odds_data.get('home'),
-                    'odds_draw': odds_data.get('draw'),
-                    'odds_away': odds_data.get('away'),
-                    'odds': bet_odds,
-                    'bookmaker': best_market.get('bookmaker') or odds_data.get('bookmaker'),
-                    'expected_value': expected_value,
-                    'raw_expected_value': raw_ev,
-                    'model_count': rec.get('ensemble_info', {}).get('model_count', 0),
-                    'consensus': rec.get('ensemble_info', {}).get('consensus'),
-                    'variance': rec.get('ensemble_info', {}).get('variance'),
-                    'ensemble_strategy': rec.get('ensemble_info', {}).get('strategy', 'consensus_ensemble'),
-                    'recommendation_score': rec.get('revenue_vs_risk_score'),
-                    'is_recommended': True,  # Mark as recommended since they come from homepage
-
-                    # Multi-market fields
-                    'market_type': market_type,
-                    'market_type_id': market_type_id
-                }
-                
-                if dry_run:
-                    self.stdout.write(
-                        f'  [DRY RUN] Would log: {prediction_data["home_team"]} vs {prediction_data["away_team"]} '
-                        f'({prediction_data["predicted_outcome"]}, Type: {market_type})'
-                    )
-                    logged_count += 1
-                    continue
-                
-                if existing:
-                    # Update existing prediction
-                    for key, value in prediction_data.items():
-                        setattr(existing, key, value)
-                    existing.is_recommended = True  # Ensure it's marked as recommended
-                    existing.save()
-                    updated_count += 1
-                    self.stdout.write(
-                        self.style.SUCCESS(f'  [UPDATED] {existing.home_team} vs {existing.away_team}')
-                    )
-                else:
-                    # Create new prediction
-                    prediction_log = PredictionLog.objects.create(**prediction_data)
-                    logged_count += 1
-                    self.stdout.write(
-                        self.style.SUCCESS(f'  [LOGGED] {prediction_log.home_team} vs {prediction_log.away_team}')
-                    )
-            
             self.stdout.write('\n' + '='*80)
             if dry_run:
                 self.stdout.write(self.style.SUCCESS(f'DRY RUN: Would log {logged_count} predictions'))
