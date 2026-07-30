@@ -35,13 +35,22 @@ def public_accuracy_dashboard(request):
         stats['last_updated'] = timezone.now().isoformat()
         stats['methodology'] = {
             'what_we_track': 'Only our recommended bets - the top picks we show to users',
-            'selection_criteria': 'Minimum 60% confidence AND positive Expected Value',
+            'selection_criteria': 'Minimum 55% confidence for Over/Under 2.5 and 60% for other markets, plus positive expected value at the recorded price',
             'frequency': 'Top 10 best value bets updated daily',
             'data_source': 'Real match results from SportMonks API',
-            'verification': 'Third-party API - results cannot be manipulated',
-            'timestamp_proof': 'All predictions logged BEFORE matches start',
-            'integrity': 'Historical data never deleted or edited',
-            'honesty': 'We show both wins and losses - complete transparency'
+            'verification': "Match outcomes are settled using third-party sports data. BetGlitch does not manually alter a published claim's result to improve the record.",
+            'price_audit': 'Prices are recorded with their exact market, line, bookmaker and capture time, creating a complete audit trail for every published quote.',
+            'timestamp_proof': 'Every published claim is timestamped before kickoff.',
+            'integrity': 'Each published claim is stored as an immutable snapshot and protected by a SHA-256 integrity hash. Corrections are recorded separately rather than rewriting the original claim.',
+            'honesty': 'We show both wins and losses - complete transparency',
+            'summary': 'Every published pick is frozen before kickoff and remains visible with its verified result—win or lose.',
+            'pricing_standard': (
+                'Verified public record begins %s. Earlier predictions are '
+                'preserved and classified as legacy data, but are excluded from '
+                'public performance reporting because their original price '
+                'snapshots cannot be reconstructed to the current verification '
+                'standard.'
+            ) % public_universe.PRICING_INTEGRITY_CUTOFF.date().isoformat(),
         }
         stats['transparency_note'] = 'We track only what we recommend to you - honest accountability, not cherry-picked results'
         
@@ -98,10 +107,10 @@ def accuracy_summary(request):
                 },
                 'methodology': {
                     'what_we_track': 'Only our recommended bets (top picks shown to users)',
-                    'criteria': 'Minimum 60% confidence + Positive Expected Value',
+                    'criteria': 'Minimum 55% confidence for Over/Under 2.5 and 60% for other markets, plus positive expected value at the recorded price',
                     'frequency': 'Top 10 recommendations updated daily',
                     'verification': 'Results fetched from SportMonks API',
-                    'transparency': 'All predictions timestamped before matches start'
+                    'transparency': 'Every published claim is timestamped before kickoff.'
                 }
             },
             'timestamp': timezone.now().isoformat()

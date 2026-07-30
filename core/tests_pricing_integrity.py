@@ -15,7 +15,7 @@ from django.utils import timezone
 from core.models import PredictionLog, PublishedClaim
 from core.services import public_universe
 from core.services.accuracy_calculator import AccuracyCalculator
-from core.tests import _verified_pricing
+from core.tests import _verified_pricing, publish_claim
 
 
 class PublicVerifiedUniverseTests(TestCase):
@@ -23,7 +23,8 @@ class PublicVerifiedUniverseTests(TestCase):
 
     def _row(self, fixture_id, *, status=None, recommended=True, correct=True,
              confidence=0.64, market='over_under_2.5', league='Test League',
-             audit_excluded=False, provenance=True, kickoff_offset_days=1):
+             audit_excluded=False, provenance=True, kickoff_offset_days=1,
+             publish=False):
         pred = PredictionLog.objects.create(
             fixture_id=fixture_id, home_team='A', away_team='B', league=league,
             kickoff=timezone.now() - timedelta(days=kickoff_offset_days),
@@ -40,12 +41,14 @@ class PublicVerifiedUniverseTests(TestCase):
             pricing_integrity_status=status or public_universe.classify_row(pred)
         )
         pred.refresh_from_db()
+        if publish:
+            publish_claim(pred, pricing_integrity_status=pred.pricing_integrity_status)
         return pred
 
     def test_all_public_surfaces_share_one_universe(self):
-        # Two rows that belong in public statistics...
-        self._row(900001, status=PredictionLog.PRICING_VERIFIED, correct=True)
-        self._row(900002, status=PredictionLog.PRICING_VERIFIED, correct=False)
+        # Two published claims that belong in public statistics...
+        self._row(900001, status=PredictionLog.PRICING_VERIFIED, correct=True, publish=True)
+        self._row(900002, status=PredictionLog.PRICING_VERIFIED, correct=False, publish=True)
         # ...and one of every kind that must not.
         self._row(900003, status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
         self._row(900004, status=PredictionLog.PRICING_MISSING_PROVENANCE)
@@ -54,7 +57,7 @@ class PublicVerifiedUniverseTests(TestCase):
         self._row(900006, status=PredictionLog.PRICING_VERIFIED, recommended=False)
         self._row(900007, status=PredictionLog.PRICING_VERIFIED, confidence=0.40)
 
-        self.assertEqual(public_universe.priced_qs().count(), 2)
+        self.assertEqual(len(public_universe.resolved_claims()), 2)
 
         calc = AccuracyCalculator()
         self.assertEqual(
@@ -65,7 +68,8 @@ class PublicVerifiedUniverseTests(TestCase):
 
     def test_legacy_unverified_rows_never_reach_public_roi(self):
         # A large fake winner of exactly the kind the odds defect produced.
-        row = self._row(900010, status=PredictionLog.PRICING_LEGACY_UNVERIFIED)
+        row = self._row(900010, status=PredictionLog.PRICING_LEGACY_UNVERIFIED,
+                        publish=True)
         PredictionLog.objects.filter(pk=row.pk).update(profit_loss_10=250.0)
 
         roi = AccuracyCalculator().get_roi_simulation()
@@ -74,8 +78,10 @@ class PublicVerifiedUniverseTests(TestCase):
 
     def test_quarantined_rows_excluded_even_if_marked_verified(self):
         """is_audit_excluded is an independent veto, not merely a status."""
-        self._row(900020, status=PredictionLog.PRICING_VERIFIED, audit_excluded=True)
+        self._row(900020, status=PredictionLog.PRICING_VERIFIED, audit_excluded=True,
+                  publish=True)
         self.assertEqual(public_universe.priced_qs().count(), 0)
+        self.assertEqual(len(public_universe.resolved_claims()), 0)
 
     def test_league_breakdown_returns_one_row_per_league(self):
         """Regression for audit finding F8.
@@ -85,10 +91,10 @@ class PublicVerifiedUniverseTests(TestCase):
         """
         for i in range(6):
             self._row(900100 + i, status=PredictionLog.PRICING_VERIFIED,
-                      league='Eredivisie', kickoff_offset_days=i + 1)
+                      league='Eredivisie', kickoff_offset_days=i + 1, publish=True)
         for i in range(3):
             self._row(900200 + i, status=PredictionLog.PRICING_VERIFIED,
-                      league='Superliga', kickoff_offset_days=i + 1)
+                      league='Superliga', kickoff_offset_days=i + 1, publish=True)
 
         leagues = AccuracyCalculator().get_accuracy_by_league()
         names = [l['league'] for l in leagues]

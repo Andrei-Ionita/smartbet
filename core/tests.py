@@ -722,6 +722,26 @@ def _verified_pricing(odds=1.85):
         'odds_selection_policy': 'lower_median_v1',
     }
 
+def publish_claim(pred, **overrides):
+    """Publish a PredictionLog as an immutable claim.
+
+    Public performance denominates on PublishedClaim, so any test asserting on
+    accuracy/ROI must publish first. See
+    docs/audit/gem-selector-diagnostics-2026-07-29.md.
+    """
+    from core.models import PublishedClaim
+    fields = dict(
+        prediction=pred, fixture_id=pred.fixture_id,
+        home_team=pred.home_team, away_team=pred.away_team,
+        league=pred.league, kickoff=pred.kickoff,
+        market_type=pred.market_type, predicted_outcome=pred.predicted_outcome,
+        confidence=pred.confidence, odds=pred.odds,
+        odds_provenance=pred.odds_provenance,
+        prediction_generated_at=pred.prediction_logged_at,
+    )
+    fields.update(overrides)
+    return PublishedClaim.objects.create(**fields)
+
 def _make_pred(fixture_id, **overrides):
     """Helper: a valid PredictionLog kwargs dict with sane defaults; override what you need."""
     base = dict(
@@ -1306,8 +1326,14 @@ class UpgradeTierEndpointTests(TestCase):
 # for the analysis that justified lowering the O/U 2.5 threshold.
 # ─────────────────────────────────────────────────────────────────────────────
 
-class AccuracyCalculatorRoiFilterTests(TestCase):
-    """get_roi_simulation()'s per-market confidence gate."""
+class SelectionConfidenceGateTests(TestCase):
+    """The per-market confidence gate governs which picks are PUBLISHABLE.
+
+    It is deliberately NOT re-applied to already-published claims: changing a
+    threshold must never retroactively remove a claim from the public record,
+    because that is precisely the "rewriting history" behaviour the published
+    claim exists to prevent.
+    """
 
     def _pred(self, fixture_id, market_type, confidence, correct=True):
         kickoff = timezone.now() - timedelta(days=1)
@@ -1324,43 +1350,52 @@ class AccuracyCalculatorRoiFilterTests(TestCase):
             pricing_integrity_status=PredictionLog.PRICING_VERIFIED,
         )
 
-    def test_ou25_at_057_included(self):
-        # 0.57 is below the global 0.60 default but above the lowered
-        # 0.55 over_under_2.5 gate, so it should be counted.
+    def test_ou25_at_057_is_publishable(self):
+        # 0.57 is below the global 0.60 default but above the lowered 0.55
+        # over_under_2.5 gate.
         self._pred(600001, 'over_under_2.5', 0.57)
-        # Decoy: below even the lowered 0.55 gate — proves the gate is
-        # selective, not "any over_under_2.5 row passes".
+        # Decoy below even the lowered gate — proves the gate is selective.
         self._pred(600002, 'over_under_2.5', 0.50)
 
-        from core.services.accuracy_calculator import AccuracyCalculator
-        result = AccuracyCalculator().get_roi_simulation()
+        from core.services import public_universe
+        self.assertEqual(public_universe.priced_qs().count(), 1)
 
-        self.assertEqual(result['total_bets'], 1)
-        self.assertEqual(result['total_profit_loss'], 8.0)
-
-    def test_1x2_at_057_excluded(self):
-        # 0.57 clears the over_under_2.5-specific 0.55 gate, but 1x2 isn't in
-        # PER_MARKET_CONF_THRESHOLDS so it keeps the 0.60 default and is
-        # excluded.
+    def test_1x2_at_057_is_not_publishable(self):
+        # 1x2 is not in PER_MARKET_CONF_THRESHOLDS so it keeps the 0.60 default.
         self._pred(600003, '1x2', 0.57)
-        # Decoy: a 1x2 row that does clear 0.60 — proves the market isn't
-        # blanket-excluded, only the sub-threshold confidence is filtered.
-        self._pred(600004, '1x2', 0.62)
+        self._pred(600004, '1x2', 0.62)   # decoy that does clear 0.60
 
-        from core.services.accuracy_calculator import AccuracyCalculator
-        result = AccuracyCalculator().get_roi_simulation()
+        from core.services import public_universe
+        self.assertEqual(public_universe.priced_qs().count(), 1)
 
-        self.assertEqual(result['total_bets'], 1)
-
-    def test_1x2_at_062_included(self):
-        # 0.62 clears the 0.60 default threshold for a non-listed market.
+    def test_1x2_at_062_is_publishable(self):
         self._pred(600005, '1x2', 0.62)
 
-        from core.services.accuracy_calculator import AccuracyCalculator
-        result = AccuracyCalculator().get_roi_simulation()
+        from core.services import public_universe
+        self.assertEqual(public_universe.priced_qs().count(), 1)
 
-        self.assertEqual(result['total_bets'], 1)
-        self.assertEqual(result['total_profit_loss'], 8.0)
+    def test_published_claim_survives_a_later_threshold_change(self):
+        """A published claim is never retroactively un-published."""
+        from core.services import public_universe
+        from core.services.accuracy_calculator import AccuracyCalculator
+
+        pred = self._pred(600006, 'over_under_2.5', 0.57)
+        publish_claim(pred)
+        self.assertEqual(AccuracyCalculator().get_roi_simulation()['total_bets'], 1)
+
+        # Someone raises the over_under_2.5 threshold above this pick.
+        original = dict(public_universe.PER_MARKET_CONF_THRESHOLDS)
+        public_universe.PER_MARKET_CONF_THRESHOLDS['over_under_2.5'] = 0.65
+        try:
+            # No longer publishable going forward...
+            self.assertEqual(public_universe.priced_qs().count(), 0)
+            # ...but the already-published claim still counts.
+            self.assertEqual(
+                AccuracyCalculator().get_roi_simulation()['total_bets'], 1)
+        finally:
+            public_universe.PER_MARKET_CONF_THRESHOLDS.clear()
+            public_universe.PER_MARKET_CONF_THRESHOLDS.update(original)
+
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1392,8 +1427,8 @@ class AccuracyCalculatorUnificationTests(TestCase):
 
     def test_overall_accuracy_excludes_non_recommended(self):
         # A recommended pick and an equally-confident NON-recommended pick.
-        # Only the recommended one should count toward accuracy now.
-        self._pred(700001, '1x2', 0.65, correct=True, is_recommended=True)
+        # Only the recommended, published one counts toward accuracy.
+        publish_claim(self._pred(700001, '1x2', 0.65, correct=True, is_recommended=True))
         self._pred(700002, '1x2', 0.65, correct=False, is_recommended=False)
 
         from core.services.accuracy_calculator import AccuracyCalculator
@@ -1405,7 +1440,7 @@ class AccuracyCalculatorUnificationTests(TestCase):
 
     def test_overall_accuracy_applies_per_market_gate(self):
         # over_under_2.5 at 0.57 clears its lowered 0.55 gate → counted.
-        self._pred(700003, 'over_under_2.5', 0.57, is_recommended=True)
+        publish_claim(self._pred(700003, 'over_under_2.5', 0.57, is_recommended=True))
         # 1x2 at 0.57 is below the 0.60 default for non-listed markets → excluded.
         self._pred(700004, '1x2', 0.57, is_recommended=True)
 
@@ -1418,8 +1453,8 @@ class AccuracyCalculatorUnificationTests(TestCase):
         # Mixed set: recommended O/U 2.5 (0.57, passes lowered gate), recommended
         # 1x2 (0.62, passes default), recommended 1x2 (0.57, fails default),
         # and a non-recommended O/U 2.5 (0.80, high conf but not recommended).
-        self._pred(700005, 'over_under_2.5', 0.57, is_recommended=True)
-        self._pred(700006, '1x2', 0.62, is_recommended=True)
+        publish_claim(self._pred(700005, 'over_under_2.5', 0.57, is_recommended=True))
+        publish_claim(self._pred(700006, '1x2', 0.62, is_recommended=True))
         self._pred(700007, '1x2', 0.57, is_recommended=True)          # excluded (gate)
         self._pred(700008, 'over_under_2.5', 0.80, is_recommended=False)  # excluded (not rec)
 

@@ -377,9 +377,19 @@ class PublishedClaim(models.Model):
         choices=PredictionLog.PRICING_INTEGRITY_CHOICES,
         default=PredictionLog.PRICING_VERIFIED,
     )
-    # sha256 over the frozen claim fields — lets anyone verify the claim was
-    # never altered, without trusting us.
+    # sha256 over the frozen claim fields. A hash DETECTS modification; it does
+    # not prevent it. Prevention comes from save() refusing updates and from
+    # corrections being recorded as new, superseding claims.
     claim_hash = models.CharField(max_length=64, unique=True)
+
+    # Corrections are recorded SEPARATELY rather than rewriting the original.
+    # A corrected claim is a NEW row pointing at the one it replaces; the
+    # original stays readable forever with its own hash intact.
+    supersedes = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='superseded_by',
+    )
+    correction_reason = models.CharField(max_length=255, null=True, blank=True)
 
     class Meta:
         ordering = ['-published_at']
@@ -397,7 +407,33 @@ class PublishedClaim(models.Model):
         'market_type', 'predicted_outcome', 'confidence', 'odds',
         'odds_provenance', 'odds_captured_at', 'prediction_generated_at',
         'published_at', 'model_version', 'prediction_run_id',
+        'supersedes_id', 'correction_reason',
     )
+
+    @property
+    def is_superseded(self):
+        """True when a later, corrected claim replaced this one."""
+        return self.superseded_by.exists()
+
+    def correct(self, reason, **changes):
+        """Record a correction as a NEW claim; never rewrite this one.
+
+        Returns the superseding claim. The original remains readable with its
+        original hash intact — which is what makes "corrections are recorded
+        separately" a true statement rather than a slogan.
+        """
+        fields = {
+            f: getattr(self, f) for f in self.CLAIM_FIELDS
+            if f not in ('supersedes_id', 'correction_reason', 'published_at')
+        }
+        fields.update(changes)
+        return PublishedClaim.objects.create(
+            prediction=self.prediction,
+            pricing_integrity_status=self.pricing_integrity_status,
+            supersedes=self,
+            correction_reason=reason,
+            **fields,
+        )
 
     def compute_hash(self):
         """Stable sha256 over the frozen claim fields."""

@@ -625,18 +625,54 @@ def get_recommended_predictions_with_outcomes(request):
         # quarantined_count surfaces them separately for transparency.
         pending_count = sum(1 for r in results if not r['is_completed'] and not r.get('is_audit_excluded'))
 
+        # ── Public performance: resolved, verified PublishedClaims ONLY ──────
+        # Headline figures must never mix the verified public record with
+        # legacy tracked predictions. PredictionLog rows were mutable across
+        # pipeline re-runs, so a stored predicted_outcome cannot be proven
+        # identical to the one generated at its timestamp. Legacy data stays
+        # below under `legacy_diagnostics`, explicitly labelled.
+        from core.services.accuracy_calculator import AccuracyCalculator
+        _calc = AccuracyCalculator()
+        _public_acc = _calc.get_overall_accuracy()['overall']
+        _public_roi = _calc.get_roi_simulation()
+        _has_verified = _public_roi['total_bets'] > 0
+
+        verified_public = {
+            'has_verified_results': _has_verified,
+            'total': _public_roi['total_bets'],
+            'correct': _public_acc['correct_predictions'],
+            'incorrect': _public_acc['incorrect_predictions'],
+            # None (not 0) at zero sample so no surface can render 0% / +0%.
+            'accuracy': _public_acc['accuracy_percent'] if _has_verified else None,
+            'total_profit_loss': _public_roi['total_profit_loss'] if _has_verified else None,
+            'roi_percent': _public_roi['roi_percent'] if _has_verified else None,
+        }
+
         summary = {
+            # THE public performance block. Everything else on this endpoint is
+            # internal diagnostics.
+            'verified_public': verified_public,
+            'legacy_diagnostics': {
+                'label': 'legacy / unverified — internal diagnostics only',
+                'note': (
+                    'Predictions from before the verified pricing cutoff. Their '
+                    'original prices, and in some cases their original prediction '
+                    'state, cannot be reconstructed to the current verification '
+                    'standard. Not public performance.'
+                ),
+                'completed': len(completed),
+                'correct': len(correct),
+                'incorrect': len(completed) - len(correct),
+                'accuracy': round((len(correct) / len(completed) * 100), 1) if completed else None,
+                'total_profit_loss': round(total_pl, 2) if total_pl else 0,
+                'average_roi': round(avg_roi, 2) if avg_roi else None,
+                'by_market': by_market,
+            },
             'total_recommended': len(results),
             'completed': len(completed),
             'pending': pending_count,
             'quarantined': len(quarantined),
-            'correct': len(correct),
-            'incorrect': len(completed) - len(correct),
-            'accuracy': round((len(correct) / len(completed) * 100), 1) if completed else None,
-            'total_profit_loss': round(total_pl, 2) if total_pl else 0,
-            'average_roi': round(avg_roi, 2) if avg_roi else None,
             'yield_percent': yield_percent,
-            'by_market': by_market,
             # NEW: Baseline comparison metrics
             'implied_baseline': implied_baseline,  # Expected accuracy based on odds
             'edge_vs_market': edge_vs_market,  # Our accuracy minus baseline

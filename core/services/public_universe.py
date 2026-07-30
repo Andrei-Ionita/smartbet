@@ -127,6 +127,76 @@ def pending_qs():
     )
 
 
+# ── THE public performance universe ─────────────────────────────────────────
+# Every headline public statistic — accuracy, ROI, P/L, by-market, by-league,
+# homepage figures, transparency dashboard, monitoring — denominates on THIS.
+#
+# It is built from PublishedClaim, not PredictionLog, because PredictionLog
+# rows were mutable across pipeline re-runs. Grading was always correct, but we
+# cannot prove a stored predicted_outcome is identical to the one generated at
+# its timestamp. Only a published claim carries that guarantee.
+#
+# A claim counts only when ALL hold:
+#   * the claim exists and is not superseded by a correction;
+#   * its integrity hash still matches its stored fields (not tampered);
+#   * its price provenance is complete;
+#   * it is not quarantined / audit-excluded;
+#   * (for settled metrics) its result is resolved.
+def _claim_base():
+    from core.models import PublishedClaim
+
+    return (
+        PublishedClaim.objects
+        .filter(pricing_integrity_status=PredictionLog.PRICING_VERIFIED)
+        .exclude(prediction__is_audit_excluded=True)
+        .exclude(superseded_by__isnull=False)   # a correction replaced it
+        .select_related('prediction')
+    )
+
+
+def verified_claims():
+    """Published claims eligible for public statistics.
+
+    Integrity and provenance are validated in Python — a SHA-256 over the
+    stored fields cannot be expressed in SQL. Tampered or incomplete claims are
+    EXCLUDED rather than silently counted.
+    """
+    out = []
+    for claim in _claim_base():
+        if not claim.verify_integrity():
+            logger.error(
+                'PublishedClaim %s failed integrity verification — excluded '
+                'from public statistics.', claim.claim_id
+            )
+            continue
+        if missing_provenance_fields(claim.odds_provenance, claim.market_type):
+            continue
+        out.append(claim)
+    return out
+
+
+def resolved_claims():
+    """Verified claims whose match has settled. The public performance set."""
+    from core.models import PublishedClaim
+
+    return [
+        c for c in verified_claims()
+        if c.prediction.was_correct is not None
+        and c.result_status in (PublishedClaim.STATUS_WON, PublishedClaim.STATUS_LOST)
+    ]
+
+
+def claim_profit_loss(claim, stake=10.0):
+    """Flat-stake P/L for a settled claim, computed from the CLAIM's price.
+
+    Deliberately not `prediction.profit_loss_10`: that was derived from the
+    mutable row's odds. Public money figures must use the published price.
+    """
+    if claim.prediction.was_correct is None or not claim.odds:
+        return None
+    return stake * (claim.odds - 1) if claim.prediction.was_correct else -stake
+
+
 # ── Provenance completeness ─────────────────────────────────────────────────
 # A row may only be marked verified when the recorded price can be audited end
 # to end: which market priced it, at which line, for which outcome, from which

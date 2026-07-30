@@ -53,162 +53,129 @@ class AccuracyCalculator:
         """
         return public_universe.resolved_qs()
 
+    # ── Public performance: ALL metrics denominate on resolved PublishedClaims ──
+    # PredictionLog rows were mutable across pipeline re-runs. Grading was always
+    # correct, but we cannot prove a stored predicted_outcome is identical to the
+    # one generated at its timestamp. Only a published claim carries that
+    # guarantee, so accuracy and ROI now share one claim-based universe.
+    # See docs/audit/gem-selector-diagnostics-2026-07-29.md.
+
+    def _resolved_claims(self):
+        return public_universe.resolved_claims()
+
     def get_overall_accuracy(self) -> Dict:
-        """
-        Get overall accuracy across recommended, resolved bets passing the
-        per-market confidence gate (same universe as the ROI card).
-        """
-        completed = self._recommended_base_qs().filter(was_correct__isnull=False)
-        
-        total = completed.count()
-        correct = completed.filter(was_correct=True).count()
+        """Overall accuracy across resolved, verified published claims."""
+        claims = self._resolved_claims()
+        total = len(claims)
+        correct = sum(1 for c in claims if c.prediction.was_correct)
         accuracy = (correct / total * 100) if total > 0 else 0
-        
-        # Breakdown by outcome
-        home_total = completed.filter(predicted_outcome='Home').count()
-        home_correct = completed.filter(predicted_outcome='Home', was_correct=True).count()
-        home_accuracy = (home_correct / home_total * 100) if home_total > 0 else 0
-        
-        draw_total = completed.filter(predicted_outcome='Draw').count()
-        draw_correct = completed.filter(predicted_outcome='Draw', was_correct=True).count()
-        draw_accuracy = (draw_correct / draw_total * 100) if draw_total > 0 else 0
-        
-        away_total = completed.filter(predicted_outcome='Away').count()
-        away_correct = completed.filter(predicted_outcome='Away', was_correct=True).count()
-        away_accuracy = (away_correct / away_total * 100) if away_total > 0 else 0
-        
+
+        def outcome_block(name):
+            subset = [c for c in claims if c.predicted_outcome == name]
+            hits = sum(1 for c in subset if c.prediction.was_correct)
+            return {
+                'total': len(subset),
+                'correct': hits,
+                'accuracy': round(hits / len(subset) * 100, 1) if subset else 0,
+            }
+
         return {
             'overall': {
                 'total_predictions': total,
                 'correct_predictions': correct,
                 'incorrect_predictions': total - correct,
-                'accuracy_percent': round(accuracy, 1)
+                'accuracy_percent': round(accuracy, 1),
+                # Lets every surface render "Building verified record" instead of
+                # a 0% that reads as break-even performance.
+                'has_verified_results': total > 0,
             },
             'by_outcome': {
-                'home': {
-                    'total': home_total,
-                    'correct': home_correct,
-                    'accuracy': round(home_accuracy, 1)
-                },
-                'draw': {
-                    'total': draw_total,
-                    'correct': draw_correct,
-                    'accuracy': round(draw_accuracy, 1)
-                },
-                'away': {
-                    'total': away_total,
-                    'correct': away_correct,
-                    'accuracy': round(away_accuracy, 1)
-                }
-            }
+                'home': outcome_block('Home'),
+                'draw': outcome_block('Draw'),
+                'away': outcome_block('Away'),
+            },
         }
-    
-    def get_accuracy_by_confidence(self) -> List[Dict]:
-        """
-        Get accuracy breakdown by confidence levels for recommended bets.
-        Shows if higher confidence = higher accuracy.
 
-        Deliberately does NOT apply the per-market confidence gate — confidence
-        is the axis being bucketed here — but does restrict to is_recommended so
-        it denominates on the same recommended-bets universe as every other card.
-        """
-        completed = PredictionLog.objects.filter(
-            is_recommended=True,
-            actual_outcome__isnull=False,
-            was_correct__isnull=False
-        )
-        
-        # Define confidence ranges
+    def get_accuracy_by_confidence(self) -> List[Dict]:
+        """Accuracy by confidence band, over resolved verified claims."""
+        claims = self._resolved_claims()
         ranges = [
-            (0.70, 1.00, '70-100%', 'Very High'),
+            (0.70, 1.01, '70-100%', 'Very High'),
             (0.65, 0.70, '65-70%', 'High'),
             (0.60, 0.65, '60-65%', 'Medium-High'),
-            # Removed lower confidence ranges as we only track > 60%
+            (0.55, 0.60, '55-60%', 'Medium'),
         ]
-        
+
         results = []
-        
         for min_conf, max_conf, label, category in ranges:
-            preds = completed.filter(confidence__gte=min_conf, confidence__lt=max_conf)
-            total = preds.count()
-            correct = preds.filter(was_correct=True).count()
-            accuracy = (correct / total * 100) if total > 0 else 0
-            
-            if total > 0:  # Only include ranges with data
-                results.append({
-                    'confidence_range': label,
-                    'category': category,
-                    'total': total,
-                    'correct': correct,
-                    'accuracy': round(accuracy, 1)
-                })
-        
+            subset = [c for c in claims if min_conf <= (c.confidence or 0) < max_conf]
+            if not subset:
+                continue
+            hits = sum(1 for c in subset if c.prediction.was_correct)
+            results.append({
+                'confidence_range': label,
+                'category': category,
+                'total': len(subset),
+                'correct': hits,
+                'accuracy': round(hits / len(subset) * 100, 1),
+            })
         return results
-    
+
     def get_accuracy_by_league(self) -> List[Dict]:
+        """Accuracy + ROI by league, over resolved verified claims.
+
+        Returns exactly one row per league. The previous queryset version
+        de-duplicated on (league, kickoff) because PredictionLog.Meta.ordering
+        leaked `kickoff` into DISTINCT, returning 241 rows for 25 leagues
+        (2026-07-29 audit, finding F8).
         """
-        Get accuracy + ROI breakdown by league for recommended bets passing the
-        per-market confidence gate (same universe as the ROI card).
-        """
-        completed = self._recommended_base_qs().filter(was_correct__isnull=False)
-        
-        # Get unique leagues
-        # `.order_by()` is REQUIRED: PredictionLog.Meta.ordering = ['-kickoff']
-        # otherwise injects `kickoff` into the SELECT for ORDER BY, so DISTINCT
-        # de-duplicates on (league, kickoff) pairs. That returned 241 rows for
-        # 25 leagues on production (2026-07-29 audit, finding F8).
-        leagues = completed.order_by().values_list('league', flat=True).distinct()
-        
+        claims = self._resolved_claims()
+        by_league = {}
+        for c in claims:
+            by_league.setdefault(c.league, []).append(c)
+
         results = []
-        
-        for league in leagues:
-            league_preds = completed.filter(league=league)
-            total = league_preds.count()
-            correct = league_preds.filter(was_correct=True).count()
-            accuracy = (correct / total * 100) if total > 0 else 0
-            
-            # Calculate ROI for this league
-            roi_predictions = league_preds.filter(profit_loss_10__isnull=False)
-            total_pl = sum(float(p.profit_loss_10) for p in roi_predictions)
-            roi = (total_pl / (total * 10) * 100) if total > 0 else 0
-            
+        for league, subset in by_league.items():
+            total = len(subset)
+            correct = sum(1 for c in subset if c.prediction.was_correct)
+            pls = [public_universe.claim_profit_loss(c) for c in subset]
+            total_pl = sum(v for v in pls if v is not None)
             results.append({
                 'league': league,
                 'total_predictions': total,
                 'correct_predictions': correct,
-                'accuracy_percent': round(accuracy, 1),
-                'roi_percent': round(roi, 1)
+                'accuracy_percent': round(correct / total * 100, 1) if total else 0,
+                'roi_percent': round(total_pl / (total * 10) * 100, 1) if total else 0,
             })
-        
+
         # Sort by total predictions (most active leagues first)
         results.sort(key=lambda x: x['total_predictions'], reverse=True)
         
         return results
     
     def get_roi_simulation(self, stake_per_bet: float = 10.0) -> Dict:
+        """Flat-stake ROI over resolved, verified published claims.
+
+        Money figures use each CLAIM's published price, not the mutable row's
+        `profit_loss_10`, so the number can never drift from what was posted.
         """
-        Calculate theoretical ROI if user followed all high-confidence recommendations.
-        """
-        # Same recommended-bets + per-market-confidence universe as every other
-        # metric (see _recommended_base_qs), additionally requiring a settled P/L.
-        completed = self._recommended_base_qs().filter(profit_loss_10__isnull=False)
-        
-        total_bets = completed.count()
+        claims = self._resolved_claims()
+
+        entries = []
+        for claim in claims:
+            pl = public_universe.claim_profit_loss(claim, stake=stake_per_bet)
+            if pl is not None:
+                entries.append((claim, pl))
+
+        total_bets = len(entries)
         total_staked = total_bets * stake_per_bet
-        
-        # Calculate total P/L
-        total_pl = sum(
-            float(pred.profit_loss_10 or 0) * (stake_per_bet / 10)
-            for pred in completed
-        )
-        
+        total_pl = sum(pl for _, pl in entries)
         roi = (total_pl / total_staked * 100) if total_staked > 0 else 0
-        
-        # Calculate by outcome type
-        wins = completed.filter(was_correct=True).count()
-        losses = completed.filter(was_correct=False).count()
+
+        wins = sum(1 for c, _ in entries if c.prediction.was_correct)
+        losses = total_bets - wins
         win_rate = (wins / total_bets * 100) if total_bets > 0 else 0
-        
+
         return {
             'total_bets': total_bets,
             'total_staked': round(total_staked, 2),
@@ -218,7 +185,9 @@ class AccuracyCalculator:
             'losses': losses,
             'win_rate': round(win_rate, 1),
             'avg_profit_per_bet': round(total_pl / total_bets, 2) if total_bets > 0 else 0,
-            'stake_per_bet': stake_per_bet
+            'stake_per_bet': stake_per_bet,
+            # Surfaces must render "No verified results yet" rather than +0%.
+            'has_verified_results': total_bets > 0,
         }
     
     def get_performance_over_time(self, days: int = 30) -> List[Dict]:
@@ -228,9 +197,12 @@ class AccuracyCalculator:
         """
         cutoff_date = timezone.now() - timedelta(days=days)
 
-        completed = self._recommended_base_qs().filter(
-            kickoff__gte=cutoff_date
-        ).order_by('kickoff')
+        # Public surface -> the verified claim universe, like every other metric.
+        completed = [
+            c.prediction for c in public_universe.resolved_claims()
+            if c.kickoff >= cutoff_date
+        ]
+        completed.sort(key=lambda p: p.kickoff)
         
         # Group by week
         results = []

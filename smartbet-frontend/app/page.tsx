@@ -133,22 +133,39 @@ export default function HomePage() {
               <span>{t('landing.heroSubtitle').split('.')[0]}...</span> {/* Abbreviated subtitle for tag */}
             </div>
             {/* Live Accuracy Badge */}
-            {performanceData?.data?.overall?.total_predictions > 0 && (
+            {performanceData?.data?.overall?.total_predictions > 0 ? (
               <div
                 onClick={() => router.push('/track-record')}
                 className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105"
               >
                 <Shield className="h-5 w-5" />
                 <div className="text-left">
-                  <div className="text-sm font-medium opacity-90">Verified Smart Picks</div>
+                  <div className="text-sm font-medium opacity-90">Model accuracy — verified results</div>
                   <div className="text-lg font-bold">
                     {performanceData.data.overall.accuracy_percent}% {t('landing.stats.accuracy')}
                     <span className="text-sm font-normal opacity-90 ml-2 block text-xs">
-                      (&gt;60% confidence models)
+                      (55% confidence floor on Over/Under 2.5, 60% elsewhere)
                     </span>
                   </div>
                 </div>
                 <ArrowRight className="h-5 w-5" />
+              </div>
+            ) : (
+              /* Zero verified results must never render as 0% — that reads as
+                 break-even performance. The verified record restarts at the
+                 pricing-integrity cutoff and fills in as matches settle. */
+              <div
+                onClick={() => router.push('/track-record')}
+                className="inline-flex items-center gap-3 px-6 py-3 bg-gray-100 text-gray-700 rounded-full border border-gray-300 cursor-pointer hover:bg-gray-200 transition-all duration-300"
+              >
+                <Shield className="h-5 w-5 text-gray-500" />
+                <div className="text-left">
+                  <div className="text-sm font-medium">Building verified record</div>
+                  <div className="text-xs text-gray-600">
+                    Every published pick is frozen before kickoff — results fill in as matches settle
+                  </div>
+                </div>
+                <ArrowRight className="h-5 w-5 text-gray-500" />
               </div>
             )}
           </div>
@@ -261,9 +278,9 @@ export default function HomePage() {
               {/* Transparency Notice */}
               <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg">
                 <p className="text-sm text-center text-blue-900">
-                  🔍 <strong>100% Transparent:</strong> These recommendations are logged & tracked on our{' '}
+                  🔍 <strong>Fully transparent:</strong> Every published pick is frozen before kickoff and
+                  remains visible with its verified result—win or lose. See our{' '}
                   <a href="/track-record" className="underline font-semibold hover:text-blue-700">public track record</a>
-                  {' '}• All predictions timestamped before kickoff • Real results verified by 3rd party sources
                 </p>
               </div>
 
@@ -523,7 +540,7 @@ export default function HomePage() {
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-4">Quality Filter</h3>
               <p className="text-gray-600">
-                Only top European leagues with verified data sources and proven accuracy
+                Selected European leagues with verified data sources
               </p>
             </div>
           </div>
