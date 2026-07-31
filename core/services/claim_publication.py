@@ -231,23 +231,58 @@ def publish_for_prediction(prediction_id, published_by=None, now=None):
 
 # ── Settlement ──────────────────────────────────────────────────────────────
 # Valid transitions are PENDING (no result row) -> WON | LOST | VOID | CANCELLED.
-# There is no path back to PENDING and no path between terminal states: recording
-# a different status for an already-settled claim is rejected, not applied.
-VOID_MATCH_STATUSES = {'POSTP', 'ABAN', 'SUSP', 'DELETED', 'INT'}
-CANCELLED_MATCH_STATUSES = {'CANC', 'CANCELLED', 'WO'}
+# There is no path back to PENDING and no path between terminal states.
+#
+# CRITICAL: a published claim is graded against the market and selection FROZEN
+# IN THE CLAIM — never against the live PredictionLog row's current pick. Only
+# the SCORE and FIXTURE STATUS come from the live row, because those are
+# third-party facts about the match rather than statements we made.
+#
+# Reading `prediction.was_correct` here would be a correctness bug: that field is
+# graded against whatever the row currently predicts, so a pipeline re-run that
+# changed a fixture's market or selection would settle a published claim against
+# a bet it never made.
 
 
-def derive_settlement(prediction):
-    """Settlement status implied by third-party fixture data, or None if pending."""
+def derive_settlement(claim_or_prediction):
+    """Settlement status for a claim, or None while it cannot be determined.
+
+    Accepts a PublishedClaim (preferred) or, for the latest-state view, a
+    PredictionLog. With a claim, the BET is taken from the claim's frozen
+    fields and only the RESULT from the linked prediction.
+    """
+    from core.models import PublishedClaim as _Claim
+    from core.services import market_evaluation
+
+    if isinstance(claim_or_prediction, _Claim):
+        claim = claim_or_prediction
+        # Always re-read the source: settlement must reflect CURRENT third-party
+        # fixture data, and a cached FK can be stale.
+        prediction = PredictionLog.objects.get(pk=claim.prediction_id)
+        market_type = claim.market_type              # FROZEN
+        predicted_outcome = claim.predicted_outcome  # FROZEN
+    else:
+        prediction = claim_or_prediction
+        market_type = prediction.market_type
+        predicted_outcome = prediction.predicted_outcome
+
     status = (prediction.match_status or '').upper()
-    if status in CANCELLED_MATCH_STATUSES:
+    if market_evaluation.is_cancelled_status(status):
         return PublishedClaim.STATUS_CANCELLED
-    if status in VOID_MATCH_STATUSES:
+    if market_evaluation.is_void_status(status):
         return PublishedClaim.STATUS_VOID
-    if prediction.was_correct is None:
+
+    won = market_evaluation.evaluate_prediction(
+        market_type=market_type,
+        predicted_outcome=predicted_outcome,
+        home_score=prediction.actual_score_home,
+        away_score=prediction.actual_score_away,
+        fixture_status=prediction.match_status,
+        actual_outcome=prediction.actual_outcome,
+    )
+    if won is None:
         return None
-    return (PublishedClaim.STATUS_WON if prediction.was_correct
-            else PublishedClaim.STATUS_LOST)
+    return PublishedClaim.STATUS_WON if won else PublishedClaim.STATUS_LOST
 
 
 @transaction.atomic
@@ -258,10 +293,9 @@ def settle_published_claim(claim, status=None, now=None):
     contradictory one. Never touches any claim field.
     """
     now = now or timezone.now()
-    # Re-read the source: settlement must reflect CURRENT third-party fixture
-    # data, and a cached FK on the passed claim instance can be stale.
+    # Re-read the source for the SCORE; the BET comes from the claim itself.
     prediction = PredictionLog.objects.get(pk=claim.prediction_id)
-    status = status or derive_settlement(prediction)
+    status = status or derive_settlement(claim)
 
     if status is None:
         raise SettlementError('not_settled_yet', 'third-party result unavailable')

@@ -752,9 +752,25 @@ def publish_claim(pred, settle=None, **overrides):
 
 
 def settle_claim(claim, status=None):
-    """Record settlement for a published claim (test helper)."""
+    """Record settlement for a published claim (test helper).
+
+    Settlement now grades the claim's FROZEN market/outcome against the real
+    score, so a fixture with `was_correct` set but no scoreline cannot be
+    derived. Many older factories build such rows, so this helper falls back to
+    an explicit status from `was_correct` — legitimate for a helper, and exactly
+    the escape hatch `settle_published_claim(status=...)` exists for.
+    """
+    from core.models import PublishedClaim
     from core.services import claim_publication
 
+    if status is None:
+        derived = claim_publication.derive_settlement(claim)
+        if derived is None:
+            correct = claim.prediction.was_correct
+            if correct is None:
+                return None
+            status = (PublishedClaim.STATUS_WON if correct
+                      else PublishedClaim.STATUS_LOST)
     try:
         return claim_publication.settle_published_claim(claim, status=status)
     except claim_publication.SettlementError:

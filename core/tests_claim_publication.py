@@ -451,7 +451,11 @@ class StaffPreviewShowsSnapshotsTests(TestCase):
 
     def test_multiple_snapshots_are_shown_distinctly(self):
         pred = latest_state(975001)
-        older, _ = record(pred, run_id='r09', odds=1.80)
+        # Distinct generation times — otherwise a fast run gives both the same
+        # timestamp and "is this the newest?" becomes meaningless.
+        older, _ = record(pred, run_id='r09', odds=1.80,
+                          generated_at=timezone.now() - timedelta(hours=3),
+                          captured_at=timezone.now() - timedelta(hours=4))
         newer, _ = record(pred, run_id='r14', odds=1.70)
 
         body = json.loads(
@@ -523,8 +527,11 @@ class PublicPerformanceStillClaimBasedTests(TestCase):
         snap, _ = record(pred, run_id='runA', odds=2.0)
         claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
 
-        pred.was_correct = True
+        # Settlement grades the CLAIM's frozen pick against the real score — it
+        # no longer trusts the mutable `was_correct` flag.
+        pred.actual_score_home, pred.actual_score_away = 2, 1  # Over 2.5 -> WON
         pred.actual_outcome = 'Over 2.5'
+        pred.match_status = 'FT'
         pred.save()
         claim_publication.settle_published_claim(claim)
 
@@ -608,9 +615,53 @@ class PublicationQueueTests(TestCase):
                        'score_rank', 'confidence_rank'):
             self.assertNotIn(banned, blob, f'queue leaked a performance claim: {banned}')
         # And the payload explicitly disclaims being a ranking.
-        self.assertIn('not a ranking', body['note'].lower())
+        self.assertIn('not a statistical score', body['note'].lower())
 
     def test_queue_never_publishes_anything(self):
         self._candidate(990050, 12)
         self._staff('qroot6').get('/api/proof/queue/')
         self.assertEqual(PublishedClaim.objects.count(), 0)
+
+    def test_queue_reports_odds_freshness_and_staleness_warning(self):
+        pred = latest_state(991001, kickoff_in=timedelta(hours=12))
+        record(pred, run_id='fresh-1',
+               captured_at=timezone.now() - timedelta(hours=20))
+
+        body = json.loads(self._staff('qroot7').get('/api/proof/queue/').content)
+        row = body['candidates'][0]
+        self.assertIsNotNone(row['odds_age_minutes'])
+        self.assertGreater(row['odds_age_minutes'], 12 * 60)
+        self.assertTrue(any('no longer be obtainable' in w for w in row['warnings']))
+        self.assertEqual(row['publication_window'], '6-24h — ideal sharing window')
+
+    def test_queue_flags_when_a_newer_snapshot_exists(self):
+        pred = latest_state(991002, kickoff_in=timedelta(hours=12))
+        # Coherent timestamps: the price must be captured BEFORE the run that
+        # used it, so an older run needs an older capture time too.
+        older, _ = record(pred, run_id='r-old',
+                          generated_at=timezone.now() - timedelta(hours=3),
+                          captured_at=timezone.now() - timedelta(hours=4))
+        newer, _ = record(pred, run_id='r-new')
+
+        body = json.loads(self._staff('qroot8').get('/api/proof/queue/').content)
+        by_id = {r['snapshot_id']: r for r in body['candidates']}
+        self.assertIn(str(older.snapshot_id), by_id,
+                      'the older snapshot should still be publishable')
+        self.assertIn(str(newer.snapshot_id), by_id)
+
+        self.assertTrue(by_id[str(older.snapshot_id)]['newer_snapshot_exists'])
+        self.assertTrue(any('newer snapshot exists' in w
+                            for w in by_id[str(older.snapshot_id)]['warnings']))
+        self.assertFalse(by_id[str(newer.snapshot_id)]['newer_snapshot_exists'])
+        self.assertIsNotNone(by_id[str(older.snapshot_id)]['latest_snapshot_generated_at'])
+
+    def test_fresher_odds_come_first_within_a_window(self):
+        stale = latest_state(991010, kickoff_in=timedelta(hours=12))
+        record(stale, run_id='s1', captured_at=timezone.now() - timedelta(hours=30))
+        fresh = latest_state(991011, kickoff_in=timedelta(hours=13))
+        record(fresh, run_id='f1', captured_at=timezone.now() - timedelta(minutes=20))
+
+        body = json.loads(self._staff('qroot9').get('/api/proof/queue/').content)
+        first = body['candidates'][0]
+        self.assertEqual(first['fixture_id'], 991011)
+        self.assertLess(first['odds_age_minutes'], 60)

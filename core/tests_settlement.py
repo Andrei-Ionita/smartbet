@@ -233,3 +233,145 @@ class SchedulerBehaviourTests(TestCase):
                               "== 'over'", 'actual_1x2'):
             self.assertNotIn(grading_token, source,
                              f'grading logic {grading_token!r} duplicated in the command')
+
+
+class SettlementUsesImmutableClaimFieldsTests(TestCase):
+    """RELEASE BLOCKER regression.
+
+    Settlement previously read `PredictionLog.was_correct`, which is graded
+    against the row's CURRENT market and selection. A pipeline re-run that
+    changed either would have settled a published claim against a bet it never
+    made. The BET must come from the frozen claim; only the SCORE and FIXTURE
+    STATUS may come from the live row.
+    """
+
+    def test_claim_is_graded_on_its_own_market_and_outcome(self):
+        # Published as BTTS Yes.
+        pred, claim = published(985001, market='btts', outcome='Btts yes')
+
+        # The pipeline re-runs and the live row becomes a DIFFERENT bet that
+        # the same scoreline would grade the opposite way.
+        pred.market_type = 'over_under_2.5'
+        pred.predicted_outcome = 'Over 2.5'
+        pred.save()
+
+        # 1-1: BTTS Yes WINS, Over 2.5 LOSES.
+        finish(pred, 1, 1)
+        self.assertFalse(pred.was_correct, 'live row graded as Over 2.5 -> lost')
+
+        run_settlement()
+        claim.refresh_from_db()
+
+        # The claim is settled on ITS bet (BTTS Yes), not the row's new one.
+        self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
+        self.assertEqual(claim.market_type, 'btts')
+        self.assertEqual(claim.predicted_outcome, 'Btts yes')
+        self.assertTrue(claim.verify_integrity())
+
+    def test_the_opposite_direction_too(self):
+        # Published as Over 2.5; the row later becomes BTTS Yes.
+        pred, claim = published(985002, market='over_under_2.5',
+                                outcome='Over 2.5')
+        pred.market_type = 'btts'
+        pred.predicted_outcome = 'Btts yes'
+        pred.save()
+
+        # 1-1: Over 2.5 LOSES, BTTS Yes WINS.
+        finish(pred, 1, 1)
+        self.assertTrue(pred.was_correct, 'live row graded as BTTS Yes -> won')
+
+        run_settlement()
+        claim.refresh_from_db()
+        self.assertEqual(claim.result_status, PublishedClaim.STATUS_LOST)
+        self.assertTrue(claim.verify_integrity())
+
+    def test_flipping_only_the_selection_is_also_ignored(self):
+        pred, claim = published(985003, market='btts', outcome='Btts yes')
+        pred.predicted_outcome = 'Btts no'
+        pred.save()
+
+        finish(pred, 2, 1)   # both scored -> claim's "Yes" wins
+        run_settlement()
+        claim.refresh_from_db()
+        self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
+
+    def test_confidence_odds_and_bookmaker_cannot_affect_settlement(self):
+        pred, claim = published(985004, market='btts', outcome='Btts yes',
+                                odds=1.80)
+        original_hash = claim.claim_hash
+
+        pred.confidence = 0.99
+        pred.odds = 25.0
+        pred.bookmaker = 'Some Other Book'
+        pred.odds_provenance = dict(provenance(25.0),
+                                    odds_bookmaker_name='Some Other Book')
+        pred.save()
+
+        finish(pred, 2, 1)
+        run_settlement()
+        claim.refresh_from_db()
+
+        # Settlement outcome unchanged...
+        self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
+        # ...and the card still shows the ORIGINAL frozen price and score.
+        self.assertEqual(claim.odds, 1.80)
+        self.assertAlmostEqual(claim.confidence, 0.624, places=3)
+        self.assertEqual(
+            (claim.odds_provenance or {}).get('odds_bookmaker_name'), 'bet365')
+        self.assertEqual(claim.claim_hash, original_hash)
+        self.assertTrue(claim.verify_integrity())
+
+    def test_public_pl_uses_the_frozen_price_not_the_mutated_one(self):
+        from core.services.accuracy_calculator import AccuracyCalculator
+
+        pred, claim = published(985005, market='btts', outcome='Btts yes',
+                                odds=2.0)
+        pred.odds = 50.0          # a wildly different live price
+        pred.save()
+        finish(pred, 2, 1)
+        run_settlement()
+
+        roi = AccuracyCalculator().get_roi_simulation(stake_per_bet=10.0)
+        # 10 * (2.0 - 1) = 10.0, from the CLAIM price — not 490.0.
+        self.assertEqual(roi['total_profit_loss'], 10.0)
+
+    def test_the_public_card_reflects_the_frozen_bet(self):
+        import json
+
+        pred, claim = published(985006, market='btts', outcome='Btts yes')
+        pred.market_type = 'over_under_2.5'
+        pred.predicted_outcome = 'Over 2.5'
+        pred.save()
+        finish(pred, 1, 1)
+        run_settlement()
+
+        body = json.loads(
+            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
+        self.assertEqual(body['pick']['market_type'], 'btts')
+        self.assertEqual(body['pick']['predicted_outcome'], 'Btts yes')
+        self.assertEqual(body['result']['status'], 'WON')
+        self.assertTrue(body['integrity_ok'])
+
+    def test_evaluator_is_pure_and_takes_no_model(self):
+        """The shared evaluator cannot accidentally read a mutable row."""
+        import inspect
+
+        from core.services import market_evaluation
+
+        sig = inspect.signature(market_evaluation.evaluate_prediction)
+        self.assertEqual(
+            list(sig.parameters),
+            ['market_type', 'predicted_outcome', 'home_score', 'away_score',
+             'fixture_status', 'actual_outcome'],
+        )
+        # Check executable code, not the docstrings (which legitimately name
+        # the callers they exist to serve).
+        import ast
+
+        tree = ast.parse(inspect.getsource(market_evaluation))
+        for node in ast.walk(tree):
+            if isinstance(node, (ast.Import, ast.ImportFrom)):
+                self.fail('the evaluator must import nothing')
+            if isinstance(node, ast.Attribute):
+                self.assertNotIn(node.attr, ('objects', 'save', 'refresh_from_db'),
+                                 'evaluator touches persistence')

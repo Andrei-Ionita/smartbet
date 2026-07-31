@@ -214,69 +214,26 @@ class PredictionLog(models.Model):
         if not self.predicted_outcome:
             return  # No prediction to verify
         
-        # Get market type (default to 1x2 for legacy predictions)
+        # Grading rules live in ONE place: core.services.market_evaluation.
+        # This row is graded against ITS CURRENT pick, which is correct for the
+        # latest-state view. Published claims are graded separately against
+        # their own FROZEN pick — see claim_publication.derive_settlement.
+        from core.services import market_evaluation
+
         market_type = getattr(self, 'market_type', '1x2') or '1x2'
         predicted = self.predicted_outcome.lower().strip()
-        
-        # Get scores for goal-based markets
         home_score = self.actual_score_home
         away_score = self.actual_score_away
-        total_goals = (home_score or 0) + (away_score or 0)
-        
-        # Determine 1X2 actual outcome for reference
-        if home_score is not None and away_score is not None:
-            if home_score > away_score:
-                actual_1x2 = 'home'
-            elif away_score > home_score:
-                actual_1x2 = 'away'
-            else:
-                actual_1x2 = 'draw'
-        else:
-            actual_1x2 = (self.actual_outcome or '').lower()
-        
-        # ============= VERIFY BY MARKET TYPE =============
-        if market_type == '1x2':
-            # Standard 1X2 verification
-            self.was_correct = (predicted == actual_1x2)
-            
-        elif market_type == 'btts':
-            # Both Teams to Score
-            if home_score is not None and away_score is not None:
-                both_scored = (home_score > 0) and (away_score > 0)
-                predicted_btts_yes = 'yes' in predicted or 'btts yes' in predicted
-                self.was_correct = (predicted_btts_yes == both_scored)
-            else:
-                self.was_correct = None  # Cannot verify without scores
-                
-        elif market_type == 'over_under_2.5':
-            # Over/Under 2.5 Goals
-            if home_score is not None and away_score is not None:
-                is_over = total_goals > 2.5
-                predicted_over = 'over' in predicted
-                self.was_correct = (predicted_over == is_over)
-            else:
-                self.was_correct = None
-                
-        elif market_type == 'double_chance':
-            # Double Chance: 1X (Home or Draw), X2 (Draw or Away), 12 (Home or Away)
-            if actual_1x2:
-                if '1x' in predicted or 'home' in predicted and 'draw' in predicted:
-                    # Home or Draw
-                    self.was_correct = actual_1x2 in ['home', 'draw']
-                elif 'x2' in predicted or 'draw' in predicted and 'away' in predicted:
-                    # Draw or Away
-                    self.was_correct = actual_1x2 in ['draw', 'away']
-                elif '12' in predicted:
-                    # Home or Away (no draw)
-                    self.was_correct = actual_1x2 in ['home', 'away']
-                else:
-                    self.was_correct = None
-            else:
-                self.was_correct = None
-        else:
-            # Unknown market type, fall back to 1X2 logic
-            self.was_correct = (predicted == actual_1x2)
-        
+
+        self.was_correct = market_evaluation.evaluate_prediction(
+            market_type=market_type,
+            predicted_outcome=self.predicted_outcome,
+            home_score=home_score,
+            away_score=away_score,
+            fixture_status=self.match_status,
+            actual_outcome=self.actual_outcome,
+        )
+
         # ============= CALCULATE PROFIT/LOSS =============
         # Prefer the canonical `odds` field (works for any market). Fall back to per-outcome
         # 1X2 columns, and only as a last resort back-calculate from EV (legacy historical rows).

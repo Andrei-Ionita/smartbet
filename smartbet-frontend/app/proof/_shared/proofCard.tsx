@@ -17,6 +17,17 @@ import {
 
 export const size = { width: 1200, height: 630 }
 
+/**
+ * Bump whenever the card's visual contract changes. Emitted as the
+ * `x-betglitch-card` response header so any served image can be traced to the
+ * code that produced it — a cached older artifact is then provable, not
+ * guesswork.
+ *
+ * v2: PUBLISHED (not LOGGED) as the primary timestamp, lead time measured from
+ *     publication, formatted odds/market/bookmaker, single transparency line.
+ */
+export const CARD_VERSION = 'v2-published-ts'
+
 const NAVY = '#0B1220'
 const CARD = '#111A2E'
 const BLUE = '#3B82F6'
@@ -217,7 +228,10 @@ function VoidCard({ data }: { data: ProofPayload }) {
 }
 
 /** Render the correct card for a claim's settlement state. */
-export async function renderProofImage(data: ProofPayload | null) {
+export async function renderProofImage(
+  data: ProofPayload | null,
+  opts: { previewNotice?: string } = {},
+) {
   // Node.js runtime (not edge) has filesystem access; `fetch(new URL(...,
   // import.meta.url))` only resolves reliably under the edge runtime, so read
   // the bundled font from disk instead.
@@ -228,6 +242,7 @@ export async function renderProofImage(data: ProofPayload | null) {
   const fontOpt = {
     fonts: [{ name: 'Inter', data: fontData, weight: 400 as const, style: 'normal' as const }],
     ...size,
+    headers: { 'x-betglitch-card': CARD_VERSION },
   }
 
   if (!data) {
@@ -247,5 +262,19 @@ export async function renderProofImage(data: ProofPayload | null) {
     : status === 'VOID' || status === 'CANCELLED'
       ? <VoidCard data={data} />
       : <PickCard data={data} />
-  return new ImageResponse(card, fontOpt)
+
+  if (!opts.previewNotice) return new ImageResponse(card, fontOpt)
+
+  // Staff preview: the notice must be impossible to mistake for a real card.
+  return new ImageResponse(
+    <div style={{ display: 'flex', flexDirection: 'column', width: '100%', height: '100%' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+        background: '#B45309', color: '#fff', fontSize: 22, padding: '8px 0',
+        fontFamily: 'Inter', letterSpacing: 1,
+      }}>{opts.previewNotice}</div>
+      <div style={{ display: 'flex', flex: 1 }}>{card}</div>
+    </div>,
+    fontOpt,
+  )
 }

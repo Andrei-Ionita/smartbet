@@ -208,13 +208,16 @@ class PublishedClaimImmutabilityTests(TestCase):
         pred, claim = self._claim()
         self.assertEqual(claim.result_status, PublishedClaim.STATUS_PENDING)
 
-        pred.was_correct = True
+        # Settlement grades the claim's FROZEN pick against the real score.
+        # The claim is Over 2.5, so 2-1 (3 goals) wins.
+        pred.actual_score_home, pred.actual_score_away = 2, 1
+        pred.match_status = 'FT'
         pred.save()
         claim_publication.settle_published_claim(claim)
         self.assertEqual(claim.result_status, PublishedClaim.STATUS_WON)
 
         # A contradictory settlement is rejected, never applied.
-        pred.was_correct = False
+        pred.actual_score_home, pred.actual_score_away = 1, 1
         pred.save()
         with self.assertRaises(claim_publication.SettlementError):
             claim_publication.settle_published_claim(claim)

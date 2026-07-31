@@ -515,6 +515,10 @@ def _serialize_snapshot(snapshot, newest_generated_at=None):
 # better, only which is most useful to publish now. Ranking on historical ROI is
 # deliberately absent — the historical sample is contaminated (2026-07-29 audit)
 # and the gem selector is not built.
+# A recorded price older than this is flagged: it may no longer be obtainable by
+# the time an audience sees the card. Informational only — never a hard filter.
+STALE_ODDS_WARNING_MINUTES = 12 * 60
+
 PUBLICATION_QUEUE_BANDS = (
     (6, 24, 0, '6-24h — ideal sharing window'),
     (24, 48, 1, '24-48h'),
@@ -563,6 +567,16 @@ def publication_queue(request):
         .order_by('kickoff')
     )
 
+    # Newest generation time per fixture, so a row can say whether it is stale.
+    latest_by_fixture = {}
+    for fid, generated in (
+        PredictionSnapshot.objects
+        .filter(fixture_id__in=[c.fixture_id for c in candidates])
+        .values_list('fixture_id', 'prediction_generated_at')
+    ):
+        if fid not in latest_by_fixture or generated > latest_by_fixture[fid]:
+            latest_by_fixture[fid] = generated
+
     rows = []
     for snap in candidates:
         if not snap.verify_integrity():
@@ -578,9 +592,40 @@ def publication_queue(request):
         prov = snap.odds_provenance or {}
         conf = snap.confidence or 0.0
 
+        # ── Freshness ─────────────────────────────────────────────────────
+        odds_age_minutes = None
+        if snap.odds_captured_at:
+            odds_age_minutes = round(
+                (now - snap.odds_captured_at).total_seconds() / 60.0, 1
+            )
+
+        latest = latest_by_fixture.get(snap.fixture_id)
+        newer_exists = bool(
+            latest and latest > snap.prediction_generated_at
+        )
+
+        warnings = []
+        if odds_age_minutes is not None and odds_age_minutes > STALE_ODDS_WARNING_MINUTES:
+            warnings.append(
+                f'recorded price is {round(odds_age_minutes / 60)}h old — it may '
+                'no longer be obtainable'
+            )
+        if newer_exists:
+            warnings.append(
+                'a newer snapshot exists for this fixture; publishing this one '
+                'freezes the older prediction'
+            )
+
         rows.append({
             '_order': order,
             '_hours': hours,
+            '_odds_age': odds_age_minutes if odds_age_minutes is not None else 10 ** 9,
+            '_generated': snap.prediction_generated_at,
+            'odds_age_minutes': odds_age_minutes,
+            'newer_snapshot_exists': newer_exists,
+            'latest_snapshot_generated_at': latest.isoformat() if latest else None,
+            'publication_window': band,
+            'warnings': warnings,
             'snapshot_id': str(snap.snapshot_id),
             'fixture_id': snap.fixture_id,
             'fixture': f'{snap.home_team} vs {snap.away_team}',
@@ -605,18 +650,21 @@ def publication_queue(request):
             'publish_endpoint': f'/api/proof/snapshot/{snap.snapshot_id}/publish/',
         })
 
-    rows.sort(key=lambda r: (r['_order'], r['_hours']))
+    # Within a band: fresher odds first, then the newer snapshot. This is a
+    # practical freshness ordering, NOT a statistical score of any kind.
+    rows.sort(key=lambda r: (r['_order'], r['_odds_age'], -r['_generated'].timestamp()))
     for r in rows:
-        r.pop('_order')
-        r.pop('_hours')
+        for key in ('_order', '_hours', '_odds_age', '_generated'):
+            r.pop(key)
 
     return Response({
         'count': len(rows),
         'generated_at': now.isoformat(),
         'note': (
-            'Publishable verified snapshots, ordered by sharing window. Not a '
-            'ranking — no historical performance is used, and nothing is '
-            'published automatically.'
+            'Publishable verified snapshots, grouped by sharing window and then '
+            'by price freshness. Not a statistical score of any kind — no '
+            'historical performance is used, and nothing is published '
+            'automatically.'
         ),
         'candidates': rows,
     })

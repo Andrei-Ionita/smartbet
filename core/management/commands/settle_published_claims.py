@@ -49,7 +49,7 @@ class Command(BaseCommand):
 
         settled = skipped = failed = 0
         for claim in pending:
-            status = claim_publication.derive_settlement(claim.prediction)
+            status = claim_publication.derive_settlement(claim)
             if status is None:
                 # The provider has not returned a usable result yet. Leave the
                 # claim PENDING — never guess.
@@ -89,7 +89,7 @@ class Command(BaseCommand):
         for claim in (PublishedClaim.objects
                       .filter(result__isnull=False)
                       .select_related('prediction', 'result')[:limit]):
-            implied = claim_publication.derive_settlement(claim.prediction)
+            implied = claim_publication.derive_settlement(claim)
             if implied is not None and implied != claim.result.status:
                 diverged += 1
                 logger.error(
