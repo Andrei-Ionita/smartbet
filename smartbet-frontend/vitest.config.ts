@@ -3,7 +3,8 @@ import { defineConfig } from 'vitest/config'
 /**
  * Scoped to pure logic modules under app/lib. These tests must not need a DOM,
  * a Next runtime, or network access — they exist to lock down correctness of
- * odds selection after the 2026-07-29 capture defect.
+ * odds selection after the 2026-07-29 capture defect, and the public formatting
+ * of proof surfaces.
  */
 export default defineConfig({
   test: {
