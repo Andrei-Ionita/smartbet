@@ -86,13 +86,15 @@ export default function Navigation() {
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mr-2">
               <button
                 onClick={() => setLanguage('en')}
-                className={`px-2 py-1 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                aria-pressed={language === 'en'}
+                className={`min-h-[44px] min-w-[44px] px-2 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 EN
               </button>
               <button
                 onClick={() => setLanguage('ro')}
-                className={`px-2 py-1 text-xs font-bold rounded ${language === 'ro' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                aria-pressed={language === 'ro'}
+                className={`min-h-[44px] min-w-[44px] px-2 text-xs font-bold rounded ${language === 'ro' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
               >
                 RO
               </button>
@@ -191,13 +193,15 @@ export default function Navigation() {
               <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
                 <button
                   onClick={() => setLanguage('en')}
-                  className={`px-3 py-1 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  aria-pressed={language === 'en'}
+                  className={`min-h-[44px] px-4 text-xs font-bold rounded ${language === 'en' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   English
                 </button>
                 <button
                   onClick={() => setLanguage('ro')}
-                  className={`px-3 py-1 text-xs font-bold rounded ${language === 'ro' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
+                  aria-pressed={language === 'ro'}
+                  className={`min-h-[44px] px-4 text-xs font-bold rounded ${language === 'ro' ? 'bg-white shadow text-primary-600' : 'text-gray-500 hover:text-gray-700'}`}
                 >
                   Română
                 </button>
