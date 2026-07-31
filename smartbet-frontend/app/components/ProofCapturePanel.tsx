@@ -35,8 +35,8 @@ export default function ProofCapturePanel({
             source={source}
             leagueInterest={leagueInterest}
             interests={['weekly_picks', 'track_record', 'premium_launch']}
-            title="Get weekly Smart Picks"
-            description="Free email brief with top picks, proof of performance, and launch updates."
+            title="Get the weekly summary"
+            description="A free weekly email covering the picks BetGlitch published and how they settled."
           />
         </div>
       </div>

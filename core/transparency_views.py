@@ -199,7 +199,12 @@ def recent_predictions_with_results(request):
                 'was_correct': pred.was_correct,
                 'profit_loss': float(pred.profit_loss_10) if pred.profit_loss_10 else None,
                 'prediction_logged_at': pred.prediction_logged_at.isoformat(),
-                'status': pred.match_status or ('Pending' if not pred.actual_outcome else 'Completed')
+                'status': pred.match_status or ('Pending' if not pred.actual_outcome else 'Completed'),
+                # Read-only. Lets the page label each row honestly: this log
+                # contains rows recorded BEFORE the pricing-integrity cutoff,
+                # which are excluded from the verified record. Without this the
+                # table reads as the record itself.
+                'pricing_integrity_status': pred.pricing_integrity_status,
             })
         
         return Response({

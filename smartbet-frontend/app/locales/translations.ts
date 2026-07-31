@@ -162,9 +162,9 @@ export const translations = {
             }
         },
         trackRecord: {
-            title: 'Our Track Record',
-            subtitle: 'Performance of our recommended bets - the fixtures we told you to bet on',
-            disclaimer: '💎 Only our top picks are shown here (55%+ confidence, positive EV)',
+            title: 'Verified record',
+            subtitle: 'Settled published picks — the ones BetGlitch froze before kickoff. Wins and losses both.',
+            disclaimer: 'Only settled published picks count towards these figures.',
             updateResults: 'Update Results',
             updating: 'Updating...',
             stats: {
@@ -209,18 +209,18 @@ export const translations = {
             transparency: {
                 title: '🔒 Our Transparency Commitment',
                 whatWeTrack: '📋 What We Track',
-                whatWeTrackDesc: 'We track only the predictions we recommend to you - the "best bets" shown on our homepage (top 10 daily picks with 55%+ confidence and positive EV).',
+                whatWeTrackDesc: 'Public performance is measured only on published picks — the ones BetGlitch froze before kickoff with their recorded odds and bookmaker. The log below also shows earlier predictions, clearly marked as legacy and excluded from every figure.',
                 why: 'Why?',
                 whyDesc: 'Because a record is only meaningful if it cannot be edited afterwards. Only published picks — frozen before kickoff — count towards public performance.',
                 points: {
                     timestamped: 'Timestamped BEFORE kickoff',
-                    timestampedDesc: 'All predictions logged before matches start - impossible to fake',
+                    timestampedDesc: 'A published pick records its selection, odds, bookmaker and time before the match starts, and settlement grades that frozen copy',
                     verified: 'Third-party verified',
-                    verifiedDesc: 'Results fetched from SportMonks API - we cannot manipulate them',
+                    verifiedDesc: 'Match outcomes come from an independent data provider rather than being self-reported',
                     permanent: 'Never deleted',
                     permanentDesc: 'Historical data is permanent - we show both wins and losses',
-                    history: 'Complete history',
-                    historyDesc: 'Every recommendation we made is here - you can audit everything',
+                    history: 'Nothing is deleted',
+                    historyDesc: 'Earlier predictions stay visible as legacy even though they cannot count towards the verified record',
                     updates: 'Real-time updates',
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
@@ -543,9 +543,9 @@ export const translations = {
             }
         },
         trackRecord: {
-            title: 'Istoricul Nostru',
-            subtitle: 'Performanța pariurilor recomandate - meciurile pe care ți-am spus să pariezi',
-            disclaimer: '💎 Doar cele mai bune selecții sunt afișate aici (încredere 55%+, EV pozitiv)',
+            title: 'Istoric verificat',
+            subtitle: 'Pontaje publicate încheiate — cele înghețate de BetGlitch înainte de start. Și câștiguri, și pierderi.',
+            disclaimer: 'Doar pontajele publicate încheiate contează pentru aceste cifre.',
             updateResults: 'Actualizează Rezultate',
             updating: 'Se actualizează...',
             stats: {
@@ -590,18 +590,18 @@ export const translations = {
             transparency: {
                 title: '🔒 Angajamentul Nostru de Transparență',
                 whatWeTrack: '📋 Ce Urmărim',
-                whatWeTrackDesc: 'Urmărim doar predicțiile pe care ți le recomandăm - "cele mai bune pariuri" afișate pe pagina principală (top 10 zilnic cu încredere 55%+ și EV pozitiv).',
+                whatWeTrackDesc: 'Performanța publică se măsoară doar pe pontajele publicate — cele înghețate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Jurnalul de mai jos arată și predicții mai vechi, marcate clar ca legacy și excluse din orice cifră.',
                 why: 'De ce?',
                 whyDesc: 'Pentru că un istoric contează doar dacă nu poate fi editat ulterior. Doar pontajele publicate — înghețate înainte de start — contează pentru performanța publică.',
                 points: {
                     timestamped: 'Marcate temporal ÎNAINTE de start',
-                    timestampedDesc: 'Toate predicțiile sunt înregistrate înainte de începerea meciurilor - imposibil de falsificat',
+                    timestampedDesc: 'Un pontaj publicat își înregistrează selecția, cota, casa de pariuri și ora înainte de startul meciului, iar decontarea evaluează exact acea copie înghețată',
                     verified: 'Verificate de terți',
-                    verifiedDesc: 'Rezultate preluate din API-ul SportMonks - nu le putem manipula',
+                    verifiedDesc: 'Rezultatele meciurilor provin de la un furnizor de date independent, nu sunt raportate de noi',
                     permanent: 'Niciodată șterse',
                     permanentDesc: 'Datele istorice sunt permanente - arătăm atât câștigurile cât și pierderile',
-                    history: 'Istoric complet',
-                    historyDesc: 'Fiecare recomandare făcută este aici - poți audita totul',
+                    history: 'Nimic nu se șterge',
+                    historyDesc: 'Predicțiile mai vechi rămân vizibile ca legacy, chiar dacă nu pot conta în istoricul verificat',
                     updates: 'Actualizări în timp real',
                     updatesDesc: 'Apasă "Actualizează Rezultate" pentru a prelua cele mai recente rezultate ale meciurilor'
                 },

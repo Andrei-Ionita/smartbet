@@ -5,7 +5,7 @@ import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCirc
 import { useLanguage } from '../contexts/LanguageContext';
 import ProofCapturePanel from '../components/ProofCapturePanel';
 import ShareProofButton from '../components/ShareProofButton';
-import { StatusLegend } from '../components/StatusBadge';
+import { StatusBadge, StatusLegend } from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 
 interface PredictionWithResult {
@@ -28,6 +28,9 @@ interface PredictionWithResult {
   profit_loss: number | null;
   prediction_logged_at: string;
   status: string;
+  /** Read-only from the API. 'verified' rows are the only ones eligible for
+   *  the public record; anything else is legacy or missing provenance. */
+  pricing_integrity_status?: string | null;
 }
 
 interface AccuracyStats {
@@ -187,6 +190,12 @@ export default function TrackRecordContent() {
 
     return true;
   });
+
+  // Rows recorded before the pricing-integrity cutoff. They are preserved and
+  // shown, but they are NOT the verified record and must not read as it.
+  const legacyCount = filteredPredictions.filter(
+    (p) => (p.pricing_integrity_status || '') !== 'verified',
+  ).length;
 
   if (loading) {
     return (
@@ -509,6 +518,29 @@ export default function TrackRecordContent() {
 
         {/* Predictions Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          {/* Without this, the log reads as the verified record: the stats above
+              correctly say zero while the table below lists hundreds of rows
+              with profit figures. Say plainly which is which. */}
+          {legacyCount > 0 && (
+            <div className="border-b border-amber-200 bg-amber-50 p-4 sm:p-5">
+              <div className="flex flex-wrap items-center gap-2">
+                <StatusBadge status="legacy" size="sm" />
+                <h3 className="text-sm font-bold text-gray-900">
+                  Prediction log — not the verified record
+                </h3>
+              </div>
+              <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
+                {legacyCount === filteredPredictions.length
+                  ? `All ${legacyCount} rows below were`
+                  : `${legacyCount} of the ${filteredPredictions.length} rows below were`}{' '}
+                recorded before the pricing-integrity cutoff. They are kept
+                public because BetGlitch does not delete history, but their
+                prices could not be verified against the exact market and
+                bookmaker, so they are excluded from the accuracy and ROI
+                figures above and from every public performance claim.
+              </p>
+            </div>
+          )}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead className="bg-gray-50 border-b border-gray-200">
@@ -529,6 +561,11 @@ export default function TrackRecordContent() {
                   <tr key={pred.fixture_id} className="hover:bg-gray-50">
                     <td className="px-6 py-4">
                       <div>
+                        {(pred.pricing_integrity_status || '') !== 'verified' && (
+                          <div className="mb-1">
+                            <StatusBadge status="legacy" size="sm" />
+                          </div>
+                        )}
                         <p className="text-sm font-medium text-gray-900">
                           {pred.home_team} vs {pred.away_team}
                         </p>
@@ -622,7 +659,7 @@ export default function TrackRecordContent() {
         <div className="mt-8">
           <ProofCapturePanel
             source="track_record_page"
-            title="Follow the proof, then get the weekly shortlist."
+            title="Check the receipts, then follow along by email."
             description="Verify every result here, then join the free list for weekly picks and updates as the verified record develops."
           />
         </div>
