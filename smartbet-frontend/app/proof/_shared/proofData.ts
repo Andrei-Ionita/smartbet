@@ -18,6 +18,8 @@ export interface ProofPayload {
   claim_hash_version?: string | null
   /** False when the stored hash no longer matches the stored fields. */
   integrity_ok?: boolean
+  /** Versions the OG image URL so each rendered state has its own cache identity. */
+  card_cache_version?: string
   integrity_error?: string | null
   superseded?: boolean
   pick: {

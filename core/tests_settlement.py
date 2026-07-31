@@ -375,3 +375,117 @@ class SettlementUsesImmutableClaimFieldsTests(TestCase):
             if isinstance(node, ast.Attribute):
                 self.assertNotIn(node.attr, ('objects', 'save', 'refresh_from_db'),
                                  'evaluator touches persistence')
+
+
+class CardCacheVersioningTests(TestCase):
+    """Every rendered public card state must have its own cache identity.
+
+    Next derives its Open Graph image query hash from the opengraph-image MODULE
+    CONTENTS, so a data-only settlement does NOT change it — proven in
+    production, where two preview routes rendering WON and LOST carried the
+    identical hash. Without state-derived versioning a crawler would keep
+    serving the PENDING image forever.
+    """
+
+    def _versions_for(self, fixture_id, status, score=(2, 1)):
+        pred, claim = published(fixture_id)
+        pending = claim.card_cache_version
+        if status in (PublishedClaim.STATUS_VOID, PublishedClaim.STATUS_CANCELLED):
+            finish(pred, None, None,
+                   status='POSTP' if status == PublishedClaim.STATUS_VOID else 'CANC')
+        else:
+            finish(pred, *score)
+        run_settlement()
+        claim.refresh_from_db()
+        return pending, claim.card_cache_version, claim
+
+    def test_pending_and_each_settled_state_have_distinct_identities(self):
+        cases = [
+            (986001, PublishedClaim.STATUS_WON, (2, 1)),
+            (986002, PublishedClaim.STATUS_LOST, (3, 0)),
+            (986003, PublishedClaim.STATUS_VOID, None),
+            (986004, PublishedClaim.STATUS_CANCELLED, None),
+        ]
+        settled_versions = set()
+        for fixture_id, expected, score in cases:
+            pending, settled, claim = self._versions_for(
+                fixture_id, expected, score or (2, 1))
+            self.assertEqual(claim.result_status, expected)
+            self.assertNotEqual(pending, settled,
+                                f'{expected} reused the PENDING cache identity')
+            self.assertTrue(pending.endswith('.pending'))
+            self.assertFalse(settled.endswith('.pending'))
+            settled_versions.add(settled)
+
+        # Each state produced a distinct identity (all share one claim hash
+        # prefix only if the claims were identical — they are not).
+        self.assertEqual(len(settled_versions), 4)
+
+    def test_won_and_lost_on_the_same_claim_differ(self):
+        """Same claim, opposite outcomes -> different cache identity."""
+        pred_w, claim_w = published(986010)
+        finish(pred_w, 2, 1)          # BTTS yes -> WON
+        run_settlement()
+        claim_w.refresh_from_db()
+
+        pred_l, claim_l = published(986011)
+        finish(pred_l, 3, 0)          # BTTS yes -> LOST
+        run_settlement()
+        claim_l.refresh_from_db()
+
+        # Strip the claim-hash prefix; compare the settlement identity itself.
+        self.assertNotEqual(claim_w.card_cache_version.split('.')[1],
+                            claim_l.card_cache_version.split('.')[1])
+
+    def test_version_is_stable_while_nothing_changes(self):
+        pred, claim = published(986020)
+        first = claim.card_cache_version
+        claim.refresh_from_db()
+        self.assertEqual(first, claim.card_cache_version)
+
+        finish(pred, 2, 1)
+        run_settlement()
+        claim.refresh_from_db()
+        settled = claim.card_cache_version
+        run_settlement()              # idempotent re-run
+        claim.refresh_from_db()
+        self.assertEqual(settled, claim.card_cache_version)
+
+    def test_settlement_does_not_change_the_claim_hash(self):
+        pred, claim = published(986030)
+        before = claim.claim_hash
+        finish(pred, 2, 1)
+        run_settlement()
+        claim.refresh_from_db()
+        self.assertEqual(claim.claim_hash, before)
+        self.assertTrue(claim.verify_integrity())
+        # ...but the CARD cache identity did change.
+        self.assertNotEqual(claim.card_cache_version, f'{before[:16]}.pending')
+
+    def test_a_correcting_claim_gets_its_own_identity(self):
+        """A correction must never reuse an earlier result-image URL."""
+        pred, claim = published(986040)
+        finish(pred, 2, 1)
+        run_settlement()
+        claim.refresh_from_db()
+        original_version = claim.card_cache_version
+
+        corrected = claim.correct('price restated', odds=1.70)
+        self.assertNotEqual(corrected.card_cache_version, original_version)
+
+    def test_api_exposes_the_cache_version(self):
+        import json
+
+        pred, claim = published(986050)
+        body = json.loads(
+            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
+        self.assertEqual(body['card_cache_version'], claim.card_cache_version)
+        self.assertTrue(body['card_cache_version'].endswith('.pending'))
+
+        finish(pred, 2, 1)
+        run_settlement()
+        body2 = json.loads(
+            self.client.get(f'/api/proof/claim/{claim.claim_id}/').content)
+        self.assertNotEqual(body2['card_cache_version'],
+                            body['card_cache_version'])
+        self.assertEqual(body2['result']['status'], 'WON')

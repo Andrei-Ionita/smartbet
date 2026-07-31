@@ -32,12 +32,23 @@ export async function generateMetadata(
     ? `${APP_URL}/proof/claim/${data.claim_id}`
     : `${APP_URL}/proof/${params.fixtureId}`
 
+
+  // Next derives its own og:image query hash from the opengraph-image MODULE
+  // CONTENTS, so it does NOT change when settlement changes the data — a
+  // crawler would keep serving the PENDING image forever. Override it with a
+  // STATE-derived URL so PENDING and every settled state have distinct cache
+  // identities. Previously cached URLs stay valid; the page simply stops
+  // referencing them.
+  const version = data.card_cache_version ?? 'v0'
+  const imageUrl = `${APP_URL}/proof/${params.fixtureId}/opengraph-image?state=${version}`
+  const images = [{ url: imageUrl, width: 1200, height: 630, alt: 'BetGlitch published claim' }]
+
   return {
     title,
     description,
     alternates: { canonical },
-    openGraph: { title, description, type: 'website', url: canonical },
-    twitter: { card: 'summary_large_image', title, description },
+    openGraph: { title, description, type: 'website', url: canonical, images },
+    twitter: { card: 'summary_large_image', title, description, images },
   }
 }
 

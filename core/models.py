@@ -691,6 +691,25 @@ class PublishedClaim(models.Model):
         """Counts toward win/loss and ROI. VOID/CANCELLED deliberately do not."""
         return self.result_status in (self.STATUS_WON, self.STATUS_LOST)
 
+    @property
+    def card_cache_version(self):
+        """Cache identity for the PUBLIC CARD's current rendered state.
+
+        Next derives an Open Graph image query hash from the opengraph-image
+        MODULE CONTENTS, so it does not change when settlement changes the data
+        — a crawler would keep serving the PENDING image forever. The public
+        page therefore versions the image URL itself with this value.
+
+        Combines the immutable claim hash with an immutable settlement
+        identity, so PENDING and every settled state have distinct cache
+        identities, and a corrected settlement can never reuse an earlier one.
+
+        The CLAIM hash itself is untouched — settlement stays out of it.
+        """
+        result = getattr(self, 'result', None)
+        suffix = result.result_version if result is not None else 'pending'
+        return f'{self.claim_hash[:16]}.{suffix}'
+
 
 class PublishedClaimResult(models.Model):
     """Settlement of a published claim, recorded SEPARATELY from the claim.
@@ -745,6 +764,22 @@ class PublishedClaimResult(models.Model):
                 'never be rewritten.'
             )
         super().save(*args, **kwargs)
+
+    @property
+    def result_version(self):
+        """Stable identity for this settlement, from immutable settlement data.
+
+        Used to version the public card's Open Graph image URL so a settled card
+        can never reuse the PENDING image's cache identity.
+        """
+        from core.services.integrity import canonical_sha256, norm_dt
+
+        return canonical_sha256({
+            'status': self.status,
+            'settled_at': norm_dt(self.settled_at),
+            'actual_score_home': self.actual_score_home,
+            'actual_score_away': self.actual_score_away,
+        })[:16]
 
 
 class PerformanceSnapshot(models.Model):

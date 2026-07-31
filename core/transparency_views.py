@@ -361,6 +361,11 @@ def _serialize_claim(claim):
         ),
         'pricing_integrity_status': claim.pricing_integrity_status,
         'superseded': claim.is_superseded,
+        # Versions the public card's Open Graph image URL. Next's own image hash
+        # is derived from the module contents, so it does NOT change when
+        # settlement changes the data — without this a crawler would keep the
+        # PENDING image forever.
+        'card_cache_version': claim.card_cache_version,
         'pick': {
             'home_team': claim.home_team,
             'away_team': claim.away_team,
