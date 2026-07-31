@@ -2,6 +2,8 @@
 
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { track } from '../lib/analytics';
+import { markOnboardingPending } from '../components/OnboardingPanel';
 
 // Subscription tier type
 export type UserTier = 'free' | 'pro';
@@ -78,7 +80,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(data.tokens.access);
       setUser(data.user);
 
-      router.push('/');
+      // "First" means first ever on this device — otherwise the event would
+      // just be a login counter and tell us nothing about activation.
+      if (!localStorage.getItem('smartbet_has_logged_in')) {
+        localStorage.setItem('smartbet_has_logged_in', '1');
+        track('first_login', { surface: 'login' });
+      }
+      router.push('/dashboard');
     } catch (error: any) {
       throw new Error(error.message || 'Login failed');
     }
@@ -112,7 +120,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setAccessToken(data.tokens.access);
       setUser(data.user);
 
-      router.push('/');
+      // A brand-new account lands on the dashboard with a first-session
+      // orientation panel, not on the marketing homepage with no acknowledgement
+      // that anything happened.
+      track('registration_completed', { surface: 'register' });
+      markOnboardingPending();
+      router.push('/dashboard');
     } catch (error: any) {
       throw new Error(error.message || 'Registration failed');
     }

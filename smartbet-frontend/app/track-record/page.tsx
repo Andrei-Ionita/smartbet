@@ -2,12 +2,18 @@ import { Metadata } from 'next'
 import TrackRecordContent from './TrackRecordContent'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
+// The previous metadata promised a complete history of all predictions and a
+// realized return figure. Neither is true: only published picks enter the
+// record, and the record restarted at the pricing-integrity cutoff. Metadata
+// must not claim a history the verified record does not contain.
 export const metadata: Metadata = {
-  title: 'Track Record — Transparent AI Prediction Results',
-  description: 'Full transparency: see every prediction BetGlitch has ever made. Real results, real ROI, no cherry-picking. Updated daily with 27 European leagues.',
+  title: 'Verified record — settled published picks',
+  description:
+    'BetGlitch freezes selected picks before kickoff with their recorded odds and bookmaker, then publishes the result—win or lose. Only settled published picks count towards this record.',
   openGraph: {
-    title: 'Track Record — Transparent AI Prediction Results | BetGlitch',
-    description: 'Every prediction we have ever made, verified and public. Real results, real ROI, updated daily.',
+    title: 'Verified record — settled published picks | BetGlitch',
+    description:
+      'Picks frozen before kickoff, results published after full-time. Wins and losses both stay public.',
     url: 'https://betglitch.com/track-record',
   },
 }

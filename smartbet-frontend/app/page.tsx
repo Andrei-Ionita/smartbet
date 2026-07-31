@@ -1,48 +1,63 @@
 'use client'
 
-import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import {
-  Trophy,
-  TrendingUp,
-  Shield,
-  Zap,
   AlertCircle,
-  RefreshCw,
-  Star,
-  Users,
-  Target,
-  BarChart3,
-  Clock,
-  CheckCircle,
   ArrowRight,
-  Sparkles
+  BarChart3,
+  Calculator,
+  Lock,
+  ScrollText,
 } from 'lucide-react'
 import Image from 'next/image'
 import RecommendationCard from './components/RecommendationCard'
 import EmptyState from './components/EmptyState'
-import RecommendationSkeleton from './components/RecommendationSkeleton'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
-import LoadingSpinner from './components/LoadingSpinner'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
 import EmailCapture from './components/EmailCapture'
-import RecentResultsWidget from './components/RecentResultsWidget'
+import { StatusBadge } from './components/StatusBadge'
+import { getCopy } from './lib/terminology'
+import { track } from './lib/analytics'
+import { useLanguage } from './contexts/LanguageContext'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
-import { useLanguage } from '../app/contexts/LanguageContext'
-
-// ... (imports)
-
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
-export default function HomePage() {
-  const [selectedLeague, setSelectedLeague] = useState('')
-  const router = useRouter()
-  const { t } = useLanguage()
+/**
+ * Representative coverage, not the full 26-league wall. The old grid made the
+ * homepage scroll for a screen and a half to say something one sentence says
+ * better — and every card carried an internal deployment-state chip that meant
+ * nothing to a visitor.
+ */
+const FEATURED_LEAGUES = [
+  { name: 'Premier League', country: 'England' },
+  { name: 'La Liga', country: 'Spain' },
+  { name: 'Bundesliga', country: 'Germany' },
+  { name: 'Serie A', country: 'Italy' },
+  { name: 'Ligue 1', country: 'France' },
+  { name: 'Eredivisie', country: 'Netherlands' },
+]
 
-  // Get session_id from localStorage for personalized recommendations
+const TOTAL_LEAGUES = 27
+
+const BENEFIT_ICONS = [BarChart3, ScrollText, Calculator]
+
+export default function HomePage() {
+  const router = useRouter()
+  const { language } = useLanguage()
+  const copy = getCopy(language)
+
+  const enhancedFetcher = async (url: string) => {
+    const response = await fetch(url)
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+    return response.json()
+  }
+
   const getSessionId = () => {
     if (typeof window !== 'undefined') {
       return localStorage.getItem('smartbet_session_id') || ''
@@ -50,201 +65,141 @@ export default function HomePage() {
     return ''
   }
 
-  // Enhanced fetcher with error handling
-  const enhancedFetcher = async (url: string) => {
-    try {
-      const response = await fetch(url)
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-      return response.json()
-    } catch (error) {
-      console.error('Fetch error:', error)
-      throw error
-    }
-  }
-
-  // Build API URL with session_id for personalized stake recommendations
   const sessionId = getSessionId()
   const apiUrl = sessionId
     ? `/api/recommendations/?session_id=${sessionId}`
     : '/api/recommendations/'
 
-  // Fetch recommendations with SWR - using Django backend
   const { data, error, isLoading, mutate } = useSWR(apiUrl, enhancedFetcher, {
-    refreshInterval: 60000, // Refresh every 60 seconds
+    refreshInterval: 60000,
     revalidateOnFocus: true,
     errorRetryCount: 3,
     errorRetryInterval: 2000,
     shouldRetryOnError: true,
   })
 
-  // Fetch performance stats for live accuracy badge
   const { data: performanceData } = useSWR('/api/performance', fetcher, {
-    refreshInterval: 120000, // Refresh every 2 minutes
+    refreshInterval: 120000,
   })
 
-  const handleExplorePredictions = () => {
+  const settledCount = performanceData?.data?.overall?.total_predictions ?? 0
+  const hasVerifiedResults = settledCount > 0
+
+  const goExplore = () => {
+    track('home_primary_cta', { surface: 'homepage' })
     router.push('/explore')
+  }
+
+  const goVerifiedRecord = () => {
+    track('home_verified_record_cta', { surface: 'homepage' })
+    router.push('/track-record')
   }
 
   const handleViewDetails = (fixtureId: number) => {
+    track('fixture_opened', { surface: 'homepage' })
     router.push(`/explore?fixture=${fixtureId}`)
   }
 
-  const handleBrowseAll = () => {
-    router.push('/explore')
-  }
-
-  const handleRetry = () => {
-    mutate()
-  }
+  const signals: Recommendation[] = data?.recommendations ?? []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
-      <div className="max-w-6xl mx-auto px-4 py-8">
-        {/* Modern Hero Section */}
-        <div className="text-center mb-12">
-          <div className="relative inline-block mb-6">
-            <div className="absolute -inset-8 bg-blue-500/15 rounded-full blur-2xl"></div>
-            <div className="relative w-32 h-32 mx-auto">
-              <Image
-                src="/images/logo-final-v6.png"
-                alt="BetGlitch Logo"
-                fill
-                className="object-contain drop-shadow-lg"
-              />
-            </div>
+      <div className="mx-auto max-w-6xl px-4 py-10 sm:py-14">
+
+        {/* ── 1. Hero ─────────────────────────────────────────────────────
+            One job: say what this is, show why it can be trusted, and give
+            exactly one obvious first click. */}
+        <header className="mx-auto max-w-3xl text-center">
+          <div className="relative mx-auto mb-6 h-20 w-20 sm:h-24 sm:w-24">
+            <Image
+              src="/images/logo-final-v6.png"
+              alt=""
+              fill
+              priority
+              className="object-contain drop-shadow"
+            />
           </div>
 
-          <div className="space-y-4 mb-8">
-            <h1 className="text-5xl md:text-7xl font-bold text-gray-900">
-              {t('landing.heroTitle') && (
-                <>
-                  {t('landing.heroTitle')} <br className="hidden md:block" />
-                </>
-              )}
-              <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-blue-500">
-                {t('landing.heroTitleHighlight')}
-              </span>
-            </h1>
-            <div className="flex items-center justify-center gap-2 text-primary-600 font-medium">
-              <Sparkles className="h-5 w-5" />
-              <span>{t('landing.heroSubtitle').split('.')[0]}...</span> {/* Abbreviated subtitle for tag */}
-            </div>
-            {/* Live Accuracy Badge */}
-            {performanceData?.data?.overall?.total_predictions > 0 ? (
-              <div
-                onClick={() => router.push('/track-record')}
-                className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-full shadow-lg hover:shadow-xl transition-all duration-300 cursor-pointer hover:scale-105"
-              >
-                <Shield className="h-5 w-5" />
-                <div className="text-left">
-                  <div className="text-sm font-medium opacity-90">Model accuracy — verified results</div>
-                  <div className="text-lg font-bold">
-                    {performanceData.data.overall.accuracy_percent}% {t('landing.stats.accuracy')}
-                    <span className="text-sm font-normal opacity-90 ml-2 block text-xs">
-                      (55% confidence floor on Over/Under 2.5, 60% elsewhere)
-                    </span>
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5" />
-              </div>
-            ) : (
-              /* Zero verified results must never render as 0% — that reads as
-                 break-even performance. The verified record restarts at the
-                 pricing-integrity cutoff and fills in as matches settle. */
-              <div
-                onClick={() => router.push('/track-record')}
-                className="inline-flex items-center gap-3 px-6 py-3 bg-gray-100 text-gray-700 rounded-full border border-gray-300 cursor-pointer hover:bg-gray-200 transition-all duration-300"
-              >
-                <Shield className="h-5 w-5 text-gray-500" />
-                <div className="text-left">
-                  <div className="text-sm font-medium">Building verified record</div>
-                  <div className="text-xs text-gray-600">
-                    Every published pick is frozen before kickoff — results fill in as matches settle
-                  </div>
-                </div>
-                <ArrowRight className="h-5 w-5 text-gray-500" />
-              </div>
-            )}
-          </div>
-
-          <p className="text-xl md:text-2xl text-gray-600 mb-12 max-w-4xl mx-auto leading-relaxed">
-            {t('landing.heroSubtitle')}
+          <p className="mb-4 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700">
+            {copy.hero.eyebrow}
           </p>
 
-          {/* Performance Stats */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-12 max-w-4xl mx-auto">
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-primary-600 mb-1">55%+</div>
-              <div className="text-sm text-gray-600">{t('landing.stats.confidenceThreshold')}</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-green-600 mb-1">27</div>
-              <div className="text-sm text-gray-600">{t('landing.stats.coverage')}</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-blue-600 mb-1">14</div>
-              <div className="text-sm text-gray-600">{t('landing.stats.daysAhead')}</div>
-            </div>
-            <div className="bg-white/80 backdrop-blur-sm rounded-xl p-6 shadow-lg border border-white/20">
-              <div className="text-2xl font-bold text-purple-600 mb-1">3</div>
-              <div className="text-sm text-gray-600">{t('landing.stats.aiEnsemble')}</div>
-            </div>
-          </div>
+          <h1 className="text-3xl font-bold leading-tight tracking-tight text-gray-900 sm:text-4xl md:text-5xl">
+            {copy.hero.headline}
+          </h1>
 
-          {/* Recent Results Widget - Shows transparency with live results */}
-          <div className="max-w-sm mx-auto mb-8">
-            <RecentResultsWidget language={t('common.language') === 'ro' ? 'ro' : 'en'} />
-          </div>
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
+            {copy.hero.supporting}
+          </p>
 
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
             <button
-              onClick={handleExplorePredictions}
-              className="group bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
+              onClick={goExplore}
+              className="group inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3 font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
             >
-              <span className="flex items-center gap-2">
-                {t('landing.exploreButton')}
-                <ArrowRight className="h-5 w-5 group-hover:translate-x-1 transition-transform" />
+              {copy.hero.primaryCta}
+              <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
+            </button>
+            <button
+              onClick={goVerifiedRecord}
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-7 py-3 font-semibold text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+            >
+              {copy.hero.secondaryCta}
+            </button>
+          </div>
+
+          {/* Verified-record status. At zero settled picks this states the
+              honest position instead of rendering 0%, which reads as
+              break-even performance rather than "no data yet". */}
+          <button
+            onClick={goVerifiedRecord}
+            className="mx-auto mt-6 flex items-center gap-2 rounded-full border border-gray-300 bg-white/70 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          >
+            <ScrollText className="h-4 w-4 shrink-0 text-gray-500" />
+            {hasVerifiedResults ? (
+              <span>
+                <strong className="font-semibold text-gray-900">
+                  {settledCount}
+                </strong>{' '}
+                {copy.home.settledLabel.toLowerCase()}
               </span>
-            </button>
-            <button
-              onClick={() => router.push('/track-record')}
-              className="group bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-            >
-              <span className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                {t('landing.trackRecord')}
-              </span>
-            </button>
-            <button
-              onClick={() => router.push('/about')}
-              className="bg-white/80 backdrop-blur-sm hover:bg-white text-gray-700 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 border border-gray-200"
-            >
-              {t('landing.learnMore')}
-            </button>
-          </div>
-        </div>
+            ) : (
+              <span>{copy.hero.zeroState}</span>
+            )}
+            <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
+          </button>
+        </header>
 
-        {/* Featured Recommendations Section */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center gap-2 bg-primary-100 text-primary-700 px-4 py-2 rounded-full text-sm font-medium mb-4">
-              <Star className="h-4 w-4" />
-              <span>{t('landing.featuredBadge')}</span>
+        {/* ── 2. Current live signals ─────────────────────────────────── */}
+        <section aria-labelledby="signals-heading" className="mt-16 sm:mt-20">
+          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <div className="mb-2">
+                <StatusBadge status="live" size="sm" />
+              </div>
+              <h2
+                id="signals-heading"
+                className="text-2xl font-bold text-gray-900 sm:text-3xl"
+              >
+                {copy.home.signalsHeading}
+              </h2>
+              <p className="mt-1 max-w-2xl text-sm text-gray-600">
+                {copy.terms.liveSignal.definition}{' '}
+                {copy.terms.liveSignal.notInRecord}
+              </p>
             </div>
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t('landing.topRecsTitle')}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {t('landing.topRecsSubtitle')}
-            </p>
+            <Link
+              href="/explore"
+              onClick={() => track('home_primary_cta', { surface: 'signals_section' })}
+              className="shrink-0 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
+            >
+              {copy.home.browseAll} →
+            </Link>
           </div>
 
           {isLoading && (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {Array.from({ length: 6 }).map((_, i) => (
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+              {Array.from({ length: 4 }).map((_, i) => (
                 <RecommendationCardSkeleton key={i} />
               ))}
             </div>
@@ -252,391 +207,267 @@ export default function HomePage() {
 
           {error && (
             <ErrorBoundary>
-              <div className="bg-gradient-to-r from-red-50 to-pink-50 border border-red-200 rounded-2xl p-8 text-center">
-                <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
-                  <AlertCircle className="h-8 w-8 text-red-500" />
+              <div
+                role="alert"
+                className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center sm:p-8"
+              >
+                <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-amber-100">
+                  <AlertCircle className="h-6 w-6 text-amber-700" />
                 </div>
-                <h3 className="text-xl font-semibold text-red-900 mb-3">
-                  Unable to Load Recommendations
+                <h3 className="text-lg font-bold text-gray-900">
+                  {copy.home.signalsError}
                 </h3>
-                <p className="text-red-700 mb-6 max-w-md mx-auto">
-                  {error.message.includes('HTTP')
-                    ? `Server error: ${error.message}`
-                    : 'We\'re experiencing some technical difficulties. Please try again in a moment.'}
+                <p className="mx-auto mt-2 max-w-md text-sm text-gray-600">
+                  {copy.home.signalsErrorBody}
                 </p>
-                <RetryButton
-                  onRetry={handleRetry}
-                  text="Try Again"
-                  className="bg-red-600 hover:bg-red-700"
-                />
+                <div className="mt-6">
+                  <RetryButton
+                    onRetry={() => mutate()}
+                    text={copy.home.tryAgain}
+                    className="bg-gray-900 hover:bg-gray-700"
+                  />
+                </div>
               </div>
             </ErrorBoundary>
           )}
 
-          {data && data.recommendations && data.recommendations.length > 0 && (
-            <>
-              {/* Transparency Notice */}
-              <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg">
-                <p className="text-sm text-center text-blue-900">
-                  🔍 <strong>Fully transparent:</strong> Every published pick is frozen before kickoff and
-                  remains visible with its verified result—win or lose. See our{' '}
-                  <a href="/track-record" className="underline font-semibold hover:text-blue-700">public track record</a>
-                </p>
-              </div>
-
-              {/* Stats Summary */}
-              <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-6 mb-8 border border-primary-200">
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-center">
-                  <div>
-                    <div className="text-2xl font-bold text-primary-600">{data.recommendations.length}</div>
-                    <div className="text-sm text-primary-700">{t('landing.stats.topPicksToday')}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-green-600">{data.confidence_threshold}%+</div>
-                    <div className="text-sm text-green-700">{t('landing.stats.confidenceThreshold')}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-blue-600">{data.fixtures_analyzed || 0}</div>
-                    <div className="text-sm text-blue-700">{t('landing.stats.totalFixtures')}</div>
-                  </div>
-                  <div>
-                    <div className="text-2xl font-bold text-purple-600">
-                      {data.recommendations.length > 0
-                        ? (Math.max(...data.recommendations.map((r: any) => r.confidence)) * 100).toFixed(0) + '%'
-                        : '0%'}
-                    </div>
-                    <div className="text-sm text-purple-700">{t('landing.stats.highestConfidence')}</div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Recommendations Grid */}
-              <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
-                {data.recommendations.map((recommendation: Recommendation) => (
-                  <RecommendationCard
-                    key={recommendation.fixture_id}
-                    recommendation={recommendation}
-                    onViewDetails={handleViewDetails}
-                  />
-                ))}
-              </div>
-
-              {/* League Diversity Info */}
-              {data.debug_info?.top_5_predictions && (
-                <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-6 mt-8 border border-gray-200">
-                  <h3 className="text-lg font-bold text-gray-900 mb-4 text-center">League Coverage</h3>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {data.debug_info.top_5_predictions.map((prediction: any, index: number) => (
-                      <div key={index} className="bg-white rounded-xl p-4 shadow-sm border border-gray-100">
-                        <div className="text-sm font-medium text-gray-600 mb-1">{prediction.league}</div>
-                        <div className="text-sm text-gray-500 truncate">{prediction.match}</div>
-                        <div className="text-xs text-primary-600 font-semibold mt-1">
-                          {Math.round(prediction.confidence)}% confidence
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* View All Button */}
-              <div className="text-center mt-8">
-                <button
-                  onClick={handleBrowseAll}
-                  className="bg-gradient-to-r from-primary-600 to-blue-600 hover:from-primary-700 hover:to-blue-700 text-white font-semibold py-3 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-                >
-                  View All Predictions
-                </button>
-              </div>
-            </>
-          )}
-
-          {data && data.recommendations && data.recommendations.length === 0 && (
-            <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-8 text-center">
-              <div className="bg-white rounded-full p-4 w-16 h-16 mx-auto mb-6 shadow-lg">
-                <AlertCircle className="h-8 w-8 text-amber-500" />
-              </div>
-              <h3 className="text-xl font-semibold text-amber-900 mb-3">
-                {data.status === 'no_predictions_available'
-                  ? 'AI Predictions Not Available'
-                  : data.status === 'no_fixtures_found'
-                    ? 'No Upcoming Fixtures'
-                    : 'No Top Quality Bets Available'}
-              </h3>
-              <p className="text-amber-700 mb-6 max-w-md mx-auto">
-                {data.status_details || 'We\'re working to bring you the best predictions. Please check back soon.'}
-              </p>
-              {data.status === 'no_predictions_available' && (
-                <div className="bg-amber-100 rounded-lg p-4 mb-6 text-left">
-                  <p className="text-sm text-amber-800 font-medium mb-2">Possible Solutions:</p>
-                  <ul className="text-sm text-amber-700 space-y-1">
-                    <li>• Enable the Predictions Addon in your SportMonks account</li>
-                    <li>• Upgrade your SportMonks subscription plan</li>
-                    <li>• Contact SportMonks support for assistance</li>
-                  </ul>
-                </div>
-              )}
-              <div className="flex flex-col sm:flex-row gap-3 justify-center">
-                <button
-                  onClick={handleRetry}
-                  className="bg-amber-600 hover:bg-amber-700 text-white font-semibold py-3 px-6 rounded-xl transition-colors inline-flex items-center gap-2"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Try Again
-                </button>
-                <button
-                  onClick={handleBrowseAll}
-                  className="bg-white hover:bg-gray-50 text-amber-700 font-semibold py-3 px-6 rounded-xl transition-colors border border-amber-200"
-                >
-                  View All Fixtures
-                </button>
-              </div>
+          {!isLoading && !error && signals.length > 0 && (
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
+              {signals.map((recommendation: Recommendation) => (
+                <RecommendationCard
+                  key={recommendation.fixture_id}
+                  recommendation={recommendation}
+                  onViewDetails={handleViewDetails}
+                />
+              ))}
             </div>
           )}
-        </div>
 
-        {/* Features Section */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              {t('landing.features.title')}
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              {t('landing.features.subtitle')}
-            </p>
-          </div>
+          {!isLoading && !error && signals.length === 0 && (
+            <EmptyState state="no_live_signals" />
+          )}
+        </section>
 
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
-              <div className="bg-gradient-to-br from-primary-500 to-blue-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <TrendingUp className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f1Title')}</h3>
-              <p className="text-gray-600 leading-relaxed">
-                {t('landing.features.f1Desc')}
-              </p>
-            </div>
-
-            <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
-              <div className="bg-gradient-to-br from-green-500 to-emerald-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Shield className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f2Title')}</h3>
-              <p className="text-gray-600 leading-relaxed">
-                {t('landing.features.f2Desc')}
-              </p>
-            </div>
-
-            <div className="group bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg hover:shadow-xl transition-all duration-300 border border-white/20 hover:-translate-y-1">
-              <div className="bg-gradient-to-br from-purple-500 to-pink-600 w-16 h-16 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                <Zap className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">{t('landing.features.f3Title')}</h3>
-              <p className="text-gray-600 leading-relaxed">
-                {t('landing.features.f3Desc')}
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* League Selector */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              Choose Your League
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Select from our supported European leagues to get tailored predictions
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {[
-              { id: 'premier-league', name: 'Premier League', country: 'England', status: 'PRODUCTION' },
-              { id: 'la-liga', name: 'La Liga', country: 'Spain', status: 'PRODUCTION' },
-              { id: 'bundesliga', name: 'Bundesliga', country: 'Germany', status: 'PRODUCTION' },
-              { id: 'serie-a', name: 'Serie A', country: 'Italy', status: 'PRODUCTION' },
-              { id: 'ligue-1', name: 'Ligue 1', country: 'France', status: 'PRODUCTION' },
-              { id: 'championship', name: 'Championship', country: 'England', status: 'PRODUCTION' },
-              { id: 'fa-cup', name: 'FA Cup', country: 'England', status: 'PRODUCTION' },
-              { id: 'carabao-cup', name: 'Carabao Cup', country: 'England', status: 'PRODUCTION' },
-              { id: 'eredivisie', name: 'Eredivisie', country: 'Netherlands', status: 'PRODUCTION' },
-              { id: 'admiral-bundesliga', name: 'Admiral Bundesliga', country: 'Austria', status: 'PRODUCTION' },
-              { id: 'pro-league', name: 'Pro League', country: 'Belgium', status: 'PRODUCTION' },
-              { id: '1-hnl', name: '1. HNL', country: 'Croatia', status: 'PRODUCTION' },
-              { id: 'superliga', name: 'Superliga', country: 'Denmark', status: 'PRODUCTION' },
-              { id: 'serie-b', name: 'Serie B', country: 'Italy', status: 'PRODUCTION' },
-              { id: 'coppa-italia', name: 'Coppa Italia', country: 'Italy', status: 'PRODUCTION' },
-              { id: 'eliteserien', name: 'Eliteserien', country: 'Norway', status: 'PRODUCTION' },
-              { id: 'ekstraklasa', name: 'Ekstraklasa', country: 'Poland', status: 'PRODUCTION' },
-              { id: 'liga-portugal', name: 'Liga Portugal', country: 'Portugal', status: 'PRODUCTION' },
-              { id: 'premiership', name: 'Premiership', country: 'Scotland', status: 'PRODUCTION' },
-              { id: 'la-liga-2', name: 'La Liga 2', country: 'Spain', status: 'PRODUCTION' },
-              { id: 'copa-del-rey', name: 'Copa Del Rey', country: 'Spain', status: 'PRODUCTION' },
-              { id: 'allsvenskan', name: 'Allsvenskan', country: 'Sweden', status: 'PRODUCTION' },
-              { id: 'super-league', name: 'Super League', country: 'Switzerland', status: 'PRODUCTION' },
-              { id: 'super-lig', name: 'Super Lig', country: 'Turkey', status: 'PRODUCTION' },
-              { id: 'premier-league-additional', name: 'Premier League', country: 'Additional', status: 'PRODUCTION' },
-              { id: 'uefa-europa-league', name: 'UEFA Europa League', country: 'Europe', status: 'PRODUCTION' }
-            ].map((league) => (
-              <button
-                key={league.id}
-                onClick={() => setSelectedLeague(league.name)}
-                className={`group p-6 rounded-2xl border-2 transition-all duration-300 hover:scale-105 ${selectedLeague === league.name
-                  ? 'border-primary-500 bg-gradient-to-br from-primary-50 to-blue-50 shadow-lg'
-                  : 'border-gray-200 hover:border-primary-300 hover:bg-white/80 hover:shadow-lg'
-                  }`}
+        {/* ── 3. How BetGlitch works ──────────────────────────────────────
+            Numbered because the order is real: a pick cannot be verified
+            before it is published, or published before it exists. */}
+        <section aria-labelledby="how-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="how-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.howHeading}
+          </h2>
+          <ol className="mt-6 grid gap-4 md:grid-cols-3">
+            {copy.workflow.map((step, i) => (
+              <li
+                key={step.id}
+                className="rounded-2xl border border-gray-200 bg-white p-6"
               >
-                <div className="text-center">
-                  <div className="font-semibold text-gray-900 mb-1">{league.name}</div>
-                  <div className="text-sm text-gray-500 mb-3">{league.country}</div>
-                  <div className={`text-xs px-3 py-1 rounded-full font-medium ${league.status === 'PRODUCTION'
-                    ? 'bg-green-100 text-green-700'
-                    : 'bg-yellow-100 text-yellow-700'
-                    }`}>
-                    {league.status}
-                  </div>
-                </div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* How It Works */}
-        <div className="mb-16">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-              How We Pick Recommendations
-            </h2>
-            <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-              Our AI analyzes multiple data points to deliver the most accurate predictions
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-blue-500 to-purple-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <BarChart3 className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Data Analysis</h3>
-              <p className="text-gray-600">
-                Confidence scores from premium data providers with advanced ML models
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-green-500 to-teal-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <Target className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Value Assessment</h3>
-              <p className="text-gray-600">
-                Expected value calculations when odds are available for optimal betting decisions
-              </p>
-            </div>
-
-            <div className="text-center">
-              <div className="bg-gradient-to-br from-orange-500 to-red-600 w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6">
-                <CheckCircle className="h-8 w-8 text-white" />
-              </div>
-              <h3 className="text-xl font-bold text-gray-900 mb-4">Quality Filter</h3>
-              <p className="text-gray-600">
-                Selected European leagues with verified data sources
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* CTA Section */}
-        <div className="text-center mb-16">
-          <div className="bg-gradient-to-r from-primary-600 to-blue-600 rounded-3xl p-12 text-white">
-            <h2 className="text-3xl md:text-4xl font-bold mb-4">
-              Ready to Start Winning?
-            </h2>
-            <p className="text-xl mb-8 opacity-90 max-w-2xl mx-auto">
-              Join thousands of users who trust BetGlitch for their football predictions
-            </p>
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-              {/* Fetch recommendations with SWR - using Django backend */}
-              {/* This code should be placed at the top level of the component, not inside JSX */}
-              {/* const { data, error, isLoading, mutate } = useSWR(apiUrl, enhancedFetcher, {
-                refreshInterval: 60000, // Refresh every 60 seconds
-                revalidateOnFocus: true,
-                errorRetryCount: 3,
-                errorRetryInterval: 2000,
-                shouldRetryOnError: true,
-              }) */}
-
-              {/* Fetch performance stats for live accuracy badge */}
-              {/* This code should be placed at the top level of the component, not inside JSX */}
-              {/* const { data: performanceData } = useSWR('/api/performance', fetcher, {
-                refreshInterval: 120000, // Refresh every 2 minutes
-              }) */}
-
-              {/* const handleExplorePredictions = () => { ... } */}
-              <button
-                onClick={handleExplorePredictions}
-                className="bg-white text-primary-600 font-semibold py-4 px-8 rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1"
-              >
-                <span className="flex items-center gap-2">
-                  Explore Predictions
-                  <ArrowRight className="h-5 w-5" />
+                <span className="text-xs font-bold tracking-widest text-gray-400">
+                  {String(i + 1).padStart(2, '0')}
                 </span>
-              </button>
-              {selectedLeague && (
-                <div className="text-sm opacity-75">
-                  Showing predictions for {selectedLeague}
+                <h3 className="mt-2 text-lg font-bold text-gray-900">
+                  {step.title}
+                </h3>
+                <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                  {step.body}
+                </p>
+              </li>
+            ))}
+          </ol>
+        </section>
+
+        {/* ── 4. Signal vs published proof ────────────────────────────────
+            The single most important idea in the product, given its own
+            section and shown with the real badges rather than described. */}
+        <section
+          aria-labelledby="difference-heading"
+          className="mt-16 rounded-2xl border border-gray-200 bg-white p-6 sm:mt-20 sm:p-8"
+        >
+          <h2
+            id="difference-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.differenceHeading}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+            {copy.home.differenceBody}
+          </p>
+
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/50 p-5">
+              <StatusBadge status="live" size="sm" />
+              <h3 className="mt-3 font-bold text-gray-900">
+                {copy.terms.liveSignal.label}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {copy.terms.liveSignal.mutability}
+              </p>
+              <p className="mt-3 text-sm font-medium text-sky-900">
+                {copy.home.notInPerformance}
+              </p>
+            </div>
+
+            <div className="rounded-xl border-2 border-indigo-400 bg-indigo-50/50 p-5">
+              <StatusBadge status="published_pending" size="sm" />
+              <h3 className="mt-3 font-bold text-gray-900">
+                {copy.terms.publishedPick.label}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                {copy.home.frozenIntro}
+              </p>
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {copy.terms.publishedPick.frozenFields.map((f) => (
+                  <li
+                    key={f}
+                    className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-white px-2 py-0.5 text-xs font-medium text-indigo-900"
+                  >
+                    <Lock className="h-3 w-3" aria-hidden="true" />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+        </section>
+
+        {/* ── 5. Verified record ──────────────────────────────────────── */}
+        <section aria-labelledby="record-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="record-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.terms.verifiedRecord.label}
+          </h2>
+          <p className="mt-2 max-w-2xl text-sm text-gray-600">
+            {copy.terms.verifiedRecord.definition}{' '}
+            {copy.terms.verifiedRecord.scope}
+          </p>
+
+          <div className="mt-6">
+            {hasVerifiedResults ? (
+              <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
+                <p className="text-sm text-gray-600">
+                  {copy.home.settledLabel}
+                </p>
+                <p className="mt-1 text-4xl font-bold text-gray-900">
+                  {settledCount}
+                </p>
+                <Link
+                  href="/track-record"
+                  onClick={() =>
+                    track('home_verified_record_cta', { surface: 'record_section' })
+                  }
+                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
+                >
+                  {copy.home.openRecord}
+                </Link>
+              </div>
+            ) : (
+              <EmptyState state="no_verified_results" />
+            )}
+          </div>
+        </section>
+
+        {/* ── 6. What you can do here ─────────────────────────────────── */}
+        <section aria-labelledby="benefits-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="benefits-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.benefitsHeading}
+          </h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {copy.home.benefits.map((benefit, i) => {
+              const Icon = BENEFIT_ICONS[i] ?? BarChart3
+              return (
+                <div
+                  key={benefit.title}
+                  className="rounded-2xl border border-gray-200 bg-white p-6"
+                >
+                  <Icon className="h-6 w-6 text-blue-600" aria-hidden="true" />
+                  <h3 className="mt-3 font-bold text-gray-900">
+                    {benefit.title}
+                  </h3>
+                  <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                    {benefit.body}
+                  </p>
                 </div>
-              )}
-            </div>
+              )
+            })}
           </div>
-        </div>
+        </section>
 
-        {/* Transparency Section */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl p-8 shadow-lg border border-white/20 mb-8">
-          <h3 className="text-2xl font-bold text-gray-900 mb-6 text-center">Transparency & Trust</h3>
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="text-center">
-              <div className="bg-blue-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Clock className="h-6 w-6 text-blue-600" />
-              </div>
-              <div className="font-semibold text-gray-900 mb-2">Live Predictions Only</div>
-              <div className="text-sm text-gray-600">No backfilled performance data - all results are genuine</div>
-            </div>
-            <div className="text-center">
-              <div className="bg-green-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <BarChart3 className="h-6 w-6 text-green-600" />
-              </div>
-              <div className="font-semibold text-gray-900 mb-2">Accuracy Tracking</div>
-              <div className="text-sm text-gray-600">We'll publish detailed accuracy reports once we have sufficient live outcomes</div>
-            </div>
-            <div className="text-center">
-              <div className="bg-purple-100 w-12 h-12 rounded-xl flex items-center justify-center mx-auto mb-4">
-                <Users className="h-6 w-6 text-purple-600" />
-              </div>
-              <div className="font-semibold text-gray-900 mb-2">Data Sources</div>
-              <div className="text-sm text-gray-600">Premium Data Sources • Updates every 60 seconds</div>
-            </div>
+        {/* ── 7. Coverage ─────────────────────────────────────────────── */}
+        <section aria-labelledby="coverage-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="coverage-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.coverageHeading}
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            {TOTAL_LEAGUES} {copy.home.coverageBody}
+          </p>
+          <ul className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-3">
+            {FEATURED_LEAGUES.map((league) => (
+              <li
+                key={league.name}
+                className="rounded-xl border border-gray-200 bg-white px-4 py-3"
+              >
+                <div className="text-sm font-semibold text-gray-900">
+                  {league.name}
+                </div>
+                <div className="text-xs text-gray-500">{league.country}</div>
+              </li>
+            ))}
+          </ul>
+          <Link
+            href="/explore"
+            className="mt-4 inline-block text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
+          >
+            {copy.home.viewAllLeagues} →
+          </Link>
+        </section>
+
+        {/* ── 8. Final CTA ────────────────────────────────────────────── */}
+        <section className="mt-16 rounded-2xl bg-gray-900 p-8 text-center sm:mt-20 sm:p-10">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-300">
+            {copy.hero.eyebrow}
+          </p>
+          <h2 className="mt-3 text-2xl font-bold text-white sm:text-3xl">
+            {copy.home.finalHeading}
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-sm leading-relaxed text-gray-300">
+            {copy.home.finalBody}
+          </p>
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
+            <Link
+              href="/register"
+              onClick={() => track('registration_started', { surface: 'homepage' })}
+              className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-7 py-3 font-semibold text-gray-900 transition-colors hover:bg-gray-100"
+            >
+              {copy.home.createAccount}
+            </Link>
+            <button
+              onClick={goExplore}
+              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-600 px-7 py-3 font-semibold text-white transition-colors hover:bg-gray-800"
+            >
+              {copy.hero.primaryCta}
+              <ArrowRight className="h-5 w-5" />
+            </button>
           </div>
-        </div>
+        </section>
 
-        {/* Email Capture Section */}
-        <div className="mb-8">
+        <div className="mt-12">
           <EmailCapture variant="hero" source="homepage" />
         </div>
 
-        {/* Footer Status */}
-        <div className="text-center py-8 border-t border-gray-200">
-          <div className="flex flex-wrap justify-center items-center gap-6 text-sm text-gray-500">
-            <span className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span>27 Leagues Covered</span>
-            </span>
-            <span>Consensus Ensemble</span>
-            <span>3 AI Models</span>
-            <span>60s Refresh Rate</span>
-            <span>14-Day Window</span>
-          </div>
-        </div>
+        {/* ── 9. Responsible use ──────────────────────────────────────── */}
+        <p className="mt-12 border-t border-gray-200 pt-8 text-center text-xs leading-relaxed text-gray-500">
+          {copy.responsibleUse}
+        </p>
       </div>
     </div>
   )

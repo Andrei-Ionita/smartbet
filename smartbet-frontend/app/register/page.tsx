@@ -1,12 +1,22 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import Link from 'next/link';
-import { Trophy } from 'lucide-react';
+import { Check } from 'lucide-react';
 import Image from 'next/image';
+import { getCopy } from '../lib/terminology';
+import { track } from '../lib/analytics';
+import { useLanguage } from '../contexts/LanguageContext';
 
 export default function RegisterPage() {
+  const { language } = useLanguage();
+  const copy = getCopy(language);
+
+  useEffect(() => {
+    track('registration_started', { surface: 'register' });
+  }, []);
+
   const [username, setUsername] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -54,18 +64,39 @@ export default function RegisterPage() {
               className="object-contain drop-shadow-md"
             />
           </div>
+          <p className="mb-3 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700">
+            {copy.hero.eyebrow}
+          </p>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Create Account
+            {copy.register.heading}
           </h1>
           <p className="text-gray-600">
-            Join BetGlitch for AI-powered predictions
+            {copy.register.supporting}
           </p>
+
+          {/* What signing up actually commits you to. Stated before the form,
+              not buried under it. */}
+          <ul className="mx-auto mt-5 max-w-xs space-y-2 text-left">
+            {[
+              copy.register.freeDuringBeta,
+              copy.register.noPayment,
+              copy.register.informational,
+            ].map((line) => (
+              <li key={line} className="flex items-start gap-2 text-sm text-gray-700">
+                <Check className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" aria-hidden="true" />
+                <span>{line}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Register Form */}
         <div className="bg-white rounded-lg shadow-lg p-8">
           {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+            <div
+              role="alert"
+              className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm"
+            >
               {error}
             </div>
           )}
@@ -134,9 +165,9 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 font-medium"
+              className="w-full min-h-[48px] px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
             >
-              {isLoading ? 'Creating account...' : 'Sign Up'}
+              {isLoading ? copy.register.submitting : copy.register.submit}
             </button>
           </form>
 

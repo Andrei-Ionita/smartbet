@@ -5,7 +5,7 @@ import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
 import { ProBadge } from '../app/components/ProGate'
@@ -16,12 +16,17 @@ export default function Navigation() {
   const { user, logout, isAuthenticated, isPro } = useAuth()
   const { t, language, setLanguage } = useLanguage()
 
+  // Ordered by what a new visitor needs: what is this → what can I look at →
+  // why should I trust it → my own tools. The verified record was previously
+  // reachable only from the homepage, despite being the trust surface the whole
+  // product rests on.
   const navItems = [
     { href: '/', label: t('nav.home'), icon: Trophy },
     ...(isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     { href: '/explore', label: t('nav.explore'), icon: Search },
-    { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
+    { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
     { href: '/bankroll', label: t('nav.bankroll'), icon: Wallet },
+    { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     // Hidden while BetGlitch is a free public beta. One flag controls every
     // commercial surface — see app/lib/commercialMode.ts.
     ...(PAYMENTS_ENABLED
@@ -146,17 +151,14 @@ export default function Navigation() {
             )}
             <button
               onClick={toggleMenu}
-              className="p-2 rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
               aria-expanded={isMenuOpen}
+              aria-controls="mobile-menu"
+              aria-label={isMenuOpen ? 'Close main menu' : 'Open main menu'}
             >
-              <span className="sr-only">Open main menu</span>
-              {isMenuOpen ? (
-                <LogOut className="h-6 w-6 rotate-180" /> /* Using LogOut as X replacement temporarily if X not imported, or better import X */
-              ) : (
-                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-                </svg>
-              )}
+              {/* Was a rotated LogOut icon standing in for an X — which read as
+                  "sign out" on the one control every mobile user has to press. */}
+              {isMenuOpen ? <X className="h-6 w-6" /> : <Menu className="h-6 w-6" />}
             </button>
           </div>
         </div>
@@ -164,7 +166,7 @@ export default function Navigation() {
 
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
-        <div className="md:hidden border-t border-gray-100 bg-white">
+        <div id="mobile-menu" className="md:hidden border-t border-gray-100 bg-white">
           <div className="px-2 pt-2 pb-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon

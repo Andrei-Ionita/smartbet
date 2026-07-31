@@ -1,6 +1,8 @@
 'use client'
 
 import Link from 'next/link'
+import { useEffect } from 'react'
+import { track } from '@/app/lib/analytics'
 import { Check, ShieldCheck } from 'lucide-react'
 
 import { BETA_COPY } from '@/app/lib/commercialMode'
@@ -18,6 +20,10 @@ import { BETA_COPY } from '@/app/lib/commercialMode'
  * been decided.
  */
 export default function BetaContent() {
+  useEffect(() => {
+    track('beta_page_viewed', { surface: 'pricing' })
+  }, [])
+
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
       <div className="inline-flex items-center gap-2 rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm font-semibold text-blue-800">

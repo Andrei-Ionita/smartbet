@@ -5,6 +5,8 @@ import { RefreshCw, Trophy, TrendingUp, TrendingDown, Filter, CheckCircle, XCirc
 import { useLanguage } from '../contexts/LanguageContext';
 import ProofCapturePanel from '../components/ProofCapturePanel';
 import ShareProofButton from '../components/ShareProofButton';
+import { StatusLegend } from '../components/StatusBadge';
+import EmptyState from '../components/EmptyState';
 
 interface PredictionWithResult {
   fixture_id: number;
@@ -221,6 +223,7 @@ export default function TrackRecordContent() {
                 {t('trackRecord.disclaimer')}
               </p>
             </div>
+
             <button
               onClick={handleUpdateResults}
               disabled={updating}
@@ -234,6 +237,39 @@ export default function TrackRecordContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
+        {/* What actually counts towards this page. Stated before any figure,
+            because "track record" previously implied every prediction ever
+            made — which is not what this measures. */}
+        <section
+          aria-labelledby="record-scope"
+          className="mb-8 rounded-2xl border border-gray-200 bg-white p-6"
+        >
+          <h2 id="record-scope" className="text-lg font-bold text-gray-900">
+            What counts towards this record
+          </h2>
+          <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
+            <li>
+              The verified public record begins at a clean pricing-integrity
+              cutoff. Predictions made before it are preserved internally as
+              legacy and excluded from every figure on this page.
+            </li>
+            <li>
+              Only immutable published picks enter the record — picks frozen
+              before kickoff with their selection, model score, recorded odds
+              and bookmaker.
+            </li>
+            <li>
+              Pending picks are not counted in settled performance, and void or
+              cancelled picks are excluded from the relevant denominators.
+            </li>
+            <li>
+              Live model signals shown elsewhere in the product never enter this
+              record unless they are published.
+            </li>
+          </ul>
+          <StatusLegend className="mt-5 border-t border-gray-200 pt-5" />
+        </section>
+
         {/* Key Stats */}
         {accuracyStats && roiStats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
@@ -573,9 +609,11 @@ export default function TrackRecordContent() {
               </tbody>
             </table>
 
+            {/* An empty table with no explanation reads as a broken page. Say
+                why it is empty, that it is expected, and what to do instead. */}
             {filteredPredictions.length === 0 && (
-              <div className="text-center py-12 text-gray-500">
-                {t('trackRecord.table.noPredictions')}
+              <div className="p-6">
+                <EmptyState state="no_verified_results" />
               </div>
             )}
           </div>

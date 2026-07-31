@@ -53,13 +53,91 @@ export default function AboutPage() {
             We do the opposite.
           </p>
           <p className="text-gray-700 leading-relaxed">
-            Every prediction we make is timestamped before kickoff, published publicly, and verified against
-            real results from third-party data sources. Our{' '}
+            BetGlitch generates far more model output than it publishes. When a
+            pick <em>is</em> published, it is frozen before kickoff with its
+            selection, model score, recorded odds and bookmaker, and it stays
+            public afterwards whether it wins or loses. Our{' '}
             <Link href="/track-record" className="text-primary-600 hover:underline font-medium">
-              track record page
+              verified record
             </Link>{' '}
-            shows every call we have ever made — the wins and the losses.
+            contains every published pick that has settled — never a filtered
+            subset of them.
           </p>
+        </div>
+
+        {/* How a signal becomes a public result. The old page implied every
+            prediction entered the record; it does not, and saying so plainly is
+            more defensible than the stronger claim. */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            How a signal becomes a public result
+          </h2>
+          <ol className="space-y-4">
+            {[
+              {
+                title: 'Live model signal',
+                body: 'Every model run is written to an append-only snapshot. Signals are mutable in the sense that a newer snapshot can supersede them — but no snapshot is ever edited or deleted.',
+              },
+              {
+                title: 'Published pick (optional)',
+                body: 'BetGlitch selects some snapshots to publish. Publication freezes the market, selection, model score, recorded odds, bookmaker and timestamps. Most snapshots are never published.',
+              },
+              {
+                title: 'Settlement (automatic)',
+                body: 'After full-time, a published pick is graded against the fields frozen at publication — not against anything that could have changed since. Results are inserted, never overwritten.',
+              },
+              {
+                title: 'Verified record',
+                body: 'Settled, integrity-valid published picks form the only universe behind any public accuracy, ROI or win/loss figure.',
+              },
+            ].map((step, i) => (
+              <li key={step.title} className="flex gap-4">
+                <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-gray-900 text-xs font-bold text-white">
+                  {i + 1}
+                </span>
+                <div>
+                  <h3 className="font-semibold text-gray-900">{step.title}</h3>
+                  <p className="text-sm leading-relaxed text-gray-600">{step.body}</p>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </div>
+
+        {/* Four numbers people routinely conflate. */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            What the numbers mean
+          </h2>
+          <dl className="space-y-4">
+            {[
+              {
+                term: 'Model score',
+                def: 'A provider-derived confidence ranking. It is not a calibrated probability and should not be read as a percentage chance.',
+              },
+              {
+                term: 'Implied probability',
+                def: 'What a bookmaker’s price implies, before their margin. Derived from odds, not from our model.',
+              },
+              {
+                term: 'Expected value',
+                def: 'An estimate comparing a model score against a recorded price. An estimate is not a forecast of profit.',
+              },
+              {
+                term: 'Realized ROI',
+                def: 'Actual profit or loss across settled published picks, at the exact odds recorded at publication.',
+              },
+              {
+                term: 'Verified result',
+                def: 'The settled outcome of a published pick, graded on its frozen fields.',
+              },
+            ].map(({ term, def }) => (
+              <div key={term}>
+                <dt className="font-semibold text-gray-900">{term}</dt>
+                <dd className="text-sm leading-relaxed text-gray-600">{def}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
 
         {/* Methodology */}
@@ -72,8 +150,8 @@ export default function AboutPage() {
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Multi-Model Consensus</h3>
               <p className="text-sm text-gray-600">
-                Multiple independent AI models are aggregated into a consensus forecast. We only recommend
-                when models strongly agree — reducing noise and increasing reliability.
+                Multiple independent models are aggregated into a consensus. A signal is surfaced only when
+                the models agree, which reduces noise. Selection logic keeps changing as we learn.
               </p>
             </div>
             <div className="text-center p-4">
@@ -92,8 +170,8 @@ export default function AboutPage() {
               </div>
               <h3 className="font-bold text-gray-900 mb-2">Value Detection</h3>
               <p className="text-sm text-gray-600">
-                Our expected value analysis compares our probability estimates with bookmaker odds to identify
-                genuine value opportunities.
+                Expected-value analysis compares a model score against the recorded bookmaker price. It is an
+                estimate of value, not a forecast of profit.
               </p>
             </div>
           </div>
@@ -106,15 +184,15 @@ export default function AboutPage() {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-green-600 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="font-semibold text-gray-900">Every prediction is public</h3>
-                <p className="text-sm text-gray-600">No cherry-picking. Our track record includes every prediction, win or loss.</p>
+                <h3 className="font-semibold text-gray-900">Published picks stay published</h3>
+                <p className="text-sm text-gray-600">A published pick is never withdrawn, re-priced or re-graded. Losses stay up next to the wins, at equal prominence.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-green-600 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="font-semibold text-gray-900">Timestamped before kickoff</h3>
-                <p className="text-sm text-gray-600">Predictions are logged with timestamps before matches begin — no retroactive editing.</p>
+                <h3 className="font-semibold text-gray-900">Frozen before kickoff</h3>
+                <p className="text-sm text-gray-600">Publication records the selection, odds, bookmaker and time before the match starts, and settlement grades that frozen copy.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

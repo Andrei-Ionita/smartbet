@@ -6,7 +6,8 @@ export const translations = {
             home: 'Home',
             dashboard: 'Dashboard',
             explore: 'Explore',
-            monitoring: 'Results',
+            monitoring: 'Model monitoring',
+            trackRecord: 'Verified record',
             bankroll: 'Bankroll',
             pricing: 'Pricing',
             upgradeToPro: 'Upgrade to Pro',
@@ -25,7 +26,7 @@ export const translations = {
         landing: {
             heroTitle: 'BetGlitch.',
             heroTitleHighlight: 'Not Guesswork.',
-            heroSubtitle: 'The only platform combining AI power with total transparency. We don\'t promise you\'ll always win, but we promise you\'ll bet mathematically correctly, based on value, not emotion.',
+            heroSubtitle: 'Football model signals with a record you can verify. Selected picks are frozen before kickoff and stay public after settlement.',
             exploreButton: 'Explore Predictions',
             stats: {
                 accuracy: 'Accuracy',
@@ -49,7 +50,7 @@ export const translations = {
             features: {
                 title: 'Why Choose BetGlitch?',
                 subtitle: 'Stop wasting time on manual research. Bet on Value, instantly.',
-                f1Title: 'Save Time, Bet Smart',
+                f1Title: 'Read the model, not a tip',
                 f1Desc: "We analyze 2,000+ matches so you don't have to. We deliver only the top opportunities, saving you hours of research every week.",
                 f2Title: 'Transparent Track Record',
                 f2Desc: 'We track every recommendation. Wins and losses. No deleting history. Pure accountability.',
@@ -210,7 +211,7 @@ export const translations = {
                 whatWeTrack: '📋 What We Track',
                 whatWeTrackDesc: 'We track only the predictions we recommend to you - the "best bets" shown on our homepage (top 10 daily picks with 55%+ confidence and positive EV).',
                 why: 'Why?',
-                whyDesc: 'Because we believe in accountability. We don\'t track thousands of predictions we never told you about - we track what we actually recommend.',
+                whyDesc: 'Because a record is only meaningful if it cannot be edited afterwards. Only published picks — frozen before kickoff — count towards public performance.',
                 points: {
                     timestamped: 'Timestamped BEFORE kickoff',
                     timestampedDesc: 'All predictions logged before matches start - impossible to fake',
@@ -224,7 +225,7 @@ export const translations = {
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
                 note: 'Note:',
-                noteDesc: 'We only track our recommended bets (the ones we show on the homepage). This is honest accountability - we\'re measured by what we actually tell you to bet on, not by cherry-picking from thousands of unpublished predictions.'
+                noteDesc: 'Only published picks enter the verified record. Live model signals shown elsewhere in the product are not counted, and a published pick is never withdrawn or re-graded once it settles.'
             }
         },
         monitoring: {
@@ -386,7 +387,8 @@ export const translations = {
             home: 'Acasă',
             dashboard: 'Panou Control',
             explore: 'Explorează',
-            monitoring: 'Rezultate',
+            monitoring: 'Monitorizare model',
+            trackRecord: 'Istoric verificat',
             bankroll: 'Buget',
             pricing: 'Prețuri',
             upgradeToPro: 'Treci la Pro',
@@ -405,7 +407,7 @@ export const translations = {
         landing: {
             heroTitle: 'Pariază Inteligent.',
             heroTitleHighlight: 'Nu la Ghici.',
-            heroSubtitle: 'Singura platformă care îmbină puterea AI-ului cu transparența totală. Nu îți promitem că vei câștiga mereu, dar îți promitem că vei paria matematic corect, bazat pe valoare, nu pe emoție.',
+            heroSubtitle: 'Semnale de model pentru fotbal, cu un istoric pe care îl poți verifica. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
             exploreButton: 'Explorează Predicții',
             stats: {
                 accuracy: 'Acuratețe',
@@ -429,7 +431,7 @@ export const translations = {
             features: {
                 title: 'De ce BetGlitch?',
                 subtitle: "Nu mai pierde ore întregi analizând manual. Pariază pe Valoare, instant.",
-                f1Title: 'Câștigă Timp, Pariază Inteligent',
+                f1Title: 'Citește modelul, nu un pont',
                 f1Desc: 'Analizăm 2.000+ meciuri în locul tău. Tu primești direct selecția finală de top, economisind zeci de ore de documentare săptămânal.',
                 f2Title: 'Istoric 100% Transparent',
                 f2Desc: 'Monitorizăm fiecare recomandare. Câștiguri și pierderi. Fără istoric șters. Responsabilitate totală.',
@@ -590,7 +592,7 @@ export const translations = {
                 whatWeTrack: '📋 Ce Urmărim',
                 whatWeTrackDesc: 'Urmărim doar predicțiile pe care ți le recomandăm - "cele mai bune pariuri" afișate pe pagina principală (top 10 zilnic cu încredere 55%+ și EV pozitiv).',
                 why: 'De ce?',
-                whyDesc: 'Pentru că credem în responsabilitate. Nu urmărim mii de predicții despre care nu ți-am spus niciodată - urmărim ceea ce recomandăm efectiv.',
+                whyDesc: 'Pentru că un istoric contează doar dacă nu poate fi editat ulterior. Doar pontajele publicate — înghețate înainte de start — contează pentru performanța publică.',
                 points: {
                     timestamped: 'Marcate temporal ÎNAINTE de start',
                     timestampedDesc: 'Toate predicțiile sunt înregistrate înainte de începerea meciurilor - imposibil de falsificat',
@@ -604,7 +606,7 @@ export const translations = {
                     updatesDesc: 'Apasă "Actualizează Rezultate" pentru a prelua cele mai recente rezultate ale meciurilor'
                 },
                 note: 'Notă:',
-                noteDesc: 'Urmărim doar pariurile noastre recomandate (cele pe care le afișăm pe pagina principală). Aceasta este o responsabilitate onestă - suntem măsurați după ceea ce îți spunem efectiv să pariezi, nu prin alegerea selectivă din mii de predicții nepublicate.'
+                noteDesc: 'Doar pontajele publicate intră în istoricul verificat. Semnalele live afișate în restul produsului nu sunt contorizate, iar un pontaj publicat nu este niciodată retras sau reevaluat după încheiere.'
             }
         },
         monitoring: {

@@ -1,5 +1,7 @@
 import Link from 'next/link'
 
+import TrackOnMount from '../../components/TrackOnMount'
+
 import type { ProofPayload } from './proofData'
 import {
   formatBookmaker, formatModelScore, formatOdds, formatSelection, formatUtc,
@@ -40,6 +42,7 @@ export function ProofPageBody(
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-12">
+      <TrackOnMount event="published_proof_opened" surface="proof" />
       <img
         src={imageUrl}
         alt="BetGlitch published claim"

@@ -7,6 +7,8 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { useLanguage } from '../contexts/LanguageContext'
 import ErrorBoundary from '../components/ErrorBoundary'
 import RetryButton from '../components/RetryButton'
+import { StatusBadge } from '../components/StatusBadge'
+import { track } from '../lib/analytics'
 
 interface SearchResult {
   fixture_id: number
@@ -205,9 +207,13 @@ export default function ExploreContent() {
       }
 
       const data = await response.json()
-      console.log('Search results:', data)
       setSearchResults(data.results || [])
       setSearchMessage(data.message || '')
+      // Whether a search found anything — never what was searched for.
+      track('explore_search', {
+        surface: 'explore',
+        has_results: (data.results || []).length > 0,
+      })
     } catch (error) {
       console.error('Search error:', error)
       setSearchResults([])
@@ -316,11 +322,17 @@ export default function ExploreContent() {
             </div>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-gray-900 via-primary-600 to-blue-600 bg-clip-text text-transparent mb-4">
-            {t('explore.title')}
+          <div className="mb-3 flex justify-center">
+            <StatusBadge status="live" size="sm" />
+          </div>
+          <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
+            Explore live football signals
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            {t('explore.subtitle')}
+          <p className="mx-auto max-w-3xl text-base leading-relaxed text-gray-600 sm:text-lg">
+            Search upcoming fixtures and inspect current model scores, market
+            signals and recorded odds. Live signals can update before kickoff and
+            are not part of the verified record unless BetGlitch publishes an
+            immutable claim.
           </p>
         </div>
 
@@ -649,21 +661,21 @@ export default function ExploreContent() {
                   <Search className="h-8 w-8 text-primary-600" />
                 </div>
                 <h4 className="font-bold text-gray-900 mb-2">1. Search</h4>
-                <p className="text-gray-600">Enter any team name to find upcoming fixtures</p>
+                <p className="text-gray-600">Enter a team, league or country to find upcoming fixtures</p>
               </div>
               <div className="text-center">
                 <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <TrendingUp className="h-8 w-8 text-primary-600" />
                 </div>
-                <h4 className="font-bold text-gray-900 mb-2">2. Analyze</h4>
-                <p className="text-gray-600">Click on any fixture to see detailed AI predictions and odds</p>
+                <h4 className="font-bold text-gray-900 mb-2">2. Inspect</h4>
+                <p className="text-gray-600">Open a fixture to see its model score, market signal and recorded odds</p>
               </div>
               <div className="text-center">
                 <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Trophy className="h-8 w-8 text-primary-600" />
                 </div>
-                <h4 className="font-bold text-gray-900 mb-2">3. Bet Smart</h4>
-                <p className="text-gray-600">Use EV analysis and prediction strength to make informed decisions</p>
+                <h4 className="font-bold text-gray-900 mb-2">3. Decide for yourself</h4>
+                <p className="text-gray-600">A model score ranks relative confidence — it is not a calibrated probability</p>
               </div>
             </div>
           </div>
