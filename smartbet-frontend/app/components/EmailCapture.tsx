@@ -79,11 +79,16 @@ export default function EmailCapture({
         }
     }
 
-    const variantTitle = title || (variant === 'hero' ? 'Get Our Best Picks Every Week' : 'Get Weekly Tips')
+    // Describes what actually arrives, in the product's own vocabulary. The
+    // previous copy promised "our best picks" and implied an unverified crowd
+    // ("Join bettors receiving…") — neither is supported by the record.
+    const variantTitle = title || (variant === 'hero'
+        ? 'Follow the published picks by email'
+        : 'Get the weekly summary')
     const variantDescription = description || (variant === 'hero'
-        ? 'Join bettors receiving our top AI-powered picks, track-record updates, and bankroll insights every week.'
-        : 'Free AI-powered betting picks with transparent tracking.')
-    const ctaLabel = buttonText || (variant === 'hero' ? 'Get Free Picks' : variant === 'compact' ? 'Subscribe' : 'Subscribe for Free')
+        ? 'A weekly email covering the picks BetGlitch published, how they settled, and what changed in the model. Wins and losses both.'
+        : 'A weekly summary of published picks and how they settled.')
+    const ctaLabel = buttonText || (variant === 'hero' ? 'Subscribe' : variant === 'compact' ? 'Subscribe' : 'Subscribe')
 
     if (status === 'success') {
         return (

@@ -9,10 +9,10 @@ import AgeGateModal from './components/AgeGateModal'
 export const metadata: Metadata = {
   metadataBase: new URL('https://betglitch.com'),
   title: {
-    default: 'BetGlitch - AI-Powered Football Predictions',
+    default: 'BetGlitch — football model signals with a verifiable record',
     template: '%s | BetGlitch'
   },
-  description: 'Find the edge. Monitor model predictions across top football leagues with AI-powered insights and betting recommendations.',
+  description: 'Explore AI-generated football model signals across European leagues. Selected picks are frozen before kickoff and stay public after settlement — win or lose.',
   keywords: ['football predictions', 'AI betting', 'sports analytics', 'soccer stats', 'betting tips', 'value betting'],
   authors: [{ name: 'BetGlitch Team' }],
   creator: 'BetGlitch',
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://betglitch.com',
-    title: 'BetGlitch - AI-Powered Football Predictions',
-    description: 'The system has a glitch. We found it. Data-driven insights and betting recommendations.',
+    title: 'BetGlitch — football model signals with a verifiable record',
+    description: 'Picks frozen before kickoff with their recorded odds and bookmaker, kept public after settlement — win or lose.',
     siteName: 'BetGlitch',
     images: [
       {
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BetGlitch - AI-Powered Football Predictions',
-    description: 'AI-powered football predictions and betting insights.',
+    title: 'BetGlitch — football model signals with a verifiable record',
+    description: 'Picks frozen before kickoff, results published after full-time.',
     images: ['/images/og-image.jpg'],
     creator: '@BetGlitch',
   },
