@@ -287,6 +287,16 @@ def upgrade_tier(request):
     user doesn't exist, 400 for malformed input. Returns 200 (no-op) if the
     tier is already correct, to keep the webhook idempotent.
     """
+    # Defence in depth: even if a webhook somehow reaches this endpoint, no
+    # paid tier may be granted while BetGlitch is a free public beta. The
+    # frontend already drops such events; this is the second, authoritative
+    # refusal — a user must never receive fake paid status.
+    from core.services import commercial_mode
+
+    if not commercial_mode.payments_enabled():
+        return Response(commercial_mode.PAYMENTS_DISABLED_ERROR,
+                        status=status.HTTP_403_FORBIDDEN)
+
     expected_secret = os.environ.get('INTERNAL_API_SECRET', '')
     provided_secret = request.META.get('HTTP_X_INTERNAL_AUTH', '')
 

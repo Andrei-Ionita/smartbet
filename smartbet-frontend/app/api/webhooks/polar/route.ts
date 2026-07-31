@@ -21,6 +21,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 
+import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
+
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -107,6 +109,17 @@ async function callBackendUpgrade(payload: { email: string; tier: 'free' | 'pro'
 }
 
 export async function POST(request: NextRequest) {
+  // The endpoint stays reachable so the provider does not see delivery failures
+  // and disable the webhook, but while BetGlitch is a free public beta it must
+  // never grant a paid tier. Acknowledge and drop.
+  if (!PAYMENTS_ENABLED) {
+    console.warn('[polar webhook] payments disabled — event acknowledged, ignored')
+    return NextResponse.json(
+      { received: true, ignored: true, reason: 'payments_disabled' },
+      { status: 200 },
+    )
+  }
+
   const secret = process.env.POLAR_WEBHOOK_SECRET
   if (!secret) {
     console.error('[polar webhook] POLAR_WEBHOOK_SECRET not set')

@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { Trophy, Github, Twitter, Mail, AlertTriangle } from 'lucide-react'
 
@@ -62,11 +63,13 @@ export default function Footer() {
                                     Track Record
                                 </Link>
                             </li>
-                            <li>
-                                <Link href="/pricing" className="text-gray-600 hover:text-primary-600 transition-colors">
-                                    Pricing
-                                </Link>
-                            </li>
+                            {PAYMENTS_ENABLED && (
+                              <li>
+                                  <Link href="/pricing" className="text-gray-600 hover:text-primary-600 transition-colors">
+                                      Pricing
+                                  </Link>
+                              </li>
+                            )}
                         </ul>
                     </div>
 

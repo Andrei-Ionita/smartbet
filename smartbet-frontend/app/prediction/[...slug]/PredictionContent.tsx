@@ -135,7 +135,7 @@ export default function PredictionContent({
                     source="prediction_page"
                     leagueInterest={leagueName}
                     title="Like this edge? Get the best ones by email."
-                    description="We use the free list to send weekly high-conviction picks, transparent track-record updates, and premium launch notices without touching the live prediction flow."
+                    description="We use the free list to send weekly high-conviction picks and transparent track-record updates, without touching the live prediction flow."
                 />
             </div>
 

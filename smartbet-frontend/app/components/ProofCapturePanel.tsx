@@ -25,8 +25,8 @@ export default function ProofCapturePanel({
             <Link href="/track-record" className="font-semibold text-blue-700 hover:text-blue-900">
               Review the public track record
             </Link>
-            <Link href="/pricing" className="font-semibold text-emerald-700 hover:text-emerald-900">
-              See the premium roadmap
+            <Link href="/track-record" className="font-semibold text-emerald-700 hover:text-emerald-900">
+              See the verified record
             </Link>
           </div>
         </div>

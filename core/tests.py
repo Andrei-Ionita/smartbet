@@ -4,6 +4,8 @@ SmartBet Core Tests - Smoke Tests for Critical Flows
 Run with: python manage.py test core
 """
 
+import os
+
 from django.test import TestCase, Client
 from django.utils import timezone
 from datetime import timedelta
@@ -1243,9 +1245,19 @@ class AuthResponseShapeTests(TestCase):
 
 
 class UpgradeTierEndpointTests(TestCase):
-    """The endpoint the Polar webhook calls. Protected by INTERNAL_API_SECRET."""
+    """The endpoint the Polar webhook calls. Protected by INTERNAL_API_SECRET.
+
+    These exercise the endpoint's COMMERCIAL behaviour, so they run with
+    payments explicitly enabled. That doubles as the proof that flipping the
+    flag back on restores the commercial routes — while
+    core.tests_commercial_mode proves it refuses when the flag is off.
+    """
 
     def setUp(self):
+        self._commercial = patch.dict(
+            os.environ, {'COMMERCIAL_MODE': 'commercial'})
+        self._commercial.start()
+        self.addCleanup(self._commercial.stop)
         self.client = Client()
         self.url = '/api/auth/upgrade-tier/'
         self.user = User.objects.create_user(
@@ -1338,11 +1350,15 @@ class UpgradeTierEndpointTests(TestCase):
         self.assertEqual(resp.status_code, 200)
         self.assertEqual(resp.json()['previous_tier'], 'pro')
 
-    @patch.dict('os.environ', {}, clear=True)
+    @patch.dict('os.environ', {'COMMERCIAL_MODE': 'commercial'}, clear=True)
     def test_endpoint_refuses_when_server_secret_unset(self):
         # If INTERNAL_API_SECRET is unset on the server we'd rather 503 than
         # accept the request — a misconfigured webhook is more dangerous than
         # a temporary outage.
+        #
+        # `clear=True` wipes the whole environment, so COMMERCIAL_MODE must be
+        # re-supplied: otherwise the public-beta guard fires first and returns
+        # 403, and this test would silently stop covering the secret check.
         resp = self.client.post(
             self.url,
             data={'email': 'upg@example.com', 'tier': 'pro'},

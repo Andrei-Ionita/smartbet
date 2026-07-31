@@ -1,8 +1,32 @@
 import { Metadata } from 'next'
-import PricingContent from './PricingContent'
-import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
-export const metadata: Metadata = {
+import BreadcrumbSchema from '@/components/BreadcrumbSchema'
+import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
+
+import BetaContent from './BetaContent'
+import PricingContent from './PricingContent'
+
+/**
+ * While payments are disabled this route serves the public-beta information
+ * page. The pricing table is NOT reachable by any direct URL — the component is
+ * preserved, dormant, and returns the moment the flag flips back.
+ */
+const betaMetadata: Metadata = {
+  title: 'Public Beta — free access',
+  description:
+    'BetGlitch is currently in public beta. Access is free while we build and '
+    + 'validate the verified public record.',
+  openGraph: {
+    title: 'BetGlitch Public Beta — free access',
+    description:
+      'Free while we build and validate the verified public record. Every '
+      + 'published pick is frozen before kickoff and remains visible after '
+      + 'settlement—win or lose.',
+    url: 'https://betglitch.com/pricing',
+  },
+}
+
+const pricingMetadata: Metadata = {
   title: 'Pricing Plans',
   description: 'Choose your BetGlitch plan. Get AI-powered football predictions, value bet alerts, and premium analytics tools. Start free, upgrade when ready.',
   openGraph: {
@@ -12,14 +36,18 @@ export const metadata: Metadata = {
   },
 }
 
+export const metadata: Metadata = PAYMENTS_ENABLED ? pricingMetadata : betaMetadata
+
 export default function PricingPage() {
+  const label = PAYMENTS_ENABLED ? 'Pricing' : 'Public Beta'
+
   return (
     <>
       <BreadcrumbSchema items={[
         { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Pricing', url: 'https://betglitch.com/pricing' },
+        { name: label, url: 'https://betglitch.com/pricing' },
       ]} />
-      <PricingContent />
+      {PAYMENTS_ENABLED ? <PricingContent /> : <BetaContent />}
     </>
   )
 }

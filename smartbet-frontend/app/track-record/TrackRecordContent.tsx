@@ -585,7 +585,7 @@ export default function TrackRecordContent() {
           <ProofCapturePanel
             source="track_record_page"
             title="Follow the proof, then get the weekly shortlist."
-            description="This page is the trust layer of the funnel. Use it to verify results, then subscribe for the free picks and premium launch updates."
+            description="Verify every result here, then join the free list for weekly picks and updates as the verified record develops."
           />
         </div>
 

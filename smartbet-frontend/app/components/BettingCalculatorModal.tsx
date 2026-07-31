@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { shouldGateOnSubscription } from '@/app/lib/commercialMode'
 import { Recommendation } from '../../src/types/recommendation'
 import { X, Calculator, DollarSign, TrendingUp, AlertTriangle, Target, Save, Copy, Lock } from 'lucide-react'
 import { useAuth } from '../contexts/AuthContext'
@@ -189,8 +190,10 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
 
   if (!isOpen) return null
 
-  // Pro Gate: Show upgrade prompt for non-Pro users
-  if (!isPro) {
+  // Paid gate — only applied when payments are enabled. During the public beta
+  // this feature is free for any signed-in user; nobody is given fake paid
+  // status, we simply do not apply the entitlement check.
+  if (shouldGateOnSubscription() && !isPro) {
     return (
       <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
         <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8">

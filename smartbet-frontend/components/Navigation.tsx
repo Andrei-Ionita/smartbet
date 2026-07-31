@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
@@ -21,7 +22,11 @@ export default function Navigation() {
     { href: '/explore', label: t('nav.explore'), icon: Search },
     { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     { href: '/bankroll', label: t('nav.bankroll'), icon: Wallet },
-    { href: '/pricing', label: t('nav.pricing'), icon: Tag },
+    // Hidden while BetGlitch is a free public beta. One flag controls every
+    // commercial surface — see app/lib/commercialMode.ts.
+    ...(PAYMENTS_ENABLED
+      ? [{ href: '/pricing', label: t('nav.pricing'), icon: Tag }]
+      : []),
   ]
 
 
@@ -90,7 +95,7 @@ export default function Navigation() {
 
             {isAuthenticated && user ? (
               <>
-                {!isPro && (
+                {PAYMENTS_ENABLED && !isPro && (
                   <Link
                     href="/pricing"
                     className="flex items-center gap-1.5 px-3 py-2 text-sm font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700 rounded-lg transition-all shadow-sm"
@@ -102,7 +107,7 @@ export default function Navigation() {
                 <div className="flex items-center gap-2 px-3 py-1.5 bg-blue-50 rounded-lg">
                   <User className="h-4 w-4 text-blue-600" />
                   <span className="text-sm font-medium text-blue-900">{user.username}</span>
-                  {isPro && <ProBadge />}
+                  {PAYMENTS_ENABLED && isPro && <ProBadge />}
                 </div>
                 <button
                   onClick={logout}
@@ -201,7 +206,7 @@ export default function Navigation() {
 
             {isAuthenticated ? (
               <>
-                {!isPro && (
+                {PAYMENTS_ENABLED && !isPro && (
                   <Link
                     href="/pricing"
                     className="flex items-center space-x-3 px-3 py-3 mb-2 rounded-md text-base font-semibold text-white bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-700 hover:to-purple-700"

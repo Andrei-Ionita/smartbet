@@ -16,6 +16,8 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 
+import { PAYMENTS_ENABLED, PAYMENTS_DISABLED_ERROR } from '@/app/lib/commercialMode'
+
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
@@ -27,6 +29,13 @@ function polarBaseUrl(): string {
 }
 
 export async function GET(request: NextRequest) {
+  // Fail closed. This returns BEFORE reading any credential or contacting the
+  // payment provider, so a hidden URL cannot start a checkout and no provider
+  // request is ever generated while BetGlitch is a free public beta.
+  if (!PAYMENTS_ENABLED) {
+    return NextResponse.json(PAYMENTS_DISABLED_ERROR, { status: 403 })
+  }
+
   const accessToken = process.env.POLAR_ACCESS_TOKEN
   if (!accessToken) {
     console.error('[checkout] POLAR_ACCESS_TOKEN not set')

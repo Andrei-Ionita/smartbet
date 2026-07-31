@@ -150,7 +150,7 @@ def _welcome_email_payload(subscriber, metadata=None):
     payload['htmlContent'] = (
         '<html><body>'
         '<h1>Welcome to BetGlitch</h1>'
-        '<p>You are on the list for weekly AI-powered picks, public track-record updates, and premium launch notices.</p>'
+        '<p>You are on the list for weekly AI-powered picks, and public track-record updates.</p>'
         f'<p><strong>Track record:</strong> <a href="{track_record_url}">{track_record_url}</a></p>'
         f'<p><strong>Pricing roadmap:</strong> <a href="{pricing_url}">{pricing_url}</a></p>'
         '<p>We will keep the emails proof-led and low-noise.</p>'
@@ -159,7 +159,7 @@ def _welcome_email_payload(subscriber, metadata=None):
     payload['textContent'] = (
         f'Welcome to BetGlitch. Track record: {track_record_url}. '
         f'Pricing roadmap: {pricing_url}. '
-        'You will receive weekly picks and premium launch updates.'
+        'You will receive weekly picks and track-record updates.'
     )
     return payload
 
