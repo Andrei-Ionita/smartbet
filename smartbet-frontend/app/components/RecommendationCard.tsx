@@ -7,6 +7,7 @@ import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target,
 import BettingCalculatorModal from './BettingCalculatorModal'
 import BettingAcknowledgmentModal from './BettingAcknowledgmentModal'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
+import { canPublishPrice, priceUnavailableLabel } from '../lib/marketPricing'
 
 import { useLanguage } from '../contexts/LanguageContext'
 
@@ -168,26 +169,25 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     })
   }
 
-  // ── Publishable-price gate ────────────────────────────────────────────────
+  // ── Canonical price gate ──────────────────────────────────────────────────
   // Everything below that quotes value, edge or expected value is derived from
-  // the recorded price. The backend already refuses to STORE a row whose price
-  // is implausible — PHASE_2B_MAX_EV caps expected value at 0.20, and ingest
-  // validation rejects odds at or below 1.01 — but this card had no equivalent
-  // gate, so it happily rendered figures the write boundary would have thrown
-  // out. Observed live: Over 2.5 quoted at 3.00 (typical range ~1.7-2.2) giving
-  // "+73.0% Expected Value", alongside sibling markets priced at exactly 1.00.
+  // the recorded price, so it may only render when the canonical selector
+  // produced that price for the intended market.
   //
-  // When the price is not publishable we show no value claim at all rather than
-  // a confident number built on a price we would not stand behind.
-  const MIN_USABLE_ODDS = 1.01
-  const MAX_PUBLISHABLE_EV = 0.20
+  // The previous gate tested magnitude alone (a floor on the odds and a ceiling
+  // on the resulting value). Both are properties of the number, not of the
+  // market, so a second-half Over 2.5 quote of 3.00 satisfied it and the card
+  // published a value claim built on a price for a different bet.
+  //
+  // This card does NOT re-derive market identity. It reads the status the
+  // pricing contract already resolved, and shows no value claim at all when the
+  // answer is anything other than verified.
+  const priceSource = recommendation.best_market ?? recommendation
+  const priceVerified = canPublishPrice(priceSource)
+  const evPublishable = priceVerified && typeof recommendation.ev === 'number'
 
-  const oddsUsable =
-    typeof recommendation.odds === 'number' && recommendation.odds > MIN_USABLE_ODDS
-  const evPublishable =
-    oddsUsable &&
-    typeof recommendation.ev === 'number' &&
-    recommendation.ev <= MAX_PUBLISHABLE_EV
+  const priceUnavailableText = priceUnavailableLabel(language)
+  const valueNotVerifiedText = language === 'ro' ? 'Valoare neverificată' : 'Value not verified'
 
   const getEVBadgeColor = () => {
     if (recommendation.ev === null || !evPublishable) return 'hidden'
@@ -591,9 +591,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   ) : (
                     <>
                       <div className="text-2xl font-bold text-gray-400">—</div>
-                      <div className="text-xs text-gray-600">
-                        {language === 'ro' ? 'Valoare neverificată' : 'Value not verified'}
-                      </div>
+                      <div className="text-xs text-gray-600">{valueNotVerifiedText}</div>
                     </>
                   )}
                 </div>
@@ -606,25 +604,28 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-purple-600">{
-                    // Use recommendation.odds first (contains best_market.odds for multi-market)
-                    recommendation.odds && recommendation.odds > 1 ? recommendation.odds.toFixed(2) :
-                      // Fallback to odds_data for 1X2 markets
-                      recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'home' ? recommendation.odds_data?.home?.toFixed(2) :
-                        recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'draw' ? recommendation.odds_data?.draw?.toFixed(2) :
-                          recommendation.odds_data && recommendation.predicted_outcome.toLowerCase() === 'away' ? recommendation.odds_data?.away?.toFixed(2) : 'N/A'
-                  }</div>
-                  <div className="text-xs text-purple-700 truncate max-w-[100px] mx-auto">
-                    {recommendation.bookmaker && recommendation.bookmaker !== 'Unknown'
-                      ? recommendation.bookmaker
-                      : recommendation.odds_data?.bookmaker && recommendation.odds_data.bookmaker !== 'Unknown'
-                        ? recommendation.odds_data.bookmaker
-                        : recommendation.best_market?.bookmaker
-                          ? recommendation.best_market.bookmaker
-                          : recommendation.odds_data?.home_bookmaker
-                            ? recommendation.odds_data.home_bookmaker
-                            : t('card.bestOdds')}
-                  </div>
+                  {/* The quoted price is shown only when the canonical selector
+                      resolved it for THIS market, with complete provenance. */}
+                  {priceVerified ? (
+                    <>
+                      <div className="text-2xl font-bold text-purple-600">
+                        {(priceSource.odds as number).toFixed(2)}
+                      </div>
+                      <div className="text-xs text-purple-700 truncate max-w-[100px] mx-auto">
+                        {recommendation.best_market?.bookmaker
+                          || recommendation.bookmaker
+                          || priceSource.odds_provenance?.odds_bookmaker_name
+                          || t('card.bestOdds')}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-base font-semibold text-gray-400">—</div>
+                      <div className="mx-auto max-w-[120px] text-xs leading-tight text-gray-500">
+                        {priceUnavailableText}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -632,9 +633,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 {language === 'ro'
                   ? 'Scorul modelului exprimă încrederea relativă a modelului. Nu este o probabilitate calibrată și nu trebuie citit ca șansă procentuală.'
                   : 'A model score ranks BetGlitch’s relative confidence. It is not a calibrated probability and should not be read as a percentage chance.'}
-                {!oddsUsable && (language === 'ro'
-                  ? ' Cota înregistrată pentru acest meci nu este utilizabilă, așa că nu se afișează nicio valoare derivată din preț.'
-                  : ' The recorded price for this fixture is not usable, so no price-derived value is shown.')}
+                {!priceVerified && (language === 'ro'
+                  ? ' Nu există un preț verificat pentru piața acestui semnal, așa că nu se afișează nicio valoare derivată din preț.'
+                  : ' There is no verified price for this signal’s market, so no price-derived value is shown.')}
               </p>
 
               {/* Edge vs Market Comparison — an edge claim is only meaningful
@@ -763,9 +764,18 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 <div className={`text-sm font-bold ${idx === 0 ? 'text-blue-700' : 'text-gray-700'}`}>
                   {market.predicted_outcome}
                 </div>
+                {/* Per-market price, again straight from the canonical status.
+                    A market without a verified quote shows the honest state
+                    rather than a dash that reads as "no data". */}
                 <div className="text-xs text-gray-500 mt-0.5">
-                  {(market.probability * 100).toFixed(0)}% • {market.odds > 1 ? market.odds.toFixed(2) : '-'}
+                  {(market.probability * 100).toFixed(0)}%
+                  {canPublishPrice(market) && <> • {(market.odds as number).toFixed(2)}</>}
                 </div>
+                {!canPublishPrice(market) && (
+                  <div className="mt-0.5 text-[10px] leading-tight text-gray-400">
+                    {priceUnavailableText}
+                  </div>
+                )}
                 {idx === 0 && (
                   <div className="text-xs text-green-600 font-medium mt-1">{t('card.multiMarket.starBest')}</div>
                 )}

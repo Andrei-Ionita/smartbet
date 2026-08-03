@@ -81,14 +81,15 @@ export default async function PredictionPage({ params }: PageProps) {
         confidence: fixture.prediction_confidence > 1
             ? fixture.prediction_confidence / 100
             : fixture.prediction_confidence,
-        // Map odds from best market or odds_data
-        odds: fixture.best_market?.odds ||
-            (outcome === 'Home' ? fixture.odds_data?.home :
-                outcome === 'Draw' ? fixture.odds_data?.draw :
-                    fixture.odds_data?.away) || null,
+        // Price and its canonical status travel together. The card decides what
+        // to render from `price_status` + provenance, never from the number.
+        odds: fixture.best_market?.odds ?? null,
+        price_status: fixture.best_market?.price_status,
+        odds_provenance: fixture.best_market?.odds_provenance ?? null,
+        odds_unavailable_reason: fixture.best_market?.odds_unavailable_reason,
         // Normalize EV: same normalization as confidence
         ev: (() => {
-            const rawEv = fixture.best_market?.expected_value || fixture.ev_analysis?.best_ev || null;
+            const rawEv = fixture.best_market?.expected_value ?? fixture.ev_analysis?.best_ev ?? null;
             if (rawEv === null) return null;
             // If EV is greater than 1, it's likely in percentage format (e.g., 12.2 for 12.2%)
             // Convert to decimal (0.122)

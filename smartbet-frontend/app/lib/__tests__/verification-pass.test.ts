@@ -389,13 +389,15 @@ describe('the explore signal detail is framed as a live signal', () => {
 describe('price-derived claims are gated on a publishable price', () => {
   const src = read('app/components/RecommendationCard.tsx')
 
-  it('mirrors the ceilings the backend already enforces', () => {
-    // Observed live: Over 2.5 quoted at 3.00 giving "+73.0% Expected Value",
-    // with sibling markets priced at exactly 1.00. PHASE_2B_MAX_EV caps EV at
-    // 0.20 at the write boundary; the card had no equivalent gate.
-    expect(src).toContain('const MIN_USABLE_ODDS = 1.01')
-    expect(src).toContain('const MAX_PUBLISHABLE_EV = 0.20')
-    expect(src).toContain('const evPublishable =')
+  it('gates on the canonical selection status, not on magnitude', () => {
+    // Superseded 2026-08-03. The interim gate here was a floor on the odds and
+    // a ceiling on the resulting value. Both describe the number rather than
+    // the market, so a second-half Over 2.5 quote of 3.00 satisfied it. The
+    // gate is now the pricing contract's own verdict.
+    expect(src).toContain('const priceVerified = canPublishPrice(priceSource)')
+    expect(src).toContain('const evPublishable = priceVerified &&')
+    expect(src).not.toContain('const MIN_USABLE_ODDS')
+    expect(src).not.toContain('const MAX_PUBLISHABLE_EV')
   })
 
   it('suppresses the headline EV when the price is not publishable', () => {

@@ -119,6 +119,10 @@ const GOALS_CONFUSABLES = [
   { marketId: 53, description: '2nd Half Goals' },
   { marketId: 37, description: 'Result / Total Goals' },
   { marketId: 81, description: 'Alternative Total Goals' },
+  // Observed live on 2026-08-03 (fixtures 19730342, 19635928): the retired
+  // fixture-detail matcher resolved a full-match Over 2.5 to this combined
+  // market. It prices a total AND a BTTS leg together — a different bet.
+  { marketId: 82, description: 'Total Goals / Both Teams to Score' },
   { marketId: 86, description: 'Team Total Goals' },
   { marketId: 105, description: 'Alternative Goal Line (combined lines)' },
   { marketId: 107, description: 'Alternative 1st Half Goal Line' },
@@ -148,8 +152,8 @@ const norm = (s: unknown): string =>
  * Explicitly EXCLUDED (all contain "2.5" and all previously collided):
  *   28  1st Half Goals            37  Result / Total Goals
  *   53  2nd Half Goals            81  Alternative Total Goals
- *   86  Team Total Goals         105  Alternative Goal Line
- *  107  Alternative 1st Half Goal Line
+ *   82  Total Goals / BTTS        86  Team Total Goals
+ *  105  Alternative Goal Line    107  Alternative 1st Half Goal Line
  */
 const GOALS_OVER_UNDER_MARKETS = [80, 7]
 

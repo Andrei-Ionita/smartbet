@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 
-import { selectOdds, type OddsProvenance } from '@/app/lib/oddsSelection'
+import { type OddsProvenance } from '@/app/lib/oddsSelection'
+import {
+  expectedValue as canonicalEV,
+  priceMarket,
+  type MarketPrice,
+} from '@/app/lib/marketPricing'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -104,10 +109,13 @@ interface MarketPrediction {
   predicted_outcome: string
   probability: number
   probability_gap: number
-  odds: number
-  expected_value: number
+  /** `null` when no canonical quote exists. Never a placeholder. */
+  odds: number | null
+  /** `null` whenever `odds` is null — EV without a price is not a number. */
+  expected_value: number | null
   market_score: number
   raw_predictions: Record<string, number>
+  price_status: MarketPrice['status']
   /**
    * Full audit trail for the selected price (market, line, label, bookmaker).
    * Null when no valid quote exists for the exact market — in that case the
@@ -116,6 +124,16 @@ interface MarketPrediction {
   odds_provenance: OddsProvenance | null
   /** Why a price was unavailable, when it was. */
   odds_unavailable_reason?: string
+}
+
+/**
+ * A market qualifies only on the strength of a price we would publish. With no
+ * canonical quote there is no EV, so it cannot clear the floor — the same
+ * outcome the previous `oddsValue = 1` placeholder produced (EV always
+ * negative), now for the honest reason rather than by arithmetic accident.
+ */
+function clearsEV(ev: number | null, floor: number): boolean {
+  return ev !== null && ev >= floor
 }
 
 // Calculate MarketScore = (probability_gap × 0.4) + (expected_value × 0.3) + (confidence × 0.3)
@@ -396,10 +414,8 @@ export async function GET(request: NextRequest) {
               else if (maxProb === avgAway) outcome = 'away'
 
               // Deterministic price: market_id 1 ("Fulltime Result"), exact label.
-              const x12Selection = selectOdds(fixture.odds, '1x2', outcome)
-              const oddsValue = x12Selection.ok ? x12Selection.provenance.odds : 1
-
-              const ev = (maxProb * oddsValue) - 1
+              const x12Price = priceMarket(fixture.odds, '1x2', outcome)
+              const ev = canonicalEV(maxProb, x12Price)
               const minGap = outcome === 'draw' ? 0.15 : 0.12
 
               const marketData: MarketPrediction = {
@@ -408,19 +424,20 @@ export async function GET(request: NextRequest) {
                 predicted_outcome: outcome.charAt(0).toUpperCase() + outcome.slice(1),
                 probability: maxProb,
                 probability_gap: gap,
-                odds: oddsValue,
+                odds: x12Price.status === 'verified' ? x12Price.odds : null,
                 expected_value: ev,
-                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                market_score: calculateMarketScore(gap, Math.max(ev ?? 0, 0), maxProb),
                 raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway },
-                odds_provenance: x12Selection.ok ? x12Selection.provenance : null,
-                odds_unavailable_reason: x12Selection.ok ? undefined : x12Selection.reason
+                price_status: x12Price.status,
+                odds_provenance: x12Price.status === 'verified' ? x12Price.provenance : null,
+                odds_unavailable_reason: x12Price.unavailable_reason
               }
 
               // Always add to display array
               allMarketsData.push(marketData)
 
               // Only add to results if passes filters (EV >= 5%)
-              if (gap >= minGap && ev >= 0.05) {
+              if (gap >= minGap && clearsEV(ev, 0.05)) {
                 marketResults.push(marketData)
               }
             }
@@ -436,10 +453,8 @@ export async function GET(request: NextRequest) {
 
               // Deterministic price: market_id 14 ("Both Teams to Score") only —
               // markets 15/16 are the 1st/2nd half variants and must never match.
-              const bttsSelection = selectOdds(fixture.odds, 'btts', outcome)
-              const oddsValue = bttsSelection.ok ? bttsSelection.provenance.odds : 1
-
-              const ev = (maxProb * oddsValue) - 1
+              const bttsPrice = priceMarket(fixture.odds, 'btts', outcome)
+              const ev = canonicalEV(maxProb, bttsPrice)
 
               const marketData: MarketPrediction = {
                 market_type: 'btts',
@@ -447,16 +462,17 @@ export async function GET(request: NextRequest) {
                 predicted_outcome: outcome === 'yes' ? 'BTTS Yes' : 'BTTS No',
                 probability: maxProb,
                 probability_gap: gap,
-                odds: oddsValue,
+                odds: bttsPrice.status === 'verified' ? bttsPrice.odds : null,
                 expected_value: ev,
-                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                market_score: calculateMarketScore(gap, Math.max(ev ?? 0, 0), maxProb),
                 raw_predictions: { yes: yesProb, no: noProb },
-                odds_provenance: bttsSelection.ok ? bttsSelection.provenance : null,
-                odds_unavailable_reason: bttsSelection.ok ? undefined : bttsSelection.reason
+                price_status: bttsPrice.status,
+                odds_provenance: bttsPrice.status === 'verified' ? bttsPrice.provenance : null,
+                odds_unavailable_reason: bttsPrice.unavailable_reason
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.12 && ev >= 0.05) {
+              if (gap >= 0.12 && clearsEV(ev, 0.05)) {
                 marketResults.push(marketData)
               }
             }
@@ -476,13 +492,11 @@ export async function GET(request: NextRequest) {
               // legitimately ~3.50) could price a FULL-TIME pick worth ~1.60.
               // That inflated portfolio ROI from -4.90% to +10.61%.
               // Now: market_id 80/7 only, exact 2.5 line, exact label.
-              const ouSelection = selectOdds(fixture.odds, 'over_under_2.5', outcome)
-              const oddsValue = ouSelection.ok ? ouSelection.provenance.odds : 1
+              const ouPrice = priceMarket(fixture.odds, 'over_under_2.5', outcome)
 
-              // If no valid odds found, don't include this market in recommendations
-              // (oddsValue stays at 1, which means EV will be negative)
-
-              const ev = (maxProb * oddsValue) - 1
+              // With no canonical quote there is no EV at all, so this market
+              // cannot clear the floor below and cannot be recommended.
+              const ev = canonicalEV(maxProb, ouPrice)
 
               const marketData: MarketPrediction = {
                 market_type: 'over_under_2.5',
@@ -490,12 +504,13 @@ export async function GET(request: NextRequest) {
                 predicted_outcome: outcome === 'over' ? 'Over 2.5' : 'Under 2.5',
                 probability: maxProb,
                 probability_gap: gap,
-                odds: oddsValue,
+                odds: ouPrice.status === 'verified' ? ouPrice.odds : null,
                 expected_value: ev,
-                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                market_score: calculateMarketScore(gap, Math.max(ev ?? 0, 0), maxProb),
                 raw_predictions: { over: overProb, under: underProb },
-                odds_provenance: ouSelection.ok ? ouSelection.provenance : null,
-                odds_unavailable_reason: ouSelection.ok ? undefined : ouSelection.reason
+                price_status: ouPrice.status,
+                odds_provenance: ouPrice.status === 'verified' ? ouPrice.provenance : null,
+                odds_unavailable_reason: ouPrice.unavailable_reason
               }
 
               allMarketsData.push(marketData)
@@ -553,7 +568,7 @@ export async function GET(request: NextRequest) {
               // lifts yield from 13.76% to 21.60%. The model overrates this outcome
               // (41.7% historical accuracy vs 77.4% for Over 2.5). Under 2.5 still
               // surfaces in `all_markets` for transparency; just not as a pick.
-              if (outcome === 'over' && gap >= 0.12 && ev >= 0.05 && fulltimeConfluenceOK && valuebetConfluenceOK && sidelinedConfluenceOK) {
+              if (outcome === 'over' && gap >= 0.12 && clearsEV(ev, 0.05) && fulltimeConfluenceOK && valuebetConfluenceOK && sidelinedConfluenceOK) {
                 marketResults.push(marketData)
               }
             }
@@ -578,13 +593,11 @@ export async function GET(request: NextRequest) {
               // is the half-time variant. Real payloads label these with TEAM NAMES
               // ("Cambuur Leeuwarden or Draw"), which the previous exact-string
               // match never handled, so DC odds effectively never resolved.
-              const dcSelection = selectOdds(fixture.odds, 'double_chance', outcome, {
+              const dcPrice = priceMarket(fixture.odds, 'double_chance', outcome, {
                 homeTeam: fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name,
                 awayTeam: fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name,
               })
-              const oddsValue = dcSelection.ok ? dcSelection.provenance.odds : 1
-
-              const ev = (maxProb * oddsValue) - 1
+              const ev = canonicalEV(maxProb, dcPrice)
 
               const marketData: MarketPrediction = {
                 market_type: 'double_chance',
@@ -592,16 +605,17 @@ export async function GET(request: NextRequest) {
                 predicted_outcome: outcome,
                 probability: maxProb,
                 probability_gap: gap,
-                odds: oddsValue,
+                odds: dcPrice.status === 'verified' ? dcPrice.odds : null,
                 expected_value: ev,
-                market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
+                market_score: calculateMarketScore(gap, Math.max(ev ?? 0, 0), maxProb),
                 raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway },
-                odds_provenance: dcSelection.ok ? dcSelection.provenance : null,
-                odds_unavailable_reason: dcSelection.ok ? undefined : dcSelection.reason
+                price_status: dcPrice.status,
+                odds_provenance: dcPrice.status === 'verified' ? dcPrice.provenance : null,
+                odds_unavailable_reason: dcPrice.unavailable_reason
               }
 
               allMarketsData.push(marketData)
-              if (gap >= 0.10 && ev >= 0.05) {
+              if (gap >= 0.10 && clearsEV(ev, 0.05)) {
                 marketResults.push(marketData)
               }
             }
@@ -626,6 +640,20 @@ export async function GET(request: NextRequest) {
             if (!bestMarket || bestMarket.market_score < 0.15) {
               continue
             }
+
+            // A qualified market always cleared an EV floor, which is only
+            // reachable with a canonical price — assert it rather than assume it,
+            // so a future edit to the filters cannot let an unpriced market reach
+            // the publication payload.
+            if (
+              bestMarket.price_status !== 'verified' ||
+              bestMarket.odds === null ||
+              bestMarket.expected_value === null
+            ) {
+              continue
+            }
+            const bestMarketOdds: number = bestMarket.odds
+            const bestMarketEV: number = bestMarket.expected_value
 
             // For backwards compatibility, also keep 1X2 specific data
             const allX12Predictions = x12Predictions.map((pred: any) => ({
@@ -727,7 +755,7 @@ export async function GET(request: NextRequest) {
               .filter(r => r !== 'No form data' && r !== 'Form is mixed')
 
             // Enhancement #2: Value Zone Filtering
-            const valueZone = evaluateValueZone(bestMarket.expected_value)
+            const valueZone = evaluateValueZone(bestMarketEV)
 
             // Apply adjustments to probability and score
             const adjustedProbability = Math.min(
@@ -776,7 +804,7 @@ export async function GET(request: NextRequest) {
               value_zone: {
                 zone: valueZone.zone,
                 warning: valueZone.warning,
-                original_ev: bestMarket.expected_value,
+                original_ev: bestMarketEV,
                 adjusted_ev: adjustedEV
               },
               adjustments_applied: formMultiplier !== 1.0 || valueZone.scorePenalty > 0
@@ -798,7 +826,7 @@ export async function GET(request: NextRequest) {
               expected_value: adjustedEV,
               ev: adjustedEV,
               // Best market odds for display
-              odds: bestMarket.odds,
+              odds: bestMarketOdds,
               // Full provenance so the recorded price can be independently audited.
               odds_provenance: bestMarket.odds_provenance,
               // Keep 1X2 probabilities for backwards compatibility
@@ -815,11 +843,11 @@ export async function GET(request: NextRequest) {
                 predicted_outcome: bestMarket.predicted_outcome,
                 probability: adjustedProbability, // Using adjusted
                 probability_gap: bestMarket.probability_gap,
-                odds: bestMarket.odds,
+                odds: bestMarketOdds,
                 expected_value: adjustedEV, // Using adjusted
                 market_score: adjustedScore, // Using adjusted
                 original_probability: bestMarket.probability,
-                original_ev: bestMarket.expected_value,
+                original_ev: bestMarketEV,
                 // Audit trail for the published price (2026-07-29 defect fix).
                 odds_provenance: bestMarket.odds_provenance
               },

@@ -10,6 +10,7 @@ import RetryButton from '../components/RetryButton'
 import { StatusBadge } from '../components/StatusBadge'
 import { MODEL_SCORE_NOTE, TERMS } from '../lib/terminology'
 import { track } from '../lib/analytics'
+import { canPublishPrice, priceUnavailableLabel, type CanonicalPriceFields } from '../lib/marketPricing'
 
 interface SearchResult {
   fixture_id: number
@@ -74,13 +75,6 @@ interface FixtureAnalysis {
     confidence_level: string
     reliability_score: number
     data_quality: string
-    confidence_interval?: {
-      point_estimate: number
-      lower_bound: number
-      upper_bound: number
-      interval_width: number
-      interpretation: string
-    }
   }
   market_indicators?: {
     market_favorite: string
@@ -94,26 +88,27 @@ interface FixtureAnalysis {
   signal_quality?: 'Strong' | 'Good' | 'Moderate' | 'Weak'
   teams_data?: any // Relaxed type for Explore page to avoid full mock requirement
   // Multi-market support
-  best_market?: {
+  best_market?: CanonicalPriceFields & {
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
     name: string
-    display_name: string
+    display_name?: string
     predicted_outcome: string
     probability: number
     probability_gap: number
-    odds: number
-    expected_value: number
+    odds: number | null
+    expected_value: number | null
     market_score: number
     bookmaker?: string
   }
-  all_markets?: Array<{
+  all_markets?: Array<CanonicalPriceFields & {
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
     name: string
     predicted_outcome: string
     probability: number
-    odds: number
-    expected_value: number
+    odds: number | null
+    expected_value: number | null
     market_score: number
+    bookmaker?: string
     is_recommended?: boolean
   }>
 }
@@ -307,7 +302,7 @@ export default function ExploreContent() {
     handleFixtureSelect(fixtureId)
   }
 
-  const { t } = useLanguage()
+  const { t, language } = useLanguage()
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -579,13 +574,13 @@ export default function ExploreContent() {
                         confidence: selectedFixture.best_market
                           ? selectedFixture.best_market.probability
                           : (selectedFixture.prediction_confidence || 0) / 100,
-                        odds: selectedFixture.best_market?.odds || (selectedFixture.odds_data ?
-                          (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                            selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                              selectedFixture.odds_data?.away) : null),
-                        ev: selectedFixture.best_market
-                          ? selectedFixture.best_market.expected_value
-                          : (selectedFixture.ev_analysis?.best_ev || 0) / 100,
+                        // Price and canonical status travel together; the card
+                        // decides what to render from the status, not the number.
+                        odds: selectedFixture.best_market?.odds ?? null,
+                        price_status: selectedFixture.best_market?.price_status,
+                        odds_provenance: selectedFixture.best_market?.odds_provenance ?? null,
+                        odds_unavailable_reason: selectedFixture.best_market?.odds_unavailable_reason,
+                        ev: selectedFixture.best_market?.expected_value ?? null,
                         score: selectedFixture.best_market?.market_score || 0,
                         explanation: (() => {
                           const bestMarket = selectedFixture.best_market
@@ -595,13 +590,6 @@ export default function ExploreContent() {
                           const confidence = bestMarket
                             ? (bestMarket.probability * 100)
                             : (selectedFixture.prediction_confidence || 0)
-                          const ev = bestMarket
-                            ? (bestMarket.expected_value * 100)
-                            : (selectedFixture.ev_analysis?.best_ev || 0)
-                          const odds = bestMarket?.odds || (selectedFixture.odds_data ?
-                            (selectedFixture.predicted_outcome === 'home' ? selectedFixture.odds_data?.home :
-                              selectedFixture.predicted_outcome === 'draw' ? selectedFixture.odds_data?.draw :
-                                selectedFixture.odds_data?.away) : null)
                           const marketName = bestMarket?.display_name || 'Match Result'
 
                           let explanation = bestMarket
@@ -618,31 +606,21 @@ export default function ExploreContent() {
                             explanation += ` This is a close match with higher uncertainty.`
                           }
 
-                          if (odds && ev) {
-                            if (ev > 0) {
-                              explanation += ` Odds: ${odds.toFixed(2)} with ${ev.toFixed(1)}% expected value.`
-                              if (ev >= 20) {
-                                explanation += ` Exceptional betting value detected!`
-                              } else if (ev >= 15) {
-                                explanation += ` Excellent value opportunity.`
-                              } else if (ev >= 10) {
-                                explanation += ` Good betting value.`
-                              } else if (ev >= 5) {
-                                explanation += ` Positive value present.`
-                              } else {
-                                explanation += ` Marginal value - consider smaller stakes.`
-                              }
-                            } else {
-                              explanation += ` Current odds (${odds.toFixed(2)}) don't offer positive value.`
-                            }
-                          }
+                          // Everything price-derived below is gated on the same
+                          // canonical status the card uses. A signal without a
+                          // verified quote says so instead of narrating value.
+                          const priced = canPublishPrice(bestMarket)
+                          const ev = priced ? (bestMarket!.expected_value as number) * 100 : null
 
-                          if (confidence >= 70 && ev >= 15) {
-                            explanation += ` Premium betting opportunity!`
-                          } else if (confidence >= 60 && ev >= 10) {
-                            explanation += ` Strong betting recommendation.`
-                          } else if (ev < 5 || confidence < 50) {
-                            explanation += ` Proceed with caution and smaller stakes.`
+                          if (priced && ev !== null) {
+                            const odds = bestMarket!.odds as number
+                            if (ev > 0) {
+                              explanation += ` Recorded price ${odds.toFixed(2)} implies ${ev.toFixed(1)}% expected value against the model's probability.`
+                            } else {
+                              explanation += ` Recorded price ${odds.toFixed(2)} does not imply positive expected value.`
+                            }
+                          } else {
+                            explanation += ` ${priceUnavailableLabel(language)} for this market, so no expected value is shown.`
                           }
 
                           return explanation

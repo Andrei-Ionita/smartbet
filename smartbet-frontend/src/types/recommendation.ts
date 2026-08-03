@@ -1,4 +1,14 @@
-export interface Recommendation {
+/**
+ * Canonical price fields. Every surface that renders a price-derived number must
+ * read `price_status` — not the shape or magnitude of `odds`. A number that
+ * merely looks plausible does not prove it prices the intended market, which is
+ * exactly how a second-half quote reached the homepage on 2026-07-29.
+ */
+import type { CanonicalPriceFields } from '@/app/lib/marketPricing'
+
+export type { CanonicalPriceFields }
+
+export interface Recommendation extends CanonicalPriceFields {
   fixture_id: number
   home_team: string
   away_team: string
@@ -91,26 +101,27 @@ export interface Recommendation {
   recommendation_color?: string
 
   // Multi-Market Support (V3)
-  best_market?: {
+  best_market?: CanonicalPriceFields & {
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
     name: string  // Short name like "1X2", "BTTS", "O/U 2.5"
-    display_name: string  // Full name like "Match Result"
+    display_name?: string  // Full name like "Match Result"
     predicted_outcome: string
     probability: number
     probability_gap: number
-    odds: number
-    expected_value: number
+    odds: number | null
+    expected_value: number | null
     market_score: number
     bookmaker?: string
   }
-  all_markets?: Array<{
+  all_markets?: Array<CanonicalPriceFields & {
     type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
     name: string
     predicted_outcome: string
     probability: number
-    odds: number
-    expected_value: number
+    odds: number | null
+    expected_value: number | null
     market_score: number
+    bookmaker?: string
     is_recommended?: boolean  // True if passes EV/gap filters
   }>
 

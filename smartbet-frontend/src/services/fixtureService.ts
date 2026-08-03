@@ -1,4 +1,11 @@
-import { Recommendation } from '../types/recommendation'
+import {
+    expectedValue,
+    priceMarket,
+    type MarketPrice,
+    type OddsProvenance,
+    type OddsUnavailableReason,
+    type ProductMarket,
+} from '@/app/lib/marketPricing'
 
 // Robust apiClient implementation
 const apiClient = {
@@ -29,19 +36,29 @@ function getApiToken(): string {
 
 // Multi-market support types
 export interface MarketPrediction {
-    market_type: '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+    market_type: ProductMarket
     type_id: number
     predicted_outcome: string
+    /** Canonical outcome key passed to the selector (e.g. 'over', 'yes', '1X'). */
+    canonical_outcome: string
     probability: number
     probability_gap: number
-    odds: number
-    expected_value: number
+    /**
+     * `null` when no canonical quote exists. Never 1, never 0, never a price
+     * borrowed from a neighbouring market.
+     */
+    odds: number | null
+    /** `null` whenever `odds` is null — EV is meaningless without a price. */
+    expected_value: number | null
     market_score: number
     bookmaker?: string
+    price_status: MarketPrice['status']
+    odds_provenance: OddsProvenance | null
+    odds_unavailable_reason?: OddsUnavailableReason
     raw_predictions: Record<string, number>
 }
 
-const MARKET_CONFIG: Record<string, { name: string; display_name: string }> = {
+const MARKET_CONFIG: Record<ProductMarket, { name: string; display_name: string }> = {
     '1x2': { name: '1X2', display_name: 'Match Result' },
     'btts': { name: 'BTTS', display_name: 'Both Teams to Score' },
     'over_under_2.5': { name: 'O/U 2.5', display_name: 'Over/Under 2.5 Goals' },
@@ -54,9 +71,22 @@ function calculateMarketScore(probability_gap: number, expected_value: number, c
     return (normalizedGap * 0.4) + (normalizedEV * 0.3) + (confidence * 0.3)
 }
 
-export async function getFixtureDetails(fixtureId: string) {
-    console.log(`🔍 Fetching real fixture ${fixtureId} from SportMonks`)
+/**
+ * Score contribution of EV. An unavailable price contributes nothing — which is
+ * numerically identical to the old placeholder path (`probability × 1 − 1` is
+ * always negative and was clamped to 0), so market ordering is unchanged for
+ * fixtures that never had a real quote.
+ */
+function scoreEV(ev: number | null): number {
+    return ev === null ? 0 : Math.max(ev, 0)
+}
 
+/** Bookmaker name for display. Comes from provenance only — never guessed. */
+function bookmakerLabel(price: MarketPrice): string | undefined {
+    return price.status === 'verified' ? price.bookmaker.name ?? undefined : undefined
+}
+
+export async function getFixtureDetails(fixtureId: string) {
     // Fetch fixture from SportMonks
     const url = `https://api.sportmonks.com/v3/football/fixtures/${fixtureId}`
     const params_api = new URLSearchParams({
@@ -75,6 +105,21 @@ export async function getFixtureDetails(fixtureId: string) {
     // Extract fixture data
     const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
     const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+
+    // Double Chance labels are team-named in real payloads ("Club Brugge or
+    // Draw"), so the selector needs the participants to build its label set.
+    const teamContext = { homeTeam, awayTeam }
+
+    /**
+     * ALL price selection on this path goes through here.
+     *
+     * Before 2026-08-03 this file carried its own market-ID constants, substring
+     * matching and a maximum-across-bookmakers rule. It no longer decides
+     * anything about market identity — `app/lib/oddsSelection.ts` owns that, and
+     * `app/lib/marketPricing.ts` owns what a missing price means.
+     */
+    const price = (market: ProductMarket, outcome: string): MarketPrice =>
+        priceMarket(fixture.odds, market, outcome, teamContext)
 
     // Extract predictions if available
     const predictions = fixture.predictions || []
@@ -111,39 +156,6 @@ export async function getFixtureDetails(fixtureId: string) {
         }
     }
 
-    // Helper function to get bookmaker name from odds entry
-    const getBookmakerName = (odd: any) => {
-        // First try to get bookmaker from the odds.bookmaker include
-        if (odd.bookmaker && odd.bookmaker.name) {
-            return odd.bookmaker.name
-        }
-
-        // Try to get bookmaker name from odds entry directly
-        if (odd.bookmaker_name) return odd.bookmaker_name
-        if (odd.provider) return odd.provider
-        if (odd.source) return odd.source
-
-        // Try to get bookmaker from metadata using bookmaker_id
-        if (odd.bookmaker_id && data.meta?.bookmakers) {
-            const bookmakerMeta = data.meta.bookmakers.find((bm: any) => bm.id === odd.bookmaker_id)
-            if (bookmakerMeta) return bookmakerMeta.name
-        }
-
-        // Fallback: use a common bookmaker name based on ID patterns
-        const bookmakerMap: { [key: number]: string } = {
-            1: 'Bet365', 2: 'Betfair', 14: 'William Hill', 16: 'Paddy Power',
-            26: 'Ladbrokes', 29: 'Coral', 32: 'Sky Bet', 35: 'Unibet',
-            38: 'Betway', 64: '888Sport'
-        }
-
-        if (odd.bookmaker_id && bookmakerMap[odd.bookmaker_id]) {
-            return bookmakerMap[odd.bookmaker_id]
-        }
-
-        // Final fallback
-        return `Bookmaker ${odd.bookmaker_id || 'Unknown'}`
-    }
-
     // ============= MULTI-MARKET PROCESSING =============
     // Process all market types for the All Markets display
     const allMarketsData: MarketPrediction[] = []
@@ -155,6 +167,47 @@ export async function getFixtureDetails(fixtureId: string) {
         if (value > 1) return value / 100
         return value
     }
+
+    /** Assemble one market entry from a probability view and a canonical price. */
+    const buildMarket = (args: {
+        market_type: ProductMarket
+        type_id: number
+        displayOutcome: string
+        canonicalOutcome: string
+        probability: number
+        gap: number
+        raw_predictions: Record<string, number>
+    }): MarketPrediction => {
+        const selected = price(args.market_type, args.canonicalOutcome)
+        const ev = expectedValue(args.probability, selected)
+
+        return {
+            market_type: args.market_type,
+            type_id: args.type_id,
+            predicted_outcome: args.displayOutcome,
+            canonical_outcome: args.canonicalOutcome,
+            probability: args.probability,
+            probability_gap: args.gap,
+            odds: selected.status === 'verified' ? selected.odds : null,
+            expected_value: ev,
+            market_score: calculateMarketScore(args.gap, scoreEV(ev), args.probability),
+            bookmaker: bookmakerLabel(selected),
+            price_status: selected.status,
+            odds_provenance: selected.status === 'verified' ? selected.provenance : null,
+            odds_unavailable_reason:
+                selected.status === 'unavailable' ? selected.unavailable_reason : undefined,
+            raw_predictions: args.raw_predictions,
+        }
+    }
+
+    /**
+     * A market can only be *recommended* on the strength of a price we would
+     * publish. With no canonical quote there is no EV, so it cannot qualify —
+     * the same outcome the old `ev > 0` test produced for placeholder prices,
+     * but now for the honest reason.
+     */
+    const qualifies = (m: MarketPrediction, minGap: number) =>
+        m.expected_value !== null && m.expected_value > 0 && m.probability_gap >= minGap
 
     // --- 1X2 Market ---
     if (x12Predictions.length > 0 && predictionData) {
@@ -171,49 +224,18 @@ export async function getFixtureDetails(fixtureId: string) {
         if (maxProb === avgHome) outcome = 'Home'
         else if (maxProb === avgAway) outcome = 'Away'
 
-        // Get 1X2 odds - Find MAX odds
-        let oddsValue = 1
-        let bookmakerName = undefined
-        if (fixture.odds) {
-            const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
-
-            let bestOddEntry = null
-            let maxVal = -1
-
-            for (const odd of x12Odds) {
-                if (odd.label?.toLowerCase() === outcome.toLowerCase()) {
-                    const val = parseFloat(odd.value) || 0
-                    if (val > maxVal) {
-                        maxVal = val
-                        bestOddEntry = odd
-                    }
-                }
-            }
-
-            if (bestOddEntry) {
-                oddsValue = maxVal
-                bookmakerName = getBookmakerName(bestOddEntry)
-            }
-        }
-
-        const ev = (maxProb * oddsValue) - 1
-        const minGap = outcome === 'Draw' ? 0.15 : 0.12
-
-        const marketData: MarketPrediction = {
+        const marketData = buildMarket({
             market_type: '1x2',
             type_id: x12Predictions[0].type_id,
-            predicted_outcome: outcome,
+            displayOutcome: outcome,
+            canonicalOutcome: outcome.toLowerCase(),
             probability: maxProb,
-            probability_gap: gap,
-            odds: oddsValue,
-            expected_value: ev,
-            market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-            bookmaker: bookmakerName,
-            raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway }
-        }
+            gap,
+            raw_predictions: { home: avgHome, draw: avgDraw, away: avgAway },
+        })
 
         allMarketsData.push(marketData)
-        if (gap >= minGap && ev > 0) {
+        if (qualifies(marketData, outcome === 'Draw' ? 0.15 : 0.12)) {
             marketResults.push(marketData)
         }
     }
@@ -225,52 +247,20 @@ export async function getFixtureDetails(fixtureId: string) {
         const noProb = normalizeProbability(bttsPrediction.predictions.no || 0)
         const gap = Math.abs(yesProb - noProb)
         const maxProb = Math.max(yesProb, noProb)
-        const outcome = yesProb > noProb ? 'BTTS Yes' : 'BTTS No'
+        const yesWins = yesProb > noProb
 
-        let oddsValue = 1
-        let bookmakerName = undefined
-        if (fixture.odds) {
-            const bttsOdds = fixture.odds.filter((odd: any) =>
-                odd.market_id === 28 || odd.name?.toLowerCase().includes('btts')
-            )
-
-            let bestOddEntry = null
-            let maxVal = -1
-
-            for (const odd of bttsOdds) {
-                const label = odd.label?.toLowerCase()
-                if ((outcome.includes('Yes') && label === 'yes') || (outcome.includes('No') && label === 'no')) {
-                    const val = parseFloat(odd.value) || 0
-                    if (val > maxVal) {
-                        maxVal = val
-                        bestOddEntry = odd
-                    }
-                }
-            }
-
-            if (bestOddEntry) {
-                oddsValue = maxVal
-                bookmakerName = getBookmakerName(bestOddEntry)
-            }
-        }
-
-        const ev = (maxProb * oddsValue) - 1
-
-        const marketData: MarketPrediction = {
+        const marketData = buildMarket({
             market_type: 'btts',
             type_id: 231,
-            predicted_outcome: outcome,
+            displayOutcome: yesWins ? 'BTTS Yes' : 'BTTS No',
+            canonicalOutcome: yesWins ? 'yes' : 'no',
             probability: maxProb,
-            probability_gap: gap,
-            odds: oddsValue,
-            expected_value: ev,
-            market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-            bookmaker: bookmakerName,
-            raw_predictions: { yes: yesProb, no: noProb }
-        }
+            gap,
+            raw_predictions: { yes: yesProb, no: noProb },
+        })
 
         allMarketsData.push(marketData)
-        if (gap >= 0.12 && ev > 0) {
+        if (qualifies(marketData, 0.12)) {
             marketResults.push(marketData)
         }
     }
@@ -282,80 +272,20 @@ export async function getFixtureDetails(fixtureId: string) {
         const underProb = normalizeProbability(ouPrediction.predictions.no || 0)
         const gap = Math.abs(overProb - underProb)
         const maxProb = Math.max(overProb, underProb)
-        const outcome = overProb > underProb ? 'Over 2.5' : 'Under 2.5'
+        const overWins = overProb > underProb
 
-        let oddsValue = 1
-        let bookmakerName = undefined
-        if (fixture.odds) {
-            // First try market_id = 18 (Over/Under), then fallback to text matching
-            const ouOdds = fixture.odds.filter((odd: any) => {
-                // Check market_id first (18 = Over/Under in SportMonks)
-                if (odd.market_id === 18) return true
-                // Also look for 2.5 in name or label
-                const nameMatch = odd.name?.toLowerCase().includes('2.5') ||
-                    odd.label?.toLowerCase().includes('2.5') ||
-                    odd.name?.toLowerCase().includes('over/under')
-                return nameMatch
-            })
-
-            let bestOddEntry = null
-            let maxVal = -1
-
-            // STRICT matching: MUST contain "2.5" somewhere to be the right market
-            for (const odd of ouOdds) {
-                const label = odd.label?.toLowerCase() || ''
-                const name = odd.name?.toLowerCase() || ''
-
-                const has25 = label.includes('2.5') || name.includes('2.5')
-                if (!has25) continue  // Skip if not 2.5 line
-
-                let isMatch = false
-                const val = parseFloat(odd.value)
-
-                // Check for Over 2.5 specifically
-                if (outcome.includes('Over') && label.includes('over')) {
-                    // Reasonable Over 2.5 odds range: 1.30 - 3.50
-                    if (val >= 1.30 && val <= 3.50) {
-                        isMatch = true
-                    }
-                }
-                // Check for Under 2.5 specifically  
-                if (outcome.includes('Under') && label.includes('under')) {
-                    // Reasonable Under 2.5 odds range: 1.30 - 3.50
-                    if (val >= 1.30 && val <= 3.50) {
-                        isMatch = true
-                    }
-                }
-
-                if (isMatch && val > maxVal) {
-                    maxVal = val
-                    bestOddEntry = odd
-                }
-            }
-
-            if (bestOddEntry) {
-                oddsValue = maxVal
-                bookmakerName = getBookmakerName(bestOddEntry)
-            }
-        }
-
-        const ev = (maxProb * oddsValue) - 1
-
-        const marketData: MarketPrediction = {
+        const marketData = buildMarket({
             market_type: 'over_under_2.5',
             type_id: 235,
-            predicted_outcome: outcome,
+            displayOutcome: overWins ? 'Over 2.5' : 'Under 2.5',
+            canonicalOutcome: overWins ? 'over' : 'under',
             probability: maxProb,
-            probability_gap: gap,
-            odds: oddsValue,
-            expected_value: ev,
-            market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-            bookmaker: bookmakerName,
-            raw_predictions: { over: overProb, under: underProb }
-        }
+            gap,
+            raw_predictions: { over: overProb, under: underProb },
+        })
 
         allMarketsData.push(marketData)
-        if (gap >= 0.12 && ev > 0) {
+        if (qualifies(marketData, 0.12)) {
             marketResults.push(marketData)
         }
     }
@@ -376,48 +306,18 @@ export async function getFixtureDetails(fixtureId: string) {
         if (maxProb === awayOrDraw) outcome = 'X2'
         else if (maxProb === homeOrAway) outcome = '12'
 
-        let oddsValue = 1
-        let bookmakerName = undefined
-        if (fixture.odds) {
-            const dcOdds = fixture.odds.filter((odd: any) => odd.market_id === 12)
-
-            let bestOddEntry = null
-            let maxVal = -1
-
-            for (const odd of dcOdds) {
-                const label = odd.label?.toLowerCase().replace(/\s/g, '')
-                if (label === outcome.toLowerCase()) {
-                    const val = parseFloat(odd.value) || 0
-                    if (val > maxVal) {
-                        maxVal = val
-                        bestOddEntry = odd
-                    }
-                }
-            }
-
-            if (bestOddEntry) {
-                oddsValue = maxVal
-                bookmakerName = getBookmakerName(bestOddEntry)
-            }
-        }
-
-        const ev = (maxProb * oddsValue) - 1
-
-        const marketData: MarketPrediction = {
+        const marketData = buildMarket({
             market_type: 'double_chance',
             type_id: 239,
-            predicted_outcome: outcome,
+            displayOutcome: outcome,
+            canonicalOutcome: outcome,
             probability: maxProb,
-            probability_gap: gap,
-            odds: oddsValue,
-            expected_value: ev,
-            market_score: calculateMarketScore(gap, Math.max(ev, 0), maxProb),
-            bookmaker: bookmakerName,
-            raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway }
-        }
+            gap,
+            raw_predictions: { '1X': homeOrDraw, 'X2': awayOrDraw, '12': homeOrAway },
+        })
 
         allMarketsData.push(marketData)
-        if (gap >= 0.10 && ev > 0) {
+        if (qualifies(marketData, 0.10)) {
             marketResults.push(marketData)
         }
     }
@@ -427,78 +327,61 @@ export async function getFixtureDetails(fixtureId: string) {
     marketResults.sort((a, b) => b.market_score - a.market_score)
     const bestMarket = marketResults[0] || allMarketsData[0]
 
-    // Extract odds if available
-    let oddsData = null
-    if (fixture.odds && fixture.odds.length > 0) {
-        const x12Odds = fixture.odds.filter((odd: any) => odd.market_id === 1)
-        if (x12Odds.length > 0) {
-            // Extract odds with individual bookmaker names
-            const odds: {
-                home: number | null
-                draw: number | null
-                away: number | null
-                home_bookmaker: string | null
-                draw_bookmaker: string | null
-                away_bookmaker: string | null
-            } = {
-                home: null,
-                draw: null,
-                away: null,
-                home_bookmaker: null,
-                draw_bookmaker: null,
-                away_bookmaker: null
-            }
+    // ============= 1X2 PRICE BOARD =============
+    // The three-way board shown on the detail page. Each outcome is priced
+    // independently through the canonical selector; an outcome without a
+    // canonical quote stays null rather than borrowing another book's number.
+    const boardPrices = {
+        home: price('1x2', 'home'),
+        draw: price('1x2', 'draw'),
+        away: price('1x2', 'away'),
+    }
 
-            // Process each odds entry and assign to the correct outcome
-            for (const odd of x12Odds) {
-                const bookmakerName = getBookmakerName(odd)
-                const oddValue = parseFloat(odd.value)
+    const boardOdds = (p: MarketPrice) => (p.status === 'verified' ? p.odds : null)
+    const boardBook = (p: MarketPrice) => (p.status === 'verified' ? p.bookmaker.name : null)
 
-                if (odd.label.toLowerCase() === 'home') {
-                    odds.home = oddValue
-                    odds.home_bookmaker = bookmakerName
-                } else if (odd.label.toLowerCase() === 'draw') {
-                    odds.draw = oddValue
-                    odds.draw_bookmaker = bookmakerName
-                } else if (odd.label.toLowerCase() === 'away') {
-                    odds.away = oddValue
-                    odds.away_bookmaker = bookmakerName
-                }
-            }
+    let oddsData: {
+        home: number | null
+        draw: number | null
+        away: number | null
+        bookmaker: string
+        home_bookmaker: string | null
+        draw_bookmaker: string | null
+        away_bookmaker: string | null
+        home_provenance: OddsProvenance | null
+        draw_provenance: OddsProvenance | null
+        away_provenance: OddsProvenance | null
+        unavailable_reasons: Record<string, OddsUnavailableReason | undefined>
+    } | null = null
 
-            // Determine the primary bookmaker (most common or first available)
-            const bookmakers = [odds.home_bookmaker, odds.draw_bookmaker, odds.away_bookmaker].filter(Boolean)
-            const primaryBookmaker = bookmakers.length > 0 ? bookmakers[0] : 'Multiple Bookmakers'
+    const anyBoardPrice =
+        boardPrices.home.status === 'verified' ||
+        boardPrices.draw.status === 'verified' ||
+        boardPrices.away.status === 'verified'
 
-            // Create odds data with bookmaker information
-            oddsData = {
-                home: odds.home,
-                draw: odds.draw,
-                away: odds.away,
-                bookmaker: primaryBookmaker,
-                home_bookmaker: odds.home_bookmaker,
-                draw_bookmaker: odds.draw_bookmaker,
-                away_bookmaker: odds.away_bookmaker
-            }
+    if (anyBoardPrice) {
+        const namedBook =
+            boardBook(boardPrices.home) || boardBook(boardPrices.draw) || boardBook(boardPrices.away)
 
-            // Validate odds are in reasonable range (1.01 to 1000)
-            const validateOdds = (odds: number | null, label: string): boolean => {
-                if (!odds) return false
-                if (odds < 1.01 || odds > 1000) {
-                    console.warn(`⚠️ Fixture ${fixture.id}: Suspicious ${label} odds: ${odds}`)
-                    return false
-                }
-                return true
-            }
-
-            const validHome = validateOdds(oddsData.home, 'home')
-            const validDraw = validateOdds(oddsData.draw, 'draw')
-            const validAway = validateOdds(oddsData.away, 'away')
-
-            if (!validHome && !validDraw && !validAway) {
-                console.warn(`⚠️ Fixture ${fixture.id}: All odds are invalid - discarding odds data`)
-                oddsData = null
-            }
+        oddsData = {
+            home: boardOdds(boardPrices.home),
+            draw: boardOdds(boardPrices.draw),
+            away: boardOdds(boardPrices.away),
+            bookmaker: namedBook || 'Multiple bookmakers',
+            home_bookmaker: boardBook(boardPrices.home),
+            draw_bookmaker: boardBook(boardPrices.draw),
+            away_bookmaker: boardBook(boardPrices.away),
+            home_provenance:
+                boardPrices.home.status === 'verified' ? boardPrices.home.provenance : null,
+            draw_provenance:
+                boardPrices.draw.status === 'verified' ? boardPrices.draw.provenance : null,
+            away_provenance:
+                boardPrices.away.status === 'verified' ? boardPrices.away.provenance : null,
+            unavailable_reasons: {
+                home: boardPrices.home.unavailable_reason,
+                draw: boardPrices.draw.unavailable_reason,
+                away: boardPrices.away.unavailable_reason,
+            },
         }
     }
 
@@ -522,54 +405,27 @@ export async function getFixtureDetails(fixtureId: string) {
         predictedOutcome = ['home', 'draw', 'away'][maxIndex] as 'home' | 'draw' | 'away'
         confidence = maxProb // Already a percentage
 
-        // Calculate expected value for all outcomes
-        if (oddsData) {
+        // EV per outcome, expressed in percent. Only outcomes with a canonical
+        // price get a number; the rest stay null and render nothing.
+        const outcomeEV = (outcome: 'home' | 'draw' | 'away') => {
+            const ev = expectedValue(predictionData![outcome] / 100, boardPrices[outcome])
+            return ev === null ? null : ev * 100
+        }
 
-            // Calculate EV for home (convert percentage to decimal for calculation)
-            if (oddsData.home && predictionData.home > 0) {
-                const probDecimal = predictionData.home / 100
-                const rawEV = (probDecimal * oddsData.home) - 1
-                evAnalysis.home = rawEV * 100
-            }
+        evAnalysis.home = outcomeEV('home')
+        evAnalysis.draw = outcomeEV('draw')
+        evAnalysis.away = outcomeEV('away')
 
-            // Calculate EV for draw
-            if (oddsData.draw && predictionData.draw > 0) {
-                const probDecimal = predictionData.draw / 100
-                const rawEV = (probDecimal * oddsData.draw) - 1
-                evAnalysis.draw = rawEV * 100
-            }
+        const validEvs = ([
+            { outcome: 'home' as const, ev: evAnalysis.home },
+            { outcome: 'draw' as const, ev: evAnalysis.draw },
+            { outcome: 'away' as const, ev: evAnalysis.away }
+        ]).filter(v => v.ev !== null && v.ev > 0)
 
-            // Calculate EV for away
-            if (oddsData.away && predictionData.away > 0) {
-                const probDecimal = predictionData.away / 100
-                const rawEV = (probDecimal * oddsData.away) - 1
-                evAnalysis.away = rawEV * 100
-            }
-
-            // Determine best bet (highest EV)
-            const evValues = [
-                { outcome: 'home' as const, ev: evAnalysis.home },
-                { outcome: 'draw' as const, ev: evAnalysis.draw },
-                { outcome: 'away' as const, ev: evAnalysis.away }
-            ]
-
-            const validEvs = evValues.filter(v => v.ev !== null && v.ev > 0)
-            if (validEvs.length > 0) {
-                const bestBet = validEvs.reduce((max, current) =>
-                    (current.ev! > max.ev!) ? current : max
-                )
-                evAnalysis.best_bet = bestBet.outcome
-                evAnalysis.best_ev = bestBet.ev
-
-                // Safety check: cap unrealistic EV values
-                if (evAnalysis.best_ev && evAnalysis.best_ev > 100) {
-                    evAnalysis.best_ev = Math.min(evAnalysis.best_ev, 50)
-                    // Also cap individual EVs
-                    if (evAnalysis.home && evAnalysis.home > 100) evAnalysis.home = Math.min(evAnalysis.home, 50)
-                    if (evAnalysis.draw && evAnalysis.draw > 100) evAnalysis.draw = Math.min(evAnalysis.draw, 50)
-                    if (evAnalysis.away && evAnalysis.away > 100) evAnalysis.away = Math.min(evAnalysis.away, 50)
-                }
-            }
+        if (validEvs.length > 0) {
+            const bestBet = validEvs.reduce((max, current) => (current.ev! > max.ev!) ? current : max)
+            evAnalysis.best_bet = bestBet.outcome
+            evAnalysis.best_ev = bestBet.ev
         }
 
         // Determine signal quality
@@ -579,13 +435,20 @@ export async function getFixtureDetails(fixtureId: string) {
         else signalQuality = 'Weak'
     }
 
-    // Calculate market indicators
+    // Calculate market indicators. The bookmaker margin only means anything when
+    // all three legs of the same board are priced, so this is all-or-nothing.
     let marketIndicators = null
-    if (predictionData && oddsData) {
+    const boardComplete =
+        oddsData !== null &&
+        oddsData.home !== null &&
+        oddsData.draw !== null &&
+        oddsData.away !== null
+
+    if (predictionData && oddsData && boardComplete) {
         const impliedProbs = {
-            home: oddsData.home ? (100 / oddsData.home) : 0,
-            draw: oddsData.draw ? (100 / oddsData.draw) : 0,
-            away: oddsData.away ? (100 / oddsData.away) : 0
+            home: 100 / oddsData.home!,
+            draw: 100 / oddsData.draw!,
+            away: 100 / oddsData.away!
         }
         const totalImplied = impliedProbs.home + impliedProbs.draw + impliedProbs.away
         const bookmakerMargin = totalImplied - 100
@@ -618,6 +481,23 @@ export async function getFixtureDetails(fixtureId: string) {
         }
     }
 
+    const serialiseMarket = (m: MarketPrediction) => ({
+        type: m.market_type,
+        name: MARKET_CONFIG[m.market_type].name,
+        display_name: MARKET_CONFIG[m.market_type].display_name,
+        predicted_outcome: m.predicted_outcome,
+        canonical_outcome: m.canonical_outcome,
+        probability: m.probability,
+        probability_gap: m.probability_gap,
+        odds: m.odds,
+        expected_value: m.expected_value,
+        market_score: m.market_score,
+        bookmaker: m.bookmaker,
+        price_status: m.price_status,
+        odds_provenance: m.odds_provenance,
+        odds_unavailable_reason: m.odds_unavailable_reason,
+    })
+
     // Prepare response data with rich structure like recommendations API
     const responseData = {
         fixture: {
@@ -638,17 +518,12 @@ export async function getFixtureDetails(fixtureId: string) {
                 source: 'AI',
                 confidence_level: confidence >= 70 ? 'High' : confidence >= 60 ? 'Good' : confidence >= 50 ? 'Moderate' : 'Low',
                 reliability_score: confidence / 100,
-                data_quality: (predictionData && oddsData) ? 'Complete' : predictionData ? 'Predictions Only' : 'Limited',
-                // Confidence intervals - wider for lower confidence predictions
-                confidence_interval: {
-                    point_estimate: confidence,
-                    lower_bound: Math.max(0, confidence - (confidence >= 70 ? 5 : confidence >= 60 ? 7 : 10)),
-                    upper_bound: Math.min(100, confidence + (confidence >= 70 ? 5 : confidence >= 60 ? 7 : 10)),
-                    interval_width: confidence >= 70 ? 10 : confidence >= 60 ? 14 : 20,
-                    interpretation: confidence >= 70 ? 'Narrow interval indicates high certainty' :
-                        confidence >= 60 ? 'Moderate interval indicates good confidence' :
-                            'Wide interval reflects higher uncertainty'
-                }
+                // "Complete" now requires a canonical price, not merely the
+                // presence of an odds array.
+                data_quality: (predictionData && oddsData) ? 'Complete' : predictionData ? 'Predictions Only' : 'Limited'
+                // No interval is published here. The band this field used to
+                // carry was a fixed offset applied to the model score, not an
+                // estimate derived from any sampling distribution.
             },
             // Keep ensemble_info for backwards compatibility with existing code
             ensemble_info: {
@@ -669,29 +544,11 @@ export async function getFixtureDetails(fixtureId: string) {
                 }
             },
             has_predictions: x12Predictions.length > 0,
-            has_odds: fixture.odds && fixture.odds.length > 0,
+            has_odds: !!(fixture.odds && fixture.odds.length > 0),
             // Multi-market support for Explore section
-            best_market: bestMarket ? {
-                type: bestMarket.market_type,
-                name: MARKET_CONFIG[bestMarket.market_type].name,
-                display_name: MARKET_CONFIG[bestMarket.market_type].display_name,
-                predicted_outcome: bestMarket.predicted_outcome,
-                probability: bestMarket.probability,
-                probability_gap: bestMarket.probability_gap,
-                odds: bestMarket.odds,
-                expected_value: bestMarket.expected_value,
-                market_score: bestMarket.market_score,
-                bookmaker: bestMarket.bookmaker
-            } : undefined,
+            best_market: bestMarket ? serialiseMarket(bestMarket) : undefined,
             all_markets: allMarketsData.map(m => ({
-                type: m.market_type,
-                name: MARKET_CONFIG[m.market_type].name,
-                predicted_outcome: m.predicted_outcome,
-                probability: m.probability,
-                odds: m.odds,
-                expected_value: m.expected_value,
-                market_score: m.market_score,
-                bookmaker: m.bookmaker,
+                ...serialiseMarket(m),
                 is_recommended: marketResults.some(r => r.market_type === m.market_type)
             }))
         },
