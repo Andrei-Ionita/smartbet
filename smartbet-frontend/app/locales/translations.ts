@@ -352,9 +352,32 @@ export const translations = {
                 }
             }
         },
+        beta: {
+            heading: 'BetGlitch Public Beta — free while we build the verified public record',
+            badge: 'Free public beta',
+            account: 'An account is free and needs no payment method.',
+            supporting: 'You can use every public surface without paying: live model signals, the verified record and every published proof page.',
+            meansTitle: 'What this means today',
+            m1: 'Access is currently free — there is nothing to buy.',
+            m2: 'No payment method is required, and none is collected.',
+            m3: 'Commercial plans may be introduced after we have validated the record.',
+            m4: 'If that changes, beta users will be told before it does.',
+            createAccount: 'Create a free account',
+            seeRecord: 'See the verified record'
+        },
         explore: {
-            title: 'Explore Fixtures',
-            subtitle: 'Search for any upcoming match and get detailed AI predictions, odds analysis, and betting recommendations',
+            title: 'Explore live football signals',
+            subtitle: 'Search upcoming fixtures and inspect current model scores, market signals and recorded odds. Live signals can update before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
+            results: 'Search Results',
+            howTo: {
+                title: 'How to Use the Explorer',
+                step1Title: 'Search',
+                step1Body: 'Enter a team, league or country to find upcoming fixtures',
+                step2Title: 'Inspect',
+                step2Body: 'Open a fixture to see its model score, market signal and recorded odds',
+                step3Title: 'Decide for yourself',
+                step3Body: 'A model score ranks relative confidence — it is not a calibrated probability'
+            },
             search: {
                 placeholder: "Search by team name (e.g., 'Manchester City', 'Barcelona', 'Bayern')",
                 allLeagues: 'All Leagues',
@@ -733,9 +756,32 @@ export const translations = {
                 }
             }
         },
+        beta: {
+            heading: 'BetGlitch Beta Public — gratuit cât timp construim istoricul public verificat',
+            badge: 'Beta public gratuit',
+            account: 'Contul este gratuit și nu necesită nicio metodă de plată.',
+            supporting: 'Poți folosi gratuit toate secțiunile publice: semnalele live ale modelului, istoricul verificat și fiecare pagină de dovadă publicată.',
+            meansTitle: 'Ce înseamnă asta astăzi',
+            m1: 'Accesul este gratuit în prezent — nu ai ce cumpăra.',
+            m2: 'Nu se cere nicio metodă de plată și nu se colectează niciuna.',
+            m3: 'Planuri comerciale pot fi introduse după ce validăm istoricul.',
+            m4: 'Dacă acest lucru se schimbă, utilizatorii beta vor fi anunțați în prealabil.',
+            createAccount: 'Creează un cont gratuit',
+            seeRecord: 'Vezi istoricul verificat'
+        },
         explore: {
-            title: 'Explorează Meciuri',
-            subtitle: 'Caută orice meci viitor și obține predicții AI detaliate, analize ale cotelor și recomandări de pariere',
+            title: 'Explorează semnale de model pentru fotbal',
+            subtitle: 'Caută meciuri viitoare și inspectează scorurile actuale ale modelului, semnalele de piață și cotele înregistrate. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
+            results: 'Rezultatele căutării',
+            howTo: {
+                title: 'Cum folosești Exploratorul',
+                step1Title: 'Caută',
+                step1Body: 'Introdu o echipă, o ligă sau o țară pentru a găsi meciuri viitoare',
+                step2Title: 'Inspectează',
+                step2Body: 'Deschide un meci pentru a-i vedea scorul modelului, semnalul de piață și cotele înregistrate',
+                step3Title: 'Decide singur',
+                step3Body: 'Scorul modelului exprimă încrederea relativă — nu este o probabilitate calibrată'
+            },
             search: {
                 placeholder: "Caută după nume echipă (ex: 'FCSB', 'Real Madrid', 'Liverpool')",
                 allLeagues: 'Toate Ligile',

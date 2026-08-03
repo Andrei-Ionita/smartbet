@@ -385,3 +385,58 @@ describe('the explore signal detail is framed as a live signal', () => {
     expect(src).toContain('setFixtureError')
   })
 })
+
+describe('price-derived claims are gated on a publishable price', () => {
+  const src = read('app/components/RecommendationCard.tsx')
+
+  it('mirrors the ceilings the backend already enforces', () => {
+    // Observed live: Over 2.5 quoted at 3.00 giving "+73.0% Expected Value",
+    // with sibling markets priced at exactly 1.00. PHASE_2B_MAX_EV caps EV at
+    // 0.20 at the write boundary; the card had no equivalent gate.
+    expect(src).toContain('const MIN_USABLE_ODDS = 1.01')
+    expect(src).toContain('const MAX_PUBLISHABLE_EV = 0.20')
+    expect(src).toContain('const evPublishable =')
+  })
+
+  it('suppresses the headline EV when the price is not publishable', () => {
+    expect(src).toContain('{evPublishable ? (')
+    expect(src).toContain("'Valoare neverificată' : 'Value not verified'")
+  })
+
+  it('does not award a value level off an unpublishable price', () => {
+    expect(src).toContain('const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0')
+    expect(src).toContain('if (evPublishable && ev >= 15)')
+  })
+
+  it('labels the score as a model score, not confidence', () => {
+    expect(src).toContain("'Scor model' : 'Model score'")
+    expect(src).toContain('not a calibrated probability')
+  })
+})
+
+describe('Explore and the beta page are fully bilingual', () => {
+  const explore = read('app/explore/ExploreContent.tsx')
+  const beta = read('app/pricing/BetaContent.tsx')
+  const tr = read('app/locales/translations.ts')
+
+  it('explore renders no hardcoded English headings', () => {
+    expect(explore).toContain("{t('explore.title')}")
+    expect(explore).toContain("{t('explore.subtitle')}")
+    expect(explore).toContain("t('explore.results')")
+    expect(explore).toContain("{t('explore.howTo.title')}")
+    expect(explore).not.toContain('How to Use the Explorer<')
+  })
+
+  it('the beta page reads every string from the bundle', () => {
+    expect(beta).not.toContain('BETA_COPY')
+    expect(beta).toContain("{t('beta.heading')}")
+    expect(beta).toContain("t('beta.m1')")
+  })
+
+  it('both languages define the new keys', () => {
+    for (const key of ['howTo:', 'step3Body:', 'meansTitle:', 'createAccount:']) {
+      const count = (tr.match(new RegExp(key, 'g')) ?? []).length
+      expect(count).toBeGreaterThanOrEqual(2)
+    }
+  })
+})

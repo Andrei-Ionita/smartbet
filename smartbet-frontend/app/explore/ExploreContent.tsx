@@ -331,13 +331,10 @@ export default function ExploreContent() {
             <StatusBadge status="live" size="sm" />
           </div>
           <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
-            Explore live football signals
+            {t('explore.title')}
           </h1>
           <p className="mx-auto max-w-3xl text-base leading-relaxed text-gray-600 sm:text-lg">
-            Search upcoming fixtures and inspect current model scores, market
-            signals and recorded odds. Live signals can update before kickoff and
-            are not part of the verified record unless BetGlitch publishes an
-            immutable claim.
+            {t('explore.subtitle')}
           </p>
         </div>
 
@@ -407,12 +404,12 @@ export default function ExploreContent() {
             <div className="flex items-center gap-2 mb-4">
               <Trophy className="h-5 w-5 text-primary-600" />
               <h2 className="text-xl font-bold text-gray-900">
-                {browseMode ? t('explore.browse.title') : 'Search Results'}
+                {browseMode ? t('explore.browse.title') : t('explore.results')}
               </h2>
             </div>
 
             {isSearching ? (
-              <LoadingSpinner size="lg" text="Searching fixtures..." />
+              <LoadingSpinner size="lg" text={t('explore.search.loading')} />
 
             ) : searchResults.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
@@ -704,28 +701,28 @@ export default function ExploreContent() {
         {/* Help Section */}
         {!searchQuery && (
           <div className="bg-gradient-to-r from-primary-50 to-blue-50 rounded-2xl p-8 border border-primary-200">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">How to Use the Explorer</h3>
+            <h3 className="text-2xl font-bold text-gray-900 mb-4 text-center">{t('explore.howTo.title')}</h3>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
                 <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Search className="h-8 w-8 text-primary-600" />
                 </div>
-                <h4 className="font-bold text-gray-900 mb-2">1. Search</h4>
-                <p className="text-gray-600">Enter a team, league or country to find upcoming fixtures</p>
+                <h4 className="font-bold text-gray-900 mb-2">1. {t('explore.howTo.step1Title')}</h4>
+                <p className="text-gray-600">{t('explore.howTo.step1Body')}</p>
               </div>
               <div className="text-center">
                 <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <TrendingUp className="h-8 w-8 text-primary-600" />
                 </div>
-                <h4 className="font-bold text-gray-900 mb-2">2. Inspect</h4>
-                <p className="text-gray-600">Open a fixture to see its model score, market signal and recorded odds</p>
+                <h4 className="font-bold text-gray-900 mb-2">2. {t('explore.howTo.step2Title')}</h4>
+                <p className="text-gray-600">{t('explore.howTo.step2Body')}</p>
               </div>
               <div className="text-center">
                 <div className="bg-white w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg">
                   <Trophy className="h-8 w-8 text-primary-600" />
                 </div>
-                <h4 className="font-bold text-gray-900 mb-2">3. Decide for yourself</h4>
-                <p className="text-gray-600">A model score ranks relative confidence — it is not a calibrated probability</p>
+                <h4 className="font-bold text-gray-900 mb-2">3. {t('explore.howTo.step3Title')}</h4>
+                <p className="text-gray-600">{t('explore.howTo.step3Body')}</p>
               </div>
             </div>
           </div>

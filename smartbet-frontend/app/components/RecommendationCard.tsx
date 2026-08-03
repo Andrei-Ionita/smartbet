@@ -124,11 +124,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     }
 
     // Value-based reason
-    if (ev >= 15) {
+    // Value claims are price-derived; suppress them when the price is not one
+    // we would publish.
+    if (evPublishable && ev >= 15) {
       reasons.push(language === 'ro'
         ? `Valoare excelentă detectată (+${ev.toFixed(0)}% EV)`
         : `Excellent value detected (+${ev.toFixed(0)}% EV)`)
-    } else if (ev >= 10) {
+    } else if (evPublishable && ev >= 10) {
       reasons.push(language === 'ro'
         ? `Valoare bună la cote (+${ev.toFixed(0)}% EV)`
         : `Good odds value (+${ev.toFixed(0)}% EV)`)
@@ -166,14 +168,35 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     })
   }
 
+  // ── Publishable-price gate ────────────────────────────────────────────────
+  // Everything below that quotes value, edge or expected value is derived from
+  // the recorded price. The backend already refuses to STORE a row whose price
+  // is implausible — PHASE_2B_MAX_EV caps expected value at 0.20, and ingest
+  // validation rejects odds at or below 1.01 — but this card had no equivalent
+  // gate, so it happily rendered figures the write boundary would have thrown
+  // out. Observed live: Over 2.5 quoted at 3.00 (typical range ~1.7-2.2) giving
+  // "+73.0% Expected Value", alongside sibling markets priced at exactly 1.00.
+  //
+  // When the price is not publishable we show no value claim at all rather than
+  // a confident number built on a price we would not stand behind.
+  const MIN_USABLE_ODDS = 1.01
+  const MAX_PUBLISHABLE_EV = 0.20
+
+  const oddsUsable =
+    typeof recommendation.odds === 'number' && recommendation.odds > MIN_USABLE_ODDS
+  const evPublishable =
+    oddsUsable &&
+    typeof recommendation.ev === 'number' &&
+    recommendation.ev <= MAX_PUBLISHABLE_EV
+
   const getEVBadgeColor = () => {
-    if (recommendation.ev === null) return 'hidden' // Hide EV badge when not available
+    if (recommendation.ev === null || !evPublishable) return 'hidden'
     if (recommendation.ev > 0) return 'bg-green-100 text-green-800'
     return 'bg-gray-100 text-gray-600'
   }
 
   const getEVBadgeText = () => {
-    if (recommendation.ev === null) return ''
+    if (recommendation.ev === null || !evPublishable) return ''
     const evPercent = recommendation.ev * 100
     if (evPercent > 0) return `EV +${evPercent.toFixed(1)}%`
     return `EV ${evPercent.toFixed(1)}%`
@@ -243,7 +266,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     }
 
     const confidence = recommendation.confidence * 100 // Convert to percentage
-    const ev = (recommendation.ev || 0) * 100 // Convert to percentage
+    // Treat an unpublishable price as no value signal at all, so the card
+    // cannot award "High Value" off a quote the backend would have rejected.
+    const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0
 
     // Premium: High confidence + excellent value
     if (confidence >= 70 && ev >= 15) return {
@@ -544,12 +569,28 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="mb-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-green-600">+{((recommendation.ev || 0) * 100).toFixed(1)}%</div>
-                  <div className="text-xs text-green-700">{t('card.expectedValue')}</div>
+                  {/* Headline EV is only shown for a price we would publish. */}
+                  {evPublishable ? (
+                    <>
+                      <div className="text-2xl font-bold text-green-600">+{((recommendation.ev || 0) * 100).toFixed(1)}%</div>
+                      <div className="text-xs text-green-700">{t('card.expectedValue')}</div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-gray-400">—</div>
+                      <div className="text-xs text-gray-600">
+                        {language === 'ro' ? 'Valoare neverificată' : 'Value not verified'}
+                      </div>
+                    </>
+                  )}
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence * 100)}%</div>
-                  <div className="text-xs text-blue-700">{t('card.confidence')}</div>
+                  {/* "Confidence" read as a calibrated probability. It is a
+                      relative ranking score — see MODEL_SCORE_NOTE. */}
+                  <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence * 100)}</div>
+                  <div className="text-xs text-blue-700">
+                    {language === 'ro' ? 'Scor model' : 'Model score'}
+                  </div>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-purple-600">{
@@ -574,8 +615,18 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
               </div>
 
-              {/* Edge vs Market Comparison */}
-              {recommendation.odds_data && (
+              <p className="mb-4 text-xs leading-relaxed text-gray-600">
+                {language === 'ro'
+                  ? 'Scorul modelului exprimă încrederea relativă a modelului. Nu este o probabilitate calibrată și nu trebuie citit ca șansă procentuală.'
+                  : 'A model score ranks BetGlitch’s relative confidence. It is not a calibrated probability and should not be read as a percentage chance.'}
+                {!oddsUsable && (language === 'ro'
+                  ? ' Cota înregistrată pentru acest meci nu este utilizabilă, așa că nu se afișează nicio valoare derivată din preț.'
+                  : ' The recorded price for this fixture is not usable, so no price-derived value is shown.')}
+              </p>
+
+              {/* Edge vs Market Comparison — an edge claim is only meaningful
+                  against a price we would publish. */}
+              {recommendation.odds_data && evPublishable && (
                 <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-indigo-700">
