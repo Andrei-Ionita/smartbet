@@ -30,7 +30,7 @@ export default function ShareProofButton({
       type="button"
       onClick={copy}
       title="Copy a shareable proof card link"
-      className={`inline-flex items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${className}`}
+      className={`inline-flex min-h-[44px] items-center gap-1.5 rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900 ${className}`}
     >
       {copied ? '✓ Copied' : 'Share proof'}
     </button>

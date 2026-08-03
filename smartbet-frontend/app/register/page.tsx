@@ -182,7 +182,7 @@ export default function RegisterPage() {
         </div>
 
         <div className="mt-4 text-center">
-          <Link href="/" className="text-sm text-gray-600 hover:text-gray-900">
+          <Link href="/" className="inline-flex min-h-[44px] items-center justify-center px-3 text-sm text-gray-600 hover:text-gray-900">
             ← Back to Home
           </Link>
         </div>
