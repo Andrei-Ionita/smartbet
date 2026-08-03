@@ -542,3 +542,39 @@ describe('the card reads status, not magnitude', () => {
     expect(src).toContain("'Scor model' : 'Model score'")
   })
 })
+
+// ── The edge claim priced a different market than it predicted ─────────────
+
+describe('regression 7 — edge compared against an unrelated leg', () => {
+  const src = read('app/components/RecommendationCard.tsx')
+
+  it('derives the implied probability from the price of the predicted market', () => {
+    expect(src).toContain('const marketImplied = (1 / (priceSource.odds as number)) * 100')
+  })
+
+  it('no longer string-matches the outcome against the 1X2 board', () => {
+    const block = src.slice(src.indexOf('Edge vs Market Comparison'), src.indexOf('Risk Warnings'))
+    expect(block).not.toContain('odds_data?.away')
+    expect(block).not.toContain('odds_data?.home')
+  })
+
+  it('is gated on the canonical status, not on the presence of a 1X2 board', () => {
+    expect(src).toContain('{priceVerified && evPublishable && (')
+  })
+
+  it('reproduces the live figures the defect produced', () => {
+    // Malmö FF v Degerfors, 2026-08-03. Best market BTTS Yes, model 62%,
+    // canonical price 1.73 (888Sport). The block read the AWAY price, 5.65.
+    const modelProbability = 62
+    const awayImplied = (1 / 5.65) * 100
+    const bttsImplied = (1 / 1.73) * 100
+
+    expect(Math.round(awayImplied)).toBe(18)
+    expect(Math.round(modelProbability - awayImplied)).toBe(44)
+
+    // Against the price actually being predicted, the edge is single digits and
+    // consistent with the +6.8% expected value shown beside it.
+    expect(Math.round(bttsImplied)).toBe(58)
+    expect(Math.round(modelProbability - bttsImplied)).toBe(4)
+  })
+})

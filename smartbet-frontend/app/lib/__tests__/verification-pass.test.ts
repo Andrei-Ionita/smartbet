@@ -357,12 +357,20 @@ describe('the explore signal detail is framed as a live signal', () => {
     // This modal is where a visitor actually reads a signal, and it carried no
     // indication the numbers are mutable or outside the verified record.
     expect(src).toContain('<StatusBadge status="live" size="sm" />')
-    expect(src).toContain('TERMS.liveSignal.mutability')
-    expect(src).toContain('TERMS.liveSignal.notInRecord')
+    expect(src).toContain('copy.terms.liveSignal.mutability')
+    expect(src).toContain('copy.terms.liveSignal.notInRecord')
   })
 
   it('states that the model score is not a calibrated probability', () => {
-    expect(src).toContain('MODEL_SCORE_NOTE')
+    expect(src).toContain('copy.modelScoreNote')
+  })
+
+  it('reads that vocabulary in the visitor’s language', () => {
+    // These were the English exports, so a Romanian visitor met an English
+    // definition of the concept the badge directly above it had just named.
+    expect(src).toContain('const copy = getCopy(language)')
+    expect(src).not.toMatch(/\bTERMS\.liveSignal/)
+    expect(src).not.toMatch(/\bMODEL_SCORE_NOTE\b/)
   })
 
   it('is an accessible dialog', () => {

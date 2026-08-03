@@ -638,9 +638,15 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   : ' There is no verified price for this signal’s market, so no price-derived value is shown.')}
               </p>
 
-              {/* Edge vs Market Comparison — an edge claim is only meaningful
-                  against a price we would publish. */}
-              {recommendation.odds_data && evPublishable && (
+              {/* Edge vs Market Comparison.
+                  The implied probability MUST come from the price of the market
+                  being predicted. This block used to read a leg of the 1X2 board
+                  chosen by string-matching `predicted_outcome` against
+                  home/draw/away — so a BTTS or Over/Under pick fell through to
+                  the AWAY price. Observed live on Malmö FF v Degerfors: a BTTS
+                  Yes signal priced at 1.73 (implied 58%) was compared against the
+                  away win at 5.65 (implied 18%) and published a "+44%" edge. */}
+              {priceVerified && evPublishable && (
                 <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-semibold text-indigo-700">
@@ -649,13 +655,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                   <div className="flex items-center gap-3 text-xs">
                     {(() => {
-                      const outcome = recommendation.predicted_outcome.toLowerCase()
-                      const odds = outcome === 'home' ? recommendation.odds_data?.home :
-                        outcome === 'draw' ? recommendation.odds_data?.draw :
-                          recommendation.odds_data?.away
-                      if (!odds) return null
-
-                      const marketImplied = (1 / odds) * 100
+                      const marketImplied = (1 / (priceSource.odds as number)) * 100
                       const aiProb = recommendation.confidence * 100
                       const edge = aiProb - marketImplied
 

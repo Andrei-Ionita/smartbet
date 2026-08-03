@@ -8,7 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import ErrorBoundary from '../components/ErrorBoundary'
 import RetryButton from '../components/RetryButton'
 import { StatusBadge } from '../components/StatusBadge'
-import { MODEL_SCORE_NOTE, TERMS } from '../lib/terminology'
+import { getCopy } from '../lib/terminology'
 import { track } from '../lib/analytics'
 import { canPublishPrice, priceUnavailableLabel, type CanonicalPriceFields } from '../lib/marketPricing'
 
@@ -318,7 +318,7 @@ export default function ExploreContent() {
 
   const formatKickoff = (dateString: string) => {
     const date = new Date(dateString)
-    return date.toLocaleString('en-US', {
+    return date.toLocaleString(language === 'ro' ? 'ro-RO' : 'en-US', {
       weekday: 'short',
       month: 'short',
       day: 'numeric',
@@ -333,6 +333,10 @@ export default function ExploreContent() {
   }
 
   const { t, language } = useLanguage()
+  // Bilingual product vocabulary. The modal previously rendered the English
+  // exports regardless of the active language, so a Romanian visitor met an
+  // English definition of the very concept the badge above it was naming.
+  const copy = getCopy(language)
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -407,19 +411,27 @@ export default function ExploreContent() {
             </div>
           </div>
 
-          {/* Features Badges */}
+          {/* What the search covers.
+              These used to advertise "Real-time odds" and "AI predictions" on
+              the search panel, which described the old behaviour of pulling both
+              for every fixture in every league. The search returns fixtures; the
+              model signal and its recorded price appear when one is opened. */}
           <div className="flex flex-wrap items-center justify-center gap-4 mt-6 text-sm text-gray-500">
             <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
               <Trophy className="h-3.5 w-3.5" />
-              {t('explore.search.features.leagues')}
+              {language === 'ro'
+                ? `${LEAGUES.length - 1} competiții europene`
+                : `${LEAGUES.length - 1} European competitions`}
             </span>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
-              <TrendingUp className="h-3.5 w-3.5" />
-              {t('explore.search.features.odds')}
+              <Calendar className="h-3.5 w-3.5" />
+              {language === 'ro' ? 'Următoarele 14 zile' : 'Next 14 days'}
             </span>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-blue-50 text-blue-700 rounded-full font-medium">
-              <div className="h-1.5 w-1.5 rounded-full bg-blue-600 animate-pulse"></div>
-              {t('explore.search.features.predictions')}
+              <TrendingUp className="h-3.5 w-3.5" />
+              {language === 'ro'
+                ? 'Deschide un meci pentru semnal și preț'
+                : 'Open a fixture for its signal and price'}
             </span>
           </div>
         </div>
@@ -573,7 +585,7 @@ export default function ExploreContent() {
                         <Calendar className="h-6 w-6 text-primary-600" />
                       </div>
                       <div>
-                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">Match Analysis</h2>
+                        <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">{t('explore.analysis.title')}</h2>
                         <p className="text-sm text-gray-500">{selectedFixture.home_team} vs {selectedFixture.away_team}</p>
                       </div>
                     </div>
@@ -586,11 +598,11 @@ export default function ExploreContent() {
                     <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
                       <StatusBadge status="live" size="sm" />
                       <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                        {TERMS.liveSignal.mutability}{' '}
-                        {TERMS.liveSignal.notInRecord}
+                        {copy.terms.liveSignal.mutability}{' '}
+                        {copy.terms.liveSignal.notInRecord}
                       </p>
                       <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                        {MODEL_SCORE_NOTE}
+                        {copy.modelScoreNote}
                       </p>
                     </div>
 
