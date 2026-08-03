@@ -349,3 +349,39 @@ describe('responsive layout guards', () => {
     expect(src).toContain('flex flex-wrap items-center gap-x-6 gap-y-3')
   })
 })
+
+describe('the explore signal detail is framed as a live signal', () => {
+  const src = read('app/explore/ExploreContent.tsx')
+
+  it('labels the modal as a live model signal', () => {
+    // This modal is where a visitor actually reads a signal, and it carried no
+    // indication the numbers are mutable or outside the verified record.
+    expect(src).toContain('<StatusBadge status="live" size="sm" />')
+    expect(src).toContain('TERMS.liveSignal.mutability')
+    expect(src).toContain('TERMS.liveSignal.notInRecord')
+  })
+
+  it('states that the model score is not a calibrated probability', () => {
+    expect(src).toContain('MODEL_SCORE_NOTE')
+  })
+
+  it('is an accessible dialog', () => {
+    expect(src).toContain('aria-modal="true"')
+    expect(src).toContain('aria-label="Live model signal detail"')
+    expect(src).toContain('aria-label="Close signal detail"')
+  })
+
+  it('makes the fixture card reachable by keyboard', () => {
+    // It was a div with onClick: not focusable, not keyboard-operable, and
+    // announced as plain text.
+    expect(src).toContain('role="button"')
+    expect(src).toContain('tabIndex={0}')
+    expect(src).toMatch(/e\.key === 'Enter' \|\| e\.key === ' '/)
+  })
+
+  it('never blocks the tab with alert()', () => {
+    // A blocking dialog freezes the page until dismissed.
+    expect(src).not.toMatch(/(?<!\w)alert\(/)
+    expect(src).toContain('setFixtureError')
+  })
+})

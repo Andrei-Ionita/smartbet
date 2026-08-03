@@ -8,6 +8,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import ErrorBoundary from '../components/ErrorBoundary'
 import RetryButton from '../components/RetryButton'
 import { StatusBadge } from '../components/StatusBadge'
+import { MODEL_SCORE_NOTE, TERMS } from '../lib/terminology'
 import { track } from '../lib/analytics'
 
 interface SearchResult {
@@ -258,8 +259,10 @@ export default function ExploreContent() {
   }
 
   const [isLoadingFixture, setIsLoadingFixture] = useState(false)
+  const [fixtureError, setFixtureError] = useState<string | null>(null)
 
   const handleFixtureSelect = async (fixtureId: number) => {
+    setFixtureError(null)
     setIsLoadingFixture(true)
     try {
       // Use Next.js API (fetches from SportMonks - can get ANY fixture)
@@ -279,8 +282,10 @@ export default function ExploreContent() {
         console.error('No fixture data in response', data)
       }
     } catch (error) {
+      // A blocking browser dialog was used here: it froze the whole tab until
+      // dismissed and echoed the raw error. Surface it inline instead.
       console.error('Error fetching fixture:', error)
-      alert(`Failed to load fixture: ${error}`)
+      setFixtureError('This fixture could not be loaded. Please try again.')
     } finally {
       setIsLoadingFixture(false)
     }
@@ -412,10 +417,23 @@ export default function ExploreContent() {
             ) : searchResults.length > 0 ? (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in duration-500">
                 {searchResults.map((fixture) => (
+                  // A div with an onClick is mouse-only: not focusable, not
+                  // reachable by keyboard, and announced as plain text. This is
+                  // the primary "inspect a signal" action, so it needs to be a
+                  // real control.
                   <div
                     key={fixture.fixture_id}
                     onClick={() => handleFixtureSelect(fixture.fixture_id)}
-                    className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-100 transition-all cursor-pointer group"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleFixtureSelect(fixture.fixture_id)
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Open live signal for ${fixture.home_team} versus ${fixture.away_team}`}
+                    className="bg-white rounded-xl p-6 shadow-sm border border-gray-100 hover:shadow-md hover:border-primary-100 transition-all cursor-pointer group focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary-600"
                   >
                     <div className="flex justify-between items-start mb-4">
                       <div className="text-xs font-semibold text-primary-600 px-2 py-1 bg-primary-50 rounded-lg">
@@ -478,7 +496,7 @@ export default function ExploreContent() {
         )}
 
         {/* Fixture Analysis Modal */}
-        {(isLoadingFixture || selectedFixture) && (
+        {(isLoadingFixture || selectedFixture || fixtureError) && (
           <div
             className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-300"
             onClick={() => {
@@ -490,13 +508,17 @@ export default function ExploreContent() {
             }}
           >
             <div
+              role="dialog"
+              aria-modal="true"
+              aria-label="Live model signal detail"
               className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative animate-in fade-in zoom-in-95 duration-300"
               onClick={e => e.stopPropagation()}
             >
               {/* Close Button */}
               <button
                 onClick={() => setSelectedFixture(null)}
-                className="absolute top-4 right-4 p-2 bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-10"
+                aria-label="Close signal detail"
+                className="absolute top-4 right-4 min-h-[44px] min-w-[44px] flex items-center justify-center bg-gray-100 hover:bg-gray-200 rounded-full transition-colors z-10"
                 disabled={isLoadingFixture}
               >
                 <svg className="w-6 h-6 text-gray-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -509,6 +531,16 @@ export default function ExploreContent() {
                   <div className="flex flex-col items-center justify-center py-12">
                     <LoadingSpinner size="lg" text="Loading AI Analysis..." />
                   </div>
+                ) : fixtureError ? (
+                  <div role="alert" className="py-10 text-center">
+                    <p className="text-base font-semibold text-gray-900">{fixtureError}</p>
+                    <button
+                      onClick={() => setSelectedFixture(null)}
+                      className="mt-4 min-h-[44px] rounded-lg border border-gray-300 px-4 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                  </div>
                 ) : selectedFixture && (
                   <>
                     <div className="flex items-center gap-3 mb-6 pr-8">
@@ -519,6 +551,22 @@ export default function ExploreContent() {
                         <h2 className="text-xl md:text-2xl font-bold text-gray-900 leading-tight">Match Analysis</h2>
                         <p className="text-sm text-gray-500">{selectedFixture.home_team} vs {selectedFixture.away_team}</p>
                       </div>
+                    </div>
+
+                    {/* This modal is the surface where a visitor actually reads
+                        a signal, and it previously carried no indication that
+                        the numbers are mutable or outside the verified record.
+                        Everything below is a live model signal until BetGlitch
+                        publishes it as an immutable claim. */}
+                    <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
+                      <StatusBadge status="live" size="sm" />
+                      <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                        {TERMS.liveSignal.mutability}{' '}
+                        {TERMS.liveSignal.notInRecord}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                        {MODEL_SCORE_NOTE}
+                      </p>
                     </div>
 
                     <RecommendationCard
