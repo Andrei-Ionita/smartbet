@@ -582,11 +582,23 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="mb-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
                 <div className="text-center">
-                  {/* Headline EV is only shown for a price we would publish. */}
+                  {/* Headline EV is only shown for a price we would publish.
+                      The sign and colour follow the number. A leading '+' was
+                      hardcoded, so a negative expected value rendered as
+                      "+-32.3%" in green — observed live on Rijeka v Ilves. */}
                   {evPublishable ? (
                     <>
-                      <div className="text-2xl font-bold text-green-600">+{((recommendation.ev || 0) * 100).toFixed(1)}%</div>
-                      <div className="text-xs text-green-700">{t('card.expectedValue')}</div>
+                      <div
+                        className={`text-2xl font-bold ${(recommendation.ev || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
+                      >
+                        {(recommendation.ev || 0) >= 0 ? '+' : '−'}
+                        {Math.abs((recommendation.ev || 0) * 100).toFixed(1)}%
+                      </div>
+                      <div
+                        className={`text-xs ${(recommendation.ev || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}
+                      >
+                        {t('card.expectedValue')}
+                      </div>
                     </>
                   ) : (
                     <>

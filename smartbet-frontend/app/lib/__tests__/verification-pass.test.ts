@@ -413,6 +413,14 @@ describe('price-derived claims are gated on a publishable price', () => {
     expect(src).toContain("'Valoare neverificată' : 'Value not verified'")
   })
 
+  it('does not print a negative expected value as a gain', () => {
+    // A hardcoded leading '+' rendered "+-32.3%" in green. Observed live on
+    // Rijeka v Ilves, 2026-08-03.
+    expect(src).not.toContain(">+{((recommendation.ev || 0) * 100).toFixed(1)}%<")
+    expect(src).toContain("{(recommendation.ev || 0) >= 0 ? '+' : '−'}")
+    expect(src).toContain("Math.abs((recommendation.ev || 0) * 100).toFixed(1)")
+  })
+
   it('does not award a value level off an unpublishable price', () => {
     expect(src).toContain('const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0')
     expect(src).toContain('if (evPublishable && ev >= 15)')
