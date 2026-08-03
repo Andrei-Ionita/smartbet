@@ -357,7 +357,7 @@ export default function ExploreContent() {
           </div>
 
           <div className="mb-3 flex justify-center">
-            <StatusBadge status="live" size="sm" />
+            <StatusBadge status="live" size="sm" lang={language} />
           </div>
           <h1 className="mb-4 text-3xl font-bold text-gray-900 md:text-4xl">
             {t('explore.title')}
@@ -596,7 +596,7 @@ export default function ExploreContent() {
                         Everything below is a live model signal until BetGlitch
                         publishes it as an immutable claim. */}
                     <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
-                      <StatusBadge status="live" size="sm" />
+                      <StatusBadge status="live" size="sm" lang={language} />
                       <p className="mt-2 text-sm leading-relaxed text-gray-700">
                         {copy.terms.liveSignal.mutability}{' '}
                         {copy.terms.liveSignal.notInRecord}

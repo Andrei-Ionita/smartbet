@@ -27,6 +27,46 @@ import type { SignalStatus } from '../lib/signalStatus'
 export { statusFromClaim } from '../lib/signalStatus'
 export type { SignalStatus }
 
+/**
+ * Romanian wording for the badge vocabulary.
+ *
+ * The badge is rendered by server components on the proof and track-record
+ * pages, which have no language context, so English stays the default and a
+ * caller that knows the visitor's language opts in with `lang`. Explore does —
+ * a Romanian visitor was being read an English sentence describing the very
+ * object the page had just introduced in Romanian.
+ */
+const RO: Record<SignalStatus, { label: string; hint: string }> = {
+  live: {
+    label: 'SEMNAL LIVE',
+    hint: 'Semnal live al modelului — se poate modifica înainte de start și nu face parte din istoricul verificat.',
+  },
+  published_pending: {
+    label: 'PUBLICAT — ÎN AȘTEPTARE',
+    hint: 'Pontaj publicat — înghețat înainte de start, așteaptă rezultatul.',
+  },
+  won: {
+    label: 'REZULTAT — CÂȘTIGAT',
+    hint: 'Pontaj publicat încheiat — câștigat.',
+  },
+  lost: {
+    label: 'REZULTAT — PIERDUT',
+    hint: 'Pontaj publicat încheiat — pierdut.',
+  },
+  void: {
+    label: 'ANULAT',
+    hint: 'Anulat — exclus din totalurile istoricului verificat.',
+  },
+  cancelled: {
+    label: 'CONTRAMANDAT',
+    hint: 'Contramandat — exclus din totalurile istoricului verificat.',
+  },
+  legacy: {
+    label: 'ISTORIC — NU E ÎN ISTORICUL VERIFICAT',
+    hint: 'Înregistrat înainte de pragul de integritate a prețurilor. Păstrat, dar exclus din performanța publică.',
+  },
+}
+
 type Spec = {
   label: string
   Icon: React.ComponentType<{ className?: string }>
@@ -87,13 +127,18 @@ export function StatusBadge({
   status,
   size = 'md',
   className = '',
+  lang,
 }: {
   status: SignalStatus
   size?: 'sm' | 'md'
   className?: string
+  /** Omit for English. Server-rendered proof surfaces have no language context. */
+  lang?: string
 }) {
-  const spec = SPECS[status] ?? SPECS.live
-  const { Icon } = spec
+  const base = SPECS[status] ?? SPECS.live
+  const translated = lang === 'ro' ? RO[status] ?? RO.live : null
+  const spec = translated ? { ...base, ...translated } : base
+  const { Icon } = base
   const sizing =
     size === 'sm'
       ? 'text-[10px] px-2 py-0.5 gap-1'

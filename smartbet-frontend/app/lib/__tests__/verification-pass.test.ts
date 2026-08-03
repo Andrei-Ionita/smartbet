@@ -356,7 +356,7 @@ describe('the explore signal detail is framed as a live signal', () => {
   it('labels the modal as a live model signal', () => {
     // This modal is where a visitor actually reads a signal, and it carried no
     // indication the numbers are mutable or outside the verified record.
-    expect(src).toContain('<StatusBadge status="live" size="sm" />')
+    expect(src).toContain('<StatusBadge status="live" size="sm" lang={language} />')
     expect(src).toContain('copy.terms.liveSignal.mutability')
     expect(src).toContain('copy.terms.liveSignal.notInRecord')
   })
