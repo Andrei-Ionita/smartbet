@@ -18,7 +18,7 @@ import logging
 from django.db import transaction
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone as dt_timezone
 
 from core.models import PredictionLog, PredictionSnapshot
 from core.services import public_universe, snapshot_recording
@@ -62,7 +62,12 @@ def _as_aware(value):
             return None
         value = parsed
     if isinstance(value, datetime) and timezone.is_naive(value):
-        value = timezone.make_aware(value, timezone.utc)
+        # `django.utils.timezone.utc` was REMOVED in Django 5.0; this project
+        # runs 5.1.3. Reaching it raised AttributeError for every naive kickoff,
+        # which aborted the whole ingest — so the scheduler fetched
+        # recommendations and then wrote no snapshot at all. Use the stdlib
+        # object, as public_universe.py already does.
+        value = timezone.make_aware(value, dt_timezone.utc)
     return value if isinstance(value, datetime) else None
 
 

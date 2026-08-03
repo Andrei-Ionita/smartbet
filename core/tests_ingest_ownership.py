@@ -148,3 +148,50 @@ class NextRouteIsReadOnlyTests(TestCase):
             writes, [],
             'the public recommendations route must be read/computation-only',
         )
+
+
+class NaiveKickoffIngestTests(TestCase):
+    """A naive kickoff must not abort the whole ingest.
+
+    `django.utils.timezone.utc` was removed in Django 5.0 and this project runs
+    5.1.3, so `_as_aware` raised AttributeError for every naive datetime. The
+    scheduler caught it at the command level, logged it and moved on — so it
+    fetched recommendations every hour and wrote no snapshot at all. Production
+    snapshot creation was dead from 2026-08-03 08:51:28 UTC until this fix.
+    """
+
+    def test_naive_kickoff_string_is_made_aware_not_raised(self):
+        from core.services.recommendation_ingest import _as_aware
+
+        got = _as_aware('2026-08-09T15:00:00')
+
+        self.assertIsNotNone(got)
+        self.assertFalse(timezone.is_naive(got))
+        self.assertEqual(got.utcoffset().total_seconds(), 0)
+
+    def test_naive_datetime_object_is_made_aware(self):
+        from datetime import datetime as _dt
+
+        from core.services.recommendation_ingest import _as_aware
+
+        got = _as_aware(_dt(2026, 8, 9, 15, 0, 0))
+
+        self.assertIsNotNone(got)
+        self.assertFalse(timezone.is_naive(got))
+
+    def test_aware_input_is_preserved(self):
+        from core.services.recommendation_ingest import _as_aware
+
+        got = _as_aware('2026-08-09T15:00:00+00:00')
+
+        self.assertIsNotNone(got)
+        self.assertFalse(timezone.is_naive(got))
+
+    def test_module_never_reaches_the_removed_django_attribute(self):
+        import inspect
+
+        from core.services import recommendation_ingest
+
+        src = inspect.getsource(recommendation_ingest)
+        self.assertNotIn('timezone.make_aware(value, timezone.utc)', src)
+        self.assertIn('dt_timezone.utc', src)
