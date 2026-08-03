@@ -9,6 +9,7 @@ from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime, timedelta, timezone as dt_timezone
 import hashlib
+import hmac
 import json
 import logging
 import os
@@ -1201,11 +1202,45 @@ def track_marketing_event(request):
 @csrf_exempt
 @require_http_methods(["POST"])
 def marketing_webhook(request):
+    """
+    Inbound marketing platform webhook (Brevo).
+
+    POST /api/marketing/webhook/
+    Header: X-Marketing-Webhook-Secret
+
+    FAILS CLOSED. The previous check compared the header to the configured
+    secret only when a secret was configured, so an unset
+    MARKETING_WEBHOOK_SECRET skipped the comparison entirely and left the
+    endpoint fully public. It was unset in production, which meant any
+    anonymous caller who knew a subscriber's email address could unsubscribe
+    them, reactivate them, mark them as `paid`, or inject marketing events.
+
+    An absent secret now disables the webhook rather than opening it.
+    """
     try:
         expected_secret = os.getenv('MARKETING_WEBHOOK_SECRET', '').strip()
         provided_secret = request.headers.get('X-Marketing-Webhook-Secret', '').strip()
-        if expected_secret and provided_secret != expected_secret:
-            return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=401)
+
+        if not expected_secret:
+            # Configuration error, not a client error. Log it here; the caller
+            # is told only that it was not authorised, so an attacker cannot
+            # distinguish "unconfigured" from "wrong secret".
+            logger.error(
+                'marketing webhook rejected: MARKETING_WEBHOOK_SECRET is not configured'
+            )
+            return JsonResponse({
+                'code': 'webhook_unauthorized',
+                'detail': 'The webhook request was not authorized.',
+            }, status=401)
+
+        # Constant-time: a plain != leaks secret length and prefix through
+        # response timing.
+        if not hmac.compare_digest(provided_secret, expected_secret):
+            logger.warning('marketing webhook rejected: signature mismatch')
+            return JsonResponse({
+                'code': 'webhook_unauthorized',
+                'detail': 'The webhook request was not authorized.',
+            }, status=401)
 
         data = json.loads(request.body)
         metadata = data.get('metadata') if isinstance(data.get('metadata'), dict) else {}
@@ -1270,6 +1305,10 @@ def marketing_webhook(request):
         return JsonResponse({'success': True})
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON body'}, status=400)
-    except Exception as e:
-        print(f"Marketing webhook error: {e}")
-        return JsonResponse({'success': False, 'error': 'Something went wrong. Please try again.'}, status=500)
+    except Exception:
+        # Full traceback to the log; the caller learns nothing about internals.
+        logger.exception('marketing webhook failed')
+        return JsonResponse({
+            'code': 'webhook_failed',
+            'detail': 'The webhook could not be processed.',
+        }, status=500)

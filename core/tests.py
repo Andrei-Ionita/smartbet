@@ -576,9 +576,12 @@ class MarketingAutomationTests(TestCase):
         self.assertEqual(mock_request.call_args_list[0].args[1], 'https://api.brevo.com/v3/contacts')
         self.assertEqual(mock_request.call_args_list[1].args[1], 'https://api.brevo.com/v3/smtp/email')
 
+    @patch.dict('os.environ', {'MARKETING_WEBHOOK_SECRET': 'top-secret'}, clear=False)
     def test_brevo_webhook_click_payload_logs_email_click(self):
         subscriber = EmailSubscriber.objects.create(email='clicked@example.com', source='homepage')
 
+        # The webhook now fails closed, so this must authenticate. It passed
+        # before only because an unset secret skipped the check entirely.
         response = self.client.post(
             self.webhook_url,
             data={
@@ -588,6 +591,7 @@ class MarketingAutomationTests(TestCase):
                 'messageId': 'abc123',
             },
             content_type='application/json',
+            HTTP_X_MARKETING_WEBHOOK_SECRET='top-secret',
         )
 
         self.assertEqual(response.status_code, 200)
@@ -656,6 +660,7 @@ class MarketingAutomationTests(TestCase):
         self.assertEqual(subscriber.email_platform_status, 'reactivated')
         self.assertTrue(MarketingEvent.objects.filter(subscriber=subscriber, event_name='welcome_sequence_started').exists())
 
+    @patch.dict('os.environ', {'MARKETING_WEBHOOK_SECRET': 'top-secret'}, clear=False)
     def test_end_to_end_marketing_journey(self):
         subscribe_response = self.client.post(self.subscribe_url, data={
             'email': 'journey@example.com',
@@ -677,13 +682,15 @@ class MarketingAutomationTests(TestCase):
         }, content_type='application/json')
         self.assertEqual(pricing_response.status_code, 200)
 
+        # Authenticated: the webhook fails closed now.
         click_response = self.client.post(self.webhook_url, data={
             'action': 'email_clicked',
             'subscriber_id': subscriber_id,
             'source': 'weekly_picks_email',
             'page': '/prediction/sample-fixture',
             'metadata': {'campaign': 'welcome-1'},
-        }, content_type='application/json')
+        }, content_type='application/json',
+            HTTP_X_MARKETING_WEBHOOK_SECRET='top-secret')
         self.assertEqual(click_response.status_code, 200)
 
         subscriber = EmailSubscriber.objects.get(id=subscriber_id)
