@@ -478,15 +478,19 @@ describe('proof page presentation', () => {
   })
 })
 
-describe('explore search does not serialise 29 provider round trips', () => {
+describe('explore search does not make one provider call per league', () => {
   const src = read('app/api/search/route.ts')
 
-  it('queries leagues in bounded-concurrency batches', () => {
-    expect(src).toContain('const BATCH_SIZE = 6')
-    expect(src).toContain('await Promise.all(batch.map(fetchLeague))')
+  // Superseded 2026-08-03. Batching the 29 per-league calls six at a time got
+  // cold search from ~34s to ~15s. The calls themselves were the problem, so
+  // they are now one filtered query behind a local index — see
+  // app/lib/__tests__/exploreSearch.test.ts for the full contract.
+  it('no longer awaits a provider call inside a league loop', () => {
+    expect(src).not.toMatch(/for \(const leagueId of leaguesToSearch\)/)
+    expect(src).not.toContain('const fetchLeague')
   })
 
-  it('no longer awaits a provider call inside the league loop', () => {
-    expect(src).not.toMatch(/for \(const leagueId of leaguesToSearch\)/)
+  it('fetches the whole window in one filtered query', () => {
+    expect(src).toContain('function buildIndex')
   })
 })

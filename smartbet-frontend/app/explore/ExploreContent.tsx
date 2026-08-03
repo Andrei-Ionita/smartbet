@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Search, Filter, Calendar, Trophy, TrendingUp } from 'lucide-react'
 import RecommendationCard from '../components/RecommendationCard'
 import LoadingSpinner from '../components/LoadingSpinner'
@@ -18,8 +18,6 @@ interface SearchResult {
   away_team: string
   league: string
   kickoff: string
-  has_predictions: boolean
-  has_odds: boolean
 }
 
 interface FixtureAnalysis {
@@ -149,14 +147,27 @@ const LEAGUES = [
   { id: '1371', name: 'UEFA Europa League Play-offs' },
 ]
 
+/** Distinct outcomes a search can have. "empty" is not an error. */
+type SearchState = 'idle' | 'loading' | 'ok' | 'empty' | 'timeout' | 'provider_error'
+
 export default function ExploreContent() {
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedLeague, setSelectedLeague] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [selectedFixture, setSelectedFixture] = useState<FixtureAnalysis | null>(null)
   const [isSearching, setIsSearching] = useState(false)
-  const [searchMessage, setSearchMessage] = useState('')
+  const [searchState, setSearchState] = useState<SearchState>('idle')
   const [browseMode, setBrowseMode] = useState(false)
+
+  // Request supersession.
+  //
+  // Typing "Barcelona" fires a request per debounce window. Without this, a slow
+  // response for "Barc" could land after a fast one for "Barcelona" and replace
+  // correct results with stale ones. Every request takes a sequence number; only
+  // the newest may write state, and superseded requests are aborted outright so
+  // they stop consuming a connection.
+  const requestSeq = useRef(0)
+  const inFlight = useRef<AbortController | null>(null)
 
   // Debounced search or browse
   useEffect(() => {
@@ -171,8 +182,11 @@ export default function ExploreContent() {
         performBrowse()
       } else {
         // Nothing selected
+        inFlight.current?.abort()
+        requestSeq.current += 1
         setSearchResults([])
-        setSearchMessage('')
+        setSearchState('idle')
+        setIsSearching(false)
         setBrowseMode(false)
       }
     }, 500)
@@ -181,76 +195,92 @@ export default function ExploreContent() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchQuery, selectedLeague])
 
-  const performSearch = async () => {
-    if (!searchQuery.trim()) return
+  // Abort whatever is open when the page unmounts.
+  useEffect(() => () => inFlight.current?.abort(), [])
+
+  const runQuery = async (params: URLSearchParams, isBrowse: boolean) => {
+    inFlight.current?.abort()
+    const controller = new AbortController()
+    inFlight.current = controller
+
+    const seq = ++requestSeq.current
+    const isCurrent = () => seq === requestSeq.current
 
     setIsSearching(true)
+    setSearchState('loading')
+
     try {
-      const params = new URLSearchParams({
-        q: searchQuery,
-        limit: '20'
-      })
+      const response = await fetch(`/api/search?${params}`, { signal: controller.signal })
+      const data = await response.json().catch(() => ({}))
 
-      if (selectedLeague) {
-        params.append('league', selectedLeague)
-      }
-
-      // Use Next.js API - queries SportMonks directly for real-time data
-      const response = await fetch(`/api/search?${params}`)
+      if (!isCurrent()) return
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        setSearchResults([])
+        setSearchState(data?.status === 'timeout' || response.status === 504 ? 'timeout' : 'provider_error')
+        return
       }
 
-      const data = await response.json()
-      setSearchResults(data.results || [])
-      setSearchMessage(data.message || '')
-      // Whether a search found anything — never what was searched for.
-      track('explore_search', {
-        surface: 'explore',
-        has_results: (data.results || []).length > 0,
-      })
+      const results = data.results || []
+      setSearchResults(results)
+      setSearchState(results.length > 0 ? 'ok' : 'empty')
+
+      if (!isBrowse) {
+        // Whether a search found anything — never what was searched for.
+        track('explore_search', { surface: 'explore', has_results: results.length > 0 })
+      }
     } catch (error) {
-      console.error('Search error:', error)
+      // An aborted request was superseded on purpose; it is not a failure.
+      if ((error as Error)?.name === 'AbortError' || !isCurrent()) return
       setSearchResults([])
-      setSearchMessage(error instanceof Error ? error.message : 'Search failed')
+      setSearchState('provider_error')
     } finally {
-      setIsSearching(false)
+      if (isCurrent()) setIsSearching(false)
     }
+  }
+
+  const performSearch = async () => {
+    if (!searchQuery.trim()) return
+    const params = new URLSearchParams({ q: searchQuery, limit: '20' })
+    if (selectedLeague) params.append('league', selectedLeague)
+    await runQuery(params, false)
   }
 
   const performBrowse = async () => {
     if (!selectedLeague) return
-
-    setIsSearching(true)
-    try {
-      const params = new URLSearchParams({
-        league: selectedLeague,
-        limit: '30',
-        mode: 'browse'
-      })
-
-      const response = await fetch(`/api/search?${params}`)
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-      }
-
-      const data = await response.json()
-      console.log('Browse results:', data)
-      setSearchResults(data.results || [])
-      setSearchMessage(data.message || '')
-    } catch (error) {
-      console.error('Browse error:', error)
-      setSearchResults([])
-      setSearchMessage(error instanceof Error ? error.message : 'Failed to load fixtures')
-    } finally {
-      setIsSearching(false)
-    }
+    const params = new URLSearchParams({ league: selectedLeague, limit: '30', mode: 'browse' })
+    await runQuery(params, true)
   }
 
   const handleRetrySearch = () => {
     browseMode ? performBrowse() : performSearch()
+  }
+
+  /** One bilingual line per distinct outcome. */
+  const searchStateMessage = (): string => {
+    const ro = language === 'ro'
+    switch (searchState) {
+      case 'empty':
+        return browseMode
+          ? ro ? 'Niciun meci programat în această competiție în următoarele 14 zile.'
+            : 'No fixtures scheduled in this competition in the next 14 days.'
+          : ro ? `Niciun meci găsit pentru „${searchQuery}” în următoarele 14 zile.`
+            : `No fixtures found for “${searchQuery}” in the next 14 days.`
+      case 'timeout':
+        return ro
+          ? 'Furnizorul de meciuri nu a răspuns la timp. Încearcă din nou.'
+          : 'The fixture provider did not respond in time. Please try again.'
+      case 'provider_error':
+        return ro
+          ? 'Căutarea meciurilor nu este disponibilă momentan. Niciun pontaj publicat nu este afectat.'
+          : 'Fixture search is unavailable right now. No published pick is affected.'
+      case 'ok':
+        return ro
+          ? `${searchResults.length} meciuri afișate`
+          : `${searchResults.length} fixtures shown`
+      default:
+        return ''
+    }
   }
 
   const [isLoadingFixture, setIsLoadingFixture] = useState(false)
@@ -451,32 +481,35 @@ export default function ExploreContent() {
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-center gap-2 pt-4 border-t border-gray-50">
-                      {fixture.has_predictions ? (
-                        <span className="text-xs font-medium text-green-600 flex items-center bg-green-50 px-2 py-1 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 mr-1.5"></span>
-                          {t('explore.search.features.predictions')}
-                        </span>
-                      ) : (
-                        <span className="text-xs text-gray-400">Analysis Pending</span>
-                      )}
-                      {fixture.has_odds && (
-                        <span className="text-xs font-medium text-blue-600 flex items-center bg-blue-50 px-2 py-1 rounded-full">
-                          <span className="w-1.5 h-1.5 rounded-full bg-blue-500 mr-1.5"></span>
-                          {t('explore.search.features.odds')}
-                        </span>
-                      )}
+                    {/* No prediction or odds badges here.
+                        Producing them meant pulling `predictions;odds` for every
+                        fixture in every league — a fixture carries 900-2700 odds
+                        entries — to render two dots. The model signal and its
+                        canonical price load when the fixture is opened. */}
+                    <div className="flex items-center justify-center pt-4 border-t border-gray-50">
+                      <span className="text-xs font-medium text-primary-600">
+                        {language === 'ro' ? 'Deschide semnalul live' : 'Open live signal'}
+                      </span>
                     </div>
                   </div>
                 ))}
               </div>
-            ) : searchMessage ? (
+            ) : searchState === 'empty' ? (
               <div className="text-center py-12 bg-white rounded-2xl border border-gray-100 shadow-sm">
                 <div className="text-5xl mb-4">🔍</div>
                 <h3 className="text-lg font-semibold text-gray-900 mb-2">{t('explore.search.noResults')}</h3>
-                <p className="text-gray-500 max-w-sm mx-auto">
-                  {searchMessage === 'No matches found' ? t('explore.search.tryStandard') : searchMessage}
-                </p>
+                <p className="text-gray-500 max-w-sm mx-auto">{searchStateMessage()}</p>
+              </div>
+            ) : searchState === 'timeout' || searchState === 'provider_error' ? (
+              // A provider failure is a different fact from "nothing matched",
+              // and only one of the two is worth retrying.
+              <div className="text-center py-12 bg-white rounded-2xl border border-amber-200 shadow-sm">
+                <div className="text-5xl mb-4">⚠️</div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {language === 'ro' ? 'Căutarea nu a reușit' : 'Search could not complete'}
+                </h3>
+                <p className="mx-auto mb-4 max-w-sm text-gray-500">{searchStateMessage()}</p>
+                <RetryButton onRetry={handleRetrySearch} />
               </div>
             ) : (
               <div className="text-center py-20 opacity-50">

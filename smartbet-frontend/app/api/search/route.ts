@@ -4,60 +4,50 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-// Simplified inline apiClient implementation
-const apiClient = {
-  async request(url: string) {
-    const response = await fetch(url)
-    return response.json()
+/**
+ * Explore search — a local fixture index, not 29 provider round trips.
+ *
+ * WHAT THIS REPLACED
+ * ------------------
+ * The route used to issue ONE SportMonks request per supported league (29 of
+ * them), each asking for `participants;league;metadata;predictions;odds` at
+ * `per_page=50`. A single fixture's odds array runs to 900-2700 entries, so the
+ * route pulled megabytes of prices and predictions across 29 calls in order to
+ * populate two boolean badges ("AI predictions", "Real-time odds") on the result
+ * cards. Nothing else on the result card used any of it.
+ *
+ * Measured in production: warm 0.38s, cold 33.9s / 34.1s / 37.8s / 45.1s.
+ * Batching the 29 calls six at a time (2026-08-03) brought cold down to
+ * 14.1-18.0s — still far outside anything a search box can justify.
+ *
+ * WHAT IT DOES NOW
+ * ----------------
+ * SportMonks accepts a comma-separated league filter, so the entire 14-day
+ * window across every supported league is ONE query, paginated. Measured
+ * 2026-08-03: 13 pages, 604 fixtures, 3.6s fetched serially — under 1.2s when
+ * the pages after the first are fetched concurrently.
+ *
+ * That result set is held in a local index and searched in memory, so a query
+ * costs zero provider calls while the index is fresh. Predictions and odds are
+ * not requested at all here; they are loaded only when a user opens a fixture.
+ */
+
+const REQUEST_TIMEOUT_MS = 12000
+
+async function fetchJson(url: string): Promise<any> {
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+  try {
+    const response = await fetch(url, { signal: controller.signal })
+    if (!response.ok) throw new Error(`provider responded ${response.status}`)
+    return await response.json()
+  } finally {
+    clearTimeout(timeout)
   }
 }
 
-// Cache configuration
-const CACHE_DURATION = {
-  SEARCH: 5 * 60 * 1000, // 5 minutes - search results can change frequently
-  FIXTURES: 15 * 60 * 1000 // 15 minutes - fixture data is more stable
-}
-
-// In-memory cache store
-const cache = new Map<string, { data: any; timestamp: number; duration: number }>()
-
-// Cache utility functions
-function getCacheKey(endpoint: string, params: Record<string, any> = {}): string {
-  const sortedParams = Object.keys(params).sort().reduce((result, key) => {
-    result[key] = params[key]
-    return result
-  }, {} as Record<string, any>)
-  return `${endpoint}:${JSON.stringify(sortedParams)}`
-}
-
-function getFromCache(key: string): any | null {
-  const cached = cache.get(key)
-  if (!cached) return null
-
-  const now = Date.now()
-  if (now - cached.timestamp > cached.duration) {
-    cache.delete(key)
-    return null
-  }
-
-  return cached.data
-}
-
-function setCache(key: string, data: any, duration: number): void {
-  cache.set(key, {
-    data,
-    timestamp: Date.now(),
-    duration
-  })
-}
-
-// Helper function to get API token (will be called at request time, not build time)
-function getApiToken(): string {
-  const token = process.env.SPORTMONKS_API_TOKEN
-  if (!token) {
-    throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
-  }
-  return token
+function getApiToken(): string | null {
+  return process.env.SPORTMONKS_API_TOKEN || null
 }
 
 // All leagues covered by subscription (domestic + European Club Tournaments addon)
@@ -96,182 +86,241 @@ const SUPPORTED_LEAGUE_IDS = [
   1371,  // UEFA Europa League Play-offs
 ]
 
+const SEARCH_WINDOW_DAYS = 14
+/** SportMonks caps this endpoint's page size at 50 regardless of what we ask. */
+const PAGE_SIZE = 50
+/** Pages after the first are fetched concurrently, in waves of this size. */
+const PAGE_CONCURRENCY = 6
+/** Hard stop so a provider pagination bug cannot loop us. */
+const MAX_PAGES = 40
+
+/** Fresh enough to serve directly. */
+const INDEX_TTL_MS = 10 * 60 * 1000
+/** Stale but still serveable while a refresh runs in the background. */
+const INDEX_MAX_AGE_MS = 60 * 60 * 1000
+
+interface IndexEntry {
+  fixture_id: number
+  home_team: string
+  away_team: string
+  /** Pre-lowercased so a keystroke does not re-lowercase 600 rows. */
+  home_lower: string
+  away_lower: string
+  league_id: number | null
+  league: string
+  kickoff: string
+}
+
+interface FixtureIndex {
+  entries: IndexEntry[]
+  builtAt: number
+  window: string
+}
+
+let INDEX: FixtureIndex | null = null
+/** Single-flight: concurrent cold searches share one build, not one each. */
+let BUILDING: Promise<FixtureIndex> | null = null
+
+function windowDates() {
+  const now = new Date()
+  const end = new Date(now.getTime() + SEARCH_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  return {
+    start: now.toISOString().split('T')[0],
+    end: end.toISOString().split('T')[0],
+  }
+}
+
+function pageUrl(token: string, start: string, end: string, page: number): string {
+  const params = new URLSearchParams({
+    api_token: token,
+    // Deliberately minimal. No predictions, no odds — the result card shows
+    // teams, league and kickoff, and nothing else needs a provider relationship.
+    include: 'participants;league',
+    filters: `fixtureLeagues:${SUPPORTED_LEAGUE_IDS.join(',')}`,
+    per_page: String(PAGE_SIZE),
+    page: String(page),
+    timezone: 'Europe/Bucharest',
+  })
+  return `https://api.sportmonks.com/v3/football/fixtures/between/${start}/${end}?${params}`
+}
+
+function toEntries(rows: any[]): IndexEntry[] {
+  return rows.map((fixture: any) => {
+    const home = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
+    const away = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+    return {
+      fixture_id: fixture.id,
+      home_team: home,
+      away_team: away,
+      home_lower: home.toLowerCase(),
+      away_lower: away.toLowerCase(),
+      league_id: fixture.league?.id ?? fixture.league_id ?? null,
+      league: fixture.league?.name || 'Unknown',
+      kickoff: fixture.starting_at,
+    }
+  })
+}
+
+async function buildIndex(token: string): Promise<FixtureIndex> {
+  const { start, end } = windowDates()
+  const entries: IndexEntry[] = []
+
+  const first = await fetchJson(pageUrl(token, start, end, 1))
+  entries.push(...toEntries(first.data || []))
+
+  let hasMore = !!first.pagination?.has_more
+  let nextPage = 2
+
+  // The provider reports has_more but not a page count, so pages are pulled in
+  // concurrent waves until a wave reports the end.
+  while (hasMore && nextPage <= MAX_PAGES) {
+    const wave = []
+    for (let i = 0; i < PAGE_CONCURRENCY && nextPage + i <= MAX_PAGES; i++) {
+      wave.push(nextPage + i)
+    }
+
+    const results = await Promise.all(
+      wave.map((page) => fetchJson(pageUrl(token, start, end, page)).catch(() => null)),
+    )
+
+    hasMore = false
+    for (const result of results) {
+      if (!result) continue
+      entries.push(...toEntries(result.data || []))
+      if (result.pagination?.has_more) hasMore = true
+    }
+
+    nextPage += wave.length
+  }
+
+  entries.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
+
+  return { entries, builtAt: Date.now(), window: `${start}:${end}` }
+}
+
+/**
+ * Return an index, rebuilding only when there is nothing serveable.
+ *
+ * A stale-but-recent index is served immediately and refreshed in the
+ * background, so only the very first search of a cold process ever waits.
+ */
+async function getIndex(token: string): Promise<FixtureIndex> {
+  const { start, end } = windowDates()
+  const currentWindow = `${start}:${end}`
+  const age = INDEX ? Date.now() - INDEX.builtAt : Infinity
+  const usable = INDEX && INDEX.window === currentWindow && age < INDEX_MAX_AGE_MS
+
+  if (usable && age < INDEX_TTL_MS) return INDEX!
+
+  if (!BUILDING) {
+    BUILDING = buildIndex(token)
+      .then((built) => {
+        INDEX = built
+        return built
+      })
+      .finally(() => {
+        BUILDING = null
+      })
+  }
+
+  // Serve the stale copy rather than making the user wait for the refresh.
+  if (usable) return INDEX!
+  return BUILDING
+}
+
 interface SearchResult {
   fixture_id: number
   home_team: string
   away_team: string
   league: string
   kickoff: string
-  has_predictions: boolean
-  has_odds: boolean
 }
 
 export async function GET(request: NextRequest) {
+  const startedAt = Date.now()
+
   try {
     const { searchParams } = new URL(request.url)
-    const query = searchParams.get('q') || ''
+    const query = (searchParams.get('q') || '').trim()
     const league = searchParams.get('league') || ''
-    const limit = parseInt(searchParams.get('limit') || '20')
-    const mode = searchParams.get('mode') || 'search' // 'search' or 'browse'
+    const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 100)
 
     // Require either a search query OR a league selection
-    if (!query.trim() && !league) {
+    if (!query && !league) {
       return NextResponse.json({
         results: [],
         total: 0,
-        message: 'Please enter a search query or select a league'
+        status: 'idle',
+        message: 'Please enter a search query or select a league',
       })
     }
 
-    console.log(`🔍 Searching for: "${query}" - using real SportMonks data only`)
-
-    // Only use real SportMonks data - no test data fallback
-    const token = process.env.SPORTMONKS_API_TOKEN
+    const token = getApiToken()
     if (!token) {
-      console.error('❌ SPORTMONKS_API_TOKEN not found in environment')
-      return NextResponse.json({
+      return NextResponse.json(
+        {
+          results: [],
+          total: 0,
+          status: 'provider_error',
+          message: 'Fixture search is unavailable right now.',
+        },
+        { status: 503 },
+      )
+    }
+
+    const index = await getIndex(token)
+
+    const leagueId = league ? parseInt(league, 10) : null
+    const needle = query.toLowerCase()
+
+    const matches = index.entries.filter((entry) => {
+      if (leagueId !== null && entry.league_id !== leagueId) return false
+      if (!needle) return true
+      return entry.home_lower.includes(needle) || entry.away_lower.includes(needle)
+    })
+
+    const results: SearchResult[] = matches.slice(0, limit).map((entry) => ({
+      fixture_id: entry.fixture_id,
+      home_team: entry.home_team,
+      away_team: entry.away_team,
+      league: entry.league,
+      kickoff: entry.kickoff,
+    }))
+
+    return NextResponse.json({
+      results,
+      total: matches.length,
+      query,
+      league,
+      mode: query ? 'search' : 'browse',
+      status: matches.length > 0 ? 'ok' : 'empty',
+      // Diagnostics for the latency work; no user data.
+      timing_ms: Date.now() - startedAt,
+      index_age_ms: Date.now() - index.builtAt,
+      indexed_fixtures: index.entries.length,
+      message:
+        matches.length > 0
+          ? query
+            ? `Found ${matches.length} fixtures matching "${query}"`
+            : `Found ${matches.length} upcoming fixtures`
+          : query
+            ? `No fixtures found matching "${query}" in the next ${SEARCH_WINDOW_DAYS} days`
+            : 'No upcoming fixtures found for this league',
+    })
+  } catch (error) {
+    const aborted = error instanceof Error && error.name === 'AbortError'
+    console.error('Error in search API:', error)
+
+    return NextResponse.json(
+      {
         results: [],
         total: 0,
-        query: query,
-        league: league,
-        message: 'API configuration error - no real data available'
-      }, { status: 500 })
-    }
-
-    console.log('✅ Using real SportMonks data only - no test data')
-
-    // Calculate date range for next 14 days
-    const now = new Date()
-    const fourteenDaysFromNow = new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000)
-    const startDate = now.toISOString().split('T')[0]
-    const endDate = fourteenDaysFromNow.toISOString().split('T')[0]
-
-    console.log(`📅 Searching fixtures between ${startDate} and ${endDate}`)
-
-    // Check cache first
-    const cacheKey = getCacheKey('search', { query, league, startDate, endDate })
-    const cachedResults = getFromCache(cacheKey)
-    if (cachedResults) {
-      console.log(`💾 Returning cached search results for "${query}"`)
-      return NextResponse.json(cachedResults)
-    }
-
-    // Filter leagues if specific league requested
-    const leaguesToSearch = league
-      ? SUPPORTED_LEAGUE_IDS.filter(id => id === parseInt(league))
-      : SUPPORTED_LEAGUE_IDS
-
-    console.log(`🔍 Searching ${leaguesToSearch.length} leagues for "${query}"`)
-
-    const allResults: SearchResult[] = []
-
-    // Leagues are queried in BOUNDED-CONCURRENCY BATCHES, not one at a time.
-    //
-    // This loop used to be sequential: `await` inside `for (const leagueId of
-    // leaguesToSearch)`, one SportMonks round trip per league across 29
-    // leagues. The early-termination guard only fires once 2x the limit (40)
-    // results are in hand, which a narrow team query never reaches, so a cold
-    // search walked all 29 serially. Measured in production: a warm query
-    // returned in 0.38s while cold queries took 33.9s, 34.1s, 37.8s and 45.1s.
-    //
-    // Batching keeps the same requests and the same results — only the
-    // waiting is overlapped. Batch size is deliberately modest so we do not
-    // convert a latency problem into a provider rate-limit problem.
-    const BATCH_SIZE = 6
-
-    const fetchLeague = async (leagueId: number): Promise<SearchResult[]> => {
-      try {
-        const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
-        const params = new URLSearchParams({
-          api_token: token,
-          include: 'participants;league;metadata;predictions;odds',
-          filters: `fixtureLeagues:${leagueId}`,
-          per_page: '50',
-          page: '1',
-          timezone: 'Europe/Bucharest'
-        })
-
-        const data = await apiClient.request(`${url}?${params}`)
-        const fixtures = data.data || []
-
-        // Filter fixtures by search query (only if query exists)
-        const matchingFixtures = query.trim()
-          ? fixtures.filter((fixture: any) => {
-            const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name?.toLowerCase() || ''
-            const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name?.toLowerCase() || ''
-            const searchTerm = query.toLowerCase()
-
-            return homeTeam.includes(searchTerm) || awayTeam.includes(searchTerm)
-          })
-          : fixtures // Browse mode: return all fixtures for the league
-
-        // Convert to search results
-        const results = matchingFixtures.map((fixture: any) => {
-          const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
-          const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
-
-          return {
-            fixture_id: fixture.id,
-            home_team: homeTeam,
-            away_team: awayTeam,
-            league: fixture.league?.name || 'Unknown',
-            kickoff: fixture.starting_at,
-            has_predictions: (fixture.predictions?.length || 0) > 0,
-            has_odds: (fixture.odds?.length || 0) > 0
-          }
-        })
-
-        if (results.length > 0) {
-          console.log(`  ✅ League ${leagueId}: Found ${results.length} matching fixtures`)
-        }
-        return results
-
-      } catch (error) {
-        console.log(`  ❌ League ${leagueId}: ${error}`)
-        return []
-      }
-    }
-
-    for (let i = 0; i < leaguesToSearch.length; i += BATCH_SIZE) {
-      // Early termination still applies, now per batch rather than per league.
-      if (allResults.length >= limit * 2) {
-        console.log(`⚡ Early termination - found ${allResults.length} results`)
-        break
-      }
-      const batch = leaguesToSearch.slice(i, i + BATCH_SIZE)
-      const settled = await Promise.all(batch.map(fetchLeague))
-      for (const results of settled) allResults.push(...results)
-    }
-
-    // Sort by kickoff time (earliest first)
-    allResults.sort((a, b) => new Date(a.kickoff).getTime() - new Date(b.kickoff).getTime())
-
-    const responseData = {
-      results: allResults.slice(0, limit),
-      total: allResults.length,
-      query: query,
-      league: league,
-      mode: query.trim() ? 'search' : 'browse',
-      message: allResults.length > 0
-        ? query.trim()
-          ? `Found ${allResults.length} fixtures matching "${query}"`
-          : `Found ${allResults.length} upcoming fixtures`
-        : query.trim()
-          ? `No fixtures found matching "${query}" in the next 14 days`
-          : `No upcoming fixtures found for this league`
-    }
-
-    // Cache the results for 5 minutes
-    setCache(cacheKey, responseData, CACHE_DURATION.SEARCH)
-
-    console.log(`✅ Returning ${responseData.results.length} fixtures (cached)`)
-    return NextResponse.json(responseData)
-
-  } catch (error) {
-    console.error('Error in search API:', error)
-    return NextResponse.json(
-      { error: 'Failed to search fixtures' },
-      { status: 500 }
+        status: aborted ? 'timeout' : 'provider_error',
+        message: aborted
+          ? 'The fixture provider did not respond in time.'
+          : 'Fixture search is unavailable right now.',
+      },
+      { status: aborted ? 504 : 502 },
     )
   }
 }
