@@ -73,8 +73,14 @@ export default function Navigation() {
             <span className="text-xl font-bold text-gray-900">BetGlitch</span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:flex space-x-8">
+          {/* Desktop Navigation.
+              Breakpoint is xl, not md. The full bar — logo, five links, the
+              EN/RO toggle and two auth buttons — needs ~1215px in Romanian,
+              where "Autentificare"/"Înregistrare" are far longer than
+              "Login"/"Sign Up". Switching at md meant the bar overflowed the
+              page at 768, 1024 and 1120, so iPad portrait and small laptops
+              scrolled sideways. Below xl the (accessible) hamburger is used. */}
+          <div className="hidden xl:flex space-x-4">
             {navItems.map((item) => {
               const Icon = item.icon
               const isActive = pathname === item.href
@@ -96,7 +102,7 @@ export default function Navigation() {
 
 
           {/* Auth Section & Language Switcher */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden xl:flex items-center gap-3">
             {/* Language Switcher */}
             <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1 mr-2">
               <button
@@ -159,7 +165,7 @@ export default function Navigation() {
           </div>
 
           {/* Mobile menu button */}
-          <div className="md:hidden flex items-center gap-4">
+          <div className="xl:hidden flex items-center gap-4">
             {/* Show user avatar on mobile if logged in, but not the whole auth block */}
             {isAuthenticated && user && (
               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
@@ -184,7 +190,7 @@ export default function Navigation() {
 
       {/* Mobile Menu Dropdown */}
       {isMenuOpen && (
-        <div id="mobile-menu" className="md:hidden border-t border-gray-100 bg-white">
+        <div id="mobile-menu" className="xl:hidden border-t border-gray-100 bg-white">
           <div className="px-2 pt-2 pb-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon

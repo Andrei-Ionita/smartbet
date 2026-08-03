@@ -145,6 +145,16 @@ describe('mobile navigation', () => {
     expect(src).toContain('menuButtonRef.current?.focus()')
   })
 
+  it('switches to the desktop bar only when the bar actually fits', () => {
+    // The full Romanian bar needs ~1215px. At the md breakpoint it overflowed
+    // the page at 768, 1024 and 1120 — iPad portrait and small laptops.
+    expect(src).toContain('hidden xl:flex space-x-4')
+    expect(src).toContain('hidden xl:flex items-center gap-3')
+    expect(src).toContain('xl:hidden flex items-center gap-4')
+    expect(src).not.toContain('hidden md:flex')
+    expect(src).not.toContain('md:hidden')
+  })
+
   it('gives the mobile auth actions a 44px target', () => {
     const mobileAuth = src.slice(src.indexOf('flex flex-col gap-2 p-2'))
     const targets = mobileAuth.match(/min-h-\[44px\]/g) ?? []
