@@ -223,6 +223,50 @@ class SchedulerConcurrencyTests(TestCase):
         self.assertEqual(get_heartbeat().status, SchedulerHeartbeat.STATUS_SUCCESS)
 
 
+class HeartbeatNeverBlocksSettlementTests(TestCase):
+    """Observability must not be able to stop the work it observes.
+
+    The realistic trigger is a fresh deploy: the worker boots with --run-now
+    while the web process is still applying migrations, so the heartbeat table
+    may not exist yet for the first cycle.
+    """
+
+    def test_cycle_still_runs_when_the_heartbeat_cannot_be_written(self):
+        ran = []
+
+        with mock.patch(
+            'core.services.scheduler_health._begin',
+            side_effect=Exception('relation "core_schedulerheartbeat" does not exist'),
+        ):
+            with record_run(interval_minutes=60):
+                ran.append('worked')
+
+        self.assertEqual(ran, ['worked'])
+
+    def test_scheduler_completes_its_pipeline_without_a_heartbeat(self):
+        from core.management.commands.run_scheduler import Command
+
+        cmd = Command(stdout=io.StringIO(), stderr=io.StringIO())
+        with mock.patch(
+            'core.services.scheduler_health._begin', side_effect=Exception('db not ready')
+        ):
+            with mock.patch(
+                'core.management.commands.run_scheduler.call_command'
+            ) as call:
+                cmd.run_tasks(interval_minutes=60)
+
+        ran = [c.args[0] for c in call.call_args_list]
+        self.assertIn('update_results', ran)
+        self.assertIn('settle_published_claims', ran)
+
+    def test_a_lock_conflict_still_stops_a_duplicate_run(self):
+        """Degrading on DB errors must not swallow the concurrency guard."""
+        with record_run(interval_minutes=60):
+            with self.assertRaises(SchedulerAlreadyRunning):
+                with record_run(interval_minutes=60):
+                    self.fail('the inner run should never have started')
+
+
 class SchedulerHealthEndpointTests(TestCase):
     url = '/api/internal/scheduler-health/'
 

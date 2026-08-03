@@ -64,12 +64,86 @@ def record_run(interval_minutes: int = 60, version: str = ''):
     invocation cannot interleave with the worker and write contradictory
     results for the same fixtures.
 
+    If the heartbeat itself is unavailable — most likely on a fresh deploy,
+    where the worker boots with `--run-now` while the web process is still
+    applying migrations — the cycle runs anyway with recording disabled.
+    Observability must never be able to stop settlement; a missing heartbeat
+    row is a worse outcome reported as 'delayed', not a stalled worker.
+
     The exception text is logged against `run_id` and never stored on the
     heartbeat — the heartbeat carries only a short, safe failure code.
     """
     run_id = str(uuid.uuid4())
     now = timezone.now()
 
+    try:
+        hb_pk = _begin(run_id, now, interval_minutes, version)
+        before = _counts()
+    except SchedulerAlreadyRunning:
+        raise
+    except Exception:
+        logger.exception(
+            'scheduler run_id=%s could not record a heartbeat; running without it',
+            run_id,
+        )
+        hb_pk, before = None, None
+
+    logger.info('scheduler run_id=%s started', run_id)
+
+    try:
+        yield run_id
+    except Exception as exc:
+        finished = timezone.now()
+        # Full detail to the logs, correlated by run_id. Never to the heartbeat.
+        logger.exception('scheduler run_id=%s failed', run_id)
+        if hb_pk is not None:
+            _safe_update(
+                hb_pk,
+                status=SchedulerHeartbeat.STATUS_FAILED,
+                last_run_completed_at=finished,
+                last_failure_at=finished,
+                last_failure_code=type(exc).__name__[:64],
+                last_duration_seconds=(finished - now).total_seconds(),
+            )
+        raise
+    else:
+        finished = timezone.now()
+        if hb_pk is not None:
+            after = _counts_or_empty()
+            _safe_update(
+                hb_pk,
+                status=SchedulerHeartbeat.STATUS_SUCCESS,
+                last_run_completed_at=finished,
+                last_success_at=finished,
+                last_failure_code='',
+                last_duration_seconds=(finished - now).total_seconds(),
+                **{
+                    k: max(0, after.get(k, 0) - before.get(k, 0))
+                    for k in ('snapshots_created', 'results_updated', 'claims_settled')
+                },
+            )
+        logger.info('scheduler run_id=%s completed in %.1fs',
+                    run_id, (finished - now).total_seconds())
+
+
+def _counts_or_empty():
+    try:
+        return _counts()
+    except Exception:
+        logger.exception('scheduler could not read post-run counts')
+        return {}
+
+
+def _safe_update(pk, **fields):
+    """Recording a heartbeat must never raise into the caller's cycle."""
+    try:
+        SchedulerHeartbeat.objects.filter(pk=pk).update(updated_at=timezone.now(), **fields)
+    except Exception:
+        logger.exception('scheduler could not write heartbeat pk=%s', pk)
+
+
+def _begin(run_id, now, interval_minutes, version):
+    """Claim the lock and stamp the run as started. Returns the heartbeat pk."""
     with transaction.atomic():
         # select_for_update makes the claim atomic on Postgres. On SQLite the
         # transaction itself serialises writers, which is enough here.
@@ -108,37 +182,4 @@ def record_run(interval_minutes: int = 60, version: str = ''):
             'version', 'updated_at',
         ])
 
-    before = _counts()
-    logger.info('scheduler run_id=%s started', run_id)
-
-    try:
-        yield run_id
-    except Exception as exc:
-        finished = timezone.now()
-        # Full detail to the logs, correlated by run_id. Never to the heartbeat.
-        logger.exception('scheduler run_id=%s failed', run_id)
-        SchedulerHeartbeat.objects.filter(pk=hb.pk).update(
-            status=SchedulerHeartbeat.STATUS_FAILED,
-            last_run_completed_at=finished,
-            last_failure_at=finished,
-            last_failure_code=type(exc).__name__[:64],
-            last_duration_seconds=(finished - now).total_seconds(),
-            updated_at=finished,
-        )
-        raise
-    else:
-        finished = timezone.now()
-        after = _counts()
-        SchedulerHeartbeat.objects.filter(pk=hb.pk).update(
-            status=SchedulerHeartbeat.STATUS_SUCCESS,
-            last_run_completed_at=finished,
-            last_success_at=finished,
-            last_failure_code='',
-            last_duration_seconds=(finished - now).total_seconds(),
-            snapshots_created=max(0, after['snapshots_created'] - before['snapshots_created']),
-            results_updated=max(0, after['results_updated'] - before['results_updated']),
-            claims_settled=max(0, after['claims_settled'] - before['claims_settled']),
-            updated_at=finished,
-        )
-        logger.info('scheduler run_id=%s completed in %.1fs',
-                    run_id, (finished - now).total_seconds())
+    return hb.pk
