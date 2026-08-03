@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Recommendation } from '../../src/types/recommendation'
-import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Lock, Info } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Lock, Info, Activity } from 'lucide-react'
 import BettingCalculatorModal from './BettingCalculatorModal'
 import BettingAcknowledgmentModal from './BettingAcknowledgmentModal'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
@@ -336,6 +336,22 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
   return (
     <div className="group bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/60 p-5 hover:shadow-lg transition-all duration-300 hover:border-primary-300 hover:-translate-y-1 h-full">
+      {/* What this object IS, stated before any number on the card. Everything
+          below is a current model output, not a published claim: it can change
+          before kickoff and it is not part of the verified record unless
+          BetGlitch publishes it as an immutable claim. */}
+      <div className="mb-4 rounded-lg border border-dashed border-sky-400 bg-sky-50 px-3 py-2">
+        <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800">
+          <Activity className="h-3 w-3" aria-hidden="true" />
+          {language === 'ro' ? 'SEMNAL LIVE' : 'LIVE SIGNAL'}
+        </span>
+        <p className="mt-1 text-xs leading-relaxed text-gray-700">
+          {language === 'ro'
+            ? 'Se poate modifica înainte de start și nu face parte din istoricul verificat decât dacă BetGlitch îl publică drept revendicare imuabilă.'
+            : 'Can change before kickoff and is not part of the verified record unless BetGlitch publishes it as an immutable claim.'}
+        </p>
+      </div>
+
       {/* Header */}
       <div className="flex justify-between items-start mb-4">
         {/* ... (Team names logic remains same) */}
@@ -422,26 +438,23 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div
                     className="bg-gradient-to-r from-primary-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm"
                     style={{ width: `${recommendation.confidence * 100}%` }}
-                    aria-label={`Confidence: ${Math.round(recommendation.confidence * 100)}%`}
+                    aria-label={`Model score: ${Math.round(recommendation.confidence * 100)} out of 100`}
                   />
                 </div>
-                {/* Confidence interval indicator */}
-                {recommendation.prediction_info?.confidence_interval && (
-                  <div className="text-xs text-gray-500 flex items-center justify-between px-1">
-                    <span>{recommendation.prediction_info.confidence_interval.lower_bound.toFixed(1)}%</span>
-                    <span className="text-gray-400">95% CI</span>
-                    <span>{recommendation.prediction_info.confidence_interval.upper_bound.toFixed(1)}%</span>
-                  </div>
-                )}
+                {/* A band labelled as a 95 percent interval used to render
+                    here. It was not a statistical interval:
+                    src/services/fixtureService.ts derives it as the score minus
+                    a hardcoded 5/7/10 by tier. Presenting a fixed offset that
+                    way asserts rigour the number does not have, so it is gone. */}
               </div>
               {/* Confidence with Info Tooltip */}
               <div className="relative">
                 <button
                   onClick={() => setShowConfidenceTooltip(!showConfidenceTooltip)}
                   className="flex items-center gap-1 text-lg font-bold text-gray-700 min-w-[4rem] text-right hover:text-primary-600 transition-colors"
-                  aria-label="Show confidence breakdown"
+                  aria-label={language === 'ro' ? 'Arată detalii scor model' : 'Show model score breakdown'}
                 >
-                  {Math.round(recommendation.confidence * 100)}%
+                  {Math.round(recommendation.confidence * 100)}
                   <Info className="h-4 w-4 text-gray-400 hover:text-primary-500" />
                 </button>
 

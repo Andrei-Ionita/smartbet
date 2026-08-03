@@ -25,12 +25,15 @@ export function UnpublishedState() {
   )
 }
 
+// Must match the canonical states in app/components/StatusBadge.tsx. The page
+// previously said "Pick — pending", which is a fourth spelling of a state the
+// rest of the product calls PUBLISHED — PENDING.
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'Pick — pending',
-  WON: 'Result — won',
-  LOST: 'Result — lost',
-  VOID: 'Void — no result',
-  CANCELLED: 'Cancelled — no result',
+  PENDING: 'PUBLISHED — PENDING',
+  WON: 'RESULT — WON',
+  LOST: 'RESULT — LOST',
+  VOID: 'VOID',
+  CANCELLED: 'CANCELLED',
 }
 
 export function ProofPageBody(
@@ -51,7 +54,11 @@ export function ProofPageBody(
         className="w-full rounded-2xl border border-gray-200 shadow-sm"
       />
 
-      <p className="mt-5 text-sm font-semibold text-gray-800">{STATUS_LABEL[status]}</p>
+      <h1 className="mt-6 text-2xl font-bold leading-tight text-gray-900">
+        {p.home_team} vs {p.away_team}
+      </h1>
+
+      <p className="mt-3 text-sm font-semibold text-gray-800">{STATUS_LABEL[status]}</p>
       {status === 'PENDING' && (
         <p className="mt-1 text-sm text-gray-600">
           Published before kickoff. The result will be shown here after settlement—win or lose.

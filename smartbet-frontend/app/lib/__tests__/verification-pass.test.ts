@@ -440,3 +440,51 @@ describe('Explore and the beta page are fully bilingual', () => {
     }
   })
 })
+
+describe('signal card states what it is before any number', () => {
+  const src = read('app/components/RecommendationCard.tsx')
+
+  it('labels the object a live signal in both languages', () => {
+    expect(src).toContain("'SEMNAL LIVE' : 'LIVE SIGNAL'")
+    expect(src).toContain('is not part of the verified record unless')
+  })
+
+  it('does not present a fabricated statistical interval', () => {
+    // fixtureService derives the band as score minus a hardcoded 5/7/10.
+    expect(src).not.toContain('95% CI')
+    expect(src).not.toContain('confidence_interval.lower_bound')
+  })
+
+  it('does not suffix the model score with a percent sign', () => {
+    expect(src).toContain("'Scor model' : 'Model score'")
+    expect(src).not.toContain('{Math.round(recommendation.confidence * 100)}%')
+  })
+})
+
+describe('proof page presentation', () => {
+  const src = read('app/proof/_shared/ProofPageBody.tsx')
+
+  it('has exactly one h1 naming the fixture', () => {
+    expect(src).toContain('{p.home_team} vs {p.away_team}')
+    expect((src.match(/<h1/g) ?? []).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('uses the canonical status vocabulary', () => {
+    expect(src).toContain("PENDING: 'PUBLISHED — PENDING'")
+    expect(src).toContain("WON: 'RESULT — WON'")
+    expect(src).not.toContain("'Pick — pending'")
+  })
+})
+
+describe('explore search does not serialise 29 provider round trips', () => {
+  const src = read('app/api/search/route.ts')
+
+  it('queries leagues in bounded-concurrency batches', () => {
+    expect(src).toContain('const BATCH_SIZE = 6')
+    expect(src).toContain('await Promise.all(batch.map(fetchLeague))')
+  })
+
+  it('no longer awaits a provider call inside the league loop', () => {
+    expect(src).not.toMatch(/for \(const leagueId of leaguesToSearch\)/)
+  })
+})

@@ -165,13 +165,21 @@ export async function GET(request: NextRequest) {
 
     const allResults: SearchResult[] = []
 
-    // Search leagues in order, stop early if we have enough results
-    for (const leagueId of leaguesToSearch) {
-      // Early termination if we already have plenty of results
-      if (allResults.length >= limit * 2) {
-        console.log(`⚡ Early termination - found ${allResults.length} results`)
-        break
-      }
+    // Leagues are queried in BOUNDED-CONCURRENCY BATCHES, not one at a time.
+    //
+    // This loop used to be sequential: `await` inside `for (const leagueId of
+    // leaguesToSearch)`, one SportMonks round trip per league across 29
+    // leagues. The early-termination guard only fires once 2x the limit (40)
+    // results are in hand, which a narrow team query never reaches, so a cold
+    // search walked all 29 serially. Measured in production: a warm query
+    // returned in 0.38s while cold queries took 33.9s, 34.1s, 37.8s and 45.1s.
+    //
+    // Batching keeps the same requests and the same results — only the
+    // waiting is overlapped. Batch size is deliberately modest so we do not
+    // convert a latency problem into a provider rate-limit problem.
+    const BATCH_SIZE = 6
+
+    const fetchLeague = async (leagueId: number): Promise<SearchResult[]> => {
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
@@ -213,15 +221,26 @@ export async function GET(request: NextRequest) {
           }
         })
 
-        allResults.push(...results)
-
         if (results.length > 0) {
           console.log(`  ✅ League ${leagueId}: Found ${results.length} matching fixtures`)
         }
+        return results
 
       } catch (error) {
         console.log(`  ❌ League ${leagueId}: ${error}`)
+        return []
       }
+    }
+
+    for (let i = 0; i < leaguesToSearch.length; i += BATCH_SIZE) {
+      // Early termination still applies, now per batch rather than per league.
+      if (allResults.length >= limit * 2) {
+        console.log(`⚡ Early termination - found ${allResults.length} results`)
+        break
+      }
+      const batch = leaguesToSearch.slice(i, i + BATCH_SIZE)
+      const settled = await Promise.all(batch.map(fetchLeague))
+      for (const results of settled) allResults.push(...results)
     }
 
     // Sort by kickoff time (earliest first)
