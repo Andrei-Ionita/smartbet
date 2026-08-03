@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+import { foldForSearch } from '@/app/lib/textSearch'
+
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -103,7 +105,8 @@ interface IndexEntry {
   fixture_id: number
   home_team: string
   away_team: string
-  /** Pre-lowercased so a keystroke does not re-lowercase 600 rows. */
+  /** Pre-folded so a keystroke does not re-normalise 600 rows.
+   *  Diacritic-insensitive: see app/lib/textSearch.ts. */
   home_lower: string
   away_lower: string
   league_id: number | null
@@ -152,8 +155,8 @@ function toEntries(rows: any[]): IndexEntry[] {
       fixture_id: fixture.id,
       home_team: home,
       away_team: away,
-      home_lower: home.toLowerCase(),
-      away_lower: away.toLowerCase(),
+      home_lower: foldForSearch(home),
+      away_lower: foldForSearch(away),
       league_id: fixture.league?.id ?? fixture.league_id ?? null,
       league: fixture.league?.name || 'Unknown',
       kickoff: fixture.starting_at,
@@ -271,7 +274,7 @@ export async function GET(request: NextRequest) {
     const index = await getIndex(token)
 
     const leagueId = league ? parseInt(league, 10) : null
-    const needle = query.toLowerCase()
+    const needle = foldForSearch(query)
 
     const matches = index.entries.filter((entry) => {
       if (leagueId !== null && entry.league_id !== leagueId) return false

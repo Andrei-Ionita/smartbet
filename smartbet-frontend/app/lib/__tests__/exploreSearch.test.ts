@@ -17,6 +17,8 @@ import { join } from 'node:path'
 
 import { describe, expect, it } from 'vitest'
 
+import { foldForSearch } from '../textSearch'
+
 const read = (rel: string) => readFileSync(join(process.cwd(), rel), 'utf-8')
 
 const route = read('app/api/search/route.ts')
@@ -170,5 +172,38 @@ describe('public search stays read-only', () => {
     expect(route).not.toContain('log-recommendations')
     expect(route).not.toContain('mark-recommended')
     expect(route).not.toContain('update-results')
+  })
+})
+
+describe('a query typed without diacritics still finds the club', () => {
+  it('folds the accented names in the covered competitions', () => {
+    const cases: Array<[string, string]> = [
+      ['Malmö FF', 'malmo ff'],
+      ['Fenerbahçe', 'fenerbahce'],
+      ['Beşiktaş', 'besiktas'],
+      ['Bodø/Glimt', 'bodo/glimt'],
+      ['Universitatea Craiova', 'universitatea craiova'],
+      ['Legia Warszawa', 'legia warszawa'],
+      ['Borussia Mönchengladbach', 'borussia monchengladbach'],
+      ['Fußball', 'fussball'],
+    ]
+    for (const [input, expected] of cases) {
+      expect(foldForSearch(input)).toBe(expected)
+    }
+  })
+
+  it('an unaccented query matches an accented name', () => {
+    expect(foldForSearch('Malmö FF').includes(foldForSearch('Malmo'))).toBe(true)
+    expect(foldForSearch('Fenerbahçe').includes(foldForSearch('fenerbahce'))).toBe(true)
+  })
+
+  it('leaves plain names untouched apart from case', () => {
+    expect(foldForSearch('Anderlecht')).toBe('anderlecht')
+  })
+
+  it('is applied to both the indexed name and the query', () => {
+    expect(route).toContain('home_lower: foldForSearch(home)')
+    expect(route).toContain('away_lower: foldForSearch(away)')
+    expect(route).toContain('const needle = foldForSearch(query)')
   })
 })
