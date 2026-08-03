@@ -91,7 +91,10 @@ export async function getFixtureDetails(fixtureId: string) {
     const url = `https://api.sportmonks.com/v3/football/fixtures/${fixtureId}`
     const params_api = new URLSearchParams({
         api_token: getApiToken(),
-        include: 'participants;league;metadata;predictions;odds;odds.bookmaker',
+        // `metadata` was requested but never read. `odds.bookmaker` is required:
+        // without it provenance has no bookmaker name and every price would be
+        // correctly classified unpublishable.
+        include: 'participants;league;predictions;odds;odds.bookmaker',
         timezone: 'Europe/Bucharest'
     })
 
