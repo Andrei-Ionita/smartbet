@@ -422,6 +422,27 @@ class SchedulerPathUnaffectedTests(TestCase):
         self.assertNotIn('RequestFactory', src)
         self.assertIn('recommendation_ingest', src)
 
-    def test_service_still_validates_by_default(self):
+    def test_service_validates_by_default(self):
         with self.assertRaises(recommendation_ingest.ValidationError):
             recommendation_ingest.ingest_recommendations([valid_rec(odds=1.0)])
+
+    def test_scheduler_path_classifies_rather_than_rejecting(self):
+        """Trusted input: an imperfect row must not stop the whole hourly run.
+
+        The untrusted HTTP boundary batch-rejects; this path keeps the
+        pre-existing contract that incomplete provenance is CLASSIFIED as
+        missing_provenance and simply never becomes publishable.
+        """
+        import inspect
+        from core.management.commands import log_recommendations_from_homepage as cmd
+
+        self.assertIn('validate=False', inspect.getsource(cmd))
+
+        recommendation_ingest.ingest_recommendations(
+            [valid_rec(odds_provenance=None)], validate=False,
+        )
+        row = PredictionLog.objects.get()
+        self.assertEqual(
+            row.pricing_integrity_status, PredictionLog.PRICING_MISSING_PROVENANCE
+        )
+        self.assertEqual(PredictionSnapshot.objects.count(), 1)

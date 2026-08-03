@@ -98,16 +98,17 @@ class Command(BaseCommand):
                 # the view is only the authenticated boundary in front of it.
                 from core.services import recommendation_ingest
 
-                try:
-                    payload = recommendation_ingest.ingest_recommendations(
-                        recommendations
-                    )
-                except recommendation_ingest.ValidationError as exc:
-                    self.stdout.write(self.style.ERROR(
-                        f'Ingest rejected {len(recommendations)} recommendations: '
-                        f'{exc.errors[:3]}'
-                    ))
-                    return
+                # validate=False deliberately. Strict batch validation guards
+                # the UNTRUSTED HTTP boundary, where a malformed row means
+                # someone is probing us. This path is our own engine, and the
+                # pre-existing contract is that an imperfect row is CLASSIFIED
+                # (public_universe.status_for marks it missing_provenance and
+                # it simply never becomes publishable), not rejected. Batch-
+                # rejecting here would let one imperfect row stop the whole
+                # hourly run — a much worse failure than one unpublishable row.
+                payload = recommendation_ingest.ingest_recommendations(
+                    recommendations, validate=False,
+                )
 
                 logged_count = payload.get('logged_count', 0)
                 updated_count = payload.get('updated_count', 0)
