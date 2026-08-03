@@ -1,5 +1,11 @@
 from django.contrib import admin
-from .models import EmailSubscriber, MarketingEvent, PerformanceSnapshot, PredictionLog
+from .models import (
+    EmailSubscriber,
+    MarketingEvent,
+    PerformanceSnapshot,
+    PredictionLog,
+    SchedulerHeartbeat,
+)
 
 
 @admin.register(PredictionLog)
@@ -95,3 +101,36 @@ class MarketingEventAdmin(admin.ModelAdmin):
     list_filter = ('event_name', 'source', 'created_at')
     search_fields = ('page', 'source', 'subscriber__email')
     readonly_fields = ('created_at',)
+
+
+@admin.register(SchedulerHeartbeat)
+class SchedulerHeartbeatAdmin(admin.ModelAdmin):
+    """Read-only operational gauge for the background worker.
+
+    Settlement is scheduler-only, so a dead worker looks exactly like a healthy
+    one with nothing to do — claims just stay PENDING. This is where a staff
+    user checks which it is, without needing to call the API.
+    """
+    list_display = (
+        'key', 'health_display', 'status', 'last_run_started_at',
+        'last_success_at', 'results_updated', 'claims_settled',
+    )
+    readonly_fields = (
+        'key', 'health_display', 'status',
+        'last_run_started_at', 'last_run_completed_at',
+        'last_success_at', 'last_failure_at',
+        'last_duration_seconds', 'interval_minutes',
+        'snapshots_created', 'results_updated', 'claims_settled',
+        'last_failure_code', 'run_id', 'version', 'updated_at',
+    )
+
+    @admin.display(description='Health')
+    def health_display(self, obj):
+        return obj.health()
+
+    def has_add_permission(self, request):
+        # Written by the scheduler only; a hand-made row would misreport liveness.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False

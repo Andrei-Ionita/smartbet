@@ -6,7 +6,7 @@
  * scan the real sources, because the suite has no DOM and a source scan
  * catches a regression in any branch, not just the one a render exercises.
  */
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
@@ -228,6 +228,58 @@ describe('metadata matches the product that actually loads', () => {
     const src = read('app/about/page.tsx')
     expect(src).not.toContain('About BetGlitch — AI-Powered Football Predictions')
     expect(src).toContain('how a signal becomes a public result')
+  })
+})
+
+describe('no client can trigger settlement', () => {
+  it('the update-results proxy route is gone', () => {
+    expect(existsSync(join(ROOT, 'app/api/django/update-results/route.ts'))).toBe(false)
+  })
+
+  it('the public monitoring table only reads', () => {
+    // /monitoring is public and this component POSTed an unauthenticated
+    // result update on every mount.
+    const src = read('app/components/RecommendedPredictionsTable.tsx')
+    expect(src).not.toContain("fetch('/api/django/update-results'")
+    expect(src).not.toContain('update-results')
+  })
+
+  it('no surface anywhere posts to a result-update endpoint', () => {
+    for (const rel of [
+      'app/track-record/TrackRecordContent.tsx',
+      'app/components/RecommendedPredictionsTable.tsx',
+      'app/monitoring/MonitoringContent.tsx',
+    ]) {
+      expect(read(rel)).not.toMatch(/update-fixture-results|transparency\/update-results/)
+    }
+  })
+})
+
+describe('first-session path survives logout', () => {
+  const auth = read('app/contexts/AuthContext.tsx')
+  const panel = read('app/components/OnboardingPanel.tsx')
+  const dashboard = read('app/dashboard/page.tsx')
+
+  it('registration marks onboarding pending and lands on the dashboard', () => {
+    expect(auth).toContain('markOnboardingPending()')
+    expect(auth).toContain("router.push('/dashboard')")
+  })
+
+  it('dismissal is persisted, not component state', () => {
+    expect(panel).toContain("const STORAGE_KEY = 'betglitch_onboarding'")
+    expect(panel).toContain("localStorage.setItem(STORAGE_KEY, 'dismissed')")
+  })
+
+  it('logout does not wipe the dismissal', () => {
+    expect(auth).not.toContain('localStorage.clear()')
+    expect(auth).not.toContain("removeItem('betglitch_onboarding')")
+  })
+
+  it('the dashboard no longer gates access on smartbet_session_id', () => {
+    // The old redirect made a brand-new account unable to reach the dashboard,
+    // because registration deletes that key.
+    expect(dashboard).not.toMatch(/if\s*\(\s*!storedSessionId\s*\)/)
+    expect(dashboard).toContain('isAuthenticated')
   })
 })
 

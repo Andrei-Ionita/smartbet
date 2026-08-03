@@ -72,26 +72,16 @@ export default function RecommendedPredictionsTable() {
   const [filterOutcome, setFilterOutcome] = useState('all')
   const [showFilters, setShowFilters] = useState(false)
 
-  const fetchPredictions = async (forceUpdate = false) => {
+  const fetchPredictions = async () => {
     try {
       setIsRefreshing(true)
       setError(null)
 
-      // First, trigger result updates for pending fixtures (optional, only on manual refresh or when forced)
-      if (forceUpdate || isLoading) {
-        try {
-          console.log('🔄 Triggering fixture result updates...')
-          const updateResponse = await fetch('/api/django/update-results', { method: 'POST' })
-          const updateData = await updateResponse.json()
-          if (updateData.updated_count > 0) {
-            console.log(`✅ Updated ${updateData.updated_count} fixture results`)
-          }
-        } catch (updateErr) {
-          console.warn('⚠️ Could not update results, continuing anyway:', updateErr)
-          // Don't fail the whole operation if update fails
-        }
-      }
-
+      // This used to POST to a proxy route first, which forwarded to an
+      // unauthenticated Django endpoint that fetched up to 50 fixtures from
+      // SportMonks and wrote outcomes. /monitoring is public, so every anonymous
+      // visitor triggered a production write on mount. Recording outcomes is the
+      // scheduler's job; this component only reads.
       // Call Django API through Next.js API route
       const response = await fetch(`/api/django/recommended-predictions?include_pending=${includePending}`)
       const data = await response.json()
@@ -287,7 +277,7 @@ export default function RecommendedPredictionsTable() {
           <h3 className="text-lg font-semibold text-gray-900 mb-2">Error Loading Predictions</h3>
           <p className="text-gray-600 mb-4">{error}</p>
           <button
-            onClick={() => fetchPredictions(true)}
+            onClick={() => fetchPredictions()}
             className="px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
           >
             Try Again
@@ -433,7 +423,7 @@ export default function RecommendedPredictionsTable() {
           </div>
 
           <button
-            onClick={() => fetchPredictions(true)}
+            onClick={() => fetchPredictions()}
             disabled={isRefreshing}
             className="flex items-center gap-2 px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
           >

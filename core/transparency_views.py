@@ -279,33 +279,14 @@ def quick_stats(request):
         }, status=500)
 
 
-@csrf_exempt
-@api_view(['POST'])
-@permission_classes([AllowAny])
-def trigger_result_update(request):
-    """
-    Manually trigger result updates.
-    Can be called by frontend refresh button.
-
-    POST /api/transparency/update-results/
-    """
-    try:
-        from core.services.result_updater import ResultUpdaterService
-
-        updater = ResultUpdaterService()
-        stats = updater.update_all_pending_results(max_predictions=50)
-
-        return Response({
-            'success': True,
-            'stats': stats,
-            'message': f"Updated {stats['updated']} predictions with {stats.get('accuracy', 0)}% accuracy"
-        })
-
-    except Exception as e:
-        return Response({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+# `trigger_result_update` was removed on 2026-08-03.
+#
+# It was AllowAny + csrf_exempt and ran
+# ResultUpdaterService().update_all_pending_results(max_predictions=50)
+# against production for any anonymous caller, returning str(e) on failure.
+# Result updating is the scheduler's job — run_scheduler runs update_results
+# and then settle_published_claims, in that order. For manual operation use
+# `python manage.py update_results --max N`.
 
 
 # Public message shown when a fixture has no immutable published claim.

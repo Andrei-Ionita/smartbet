@@ -7,6 +7,8 @@ from django.core.management.base import BaseCommand
 from django.core.management import call_command
 from django.db import connection
 
+from core.services.scheduler_health import SchedulerAlreadyRunning, record_run
+
 # Configure logging
 logging.basicConfig(
     format='%(asctime)s [%(levelname)s] %(message)s',
@@ -46,35 +48,54 @@ class Command(BaseCommand):
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:
-            self.run_tasks()
+            self.run_tasks(interval_minutes)
 
         try:
             while True:
                 # Calculate seconds to sleep
                 sleep_seconds = interval_minutes * 60
-                
+
                 self.stdout.write(f'Waiting {interval_minutes} minutes until next run...')
                 time.sleep(sleep_seconds)
-                
-                self.run_tasks()
-                
+
+                self.run_tasks(interval_minutes)
+
         except KeyboardInterrupt:
             self.stdout.write(self.style.WARNING('\n🛑 Scheduler stopped by user.'))
             sys.exit(0)
-    
-    def run_tasks(self):
-        """Execute all scheduled tasks sequentially"""
+
+    def run_tasks(self, interval_minutes=60):
+        """Execute all scheduled tasks sequentially, recording a heartbeat.
+
+        The heartbeat exists because settlement is scheduler-only: with no
+        public trigger, a dead worker looks exactly like a healthy one with
+        nothing to do. It also holds a lock, so a manual run cannot interleave
+        with the worker and write contradictory results for the same fixtures.
+        """
         self.stdout.write(self.style.SUCCESS(f'\n⏰ Starting scheduled tasks at {datetime.now().strftime("%H:%M:%S")}'))
-        
+
         # Close old db connections to prevent timeouts in long-running script
         connection.close()
-        
+
+        try:
+            with record_run(interval_minutes=interval_minutes) as run_id:
+                self.stdout.write(f'   run_id={run_id}')
+                self.run_all_tasks()
+        except SchedulerAlreadyRunning as exc:
+            # Not an error: the previous cycle is still working. Skip this tick
+            # rather than running the same commands concurrently.
+            self.stdout.write(self.style.WARNING(f'⏭️  Skipping run — {exc}'))
+            return
+
+        self.stdout.write(self.style.SUCCESS('✅ All tasks completed successfully.\n'))
+
+    def run_all_tasks(self):
         # Task 1: Fetch new recommendations
         self.run_task('log_recommendations_from_homepage')
-        
+
         # Task 2: Update finished results
         self.run_task('update_results', **{'max': 100})
-        
+
         # Task 3: Refresh recommendation flags
         self.run_task('mark_recommended_predictions', **{'min_confidence': 60.0, 'min_ev': 15.0})
 
@@ -83,13 +104,18 @@ class Command(BaseCommand):
         # predictions. Without this the public lifecycle never completes and
         # every published claim stays PENDING forever.
         self.run_task('settle_published_claims')
-        
-        self.stdout.write(self.style.SUCCESS('✅ All tasks completed successfully.\n'))
 
     def run_task(self, command_name, **kwargs):
-        """Helper to run a single management command"""
+        """Helper to run a single management command.
+
+        A failing task is logged and the cycle continues — one provider outage
+        must not stop settlement of claims whose results already landed. The
+        heartbeat therefore reports 'success' for a cycle that completed with
+        an individual task error; per-task failures are in the logs.
+        """
         self.stdout.write(f'▶️  Running {command_name}...')
         try:
             call_command(command_name, **kwargs)
         except Exception as e:
+            logger.exception('scheduled task %s failed', command_name)
             self.stdout.write(self.style.ERROR(f'❌ Error running {command_name}: {e}'))

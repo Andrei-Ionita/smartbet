@@ -4,6 +4,7 @@ from . import api_views
 from . import bankroll_views
 from . import auth_views
 from . import transparency_views
+from . import internal_views
 
 # Minimal URLs - using Next.js frontend with SportMonks API
 # Keeping this file for Django admin compatibility
@@ -19,8 +20,14 @@ urlpatterns = [
     path('api/fixture/<int:fixture_id>/', api_views.get_fixture_details, name='get_fixture_details'),
     path('api/search/', api_views.search_fixtures, name='search_fixtures'),
     path('api/fix-performance/', api_views.fix_performance_metrics, name='fix_performance_metrics'),
-    path('api/update-fixture-results/', api_views.update_fixture_results, name='update_fixture_results'),
-    
+    # REMOVED 2026-08-03: 'api/update-fixture-results/'. An unauthenticated,
+    # csrf_exempt POST that any anonymous visitor could fire — and the public
+    # /monitoring page fired it on every mount. It walked up to 50 pending
+    # predictions, made one SportMonks call each and wrote actual_outcome.
+    # Result recording belongs to the scheduler:
+    #   run_scheduler → update_results → settle_published_claims
+    # Manual operation: `python manage.py update_results --max N`.
+
     # Bankroll Management API
     path('api/bankroll/create/', bankroll_views.create_bankroll, name='create_bankroll'),
     path('api/bankroll/<str:session_id>/', bankroll_views.get_bankroll, name='get_bankroll'),
@@ -45,7 +52,10 @@ urlpatterns = [
     path('api/transparency/leagues/', transparency_views.league_accuracy, name='league_accuracy'),
     path('api/transparency/recent/', transparency_views.recent_predictions_with_results, name='recent_predictions'),
     path('api/transparency/quick-stats/', transparency_views.quick_stats, name='quick_stats'),
-    path('api/transparency/update-results/', transparency_views.trigger_result_update, name='trigger_result_update'),
+    # REMOVED 2026-08-03: 'api/transparency/update-results/'. Same class of
+    # problem — AllowAny + csrf_exempt, ran ResultUpdaterService against
+    # production and returned str(e) to the caller. Its only caller (a button
+    # on the public track-record page) was removed on 2026-08-03.
     path('api/proof/<int:fixture_id>/', transparency_views.proof_card_data, name='proof_card_data'),
     # Staff-only mutable preview. Deliberately a different path from the public
     # proof URL so a mutable prediction can never be served as public proof.
@@ -60,6 +70,9 @@ urlpatterns = [
     # Compatibility: resolves to one unambiguous eligible snapshot, else refuses.
     path('api/proof/<int:prediction_id>/publish/', transparency_views.publish_claim_view, name='publish_claim'),
     
+    # Internal operations — staff only, never linked from a public page.
+    path('api/internal/scheduler-health/', internal_views.scheduler_health, name='scheduler_health'),
+
     # Email Capture / Newsletter
     path('api/subscribe/', api_views.subscribe_email, name='subscribe_email'),
     path('api/marketing/events/', api_views.track_marketing_event, name='track_marketing_event'),

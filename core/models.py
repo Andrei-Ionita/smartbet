@@ -8,6 +8,7 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 from django.utils import timezone
 from django.core.validators import MinValueValidator, MaxValueValidator
+from datetime import timedelta
 from datetime import timezone as dt_timezone
 from decimal import Decimal
 import json
@@ -1320,3 +1321,97 @@ def _create_user_profile(sender, instance, created, **kwargs):
     """Make sure every User has a UserProfile (default tier='free')."""
     if created:
         UserProfile.objects.get_or_create(user=instance)
+
+
+class SchedulerHeartbeat(models.Model):
+    """
+    Operational liveness record for the background scheduler worker.
+
+    Exists because settlement is entirely scheduler-driven — there is no public
+    route that can trigger it — so a silently dead worker would look identical
+    to a healthy one with nothing to do: published claims would simply stay
+    PENDING forever and no page would say why.
+
+    Deliberately a single row, updated in place. This is an operational gauge,
+    not an audit log; PredictionLog, PublishedClaim and PublishedClaimResult
+    remain the records of what actually happened.
+
+    Nothing here is public. Counts and failure codes are staff-only, and the
+    full exception text is never stored — it goes to the logs against `run_id`.
+    """
+    SINGLETON_KEY = 'scheduler'
+
+    STATUS_RUNNING = 'running'
+    STATUS_SUCCESS = 'success'
+    STATUS_FAILED = 'failed'
+    STATUS_CHOICES = [
+        (STATUS_RUNNING, 'Running'),
+        (STATUS_SUCCESS, 'Success'),
+        (STATUS_FAILED, 'Failed'),
+    ]
+
+    # Health as reported to staff. Derived, not stored — see `health()`.
+    HEALTH_NEVER_RUN = 'never_run'
+    HEALTH_HEALTHY = 'healthy'
+    HEALTH_DELAYED = 'delayed'
+    HEALTH_FAILED = 'failed'
+
+    key = models.CharField(max_length=32, unique=True, default=SINGLETON_KEY)
+
+    last_run_started_at = models.DateTimeField(null=True, blank=True)
+    last_run_completed_at = models.DateTimeField(null=True, blank=True)
+    last_success_at = models.DateTimeField(null=True, blank=True)
+    last_failure_at = models.DateTimeField(null=True, blank=True)
+
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES, default=STATUS_RUNNING)
+    last_duration_seconds = models.FloatField(null=True, blank=True)
+
+    # Counts for the most recent completed run, measured as table deltas so they
+    # stay correct regardless of how the individual commands report themselves.
+    snapshots_created = models.IntegerField(default=0)
+    results_updated = models.IntegerField(default=0)
+    claims_settled = models.IntegerField(default=0)
+
+    # Short, safe identifier — never an exception message.
+    last_failure_code = models.CharField(max_length=64, blank=True, default='')
+    # Correlates this record with the full traceback in the application logs.
+    run_id = models.CharField(max_length=36, blank=True, default='')
+
+    interval_minutes = models.IntegerField(default=60)
+    version = models.CharField(max_length=64, blank=True, default='')
+
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Scheduler Heartbeat"
+        verbose_name_plural = "Scheduler Heartbeat"
+
+    def __str__(self):
+        return f"{self.key}: {self.health()} (status={self.status})"
+
+    def is_stale(self, now=None) -> bool:
+        """
+        True when the worker has not STARTED a run recently enough.
+
+        Keyed off `last_run_started_at`, not completion: a run that begins and
+        then hangs must eventually read as delayed rather than staying healthy
+        on the strength of the previous success.
+
+        The allowance is two intervals plus five minutes, so a single slow or
+        skipped cycle does not raise a false alarm on an hourly cadence.
+        """
+        if self.last_run_started_at is None:
+            return True
+        now = now or timezone.now()
+        interval = self.interval_minutes or 60
+        allowance = timedelta(minutes=interval * 2 + 5)
+        return (now - self.last_run_started_at) > allowance
+
+    def health(self, now=None) -> str:
+        if self.last_run_started_at is None:
+            return self.HEALTH_NEVER_RUN
+        if self.status == self.STATUS_FAILED:
+            return self.HEALTH_FAILED
+        if self.is_stale(now=now):
+            return self.HEALTH_DELAYED
+        return self.HEALTH_HEALTHY
