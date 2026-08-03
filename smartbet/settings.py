@@ -142,6 +142,34 @@ else:
         }
     }
 
+# ── Pricing-integrity cutoff: production vs tests ───────────────────────────
+# PRODUCTION deliberately has NO default. When PRICING_INTEGRITY_CUTOFF is
+# unset, core.services.public_universe falls back to a far-future sentinel, so
+# every prediction classifies as legacy_unverified and nothing is published as
+# verified. An unconfigured deployment under-claims rather than over-claims.
+# That fail-closed property is a safety guarantee — do not add a default here.
+#
+# TESTS need the opposite: determinism. With the cutoff unset, ~54 claim and
+# pricing tests fail for a reason unrelated to what they assert, which teaches
+# people to ignore a red suite and hides real regressions. Tests therefore get
+# ONE cutoff, defined here and nowhere else, never read from a developer's
+# .env, so the same commit produces the same result on every machine and in CI.
+#
+# A test that specifically exercises the unconfigured case clears the variable
+# and reloads public_universe — see core/tests_pricing_integrity_config.py.
+TEST_PRICING_INTEGRITY_CUTOFF = '2026-07-30T08:32:00+00:00'
+
+RUNNING_TESTS = (
+    'test' in sys.argv
+    or 'pytest' in sys.modules
+    or bool(os.environ.get('PYTEST_CURRENT_TEST'))
+)
+
+if RUNNING_TESTS:
+    # setdefault, not assignment: an explicit value from CI or from a developer
+    # investigating a specific cutoff still wins.
+    os.environ.setdefault('PRICING_INTEGRITY_CUTOFF', TEST_PRICING_INTEGRITY_CUTOFF)
+
 # Password validation
 AUTH_PASSWORD_VALIDATORS = [
     { 'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator', },

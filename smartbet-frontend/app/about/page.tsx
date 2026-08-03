@@ -4,11 +4,13 @@ import { Shield, Target, BarChart3, Users, Zap, TrendingUp } from 'lucide-react'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
-  title: 'About BetGlitch — AI-Powered Football Predictions',
-  description: 'Learn about BetGlitch, our mission, methodology, and commitment to transparent AI-powered football predictions across 27 European leagues.',
+  title: 'About BetGlitch — how a signal becomes a public result',
+  description:
+    'How BetGlitch works: live model signals across 27 European leagues, selected picks frozen before kickoff with their recorded odds, and a verified record built only from settled published picks.',
   openGraph: {
-    title: 'About BetGlitch — AI-Powered Football Predictions',
-    description: 'Our mission, methodology, and commitment to transparent AI-powered football predictions.',
+    title: 'About BetGlitch — how a signal becomes a public result',
+    description:
+      'Live model signals, picks frozen before kickoff with their recorded odds, and a verified record built only from settled published picks.',
     url: 'https://betglitch.com/about',
   },
 }
@@ -20,7 +22,7 @@ export default function AboutPage() {
     "name": "BetGlitch",
     "url": "https://betglitch.com",
     "logo": "https://betglitch.com/images/logo-final-v6.png",
-    "description": "AI-powered football predictions and betting insights for 27 European leagues.",
+    "description": "Football model signals for 27 European leagues, with selected picks frozen before kickoff and kept public after settlement.",
     "sameAs": [],
   }
 
@@ -213,7 +215,10 @@ export default function AboutPage() {
             Serie A, Ligue 1, Eredivisie, and many more. Our models are trained on historical data
             specific to each league, accounting for differences in playing style, competitiveness, and home advantage.
           </p>
-          <div className="flex items-center gap-6 text-sm text-gray-500 mt-6">
+          {/* flex-wrap: without it these three stats forced the page to 410px
+              wide at a 320px viewport, so the whole of /about scrolled
+              sideways on the narrowest phones. */}
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-500 mt-6">
             <span className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary-600" />
               <strong className="text-gray-900">27</strong> leagues covered

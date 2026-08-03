@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
@@ -12,6 +12,7 @@ import { ProBadge } from '../app/components/ProGate'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const menuButtonRef = useRef<HTMLButtonElement>(null)
   const pathname = usePathname()
   const { user, logout, isAuthenticated, isPro } = useAuth()
   const { t, language, setLanguage } = useLanguage()
@@ -39,6 +40,20 @@ export default function Navigation() {
   useEffect(() => {
     setIsMenuOpen(false)
   }, [pathname])
+
+  // Escape closes the menu and returns focus to the toggle. Keyboard users had
+  // no way to dismiss it without tabbing through every link first.
+  useEffect(() => {
+    if (!isMenuOpen) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setIsMenuOpen(false)
+        menuButtonRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [isMenuOpen])
 
   const toggleMenu = () => setIsMenuOpen(!isMenuOpen)
 
@@ -152,6 +167,7 @@ export default function Navigation() {
               </div>
             )}
             <button
+              ref={menuButtonRef}
               onClick={toggleMenu}
               className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-md text-gray-600 hover:text-gray-900 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-primary-500"
               aria-expanded={isMenuOpen}
@@ -239,13 +255,13 @@ export default function Navigation() {
               <div className="flex flex-col gap-2 p-2">
                 <Link
                   href="/login"
-                  className="flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
+                  className="min-h-[44px] flex justify-center items-center py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50"
                 >
                   {t('nav.login')}
                 </Link>
                 <Link
                   href="/register"
-                  className="flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
+                  className="min-h-[44px] flex justify-center items-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700"
                 >
                   {t('nav.signup')}
                 </Link>

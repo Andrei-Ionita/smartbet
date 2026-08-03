@@ -2,12 +2,18 @@ import { Metadata } from 'next'
 import ExploreContent from './ExploreContent'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
+// Terminology-aligned. The page heading became "Explore live football signals"
+// during the first-impression phase, but the metadata still used the old
+// marketing vocabulary, so search results and link previews described a
+// different product from the one that actually loads.
 export const metadata: Metadata = {
-  title: 'Explore AI Football Predictions',
-  description: 'Browse AI-powered football predictions across 27 European leagues. Get match analysis, value bets, and statistical insights for upcoming fixtures.',
+  title: 'Explore live football signals',
+  description:
+    'Browse current model signals across 27 European leagues. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes them as an immutable pick.',
   openGraph: {
-    title: 'Explore AI Football Predictions | BetGlitch',
-    description: 'Browse AI-powered football predictions across 27 European leagues. Match analysis, value bets, and statistical insights.',
+    title: 'Explore live football signals | BetGlitch',
+    description:
+      'Current model signals across 27 European leagues. Live signals can change before kickoff; only published picks enter the verified record.',
     url: 'https://betglitch.com/explore',
   },
 }

@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
-import { Trophy, Github, Twitter, Mail, AlertTriangle } from 'lucide-react'
+import { Trophy, Mail, AlertTriangle } from 'lucide-react'
 
 export default function Footer() {
     const currentYear = new Date().getFullYear()
@@ -26,20 +26,22 @@ export default function Footer() {
                             <span className="text-xl font-bold text-gray-900">BetGlitch</span>
                         </Link>
                         <p className="text-sm text-gray-600 mb-4 leading-relaxed">
-                            AI-powered football predictions and betting insights. We combine machine learning with real-time data to help you make smarter decisions.
+                            Football model signals across European leagues. Selected picks are frozen
+                            before kickoff with their recorded odds and stay public after settlement —
+                            win or lose.
                         </p>
-                        <div className="flex space-x-4">
-                            <a href="#" className="text-gray-400 hover:text-primary-600 transition-colors">
-                                <Twitter className="h-5 w-5" />
-                                <span className="sr-only">Twitter</span>
-                            </a>
-                            <a href="#" className="text-gray-400 hover:text-primary-600 transition-colors">
-                                <Github className="h-5 w-5" />
-                                <span className="sr-only">GitHub</span>
-                            </a>
-                            <a href="mailto:support@betglitch.com" className="text-gray-400 hover:text-primary-600 transition-colors">
+                        {/* The Twitter and GitHub icons linked to a bare fragment,
+                            so they were dead ends in the footer of every page.
+                            Removed until there are real accounts to link to. The
+                            remaining control is padded to a 44px touch target —
+                            the bare icons measured 20x20. */}
+                        <div className="flex -ml-2">
+                            <a
+                                href="mailto:support@betglitch.com"
+                                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md text-gray-400 transition-colors hover:text-primary-600 hover:bg-gray-100"
+                            >
                                 <Mail className="h-5 w-5" />
-                                <span className="sr-only">Email</span>
+                                <span className="sr-only">Email BetGlitch support</span>
                             </a>
                         </div>
                     </div>

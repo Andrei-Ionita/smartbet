@@ -1,0 +1,192 @@
+/**
+ * Contracts established by the live production verification pass.
+ *
+ * Each test here corresponds to a defect that was actually observed on
+ * betglitch.com — not a hypothetical. Same approach as terminology.test.ts:
+ * scan the real sources, because the suite has no DOM and a source scan
+ * catches a regression in any branch, not just the one a render exercises.
+ */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+const ROOT = join(__dirname, '..', '..', '..')
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+
+describe('legacy rows never publish price-dependent performance', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('defines verification off pricing_integrity_status', () => {
+    expect(src).toContain("(p.pricing_integrity_status || '') === 'verified'")
+  })
+
+  it('gates expected value behind isVerified', () => {
+    // EV is computed FROM the recorded price, so an unverified price makes it
+    // meaningless. It was previously rendered green with a leading '+'.
+    const ev = src.slice(src.indexOf('{isVerified(pred) ? ('))
+    expect(ev).toContain('expected_value')
+    expect(ev.indexOf('<NotVerified />')).toBeGreaterThan(-1)
+  })
+
+  it('gates profit/loss behind isVerified', () => {
+    // Line-ending agnostic: the working tree is CRLF on Windows, LF in CI.
+    const flat = src.replace(/\r\n/g, '\n')
+    expect(flat).toMatch(/\{!isVerified\(pred\) \? \(\s*<NotVerified \/>/)
+  })
+
+  it('offers the exact unverified wording', () => {
+    expect(src).toContain('Not verified')
+    expect(src).toContain('predates BetGlitch’s verified pricing standard')
+    expect(src).toContain('not used in public performance reporting')
+  })
+
+  it('badges every non-verified row', () => {
+    expect(src).toContain('{!isVerified(pred) && (')
+    expect(src).toContain('<StatusBadge status="legacy" size="sm" />')
+  })
+})
+
+describe('an empty verified record is not rendered as zero performance', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('shows "no results yet" instead of 0% accuracy', () => {
+    expect(src).toContain('accuracyStats.overall.total_predictions === 0')
+    expect(src).toContain('No verified results yet')
+  })
+
+  it('shows "no settled picks" instead of a 0% win rate', () => {
+    expect(src).toContain('No settled picks yet')
+  })
+
+  it('suppresses the per-outcome breakdown at zero', () => {
+    expect(src).toContain('accuracyStats.overall.total_predictions > 0')
+  })
+
+  it('never renders a bare percentage straight off a zero denominator', () => {
+    // Each of the three percentage renders must sit inside a guarded branch.
+    const guards = src.match(/total_predictions [=><]/g) ?? []
+    expect(guards.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('model score is not presented as a calibrated probability', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('labels the column "Model score"', () => {
+    expect(src).toContain('Model score')
+  })
+
+  it('does not suffix the score with a percent sign', () => {
+    expect(src).not.toContain('{pred.confidence.toFixed(1)}%')
+  })
+
+  it('carries the not-a-probability note', () => {
+    expect(src).toContain('MODEL_SCORE_NOTE')
+  })
+})
+
+describe('no settlement trigger is exposed to the public', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('does not POST to the unauthenticated update-results endpoint', () => {
+    expect(src).not.toContain('update-results')
+  })
+
+  it('uses no blocking alert() dialogs', () => {
+    expect(src).not.toMatch(/(?<!\w)alert\(/)
+  })
+})
+
+describe('age gate is a real dialog', () => {
+  const src = read('app/components/AgeGateModal.tsx')
+
+  it('announces itself as a modal dialog', () => {
+    expect(src).toContain('role="dialog"')
+    expect(src).toContain('aria-modal="true"')
+    expect(src).toContain('aria-labelledby="age-gate-title"')
+  })
+
+  it('moves focus into the dialog', () => {
+    expect(src).toContain('headingRef.current?.focus()')
+  })
+
+  it('traps Tab inside the dialog', () => {
+    expect(src).toContain("if (e.key !== 'Tab'")
+  })
+
+  it('does not let Escape bypass a legal acknowledgement', () => {
+    expect(src).not.toContain("e.key === 'Escape'")
+  })
+
+  it('does not compete with the page for the single h1', () => {
+    expect(src).not.toContain('<h1')
+  })
+
+  it('keeps the consent checkboxes at a usable size', () => {
+    // Measured 13x20 on the live site: w-5 with no flex-shrink guard.
+    expect(src).toContain('w-6 h-6 mt-0.5 flex-shrink-0')
+    expect(src).not.toContain('w-5 h-5 mt-0.5 rounded')
+  })
+})
+
+describe('language switch is announced to assistive technology', () => {
+  const src = read('app/contexts/LanguageContext.tsx')
+
+  it('keeps <html lang> in step with the rendered copy', () => {
+    expect(src).toContain('document.documentElement.lang = language')
+  })
+})
+
+describe('mobile navigation', () => {
+  const src = read('components/Navigation.tsx')
+
+  it('closes on Escape and restores focus to the toggle', () => {
+    expect(src).toContain("e.key === 'Escape'")
+    expect(src).toContain('menuButtonRef.current?.focus()')
+  })
+
+  it('gives the mobile auth actions a 44px target', () => {
+    const mobileAuth = src.slice(src.indexOf('flex flex-col gap-2 p-2'))
+    const targets = mobileAuth.match(/min-h-\[44px\]/g) ?? []
+    expect(targets.length).toBeGreaterThanOrEqual(2)
+  })
+})
+
+describe('footer', () => {
+  const src = read('components/Footer.tsx')
+
+  it('has no dead placeholder links', () => {
+    expect(src).not.toContain('href="#"')
+  })
+
+  it('gives the remaining social control a 44px target', () => {
+    expect(src).toContain('min-h-[44px] min-w-[44px]')
+  })
+
+  it('describes the product in the shared vocabulary', () => {
+    expect(src).toContain('frozen')
+    expect(src).not.toContain('betting insights')
+  })
+})
+
+describe('metadata matches the product that actually loads', () => {
+  it('explore is described as live signals, not value bets', () => {
+    const src = read('app/explore/page.tsx')
+    expect(src).toContain('Explore live football signals')
+    expect(src).not.toContain('value bets')
+  })
+
+  it('about describes the real pipeline', () => {
+    const src = read('app/about/page.tsx')
+    expect(src).not.toContain('About BetGlitch — AI-Powered Football Predictions')
+    expect(src).toContain('how a signal becomes a public result')
+  })
+})
+
+describe('responsive layout guards', () => {
+  it('about lets its stat row wrap', () => {
+    // Three unwrapped flex items forced /about to 410px at a 320px viewport.
+    const src = read('app/about/page.tsx')
+    expect(src).toContain('flex flex-wrap items-center gap-x-6 gap-y-3')
+  })
+})

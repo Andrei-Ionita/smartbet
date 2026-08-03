@@ -29,6 +29,13 @@ export function LanguageProvider({ children }: { children: React.ReactNode }) {
         }
     }, [])
 
+    // Keep <html lang> in step with the rendered copy. Without this the
+    // document stayed lang="en" while showing Romanian, so screen readers
+    // pronounced Romanian with English phonetics (WCAG 3.1.1).
+    useEffect(() => {
+        document.documentElement.lang = language
+    }, [language])
+
     const handleSetLanguage = (lang: Language) => {
         setLanguage(lang)
         localStorage.setItem('smartbet-lang', lang)
