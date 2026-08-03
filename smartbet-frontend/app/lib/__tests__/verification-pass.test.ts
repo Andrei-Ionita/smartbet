@@ -179,6 +179,44 @@ describe('footer', () => {
   })
 })
 
+describe('auth forms work with password managers and screen readers', () => {
+  const register = read('app/register/page.tsx')
+  const login = read('app/login/page.tsx')
+
+  it('register declares autocomplete for every credential field', () => {
+    expect(register).toContain('autoComplete="username"')
+    expect(register).toContain('autoComplete="email"')
+    // new-password on both password fields, so managers offer to generate/save.
+    expect((register.match(/autoComplete="new-password"/g) ?? []).length).toBe(2)
+  })
+
+  it('login declares autocomplete so saved credentials are offered', () => {
+    expect(login).toContain('autoComplete="username"')
+    expect(login).toContain('autoComplete="current-password"')
+  })
+
+  it('announces errors on both forms', () => {
+    expect(register).toContain('role="alert"')
+    expect(login).toContain('role="alert"')
+  })
+
+  it('puts validation errors next to the field that caused them', () => {
+    expect(register).toContain('aria-describedby={fieldError.password')
+    expect(register).toContain('aria-describedby={fieldError.confirmPassword')
+    expect(register).toContain('aria-invalid={Boolean(fieldError.password)}')
+    expect(register).toContain("id=\"confirm-error\"")
+  })
+
+  it('never clears what the user already typed on a validation error', () => {
+    // The early returns must not reset any of the four value states.
+    const handler = register.slice(
+      register.indexOf('const handleSubmit'),
+      register.indexOf('setIsLoading(true)'),
+    )
+    expect(handler).not.toMatch(/set(Username|Email|Password|ConfirmPassword)\(''\)/)
+  })
+})
+
 describe('metadata matches the product that actually loads', () => {
   it('explore is described as live signals, not value bets', () => {
     const src = read('app/explore/page.tsx')

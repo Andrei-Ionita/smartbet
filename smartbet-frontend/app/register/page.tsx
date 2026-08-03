@@ -22,21 +22,28 @@ export default function RegisterPage() {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [error, setError] = useState('');
+  // Client-side validation errors belong next to the field that caused them.
+  // Both used to render in the banner above the form, which on a phone is off
+  // screen by the time you are typing the confirmation.
+  const [fieldError, setFieldError] = useState<{ password?: string; confirmPassword?: string }>({});
   const [isLoading, setIsLoading] = useState(false);
   const { register } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setFieldError({});
 
     // Validation
-    if (password !== confirmPassword) {
-      setError('Passwords do not match');
+    if (password.length < 8) {
+      setFieldError({ password: 'Password must be at least 8 characters long' });
+      document.getElementById('password')?.focus();
       return;
     }
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters long');
+    if (password !== confirmPassword) {
+      setFieldError({ confirmPassword: 'Passwords do not match' });
+      document.getElementById('confirmPassword')?.focus();
       return;
     }
 
@@ -109,6 +116,7 @@ export default function RegisterPage() {
               <input
                 id="username"
                 type="text"
+                autoComplete="username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
@@ -124,6 +132,7 @@ export default function RegisterPage() {
               <input
                 id="email"
                 type="email"
+                autoComplete="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
@@ -139,12 +148,20 @@ export default function RegisterPage() {
               <input
                 id="password"
                 type="password"
+                autoComplete="new-password"
+                aria-invalid={Boolean(fieldError.password)}
+                aria-describedby={fieldError.password ? 'password-error' : undefined}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="At least 8 characters"
               />
+              {fieldError.password && (
+                <p id="password-error" role="alert" className="mt-2 text-sm text-red-700">
+                  {fieldError.password}
+                </p>
+              )}
             </div>
 
             <div>
@@ -154,12 +171,20 @@ export default function RegisterPage() {
               <input
                 id="confirmPassword"
                 type="password"
+                autoComplete="new-password"
+                aria-invalid={Boolean(fieldError.confirmPassword)}
+                aria-describedby={fieldError.confirmPassword ? 'confirm-error' : undefined}
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 placeholder="Confirm your password"
               />
+              {fieldError.confirmPassword && (
+                <p id="confirm-error" role="alert" className="mt-2 text-sm text-red-700">
+                  {fieldError.confirmPassword}
+                </p>
+              )}
             </div>
 
             <button
