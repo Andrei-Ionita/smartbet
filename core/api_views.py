@@ -8,17 +8,23 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from datetime import datetime, timedelta, timezone as dt_timezone
+import hashlib
 import json
+import logging
 import os
 import uuid
 import requests
 from django.db.models import Q
 
-from .models import (EmailSubscriber, MarketingEvent, PredictionLog,
-                     PredictionSnapshot, UserBankroll)
+from django.db import transaction
+from .models import (EmailSubscriber, IngestRequest, MarketingEvent,
+                     PredictionLog, PredictionSnapshot, UserBankroll)
 from .bankroll_utils import calculate_stake_amount
 from .services.marketing import MarketingSyncError, sync_marketing_profile
-from .services import public_universe, snapshot_recording
+from .services import (ingest_auth, public_universe, recommendation_ingest,
+                       snapshot_recording)
+
+logger = logging.getLogger(__name__)
 
 
 # Phase 2a: hard-blocks at the write boundary. The primary filter lives in the
@@ -711,252 +717,105 @@ def get_recommended_predictions_with_outcomes(request):
 @require_http_methods(["POST"])
 def log_recommendations(request):
     """
-    Log recommendations from the home page API to PredictionLog database.
-    
+    Ingest one prediction run. SERVER-TO-SERVER ONLY.
+
     POST /api/log-recommendations/
     Body: {"recommendations": [{...}, {...}]}
+
+    Until 2026-08-03 this was unauthenticated. It writes PredictionLog rows and
+    appends immutable PredictionSnapshots, and because it keys on fixture_id and
+    setattr()s the whole payload over any existing row, an anonymous caller
+    could also OVERWRITE existing predictions — including their recorded odds —
+    and craft `odds_provenance` that classified the result as `verified`, which
+    put attacker-controlled rows into the publication queue.
+
+    It now requires an HMAC-SHA256 signature (core.services.ingest_auth) and
+    fails closed when no secret is configured. The scheduler does not come
+    through here at all — it calls recommendation_ingest.ingest_recommendations
+    in-process.
     """
     try:
-        import json
-        from datetime import datetime
-        data = json.loads(request.body)
-        recommendations = data.get('recommendations', [])
-        
-        if not recommendations:
-            return JsonResponse({
-                'success': False,
-                'error': 'recommendations array is required'
-            }, status=400)
-        
-        logged_count = 0
-        updated_count = 0
-        skipped_blacklist = 0
-        skipped_outcome = 0
-        skipped_high_ev = 0
-        skipped_watchlist = 0
-
-        # Identifies this pipeline run in every row it writes, so a batch can be
-        # traced (or quarantined) as a unit.
-        prediction_run_id = uuid.uuid4().hex
-        # ONE generation timestamp for the whole run. Snapshots record this, not
-        # PredictionLog.prediction_logged_at (the fixture's first-seen time) —
-        # pairing an old prediction timestamp with a freshly captured price is
-        # exactly what made pre-cutoff rows unpublishable.
-        run_generated_at = timezone.now()
-        snapshots_created = 0
-
-        for rec in recommendations:
-            fixture_id = rec.get('fixture_id')
-            if not fixture_id:
-                continue
-
-            # Phase 2a/2b/2c defensive filters — reject recs we won't recommend
-            # regardless of what the upstream engine sent. Keeps existing rows with
-            # is_recommended=True intact (we only filter writes, not history).
-            if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
-                skipped_blacklist += 1
-                continue
-            predicted_lower = (rec.get('predicted_outcome') or '').lower()
-            if any(needle in predicted_lower for needle in PHASE_2A_BLOCKED_OUTCOMES):
-                skipped_outcome += 1
-                continue
-            # EV cap: incoming EV may be percent or decimal — normalize before comparing.
-            incoming_ev = rec.get('expected_value') or rec.get('ev')
-            normalized_ev = None
-            if incoming_ev is not None:
-                normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
-                if normalized_ev > PHASE_2B_MAX_EV:
-                    skipped_high_ev += 1
-                    continue
-            # Phase 2c watchlist: stricter thresholds for known under-performers.
-            watch = PHASE_2C_WATCHLIST_LEAGUES.get(rec.get('league'))
-            if watch is not None:
-                incoming_conf = rec.get('confidence') or 0
-                normalized_conf = incoming_conf / 100.0 if incoming_conf > 1 else incoming_conf
-                effective_ev = normalized_ev if normalized_ev is not None else 0
-                if normalized_conf < watch['min_confidence'] or effective_ev < watch['min_ev']:
-                    skipped_watchlist += 1
-                    continue
-
-            # Parse kickoff date
-            kickoff_str = rec.get('kickoff')
-            try:
-                if isinstance(kickoff_str, str):
-                    # Parse ISO format
-                    kickoff = datetime.fromisoformat(kickoff_str.replace('Z', '+00:00'))
-                else:
-                    kickoff = timezone.now()
-            except:
-                kickoff = timezone.now()
-            
-            # Normalize data formats
-            probabilities = rec.get('probabilities', {})
-            prob_home = probabilities.get('home', 0)
-            prob_draw = probabilities.get('draw', 0)
-            prob_away = probabilities.get('away', 0)
-            
-            # Normalize confidence
-            confidence = rec.get('confidence', 0)
-            if confidence > 1:
-                confidence = confidence / 100
-            
-            # Normalize EV
-            expected_value = rec.get('expected_value') or rec.get('ev')
-            if expected_value is not None and expected_value > 1:
-                expected_value = expected_value / 100
-            
-            # Normalize probabilities
-            if prob_home > 1:
-                prob_home = prob_home / 100
-            if prob_draw > 1:
-                prob_draw = prob_draw / 100
-            if prob_away > 1:
-                prob_away = prob_away / 100
-            
-            odds_data = rec.get('odds_data', {})
-            predicted_outcome = rec.get('predicted_outcome', 'Home').capitalize()
-
-            # The Next.js engine sends the actual bet-time odds at the top level (`rec['odds']`)
-            # and via best_market.odds. odds_data is the 1X2 home/draw/away triple and is NOT
-            # the right value for O/U / BTTS / DC markets — those need rec['odds'].
-            best_market = rec.get('best_market') or {}
-            bet_odds = rec.get('odds') or best_market.get('odds')
-            # Price audit trail from the deterministic selector
-            # (smartbet-frontend/app/lib/oddsSelection.ts). Absent for any pick
-            # priced by the pre-2026-07-29 pipeline.
-            odds_provenance = (
-                rec.get('odds_provenance') or best_market.get('odds_provenance') or None
-            )
-            # The original (pre-clamp) EV, when the engine sent it.
-            raw_ev = best_market.get('original_ev')
-            if raw_ev is not None and abs(raw_ev) > 1:
-                raw_ev = raw_ev / 100.0
-
-            # Check if exists
-            existing = PredictionLog.objects.filter(fixture_id=fixture_id).first()
-
-            prediction_data = {
-                'home_team': rec.get('home_team', 'Unknown'),
-                'away_team': rec.get('away_team', 'Unknown'),
-                'league': rec.get('league', 'Unknown'),
-                'league_id': None,
-                'kickoff': kickoff,
-                'predicted_outcome': predicted_outcome,
-                'confidence': confidence,
-                'probability_home': prob_home,
-                'probability_draw': prob_draw,
-                'probability_away': prob_away,
-                'odds_home': odds_data.get('home'),
-                'odds_draw': odds_data.get('draw'),
-                'odds_away': odds_data.get('away'),
-                'odds': bet_odds,
-                'bookmaker': best_market.get('bookmaker') or odds_data.get('bookmaker'),
-                'expected_value': expected_value,
-                'raw_expected_value': raw_ev,
-                'model_count': rec.get('ensemble_info', {}).get('model_count', 0),
-                'consensus': rec.get('ensemble_info', {}).get('consensus'),
-                'variance': rec.get('ensemble_info', {}).get('variance'),
-                'ensemble_strategy': rec.get('ensemble_info', {}).get('strategy', 'consensus_ensemble'),
-                'recommendation_score': rec.get('revenue_vs_risk_score'),
-                'is_recommended': True,
-                # Multi-Market Support (V3)
-                'market_type': best_market.get('type', '1x2'),
-                'market_type_id': best_market.get('type_id') or rec.get('debug_info', {}).get('market_type_id'),
-                'market_score': best_market.get('market_score'),
-                # 2026-07-29 audit: persist the full price audit trail so any
-                # published price can be independently verified after the fact.
-                'odds_provenance': odds_provenance,
-                'prediction_run_id': prediction_run_id,
-            }
-
-            # ── Append the immutable snapshot for this run FIRST ──────────
-            # The snapshot is the authoritative record of what this run
-            # predicted at what price; PredictionLog below is only the
-            # latest-state view.
-            snapshot_row, snapshot_is_new = snapshot_recording.record_snapshot(
-                prediction_run_id=prediction_run_id,
-                prediction=existing,
-                fixture_id=fixture_id,
-                home_team=prediction_data.get('home_team'),
-                away_team=prediction_data.get('away_team'),
-                league=prediction_data.get('league'),
-                league_id=prediction_data.get('league_id'),
-                kickoff=prediction_data.get('kickoff'),
-                market_type=prediction_data.get('market_type'),
-                predicted_outcome=prediction_data.get('predicted_outcome'),
-                confidence=prediction_data.get('confidence'),
-                expected_value=prediction_data.get('expected_value'),
-                is_recommended=True,
-                model_version=prediction_data.get('ensemble_strategy'),
-                odds=bet_odds,
-                odds_provenance=odds_provenance,
-                prediction_generated_at=run_generated_at,
-            )
-            if snapshot_is_new:
-                snapshots_created += 1
-
-            if existing:
-                # Update existing
-                for key, value in prediction_data.items():
-                    setattr(existing, key, value)
-                existing.is_recommended = True
-                existing.pricing_integrity_status = public_universe.status_for(
-                    odds_provenance,
-                    existing.prediction_logged_at,
-                    existing.is_audit_excluded,
-                    bet_odds,
-                    prediction_data.get('market_type'),
-                )
-                existing.save()
-                updated_count += 1
-            else:
-                # Create new. prediction_logged_at is auto_now_add, so classify
-                # against "now" — a fresh row is always on the current side of
-                # the pricing-integrity cutoff.
-                prediction_data['pricing_integrity_status'] = public_universe.status_for(
-                    odds_provenance, timezone.now(), False, bet_odds,
-                    prediction_data.get('market_type'),
-                )
-                created_row = PredictionLog.objects.create(
-                    fixture_id=fixture_id, **prediction_data
-                )
-                logged_count += 1
-                # Backfill the snapshot's convenience FK now the row exists.
-                if snapshot_row is not None and snapshot_row.prediction_id is None:
-                    PredictionSnapshot.objects.filter(
-                        pk=snapshot_row.snapshot_id
-                    ).update(prediction=created_row)
-        
+        request_id = ingest_auth.verify(request)
+    except ingest_auth.IngestAuthError as exc:
+        # Reason to the log, never to the caller: which header was wrong and
+        # which secret matched are both useful to an attacker.
+        logger.warning('recommendation ingest rejected: %s', exc.reason)
         return JsonResponse({
-            'success': True,
-            'logged_count': logged_count,
-            'updated_count': updated_count,
-            'prediction_run_id': prediction_run_id,
-            'snapshots_created': snapshots_created,
-            'skipped_blacklist': skipped_blacklist,
-            'skipped_outcome': skipped_outcome,
-            'skipped_high_ev': skipped_high_ev,
-            'skipped_watchlist': skipped_watchlist,
-            'total': logged_count + updated_count,
-            'message': (
-                f'Logged {logged_count} new, updated {updated_count} existing; '
-                f'skipped {skipped_blacklist} blacklist + {skipped_outcome} blocked-outcome '
-                f'+ {skipped_high_ev} high-EV + {skipped_watchlist} watchlist recs'
-            ),
-        })
-        
-    except json.JSONDecodeError:
+            'code': 'recommendation_ingest_unauthorized',
+            'detail': 'The recommendation ingest request was not authorized.',
+        }, status=401)
+
+    raw_body = request.body or b''
+    if len(raw_body) > recommendation_ingest.MAX_BODY_BYTES:
         return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON in request body'
+            'code': 'recommendation_ingest_too_large',
+            'detail': 'The recommendation ingest request was too large.',
+        }, status=413)
+
+    body_sha256 = hashlib.sha256(raw_body).hexdigest()
+
+    # Replay ledger. Same id + same body is a legitimate retry and returns the
+    # original result; same id + different body is a captured envelope being
+    # reused and is refused.
+    prior = IngestRequest.objects.filter(request_id=request_id).first()
+    if prior is not None:
+        if prior.body_sha256 == body_sha256:
+            return JsonResponse(prior.response_payload or {'success': True})
+        logger.warning(
+            'recommendation ingest replay refused for request_id=%s', request_id
+        )
+        return JsonResponse({
+            'code': 'recommendation_ingest_replayed',
+            'detail': 'The recommendation ingest request was already processed.',
+        }, status=409)
+
+    try:
+        payload = json.loads(raw_body.decode('utf-8'))
+    except (ValueError, UnicodeDecodeError):
+        return JsonResponse({
+            'code': 'recommendation_ingest_invalid',
+            'detail': 'The recommendation ingest body was not valid JSON.',
         }, status=400)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
+
+    recommendations = payload.get('recommendations') if isinstance(payload, dict) else None
+
+    try:
+        recommendation_ingest.validate_batch(recommendations)
+    except recommendation_ingest.ValidationError as exc:
+        # Row-level messages name the offending field only — no payload echo,
+        # no internals.
         return JsonResponse({
-            'success': False,
-            'error': str(e)
+            'code': 'recommendation_ingest_invalid',
+            'detail': 'The recommendation ingest payload failed validation.',
+            'errors': exc.errors[:50],
+        }, status=400)
+
+    # Derive the run id from the request id so a legitimate retry reuses it and
+    # the snapshot uniqueness key dedupes instead of appending a second run.
+    prediction_run_id = hashlib.sha256(request_id.encode('utf-8')).hexdigest()[:32]
+
+    try:
+        with transaction.atomic():
+            result = recommendation_ingest.ingest_recommendations(
+                recommendations,
+                prediction_run_id=prediction_run_id,
+                validate=False,
+            )
+            IngestRequest.objects.create(
+                request_id=request_id,
+                body_sha256=body_sha256,
+                prediction_run_id=prediction_run_id,
+                response_payload=result,
+            )
+    except Exception:
+        # Correlate the traceback with the caller's request id; return nothing.
+        logger.exception('recommendation ingest failed for request_id=%s', request_id)
+        return JsonResponse({
+            'code': 'recommendation_ingest_failed',
+            'detail': 'The recommendation ingest could not be completed.',
         }, status=500)
+
+    return JsonResponse(result)
 
 
 @csrf_exempt

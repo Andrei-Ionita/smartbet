@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { selectOdds, type OddsProvenance } from '@/app/lib/oddsSelection'
+import { signIngestRequest } from '@/app/lib/ingestSignature'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -994,13 +995,24 @@ export async function GET(request: NextRequest) {
     }
     // ------------------------------------------------
 
-    // Log logic
+    // Log logic — server-to-server, HMAC-signed.
+    // This runs in the Next.js server runtime, never in the browser. The
+    // ingest endpoint writes PredictionLog rows and immutable snapshots, so it
+    // requires a signature; an unsigned request is refused. If no secret is
+    // configured we skip the call rather than firing one that will 401 — the
+    // hourly scheduler ingests the same run in-process regardless.
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://smartbet-backend-production.up.railway.app')
-    fetch(`${djangoBaseUrl}/api/log-recommendations/`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ recommendations: top10Recommendations }),
-    }).catch(() => { })
+    const ingestBody = JSON.stringify({ recommendations: top10Recommendations })
+    const ingestHeaders = signIngestRequest(ingestBody)
+    if (ingestHeaders) {
+      fetch(`${djangoBaseUrl}/api/log-recommendations/`, {
+        method: 'POST',
+        headers: ingestHeaders,
+        body: ingestBody,
+      }).catch(() => { })
+    } else {
+      console.warn('[ingest] RECOMMENDATION_INGEST_SECRET is not configured; skipping ingest')
+    }
 
     return NextResponse.json({
       recommendations: top10Recommendations,

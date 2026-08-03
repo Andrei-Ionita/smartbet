@@ -856,18 +856,33 @@ class PredictionLogSaveInvariantTests(TestCase):
 
 
 class LogRecommendationsFilterTests(TestCase):
-    """Cover Phase 2a + 2b reject branches in core/api_views.log_recommendations."""
+    """Cover the Phase 2a/2b/2c reject branches in the ingest service.
+
+    These target the FILTERS, not the HTTP boundary, so they call the service
+    directly. Two reasons: the endpoint now requires an HMAC signature (see
+    core/tests_ingest_auth.py, which covers that boundary thoroughly), and
+    these fixtures deliberately omit odds provenance — a filter must reject
+    the row before provenance is ever relevant.
+    """
 
     def setUp(self):
         self.client = Client()
         self.url = '/api/log-recommendations/'
 
     def _post(self, recs):
-        import json as _json
-        return self.client.post(
-            self.url, data=_json.dumps({'recommendations': recs}),
-            content_type='application/json',
+        from core.services import recommendation_ingest
+
+        result = recommendation_ingest.ingest_recommendations(
+            recs, validate=False,
         )
+
+        class _Result:
+            status_code = 200
+
+            def json(self_inner):
+                return result
+
+        return _Result()
 
     def _rec(self, **overrides):
         """Default valid recommendation payload. Uses La Liga because Phase 2c

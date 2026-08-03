@@ -81,30 +81,31 @@ class Command(BaseCommand):
             # writing PredictionLog rows WITHOUT recording snapshots, so a
             # scheduled run would have produced nothing publishable.
             #
-            # It now invokes the view itself, so there is exactly one place that
-            # decides how a prediction run is persisted.
+            # It now calls the shared ingest service, so there is exactly one
+            # place that decides how a prediction run is persisted.
             if dry_run:
                 self.stdout.write(self.style.WARNING(
                     f'DRY RUN: would ingest {len(recommendations)} recommendations '
-                    'through core.api_views.log_recommendations'
+                    'through core.services.recommendation_ingest'
                 ))
                 logged_count = updated_count = skipped_count = 0
                 snapshots_created = 0
             else:
-                from django.test import RequestFactory
-                from core.api_views import log_recommendations
+                # Calls the ingest service directly. It used to build a fake
+                # HTTP request and invoke the view; now that the view requires
+                # an HMAC signature, that would mean the scheduler signing
+                # requests to itself. The service is the shared write path —
+                # the view is only the authenticated boundary in front of it.
+                from core.services import recommendation_ingest
 
-                request = RequestFactory().post(
-                    '/api/log-recommendations/',
-                    data=json.dumps({'recommendations': recommendations}),
-                    content_type='application/json',
-                )
-                response = log_recommendations(request)
-                payload = json.loads(response.content)
-
-                if not payload.get('success'):
+                try:
+                    payload = recommendation_ingest.ingest_recommendations(
+                        recommendations
+                    )
+                except recommendation_ingest.ValidationError as exc:
                     self.stdout.write(self.style.ERROR(
-                        f"Ingest failed: {payload.get('error')}"
+                        f'Ingest rejected {len(recommendations)} recommendations: '
+                        f'{exc.errors[:3]}'
                     ))
                     return
 

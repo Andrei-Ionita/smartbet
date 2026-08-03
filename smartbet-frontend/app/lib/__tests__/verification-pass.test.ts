@@ -255,6 +255,51 @@ describe('no client can trigger settlement', () => {
   })
 })
 
+describe('the ingest secret cannot reach a browser', () => {
+  const signer = read('app/lib/ingestSignature.ts')
+  const route = read('app/api/recommendations/route.ts')
+
+  it('never uses a NEXT_PUBLIC_ name', () => {
+    // NEXT_PUBLIC_* is inlined into the client bundle at build time, which
+    // would publish the signing key to every visitor.
+    expect(signer).not.toContain('NEXT_PUBLIC_RECOMMENDATION')
+    expect(signer).toContain('RECOMMENDATION_INGEST_SECRET')
+  })
+
+  it('is imported only from server-side code', () => {
+    expect(signer).toContain("from 'node:crypto'")
+    // A 'use client' file importing node:crypto is a build error, so the only
+    // way to reach this module is from the server runtime.
+    expect(signer).not.toContain("'use client'")
+    expect(route).not.toContain("'use client'")
+    expect(route).toContain("export const runtime = 'nodejs'")
+  })
+
+  it('signs with the documented header contract', () => {
+    expect(signer).toContain('X-BetGlitch-Timestamp')
+    expect(signer).toContain('X-BetGlitch-Request-ID')
+    expect(signer).toContain('X-BetGlitch-Signature')
+    expect(signer).toContain('createHmac')
+    expect(signer).toContain("'sha256'")
+  })
+
+  it('skips ingest entirely when unconfigured rather than sending unsigned', () => {
+    expect(route).toContain('const ingestHeaders = signIngestRequest(ingestBody)')
+    expect(route).toContain('if (ingestHeaders) {')
+  })
+
+  it('no browser-side code posts to the ingest endpoint', () => {
+    for (const rel of [
+      'app/page.tsx',
+      'app/explore/ExploreContent.tsx',
+      'app/components/RecommendedPredictionsTable.tsx',
+      'app/track-record/TrackRecordContent.tsx',
+    ]) {
+      expect(read(rel)).not.toContain('log-recommendations')
+    }
+  })
+})
+
 describe('first-session path survives logout', () => {
   const auth = read('app/contexts/AuthContext.tsx')
   const panel = read('app/components/OnboardingPanel.tsx')

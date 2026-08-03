@@ -1415,3 +1415,35 @@ class SchedulerHeartbeat(models.Model):
         if self.is_stale(now=now):
             return self.HEALTH_DELAYED
         return self.HEALTH_HEALTHY
+
+
+class IngestRequest(models.Model):
+    """
+    Replay ledger for signed server-to-server ingest requests.
+
+    Distinguishes a legitimate retry from a malicious replay. Both arrive with
+    the same `X-BetGlitch-Request-ID`; the difference is the body:
+
+    * same request id + same body hash  -> legitimate retry. Idempotent: the
+      stored result is returned and nothing is written a second time.
+    * same request id + DIFFERENT body  -> rejected. Someone captured a valid
+      signature envelope and is trying to reuse it for other content.
+
+    Rows are cheap and small; prune anything older than the replay window plus
+    a margin if the table ever needs it.
+    """
+    request_id = models.CharField(max_length=64, unique=True, db_index=True)
+    body_sha256 = models.CharField(max_length=64)
+    # The run id derived from this request, so a retry re-uses it and the
+    # snapshot uniqueness key dedupes rather than appending a second run.
+    prediction_run_id = models.CharField(max_length=64, db_index=True)
+    response_payload = models.JSONField(default=dict, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        verbose_name = "Ingest Request"
+        verbose_name_plural = "Ingest Requests"
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"{self.request_id} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
