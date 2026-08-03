@@ -21,6 +21,22 @@ from .bankroll_utils import (
 )
 
 
+# ── Permission policy for this module ───────────────────────────────────────
+# Bankroll is deliberately usable WITHOUT an account: every row is keyed by an
+# opaque client-generated `session_id`, and each view resolves the bankroll from
+# the session id in the URL or body. So these are explicitly AllowAny — an
+# anonymous caller can only ever touch its own session's rows.
+#
+# They are declared explicitly rather than relying on DRF's implicit AllowAny
+# default. That default is what silently made three operational write endpoints
+# public earlier today; "public because nobody wrote it down" and "public by
+# decision" must not look the same in this codebase.
+#
+# NOTE: session ids are bearer capabilities. Anyone who learns one can read and
+# modify that bankroll. That is the existing product design, not a regression
+# introduced here — but it is why nothing in this module may ever expose money
+# figures that feed the public verified record.
+
 def get_bankroll_for_request(request, session_id=None) -> Optional[UserBankroll]:
     """
     Get bankroll for either authenticated user or session_id.
@@ -144,6 +160,7 @@ def create_bankroll(request):
 
 @csrf_exempt
 @api_view(['GET'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def get_bankroll(request, session_id):
     """Get bankroll details for a session."""
     try:
@@ -182,6 +199,7 @@ def get_bankroll(request, session_id):
 
 @csrf_exempt
 @api_view(['PUT'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def update_bankroll(request, session_id):
     """Update bankroll settings."""
     try:
@@ -346,6 +364,7 @@ def get_stake_recommendation(request):
 
 @csrf_exempt
 @api_view(['POST'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def record_bet(request):
     """
     Record a bet placed by the user.
@@ -430,6 +449,7 @@ def record_bet(request):
 
 @csrf_exempt
 @api_view(['POST'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def settle_bet(request, transaction_id):
     """
     Settle a pending bet.
@@ -475,6 +495,7 @@ def settle_bet(request, transaction_id):
 
 @csrf_exempt
 @api_view(['GET'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def get_transactions(request, session_id):
     """Get transaction history for a user."""
     try:
@@ -512,6 +533,7 @@ def get_transactions(request, session_id):
 
 @csrf_exempt
 @api_view(['GET'])
+@permission_classes([AllowAny])  # session-scoped; see module note
 def get_bankroll_stats(request, session_id):
     """Get detailed statistics for a user's bankroll."""
     try:

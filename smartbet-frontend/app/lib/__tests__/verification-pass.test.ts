@@ -255,6 +255,18 @@ describe('no client can trigger settlement', () => {
   })
 })
 
+describe('the public recommendations route is read-only', () => {
+  const route = read('app/api/recommendations/route.ts')
+
+  it('makes no write request to our backend', () => {
+    // A GET a browser can reach must not create prediction records. This route
+    // used to fire a background POST that wrote PredictionLog rows and
+    // appended immutable snapshots.
+    expect(route).not.toMatch(/method:\s*.(POST|PUT|PATCH|DELETE)./)
+    expect(route).not.toContain('signIngestRequest')
+  })
+})
+
 describe('the ingest secret cannot reach a browser', () => {
   const signer = read('app/lib/ingestSignature.ts')
   const route = read('app/api/recommendations/route.ts')
@@ -283,9 +295,11 @@ describe('the ingest secret cannot reach a browser', () => {
     expect(signer).toContain("'sha256'")
   })
 
-  it('skips ingest entirely when unconfigured rather than sending unsigned', () => {
-    expect(route).toContain('const ingestHeaders = signIngestRequest(ingestBody)')
-    expect(route).toContain('if (ingestHeaders) {')
+  it('is dormant — no production caller signs requests today', () => {
+    // The signer is retained for a future explicit server-to-server
+    // integration. Nothing in the app calls it, which is why the scheduler
+    // needs no ingest secret.
+    expect(route).not.toContain('signIngestRequest(')
   })
 
   it('no browser-side code posts to the ingest endpoint', () => {

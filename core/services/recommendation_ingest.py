@@ -11,8 +11,9 @@ Selection logic is NOT here and is not changed by this module. The Phase 2
 defensive filters, normalisation, snapshot recording and pricing-integrity
 classification below are carried over verbatim from the original view.
 """
+import hashlib
+import json
 import logging
-import uuid
 
 from django.db import transaction
 from django.utils import timezone
@@ -169,6 +170,26 @@ def validate_batch(recommendations, *, now=None):
         raise ValidationError(errors)
 
 
+def derive_run_id(recommendations) -> str:
+    """A run identity derived from the calculation itself.
+
+    Deliberately content-addressed rather than random, so the two halves of the
+    run-identity contract both hold:
+
+    * **A retry of the same run is idempotent.** Re-ingesting the identical
+      payload yields the same run id, so the snapshot uniqueness key
+      ``(run_id, fixture_id, market_type, predicted_outcome)`` matches the
+      existing rows and nothing is appended twice.
+    * **A genuinely new run gets a new identity.** Any difference — a changed
+      price, a new fixture, a fresh ``odds_captured_at`` — changes the digest,
+      so real subsequent runs still produce distinct immutable snapshots.
+
+    ``sort_keys`` so dict ordering can never split one run into two.
+    """
+    canonical = json.dumps(recommendations, sort_keys=True, default=str)
+    return hashlib.sha256(canonical.encode('utf-8')).hexdigest()[:32]
+
+
 @transaction.atomic
 def ingest_recommendations(recommendations, *, prediction_run_id=None, validate=True):
     """Persist one prediction run. Returns the same payload shape as before.
@@ -179,7 +200,7 @@ def ingest_recommendations(recommendations, *, prediction_run_id=None, validate=
     if validate:
         validate_batch(recommendations)
 
-    prediction_run_id = prediction_run_id or uuid.uuid4().hex
+    prediction_run_id = prediction_run_id or derive_run_id(recommendations)
     run_generated_at = timezone.now()
 
     logged_count = updated_count = snapshots_created = 0

@@ -818,100 +818,22 @@ def log_recommendations(request):
     return JsonResponse(result)
 
 
-@csrf_exempt
-@require_http_methods(["POST"])
-def mark_recommended_by_fixture_ids(request):
-    """
-    Mark predictions as recommended based on fixture_ids from the home page recommendations API.
-    
-    POST /api/mark-recommended/
-    Body: {"fixture_ids": [123, 456, 789]}
-    """
-    try:
-        import json
-        data = json.loads(request.body)
-        fixture_ids = data.get('fixture_ids', [])
-        
-        if not fixture_ids:
-            return JsonResponse({
-                'success': False,
-                'error': 'fixture_ids array is required'
-            }, status=400)
-        
-        # Check how many of these fixture_ids exist in the database
-        existing_fixtures = PredictionLog.objects.filter(fixture_id__in=fixture_ids).count()
-        
-        if existing_fixtures == 0:
-            # If none exist, don't unmark anything - just return success
-            return JsonResponse({
-                'success': True,
-                'marked_count': 0,
-                'fixture_ids': fixture_ids,
-                'existing_count': 0,
-                'message': 'No matching predictions found in database - skipping update'
-            })
-        
-        # is_recommended is the canonical "this was once a recommendation" flag — must
-        # be PERMANENT. The previous unmark-future-not-in-new-list logic had a fatal
-        # race: a Monday-logged pick (kickoff = Saturday) gets unmarked Tuesday when
-        # the engine produces a different top-10, then on Saturday it settles silently
-        # — never restored, never visible in the public track record. The 2026-05-22
-        # audit found 26 of 43 weekend settled picks had been hidden this way.
-        # This endpoint is now additive only: it ensures the provided fixture_ids are
-        # flagged, and never strips any existing flag. The "current homepage" carousel
-        # doesn't depend on this flag (the homepage queries /api/recommendations live).
-        updated = PredictionLog.objects.filter(
-            fixture_id__in=fixture_ids
-        ).update(is_recommended=True)
-        
-        return JsonResponse({
-            'success': True,
-            'marked_count': updated,
-            'fixture_ids': fixture_ids,
-            'existing_count': existing_fixtures,
-            'message': f'Marked {updated} predictions as recommended'
-        })
-        
-    except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'error': 'Invalid JSON in request body'
-        }, status=400)
-    except Exception as e:
-        import traceback
-        traceback.print_exc()
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+# `mark_recommended_by_fixture_ids` was removed on 2026-08-03.
+#
+# An unauthenticated POST that set/cleared is_recommended across arbitrary
+# fixture ids. It had no caller, and core/management/commands/
+# restore_stripped_recommendations.py exists precisely because this endpoint
+# once stripped is_recommended=True from live rows. The scheduler maintains
+# those flags via the mark_recommended_predictions command.
 
 
-@csrf_exempt
-@require_http_methods(["GET"])
-def fix_performance_metrics(request):
-    """
-    Temporary endpoint to recalculate performance metrics for all predictions.
-    Fixes the issue where profit_loss was not calculated due to case sensitivity.
-    """
-    try:
-        predictions = PredictionLog.objects.filter(actual_outcome__isnull=False)
-        count = predictions.count()
-        updated = 0
-        
-        for pred in predictions:
-            pred.calculate_performance()
-            updated += 1
-            
-        return JsonResponse({
-            'success': True,
-            'message': f'Recalculated metrics for {updated}/{count} predictions',
-            'updated_count': updated
-        })
-    except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'error': str(e)
-        }, status=500)
+# `fix_performance_metrics` was removed on 2026-08-03.
+#
+# An unauthenticated GET that iterated EVERY settled prediction and called
+# calculate_performance() on each, rewriting profit_loss and roi_percent across
+# the whole table. Described in its own docstring as "temporary". It had no
+# caller anywhere in the codebase, and a GET must never perform operational
+# writes. Recalculation belongs in a management command run deliberately.
 
 
 @csrf_exempt

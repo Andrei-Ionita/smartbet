@@ -16,10 +16,12 @@ urlpatterns = [
     path('api/recommendations/', api_views.get_recommendations, name='get_recommendations'),
     path('api/recommended-predictions/', api_views.get_recommended_predictions_with_outcomes, name='get_recommended_predictions'),
     path('api/log-recommendations/', api_views.log_recommendations, name='log_recommendations'),
-    path('api/mark-recommended/', api_views.mark_recommended_by_fixture_ids, name='mark_recommended'),
     path('api/fixture/<int:fixture_id>/', api_views.get_fixture_details, name='get_fixture_details'),
     path('api/search/', api_views.search_fixtures, name='search_fixtures'),
-    path('api/fix-performance/', api_views.fix_performance_metrics, name='fix_performance_metrics'),
+    # REMOVED 2026-08-03: 'api/fix-performance/' (an unauthenticated GET that
+    # rewrote performance metrics on every settled row) and
+    # 'api/mark-recommended/' (an unauthenticated POST that set/cleared
+    # is_recommended on arbitrary fixtures). Neither had a caller.
     # REMOVED 2026-08-03: 'api/update-fixture-results/'. An unauthenticated,
     # csrf_exempt POST that any anonymous visitor could fire — and the public
     # /monitoring page fired it on every mount. It walked up to 50 pending
