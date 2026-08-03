@@ -135,3 +135,12 @@ backups/
 
 # Audit snapshots — regenerate from prod via steps in docs/audit/README.md
 docs/audit/*.sqlite
+
+# A virtualenv was created INSIDE the Django settings package (smartbet/), so
+# smartbet/Scripts/ — 16 Windows .exe binaries — was committed and shipped in
+# every Linux build context. Lib/ and Include/ were already ignored; the rest
+# was not. The real package is only __init__/asgi/settings/urls/wsgi.py.
+smartbet/Scripts/
+smartbet/pyvenv.cfg
+smartbet/Include/
+smartbet/Lib/

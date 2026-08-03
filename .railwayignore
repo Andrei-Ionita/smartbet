@@ -1,0 +1,10 @@
+# Defence in depth for `railway up`. Source-connected builds use the git tree,
+# so ignored files never reach them, but an accidental CLI upload from a Windows
+# working tree would otherwise ship a 252 MB virtualenv and the frontend's
+# node_modules into a Linux image.
+smartbet/Lib/
+smartbet/Scripts/
+smartbet/Include/
+smartbet/pyvenv.cfg
+**/node_modules/
+smartbet-frontend/.next/
