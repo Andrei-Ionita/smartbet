@@ -488,7 +488,7 @@ export const translations = {
             },
             risk: {
                 title: 'Factori de Risc',
-                advice: 'Sfat: Mjza redusă sau evită dacă nu ești sigur'
+                advice: 'Sfat: miză redusă sau evită dacă nu ești sigur'
             },
             stake: {
                 title: 'Miză Recomandată',

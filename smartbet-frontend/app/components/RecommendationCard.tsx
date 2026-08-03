@@ -882,7 +882,8 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           href={matchSlug}
           className="text-sm font-medium text-primary-600 hover:text-primary-700 flex items-center gap-1 hover:underline decoration-primary-300"
         >
-          View Full Match Analysis <ArrowRight className="h-4 w-4" />
+          {language === 'ro' ? 'Vezi analiza completă a meciului' : 'View full match analysis'}{' '}
+          <ArrowRight className="h-4 w-4" />
         </Link>
       </div>
 
