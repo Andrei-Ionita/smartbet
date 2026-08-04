@@ -107,16 +107,92 @@ const SPECS: Record<EmptyStateKey, Spec> = {
   },
 }
 
+/**
+ * Romanian wording, overlaid on the English spec.
+ *
+ * Only the words differ — icon, tone and destinations are the same decision in
+ * both languages, so they stay in SPECS and cannot drift apart. English remains
+ * the default because several callers render outside a language provider; a
+ * caller that knows the visitor's language opts in with `lang`, matching how
+ * StatusBadge already works.
+ */
+type Words = { title: string; body: string; primary?: string; secondary?: string }
+
+const RO_WORDS: Record<EmptyStateKey, Words> = {
+  no_verified_results: {
+    title: 'Istoricul verificat este în construcție',
+    body:
+      'Niciun pontaj publicat nu s-a încheiat încă. Când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. BetGlitch și-a restartat istoricul public sub un standard mai strict de preț și publicare, așa că predicțiile anterioare sunt excluse.',
+    primary: 'Vezi pontajele publicate în așteptare',
+    secondary: 'Explorează semnalele live',
+  },
+  no_pending_claims: {
+    title: 'Niciun pontaj publicat nu așteaptă un rezultat',
+    body:
+      'Momentan nimic nu este înghețat în așteptarea unui meci. Pontajele publicate apar aici între publicare și finalul meciului.',
+    primary: 'Explorează semnalele live',
+  },
+  no_live_signals: {
+    title: 'Niciun semnal live nu corespunde acestor filtre',
+    body:
+      'Modelul nu are niciun rezultat pentru această selecție momentan. Încearcă alt campionat, extinde intervalul de date sau revino după următoarea actualizare a modelului.',
+    primary: 'Vezi toate meciurile',
+  },
+  no_search_results: {
+    title: 'Niciun meci nu corespunde căutării',
+    body:
+      'Verifică ortografia sau caută un campionat ori o țară în loc de o echipă.',
+    primary: 'Șterge filtrele și navighează',
+  },
+  no_league_fixtures: {
+    title: 'Niciun meci viitor în acest campionat',
+    body:
+      'Această competiție nu are nimic programat în fereastra de 14 zile. Este normal între etape și în extrasezon.',
+    primary: 'Alege alt campionat',
+  },
+  missing_odds: {
+    title: 'Niciun preț verificat nu este disponibil pentru această piață',
+    body:
+      'Semnalul modelului este în continuare afișat, dar BetGlitch nu publică o revendicare cu preț fără proveniență completă de piață — casa de pariuri exactă, piața și momentul capturii trebuie toate înregistrate.',
+  },
+  provider_unavailable: {
+    title: 'Datele despre meciuri sunt temporar indisponibile',
+    body:
+      'Furnizorul de date nu a răspuns. Contul tău nu are nicio problemă și niciun semnal nu s-a pierdut. Reîncarcă peste puțin timp.',
+    primary: 'Înapoi acasă',
+  },
+  first_dashboard: {
+    title: 'Panoul tău se completează pe măsură ce folosești BetGlitch',
+    body:
+      'Setează un buget pentru a dimensiona mizele și urmărește istoricul verificat pe măsură ce pontajele publicate se încheie.',
+    primary: 'Explorează semnalele live',
+    secondary: 'Configurează bugetul',
+  },
+}
+
 export function EmptyState({
   state,
   className = '',
   children,
+  lang = 'en',
 }: {
   state: EmptyStateKey
   className?: string
   children?: React.ReactNode
+  lang?: 'en' | 'ro'
 }) {
-  const spec = SPECS[state]
+  const base = SPECS[state]
+  const words = lang === 'ro' ? RO_WORDS[state] : undefined
+  const spec: Spec = words
+    ? {
+        ...base,
+        title: words.title,
+        body: words.body,
+        primary: base.primary && { ...base.primary, label: words.primary ?? base.primary.label },
+        secondary:
+          base.secondary && { ...base.secondary, label: words.secondary ?? base.secondary.label },
+      }
+    : base
   const { Icon } = spec
   const problem = spec.tone === 'problem'
 

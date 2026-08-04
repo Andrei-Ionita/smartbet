@@ -169,6 +169,13 @@ const EN = {
       'BetGlitch is currently in public beta. Access is free while we build and validate the verified public record.',
   },
 
+  dashboard: {
+    title: 'Your dashboard',
+    manageBankroll: 'Manage bankroll',
+    recordBuilding:
+      'The verified record is being built. Published picks will appear here after settlement, including both wins and losses.',
+  },
+
   responsibleUse:
     'BetGlitch publishes model analysis for information only. It does not place bets and no outcome is guaranteed. 18+. Please gamble responsibly.',
 
@@ -319,6 +326,13 @@ const RO: typeof EN = {
   beta: {
     primary:
       'BetGlitch este în prezent în beta public. Accesul este gratuit cât timp construim și validăm istoricul public verificat.',
+  },
+
+  dashboard: {
+    title: 'Panoul tău',
+    manageBankroll: 'Gestionează bugetul',
+    recordBuilding:
+      'Istoricul verificat este în construcție. Pontajele publicate apar aici după încheiere, atât câștigurile cât și pierderile.',
   },
 
   responsibleUse:

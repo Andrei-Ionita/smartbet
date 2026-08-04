@@ -83,7 +83,7 @@ export default function DashboardPage() {
                             </div>
                             <div>
                                 <h1 className="text-2xl font-bold text-gray-900">
-                                    Your dashboard
+                                    {copy.dashboard.title}
                                 </h1>
                                 <p className="text-sm text-gray-500">
                                     {copy.beta.primary}
@@ -95,7 +95,7 @@ export default function DashboardPage() {
                             className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
                         >
                             <Wallet className="h-4 w-4" />
-                            Manage bankroll
+                            {copy.dashboard.manageBankroll}
                         </Link>
                     </div>
                 </div>
@@ -134,14 +134,12 @@ export default function DashboardPage() {
                     ) : (
                         <div className="mt-3">
                             <p className="text-sm leading-relaxed text-gray-600">
-                                The verified record is being built. Published picks
-                                will appear here after settlement, including both
-                                wins and losses.
+                                {copy.dashboard.recordBuilding}
                             </p>
                             <div className="mt-4 flex flex-wrap gap-2">
-                                <StatusBadge status="published_pending" size="sm" />
-                                <StatusBadge status="won" size="sm" />
-                                <StatusBadge status="lost" size="sm" />
+                                <StatusBadge status="published_pending" size="sm" lang={language} />
+                                <StatusBadge status="won" size="sm" lang={language} />
+                                <StatusBadge status="lost" size="sm" lang={language} />
                             </div>
                             <Link
                                 href="/track-record"
@@ -166,7 +164,7 @@ export default function DashboardPage() {
 
                         <section aria-labelledby="dash-signals">
                             <div className="mb-4">
-                                <StatusBadge status="live" size="sm" />
+                                <StatusBadge status="live" size="sm" lang={language} />
                                 <h2
                                     id="dash-signals"
                                     className="mt-2 text-xl font-bold text-gray-900"
@@ -181,7 +179,7 @@ export default function DashboardPage() {
                         </section>
                     </div>
                 ) : (
-                    <EmptyState state="first_dashboard" />
+                    <EmptyState state="first_dashboard" lang={language} />
                 )}
             </div>
         </div>
