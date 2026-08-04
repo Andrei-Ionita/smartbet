@@ -3,10 +3,10 @@
 import React, { useEffect, useState } from 'react';
 import { Trophy, Filter, CheckCircle, XCircle, Clock, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react';
 import { useLanguage } from '../contexts/LanguageContext';
-import { MODEL_SCORE_NOTE } from '../lib/terminology';
+import { MODEL_SCORE_NOTE, getCopy } from '../lib/terminology';
 import ProofCapturePanel from '../components/ProofCapturePanel';
 import ShareProofButton from '../components/ShareProofButton';
-import { StatusBadge, StatusLegend } from '../components/StatusBadge';
+import { StatusBadge, StatusLegend, statusFromClaim } from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 
 interface PredictionWithResult {
@@ -137,6 +137,7 @@ export default function TrackRecordContent() {
   };
 
   const { t, language } = useLanguage()
+  const rec = getCopy(language).record
 
   // ... (rest of imports and logic)
 
@@ -191,6 +192,13 @@ export default function TrackRecordContent() {
   // shown, but they are NOT the verified record and must not read as it.
   const legacyCount = filteredPredictions.filter((p) => !isVerified(p)).length;
 
+  // Published picks are the verified-provenance rows, listed whatever their
+  // outcome — that is the point of publishing. Read off the full prediction
+  // set rather than the filtered table, so a league or date filter chosen
+  // further down the page cannot quietly shrink what claims to be the
+  // complete published set.
+  const publishedPicks = predictions.filter(isVerified);
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
@@ -243,29 +251,94 @@ export default function TrackRecordContent() {
           className="mb-8 rounded-2xl border border-gray-200 bg-white p-6"
         >
           <h2 id="record-scope" className="text-lg font-bold text-gray-900">
-            What counts towards this record
+            {rec.scopeHeading}
           </h2>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
-            <li>
-              The verified public record begins at a clean pricing-integrity
-              cutoff. Predictions made before it are preserved internally as
-              legacy and excluded from every figure on this page.
-            </li>
-            <li>
-              Only immutable published picks enter the record — picks frozen
-              before kickoff with their selection, model score, recorded odds
-              and bookmaker.
-            </li>
-            <li>
-              Pending picks are not counted in settled performance, and void or
-              cancelled picks are excluded from the relevant denominators.
-            </li>
-            <li>
-              Live model signals shown elsewhere in the product never enter this
-              record unless they are published.
-            </li>
+            <li>{rec.scopeCutoff}</li>
+            <li>{rec.scopeImmutable}</li>
+            <li>{rec.scopePending}</li>
+            <li>{rec.scopeLive}</li>
           </ul>
-          <StatusLegend className="mt-5 border-t border-gray-200 pt-5" />
+          <StatusLegend className="mt-5 border-t border-gray-200 pt-5" lang={language} />
+        </section>
+
+        {/* PUBLISHED PICKS — the objects. Anchored so the onboarding panel can
+            send someone to the thing it just described, rather than to the top
+            of a long page. Deliberately separate from the verified record
+            below: a pending pick belongs here and belongs in no total. */}
+        <section
+          id="published-picks"
+          aria-labelledby="published-picks-heading"
+          className="mb-8 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
+        >
+          <h2
+            id="published-picks-heading"
+            className="text-lg font-bold text-gray-900"
+          >
+            {rec.publishedHeading}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            {rec.publishedBody}
+          </p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            {rec.publishedStates}
+          </p>
+
+          {publishedPicks.length === 0 ? (
+            <p className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed text-gray-600">
+              {rec.publishedEmpty}
+            </p>
+          ) : (
+            <>
+              <p className="mt-5 text-xs font-semibold uppercase tracking-widest text-gray-500">
+                {rec.publishedCount}: {publishedPicks.length}
+              </p>
+              <ul className="mt-3 divide-y divide-gray-200 border-t border-gray-200">
+                {publishedPicks.map((pick) => (
+                  <li
+                    key={`${pick.fixture_id}-${pick.predicted_outcome}`}
+                    className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3"
+                  >
+                    <StatusBadge
+                      status={statusFromClaim(
+                        pick.pricing_integrity_status,
+                        pick.actual_outcome,
+                      )}
+                      size="sm"
+                      lang={language}
+                    />
+                    <span className="text-sm font-semibold text-gray-900">
+                      {pick.home_team} v {pick.away_team}
+                    </span>
+                    <span className="text-sm text-gray-600">
+                      {pick.predicted_outcome}
+                    </span>
+                    <span className="ml-auto text-sm text-gray-600">
+                      {formatDate(pick.kickoff)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+        </section>
+
+        {/* VERIFIED RECORD — the aggregate. Anchored, and explicitly scoped so
+            the figures below cannot be read as "every prediction ever made". */}
+        <section
+          id="verified-record"
+          aria-labelledby="verified-record-heading"
+          className="mb-8 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
+        >
+          <h2
+            id="verified-record-heading"
+            className="text-lg font-bold text-gray-900"
+          >
+            {rec.verifiedHeading}
+          </h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            {rec.verifiedBody}
+          </p>
         </section>
 
         {/* Key Stats */}
@@ -277,10 +350,8 @@ export default function TrackRecordContent() {
             {accuracyStats.overall.total_predictions === 0 ? (
               <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
                 <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.overallAccuracy')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">No verified results yet</p>
-                <p className="text-sm text-gray-600">
-                  Accuracy appears once the first published pick settles.
-                </p>
+                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noAccuracy}</p>
+                <p className="text-sm text-gray-600">{rec.accuracyAppears}</p>
               </div>
             ) : (
               <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-white">
@@ -298,9 +369,9 @@ export default function TrackRecordContent() {
             {roiStats.total_bets === 0 ? (
               <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
                 <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.winRate')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">No settled picks yet</p>
+                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noSettled}</p>
                 <p className="text-sm text-gray-600">
-                  Wins and losses are both published here as they settle.
+                  {rec.winsLosses}
                 </p>
               </div>
             ) : (
@@ -323,10 +394,8 @@ export default function TrackRecordContent() {
             {roiStats.total_bets === 0 ? (
               <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
                 <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">No verified results yet</p>
-                <p className="text-sm text-gray-600">
-                  Our verified pricing record restarted and fills in as matches settle.
-                </p>
+                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noAccuracy}</p>
+                <p className="text-sm text-gray-600">{rec.roiRestarted}</p>
               </div>
             ) : (
               <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
@@ -364,10 +433,7 @@ export default function TrackRecordContent() {
         {accuracyStats && accuracyStats.overall.total_predictions === 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
             <h2 className="text-xl font-bold text-gray-900 mb-2">{t('trackRecord.stats.accuracyByType')}</h2>
-            <p className="text-sm text-gray-600">
-              No breakdown yet. Once published picks settle, accuracy is split by
-              predicted outcome here.
-            </p>
+            <p className="text-sm text-gray-600">{rec.noBreakdown}</p>
           </div>
         )}
 
@@ -702,7 +768,7 @@ export default function TrackRecordContent() {
                 why it is empty, that it is expected, and what to do instead. */}
             {filteredPredictions.length === 0 && (
               <div className="p-6">
-                <EmptyState state="no_verified_results" />
+                <EmptyState state="no_verified_results" lang={language} />
               </div>
             )}
           </div>

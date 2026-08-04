@@ -2,6 +2,8 @@
 
 import React, { useState } from 'react';
 import { useAuth } from '../contexts/AuthContext';
+import { useLanguage } from '../contexts/LanguageContext';
+import { getCopy } from '../lib/terminology';
 import Link from 'next/link';
 import { Trophy } from 'lucide-react';
 import Image from 'next/image';
@@ -12,6 +14,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
+  const { language } = useLanguage();
+  const c = getCopy(language).auth.login;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,10 +45,10 @@ export default function LoginPage() {
             />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 mb-2">
-            Welcome Back
+            {c.heading}
           </h1>
           <p className="text-gray-600">
-            Sign in to continue to BetGlitch
+            {c.supporting}
           </p>
         </div>
 
@@ -62,7 +66,7 @@ export default function LoginPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username or Email
+                {c.usernameLabel}
               </label>
               <input
                 id="username"
@@ -72,13 +76,13 @@ export default function LoginPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your username"
+                placeholder={c.usernamePlaceholder}
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {c.passwordLabel}
               </label>
               <input
                 id="password"
@@ -88,7 +92,7 @@ export default function LoginPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Enter your password"
+                placeholder={c.passwordPlaceholder}
               />
             </div>
 
@@ -97,15 +101,15 @@ export default function LoginPage() {
               disabled={isLoading}
               className="w-full min-h-[48px] px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
             >
-              {isLoading ? 'Signing in...' : 'Sign In'}
+              {isLoading ? c.submitting : c.submit}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Don't have an account?{' '}
+              {c.noAccount}{' '}
               <Link href="/register" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign up
+                {c.signUp}
               </Link>
             </p>
           </div>
@@ -113,7 +117,7 @@ export default function LoginPage() {
 
         <div className="mt-4 text-center">
           <Link href="/" className="inline-flex min-h-[44px] items-center justify-center px-3 text-sm text-gray-600 hover:text-gray-900">
-            ← Back to Home
+            {c.backHome}
           </Link>
         </div>
       </div>

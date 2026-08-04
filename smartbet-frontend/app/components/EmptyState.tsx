@@ -46,7 +46,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     title: 'The verified record is being built',
     body:
       'No published pick has settled yet. Once one does, its result appears here automatically—win or lose. BetGlitch restarted its public record under a stricter pricing and publication standard, so earlier predictions are excluded.',
-    primary: { label: 'View published pending picks', href: '/track-record#pending' },
+    primary: { label: 'View published pending picks', href: '/track-record#published-picks' },
     secondary: { label: 'Explore live signals', href: '/explore' },
   },
   no_pending_claims: {

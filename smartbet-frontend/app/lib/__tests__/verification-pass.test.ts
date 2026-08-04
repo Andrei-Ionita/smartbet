@@ -10,6 +10,8 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
+import { getCopy } from '../terminology'
+
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
 
@@ -48,14 +50,23 @@ describe('legacy rows never publish price-dependent performance', () => {
 
 describe('an empty verified record is not rendered as zero performance', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
+  // The wording moved into terminology.ts so it could be translated; the
+  // contract is unchanged, so assert the rendered copy AND that both
+  // languages actually carry it.
+  const en = getCopy('en').record
+  const ro = getCopy('ro').record
 
   it('shows "no results yet" instead of 0% accuracy', () => {
     expect(src).toContain('accuracyStats.overall.total_predictions === 0')
-    expect(src).toContain('No verified results yet')
+    expect(src).toContain('{rec.noAccuracy}')
+    expect(en.noAccuracy).toBe('No verified results yet')
+    expect(ro.noAccuracy.length).toBeGreaterThan(0)
   })
 
   it('shows "no settled picks" instead of a 0% win rate', () => {
-    expect(src).toContain('No settled picks yet')
+    expect(src).toContain('{rec.noSettled}')
+    expect(en.noSettled).toBe('No settled picks yet')
+    expect(ro.noSettled.length).toBeGreaterThan(0)
   })
 
   it('suppresses the per-outcome breakdown at zero', () => {
@@ -174,7 +185,11 @@ describe('footer', () => {
   })
 
   it('describes the product in the shared vocabulary', () => {
-    expect(src).toContain('frozen')
+    // The tagline moved into terminology.ts to be translatable. The vocabulary
+    // contract now applies to both languages, not just the English literal.
+    expect(src).toContain('{f.tagline}')
+    expect(getCopy('en').footer.tagline).toContain('frozen')
+    expect(getCopy('ro').footer.tagline).toContain('înghețate')
     expect(src).not.toContain('betting insights')
   })
 })

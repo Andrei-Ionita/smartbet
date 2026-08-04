@@ -244,7 +244,7 @@ export default function HomePage() {
           )}
 
           {!isLoading && !error && signals.length === 0 && (
-            <EmptyState state="no_live_signals" />
+            <EmptyState state="no_live_signals" lang={language} />
           )}
         </section>
 
@@ -365,7 +365,7 @@ export default function HomePage() {
                 </Link>
               </div>
             ) : (
-              <EmptyState state="no_verified_results" />
+              <EmptyState state="no_verified_results" lang={language} />
             )}
           </div>
         </section>

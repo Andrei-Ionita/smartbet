@@ -160,23 +160,36 @@ export function StatusBadge({
  * The legend. Shown once on the verified-record page so the vocabulary is
  * learnable in one place rather than inferred from context.
  */
-export function StatusLegend({ className = '' }: { className?: string }) {
+/** The outline rule, in both languages. Split around the two emphasised
+ *  words so the sentence stays grammatical in each. */
+const LEGEND_NOTE = {
+  en: { a: 'A ', dashed: 'dashed', b: ' outline means the value can still change. A ', solid: 'solid', c: ' outline means it was frozen before kickoff and cannot change again.' },
+  ro: { a: 'Un contur ', dashed: 'punctat', b: ' înseamnă că valoarea se mai poate schimba. Un contur ', solid: 'continuu', c: ' înseamnă că a fost înghețată înainte de start și nu se mai poate schimba.' },
+} as const
+
+export function StatusLegend({
+  className = '',
+  lang,
+}: {
+  className?: string
+  /** Omit for English, matching StatusBadge. */
+  lang?: string
+}) {
   const order: SignalStatus[] = [
     'live', 'published_pending', 'won', 'lost', 'void', 'cancelled', 'legacy',
   ]
+  const note = lang === 'ro' ? LEGEND_NOTE.ro : LEGEND_NOTE.en
   return (
     <div className={className}>
       <ul className="flex flex-wrap gap-2">
         {order.map((s) => (
           <li key={s}>
-            <StatusBadge status={s} size="sm" />
+            <StatusBadge status={s} size="sm" lang={lang} />
           </li>
         ))}
       </ul>
       <p className="mt-3 text-xs text-gray-600">
-        A <strong>dashed</strong> outline means the value can still change. A{' '}
-        <strong>solid</strong> outline means it was frozen before kickoff and
-        cannot change again.
+        {note.a}<strong>{note.dashed}</strong>{note.b}<strong>{note.solid}</strong>{note.c}
       </p>
     </div>
   )

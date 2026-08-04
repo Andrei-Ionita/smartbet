@@ -1,0 +1,250 @@
+/**
+ * Contracts from the focused authenticated-journey cleanup.
+ *
+ * Two defects drove this: the onboarding panel sent cards 2 and 3 to the same
+ * bare /track-record URL, so a third of the first-session guidance taught
+ * nothing; and Romanian stopped at the navigation — the login form, the whole
+ * global footer including its legal notice, and most of the verified-record
+ * page stayed English.
+ *
+ * Source scans plus copy assertions, matching terminology.test.ts: no DOM here,
+ * and a scan catches a regression in any branch rather than only a rendered one.
+ */
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+
+import { getCopy } from '../terminology'
+
+const ROOT = join(__dirname, '..', '..', '..')
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+
+const UUID = /[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i
+
+describe('onboarding actions have three distinct destinations', () => {
+  for (const lang of ['en', 'ro'] as const) {
+    const actions = getCopy(lang).onboarding.actions
+
+    it(`offers three actions in ${lang}`, () => {
+      expect(actions).toHaveLength(3)
+    })
+
+    it(`sends each ${lang} action somewhere different`, () => {
+      // Cards 2 and 3 both pointed at bare /track-record, so "understand
+      // published proof" and "follow the verified record" delivered an
+      // identical screen.
+      expect(new Set(actions.map((a) => a.href)).size).toBe(3)
+    })
+
+    it(`points the ${lang} actions at the anchored sections`, () => {
+      const hrefs = actions.map((a) => a.href)
+      expect(hrefs).toContain('/explore')
+      expect(hrefs).toContain('/track-record#published-picks')
+      expect(hrefs).toContain('/track-record#verified-record')
+    })
+
+    it(`carries no hardcoded claim identifier in ${lang}`, () => {
+      // A published claim is a UUID and can settle or be superseded; onboarding
+      // must never deep-link one.
+      for (const a of actions) expect(a.href).not.toMatch(UUID)
+    })
+  }
+
+  it('keeps the onboarding component free of hardcoded destinations', () => {
+    const src = read('app/components/OnboardingPanel.tsx')
+    expect(src).toContain('href={action.href}')
+    expect(src).not.toMatch(/href="\/track-record/)
+    expect(src).not.toMatch(UUID)
+  })
+})
+
+describe('track-record carries both anchor targets', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('renders an element with each anchor id', () => {
+    expect(src).toContain('id="published-picks"')
+    expect(src).toContain('id="verified-record"')
+  })
+
+  it('offsets both anchors so a sticky header cannot cover them', () => {
+    const sections = src.match(/id="(?:published-picks|verified-record)"[\s\S]{0,240}?>/g) ?? []
+    expect(sections).toHaveLength(2)
+    for (const section of sections) expect(section).toContain('scroll-mt-')
+  })
+
+  it('labels each section for assistive technology', () => {
+    expect(src).toContain('aria-labelledby="published-picks-heading"')
+    expect(src).toContain('aria-labelledby="verified-record-heading"')
+  })
+
+  it('never counts a pending pick as a settled result', () => {
+    expect(src).toContain('const publishedPicks = predictions.filter(isVerified)')
+    expect(getCopy('en').record.publishedStates).toMatch(/pending is not a result/i)
+    expect(getCopy('ro').record.publishedStates).toMatch(/nu este un rezultat/i)
+  })
+
+  it('says the verified aggregate counts settled picks only', () => {
+    expect(getCopy('en').record.verifiedBody).toMatch(/settled published picks only/i)
+    expect(src).toContain('{rec.verifiedBody}')
+  })
+
+  it('keeps the zero state honest', () => {
+    expect(src).toContain('{rec.publishedEmpty}')
+    expect(getCopy('en').record.publishedEmpty).toMatch(/no published pick has settled yet/i)
+  })
+
+  it('leaves no dangling anchor reference elsewhere in the app', () => {
+    expect(read('app/components/EmptyState.tsx')).not.toContain('/track-record#pending')
+  })
+})
+
+type Pair = [string, string]
+
+const flatten = (value: unknown, path = ''): Pair[] => {
+  if (typeof value === 'string') return [[path, value]]
+  if (Array.isArray(value)) return value.flatMap((v, i) => flatten(v, `${path}[${i}]`))
+  if (value && typeof value === 'object') {
+    return Object.entries(value).flatMap(([k, v]) =>
+      flatten(v, path ? `${path}.${k}` : k),
+    )
+  }
+  return []
+}
+
+describe('Romanian covers the whole authenticated journey', () => {
+  const en = getCopy('en') as Record<string, unknown>
+  const ro = getCopy('ro') as Record<string, unknown>
+  const blocks = ['auth', 'record', 'footer', 'dashboard']
+
+  for (const block of blocks) {
+    it(`defines every ${block} string in Romanian`, () => {
+      const enPairs = flatten(en[block])
+      const roPairs = flatten(ro[block])
+      expect(roPairs.map(([k]) => k).sort()).toEqual(enPairs.map(([k]) => k).sort())
+      for (const [key, value] of roPairs) {
+        expect(value.length, `${block}.${key} is empty`).toBeGreaterThan(0)
+      }
+    })
+
+    it(`does not leave ${block} sitting in English`, () => {
+      const enMap = new Map(flatten(en[block]))
+      // Short strings and proper nouns legitimately match across languages
+      // ("Blog", "Email", "BetGlitch"); long prose must not.
+      for (const [key, roValue] of flatten(ro[block])) {
+        const enValue = enMap.get(key)
+        if (!enValue || enValue.length < 12) continue
+        expect(roValue, `${block}.${key} is still English`).not.toBe(enValue)
+      }
+    })
+  }
+
+  it('translates the login form, not just the nav around it', () => {
+    const src = read('app/login/page.tsx')
+    expect(src).toContain('{c.heading}')
+    expect(src).toContain('placeholder={c.usernamePlaceholder}')
+    expect(src).toContain('placeholder={c.passwordPlaceholder}')
+    expect(src).toContain('{isLoading ? c.submitting : c.submit}')
+    expect(src).not.toContain('Welcome Back')
+    expect(src).not.toContain('Enter your password')
+  })
+
+  it('translates the register form including its validation messages', () => {
+    const src = read('app/register/page.tsx')
+    expect(src).toContain('a.passwordTooShort')
+    expect(src).toContain('a.passwordMismatch')
+    expect(src).not.toContain('Password must be at least 8 characters long')
+    expect(src).not.toContain('Passwords do not match')
+  })
+
+  it('translates the global footer including the legal notice', () => {
+    const src = read('components/Footer.tsx')
+    expect(src).toContain('const f = getCopy(language).footer')
+    expect(src).toContain('{f.noticeTitle}')
+    expect(src).toContain('{f.ageNotice}')
+    expect(src).not.toContain('Important Legal Notice')
+    expect(src).not.toContain('All rights reserved')
+  })
+
+  it('translates the accessibility label on the footer mail control', () => {
+    expect(read('components/Footer.tsx')).toContain('{f.emailSupport}')
+    expect(getCopy('ro').footer.emailSupport).not.toBe(getCopy('en').footer.emailSupport)
+  })
+
+  it('translates the badge legend explanation', () => {
+    const src = read('app/components/StatusBadge.tsx')
+    expect(src).toContain('LEGEND_NOTE')
+    expect(src).toContain("lang === 'ro' ? LEGEND_NOTE.ro : LEGEND_NOTE.en")
+  })
+
+  it('passes the visitor language to every EmptyState and StatusLegend', () => {
+    for (const file of [
+      'app/dashboard/page.tsx',
+      'app/track-record/TrackRecordContent.tsx',
+      'app/page.tsx',
+    ]) {
+      const src = read(file)
+      for (const tag of src.match(/<(?:EmptyState|StatusLegend)[^>]*>/g) ?? []) {
+        expect(tag, `${file}: ${tag}`).toContain('lang={language}')
+      }
+    }
+  })
+})
+
+describe('English remains available and unchanged in meaning', () => {
+  const en = getCopy('en')
+
+  it('keeps the wording the pages previously shipped', () => {
+    expect(en.auth.login.usernameLabel).toBe('Username or email')
+    expect(en.footer.ageNotice).toContain('18 years or older')
+    expect(en.footer.noticeOperatorStrong).toContain('NOT a betting operator')
+    expect(en.record.scopeHeading).toBe('What counts towards this record')
+    expect(en.record.noAccuracy).toBe('No verified results yet')
+  })
+
+  it('defaults to English when no language is supplied', () => {
+    expect(getCopy(undefined).auth.login.submit).toBe('Sign in')
+    expect(getCopy('xx').footer.legal).toBe('Legal')
+  })
+})
+
+describe('the cleanup introduces no payment surface', () => {
+  const files = [
+    'app/login/page.tsx',
+    'app/register/page.tsx',
+    'components/Footer.tsx',
+    'app/track-record/TrackRecordContent.tsx',
+    'app/components/OnboardingPanel.tsx',
+    'app/dashboard/page.tsx',
+  ]
+
+  it('adds no checkout, upgrade or payment control', () => {
+    for (const file of files) {
+      const src = read(file)
+      expect(src, file).not.toMatch(/\/api\/checkout/)
+      expect(src, file).not.toMatch(/upgradeToPro/)
+      expect(src, file).not.toMatch(/href="\/checkout/)
+    }
+  })
+
+  it('keeps the single pricing link behind the commercial-mode flag', () => {
+    const src = read('components/Footer.tsx')
+    expect(src.match(/\/pricing/g) ?? []).toHaveLength(1)
+    expect(src.slice(src.indexOf('PAYMENTS_ENABLED'))).toContain('/pricing')
+  })
+})
+
+describe('logout leaves the onboarding dismissal alone', () => {
+  const src = read('app/contexts/AuthContext.tsx')
+
+  it('clears session keys only', () => {
+    const start = src.indexOf('const logout')
+    const logout = src.slice(start, start + 700)
+    expect(logout).toContain('smartbet_access_token')
+    expect(logout).toContain('smartbet_refresh_token')
+    expect(logout).not.toContain('betglitch_onboarding')
+  })
+
+  it('marks onboarding pending on registration only', () => {
+    expect(src.match(/markOnboardingPending\(\)/g) ?? []).toHaveLength(1)
+  })
+})

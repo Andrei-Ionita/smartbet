@@ -12,6 +12,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 export default function RegisterPage() {
   const { language } = useLanguage();
   const copy = getCopy(language);
+  const a = copy.auth.register;
 
   useEffect(() => {
     track('registration_started', { surface: 'register' });
@@ -36,13 +37,13 @@ export default function RegisterPage() {
 
     // Validation
     if (password.length < 8) {
-      setFieldError({ password: 'Password must be at least 8 characters long' });
+      setFieldError({ password: a.passwordTooShort });
       document.getElementById('password')?.focus();
       return;
     }
 
     if (password !== confirmPassword) {
-      setFieldError({ confirmPassword: 'Passwords do not match' });
+      setFieldError({ confirmPassword: a.passwordMismatch });
       document.getElementById('confirmPassword')?.focus();
       return;
     }
@@ -111,7 +112,7 @@ export default function RegisterPage() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div>
               <label htmlFor="username" className="block text-sm font-medium text-gray-700 mb-2">
-                Username
+                {a.usernameLabel}
               </label>
               <input
                 id="username"
@@ -121,13 +122,13 @@ export default function RegisterPage() {
                 onChange={(e) => setUsername(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Choose a username"
+                placeholder={a.usernamePlaceholder}
               />
             </div>
 
             <div>
               <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-2">
-                Email
+                {a.emailLabel}
               </label>
               <input
                 id="email"
@@ -137,13 +138,13 @@ export default function RegisterPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="your@email.com"
+                placeholder={a.emailPlaceholder}
               />
             </div>
 
             <div>
               <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-2">
-                Password
+                {a.passwordLabel}
               </label>
               <input
                 id="password"
@@ -155,7 +156,7 @@ export default function RegisterPage() {
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="At least 8 characters"
+                placeholder={a.passwordPlaceholder}
               />
               {fieldError.password && (
                 <p id="password-error" role="alert" className="mt-2 text-sm text-red-700">
@@ -166,7 +167,7 @@ export default function RegisterPage() {
 
             <div>
               <label htmlFor="confirmPassword" className="block text-sm font-medium text-gray-700 mb-2">
-                Confirm Password
+                {a.confirmLabel}
               </label>
               <input
                 id="confirmPassword"
@@ -178,7 +179,7 @@ export default function RegisterPage() {
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 className="w-full min-h-[44px] px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                placeholder="Confirm your password"
+                placeholder={a.confirmPlaceholder}
               />
               {fieldError.confirmPassword && (
                 <p id="confirm-error" role="alert" className="mt-2 text-sm text-red-700">
@@ -198,9 +199,9 @@ export default function RegisterPage() {
 
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
-              Already have an account?{' '}
+              {a.haveAccount}{' '}
               <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-                Sign in
+                {a.signIn}
               </Link>
             </p>
           </div>
@@ -208,7 +209,7 @@ export default function RegisterPage() {
 
         <div className="mt-4 text-center">
           <Link href="/" className="inline-flex min-h-[44px] items-center justify-center px-3 text-sm text-gray-600 hover:text-gray-900">
-            ← Back to Home
+            {a.backHome}
           </Link>
         </div>
       </div>

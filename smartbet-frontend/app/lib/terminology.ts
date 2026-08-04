@@ -152,14 +152,14 @@ const EN = {
         title: 'Understand published proof',
         body: 'See how an immutable published claim differs from a changing live prediction.',
         cta: 'See published picks',
-        href: '/track-record',
+        href: '/track-record#published-picks',
       },
       {
         id: 'record',
         title: 'Follow the verified record',
         body: 'Review settled published picks as the sample develops.',
         cta: 'Open verified record',
-        href: '/track-record',
+        href: '/track-record#verified-record',
       },
     ],
   },
@@ -174,6 +174,109 @@ const EN = {
     manageBankroll: 'Manage bankroll',
     recordBuilding:
       'The verified record is being built. Published picks will appear here after settlement, including both wins and losses.',
+  },
+
+  auth: {
+    login: {
+      heading: 'Welcome back',
+      supporting: 'Sign in to continue to BetGlitch',
+      usernameLabel: 'Username or email',
+      usernamePlaceholder: 'Enter your username',
+      passwordLabel: 'Password',
+      passwordPlaceholder: 'Enter your password',
+      submit: 'Sign in',
+      submitting: 'Signing in…',
+      noAccount: 'Don’t have an account?',
+      signUp: 'Sign up',
+      backHome: '← Back to home',
+    },
+    register: {
+      usernameLabel: 'Username',
+      usernamePlaceholder: 'Choose a username',
+      emailLabel: 'Email',
+      emailPlaceholder: 'your@email.com',
+      passwordLabel: 'Password',
+      passwordPlaceholder: 'At least 8 characters',
+      confirmLabel: 'Confirm password',
+      confirmPlaceholder: 'Confirm your password',
+      haveAccount: 'Already have an account?',
+      signIn: 'Sign in',
+      backHome: '← Back to home',
+      passwordTooShort: 'Password must be at least 8 characters long',
+      passwordMismatch: 'Passwords do not match',
+    },
+  },
+
+  record: {
+    scopeHeading: 'What counts towards this record',
+    scopeCutoff:
+      'The verified public record begins at a clean pricing-integrity cutoff. Predictions made before it are preserved internally as legacy and excluded from every figure on this page.',
+    scopeImmutable:
+      'Only immutable published picks enter the record — picks frozen before kickoff with their selection, model score, recorded odds and bookmaker.',
+    scopePending:
+      'Pending picks are not counted in settled performance, and void or cancelled picks are excluded from the relevant denominators.',
+    scopeLive:
+      'Live model signals shown elsewhere in the product never enter this record unless they are published.',
+
+    publishedHeading: 'Published picks',
+    publishedBody:
+      'Every pick BetGlitch froze before kickoff, whatever happened next. A published pick keeps its selection, model score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn.',
+    publishedStates:
+      'A pick stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
+    publishedEmpty:
+      'No published pick has settled yet, so nothing is listed here. Published picks appear as soon as one does — win or lose.',
+    publishedCount: 'Settled published picks listed below',
+
+    verifiedHeading: 'Verified record',
+    verifiedBody:
+      'These aggregate figures are calculated from settled published picks only. Pending picks, void and cancelled picks, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of predictions BetGlitch has made, and that is deliberate.',
+
+    noAccuracy: 'No verified results yet',
+    accuracyAppears: 'Accuracy appears once the first published pick settles.',
+    noSettled: 'No settled picks yet',
+    winsLosses: 'Wins and losses are both published here as they settle.',
+    roiRestarted:
+      'Our verified pricing record restarted and fills in as matches settle.',
+    noBreakdown:
+      'No breakdown yet. Once published picks settle, accuracy is split by predicted outcome here.',
+  },
+
+  footer: {
+    tagline:
+      'Football model signals across European leagues. Selected picks are frozen before kickoff with their recorded odds and stay public after settlement — win or lose.',
+    emailSupport: 'Email BetGlitch support',
+    platform: 'Platform',
+    explore: 'Explore predictions',
+    dashboard: 'User dashboard',
+    trackRecord: 'Verified record',
+    pricing: 'Pricing',
+    resources: 'Resources',
+    howItWorks: 'How it works',
+    blog: 'Blog',
+    responsibleGambling: 'Responsible gambling',
+    about: 'About',
+    legal: 'Legal',
+    terms: 'Terms of service',
+    privacy: 'Privacy policy',
+    disclaimer: 'Disclaimer',
+    noticeTitle: 'Important legal notice',
+    noticeOperatorStrong:
+      'BetGlitch is NOT a betting operator, bookmaker, or gambling site.',
+    noticeOperatorRest: ' We do not accept bets, wagers, or deposits of any kind. Our predictions are provided for ',
+    noticeOperatorEmphasis: 'informational and entertainment purposes only',
+    noticeOperatorTail: ' and should not be considered financial or betting advice.',
+    noticeRiskLabel: 'Risk warning:',
+    noticeRiskBody:
+      ' Betting involves significant risk, including the possible loss of your entire stake. Past performance is not indicative of future results. Never bet more than you can afford to lose.',
+    noticeRegionalLabel: 'Regional notice:',
+    noticeRegionalBody:
+      ' Online gambling may be restricted or illegal in your jurisdiction. It is your responsibility to ensure compliance with local laws before engaging in any gambling activity.',
+    noticeHelp:
+      'If you or someone you know has a gambling problem, please seek help:',
+    ageNotice:
+      'This website is for adults only. You must be 18 years or older to use this service.',
+    rights: 'BetGlitch Analytics. All rights reserved.',
+    operational: 'Systems operational',
   },
 
   responsibleUse:
@@ -311,14 +414,14 @@ const RO: typeof EN = {
         title: 'Înțelege dovada publicată',
         body: 'Vezi cum diferă o revendicare publicată imutabilă de o predicție live care se schimbă.',
         cta: 'Vezi pontajele publicate',
-        href: '/track-record',
+        href: '/track-record#published-picks',
       },
       {
         id: 'record',
         title: 'Urmărește istoricul verificat',
         body: 'Analizează pontajele publicate încheiate pe măsură ce eșantionul crește.',
         cta: 'Deschide istoricul verificat',
-        href: '/track-record',
+        href: '/track-record#verified-record',
       },
     ],
   },
@@ -333,6 +436,113 @@ const RO: typeof EN = {
     manageBankroll: 'Gestionează bugetul',
     recordBuilding:
       'Istoricul verificat este în construcție. Pontajele publicate apar aici după încheiere, atât câștigurile cât și pierderile.',
+  },
+
+  auth: {
+    login: {
+      heading: 'Bine ai revenit',
+      supporting: 'Autentifică-te pentru a continua pe BetGlitch',
+      usernameLabel: 'Nume de utilizator sau email',
+      usernamePlaceholder: 'Introdu numele de utilizator',
+      passwordLabel: 'Parolă',
+      passwordPlaceholder: 'Introdu parola',
+      submit: 'Autentificare',
+      submitting: 'Se autentifică…',
+      noAccount: 'Nu ai cont?',
+      signUp: 'Înregistrează-te',
+      backHome: '← Înapoi acasă',
+    },
+    register: {
+      usernameLabel: 'Nume de utilizator',
+      usernamePlaceholder: 'Alege un nume de utilizator',
+      emailLabel: 'Email',
+      emailPlaceholder: 'adresa@ta.com',
+      passwordLabel: 'Parolă',
+      passwordPlaceholder: 'Cel puțin 8 caractere',
+      confirmLabel: 'Confirmă parola',
+      confirmPlaceholder: 'Confirmă parola',
+      haveAccount: 'Ai deja cont?',
+      signIn: 'Autentifică-te',
+      backHome: '← Înapoi acasă',
+      passwordTooShort: 'Parola trebuie să aibă cel puțin 8 caractere',
+      passwordMismatch: 'Parolele nu corespund',
+    },
+  },
+
+  record: {
+    scopeHeading: 'Ce intră în acest istoric',
+    scopeCutoff:
+      'Istoricul public verificat începe de la un prag curat de integritate a prețului. Predicțiile făcute înainte de acesta sunt păstrate intern ca moștenire și excluse din fiecare cifră de pe această pagină.',
+    scopeImmutable:
+      'Doar pontajele publicate imutabile intră în istoric — pontaje înghețate înainte de start, cu selecția, scorul modelului, cota înregistrată și casa de pariuri.',
+    scopePending:
+      'Pontajele în așteptare nu sunt numărate în performanța încheiată, iar cele anulate sau nule sunt excluse din numitorii relevanți.',
+    scopeLive:
+      'Semnalele live ale modelului afișate în altă parte a produsului nu intră niciodată în acest istoric decât dacă sunt publicate.',
+
+    publishedHeading: 'Pontaje publicate',
+    publishedBody:
+      'Fiecare pontaj pe care BetGlitch l-a înghețat înainte de start, indiferent ce a urmat. Un pontaj publicat își păstrează selecția, scorul modelului, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras.',
+    publishedStates:
+      'Un pontaj rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
+    publishedEmpty:
+      'Niciun pontaj publicat nu s-a încheiat încă, așa că aici nu este listat nimic. Pontajele publicate apar imediat ce se încheie unul — câștig sau pierdere.',
+    publishedCount: 'Pontaje publicate încheiate, listate mai jos',
+
+    verifiedHeading: 'Istoric verificat',
+    verifiedBody:
+      'Aceste cifre agregate sunt calculate exclusiv din pontaje publicate încheiate. Pontajele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de predicții făcute de BetGlitch, iar asta este intenționat.',
+
+    noAccuracy: 'Niciun rezultat verificat încă',
+    accuracyAppears:
+      'Acuratețea apare după ce se încheie primul pontaj publicat.',
+    noSettled: 'Niciun pontaj încheiat încă',
+    winsLosses:
+      'Atât câștigurile cât și pierderile sunt publicate aici pe măsură ce se încheie.',
+    roiRestarted:
+      'Istoricul nostru verificat de prețuri a fost restartat și se completează pe măsură ce meciurile se încheie.',
+    noBreakdown:
+      'Nicio defalcare încă. După ce pontajele publicate se încheie, acuratețea este împărțită aici pe rezultat prezis.',
+  },
+
+  footer: {
+    tagline:
+      'Semnale de model pentru fotbal din campionatele europene. Pontajele selectate sunt înghețate înainte de start cu cotele înregistrate și rămân publice după încheiere — câștig sau pierdere.',
+    emailSupport: 'Scrie echipei de suport BetGlitch',
+    platform: 'Platformă',
+    explore: 'Explorează predicțiile',
+    dashboard: 'Panoul utilizatorului',
+    trackRecord: 'Istoric verificat',
+    pricing: 'Prețuri',
+    resources: 'Resurse',
+    howItWorks: 'Cum funcționează',
+    blog: 'Blog',
+    responsibleGambling: 'Joc responsabil',
+    about: 'Despre',
+    legal: 'Legal',
+    terms: 'Termeni și condiții',
+    privacy: 'Politica de confidențialitate',
+    disclaimer: 'Precizări legale',
+    noticeTitle: 'Notificare legală importantă',
+    noticeOperatorStrong:
+      'BetGlitch NU este operator de pariuri, casă de pariuri sau site de jocuri de noroc.',
+    noticeOperatorRest:
+      ' Nu acceptăm pariuri, mize sau depuneri de niciun fel. Predicțiile noastre sunt oferite ',
+    noticeOperatorEmphasis: 'exclusiv în scop informativ și de divertisment',
+    noticeOperatorTail:
+      ' și nu trebuie considerate sfaturi financiare sau de pariere.',
+    noticeRiskLabel: 'Avertisment de risc:',
+    noticeRiskBody:
+      ' Pariurile implică un risc semnificativ, inclusiv pierderea întregii mize. Rezultatele din trecut nu indică rezultatele viitoare. Nu paria niciodată mai mult decât îți permiți să pierzi.',
+    noticeRegionalLabel: 'Notificare regională:',
+    noticeRegionalBody:
+      ' Jocurile de noroc online pot fi restricționate sau ilegale în jurisdicția ta. Este responsabilitatea ta să te asiguri că respecți legislația locală înainte de a participa la orice activitate de jocuri de noroc.',
+    noticeHelp:
+      'Dacă tu sau cineva cunoscut are o problemă cu jocurile de noroc, caută ajutor:',
+    ageNotice:
+      'Acest site este destinat exclusiv adulților. Trebuie să ai cel puțin 18 ani pentru a folosi acest serviciu.',
+    rights: 'BetGlitch Analytics. Toate drepturile rezervate.',
+    operational: 'Sisteme funcționale',
   },
 
   responsibleUse:
