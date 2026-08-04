@@ -65,13 +65,11 @@ const isVerified = (p: PredictionWithResult) =>
   (p.pricing_integrity_status || '') === 'verified';
 
 /** Placeholder for a price-dependent figure we will not publish. */
-function NotVerified() {
+function NotVerified({ lang }: { lang?: string }) {
+  const rec = getCopy(lang).record;
   return (
-    <span
-      className="text-sm font-medium text-gray-400"
-      title="This prediction predates BetGlitch’s verified pricing standard. Its original price snapshot is not used in public performance reporting."
-    >
-      Not verified
+    <span className="text-sm font-medium text-gray-400" title={rec.notVerifiedTitle}>
+      {rec.notVerified}
     </span>
   );
 }
@@ -677,28 +675,21 @@ export default function TrackRecordContent() {
           {legacyCount > 0 && (
             <div className="border-b border-amber-200 bg-amber-50 p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status="legacy" size="sm" />
+                <StatusBadge status="legacy" size="sm" lang={language} />
                 <h3 className="text-sm font-bold text-gray-900">
-                  Prediction log — not the verified record
+                  {rec.legacyHeading}
                 </h3>
               </div>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
                 {legacyCount === filteredPredictions.length
-                  ? `All ${legacyCount} rows below were`
-                  : `${legacyCount} of the ${filteredPredictions.length} rows below were`}{' '}
-                recorded before the pricing-integrity cutoff. They are kept
-                public because BetGlitch does not delete history, but their
-                prices could not be verified against the exact market and
-                bookmaker, so they are excluded from the accuracy and ROI
-                figures above and from every public performance claim.
+                  ? rec.legacyAll(legacyCount)
+                  : rec.legacySome(legacyCount, filteredPredictions.length)}{' '}
+                {rec.legacyBody}
               </p>
               <p className="mt-2 max-w-3xl text-sm leading-relaxed text-gray-700">
-                These predictions predate BetGlitch’s verified pricing standard.
-                Their original price snapshots are not used in public performance
-                reporting, so every price-dependent figure — expected value and
-                profit/loss — reads <strong>Not verified</strong> rather than a
-                number. The match, the selection and the actual outcome are still
-                shown, because those do not depend on the recorded price.
+                {rec.legacyDetailBefore}
+                <strong>{rec.notVerified}</strong>
+                {rec.legacyDetailAfter}
               </p>
             </div>
           )}
@@ -728,7 +719,7 @@ export default function TrackRecordContent() {
                       <div>
                         {!isVerified(pred) && (
                           <div className="mb-1">
-                            <StatusBadge status="legacy" size="sm" />
+                            <StatusBadge status="legacy" size="sm" lang={language} />
                           </div>
                         )}
                         <p className="text-sm font-medium text-gray-900">
@@ -796,12 +787,12 @@ export default function TrackRecordContent() {
                           +{pred.expected_value.toFixed(1)}%
                         </span>
                       ) : (
-                        <NotVerified />
+                        <NotVerified lang={language} />
                       )}
                     </td>
                     <td className="px-6 py-4 text-right">
                       {!isVerified(pred) ? (
-                        <NotVerified />
+                        <NotVerified lang={language} />
                       ) : pred.profit_loss !== null ? (
                         <span className={`text-sm font-bold ${pred.profit_loss >= 0 ? 'text-green-600' : 'text-red-600'
                           }`}>
@@ -832,17 +823,16 @@ export default function TrackRecordContent() {
           </div>
 
           <p className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-600 sm:px-6">
-            {MODEL_SCORE_NOTE} <strong>Not verified</strong> means the row’s
-            recorded price predates the verified pricing standard, so no
-            price-dependent figure is published for it.
+            {getCopy(language).modelScoreNote} <strong>{rec.notVerified}</strong>
+            {rec.notVerifiedMeaningBefore}
           </p>
         </div>
 
         <div className="mt-8">
           <ProofCapturePanel
             source="track_record_page"
-            title="Check the receipts, then follow along by email."
-            description="Verify every result here, then join the free list for weekly picks and updates as the verified record develops."
+            title={rec.capturePanelTitle}
+            description={rec.capturePanelBody}
           />
         </div>
 

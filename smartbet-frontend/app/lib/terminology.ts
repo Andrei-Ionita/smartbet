@@ -239,6 +239,33 @@ const EN = {
       'Our verified pricing record restarted and fills in as matches settle.',
     noBreakdown:
       'No breakdown yet. Once published picks settle, accuracy is split by predicted outcome here.',
+
+    legacyHeading: 'Prediction log — not the verified record',
+    legacyAll: (n: number) => `All ${n} rows below were`,
+    legacySome: (n: number, total: number) => `${n} of the ${total} rows below were`,
+    legacyBody:
+      'recorded before the pricing-integrity cutoff. They are kept public because BetGlitch does not delete history, but their prices could not be verified against the exact market and bookmaker, so they are excluded from the accuracy and ROI figures above and from every public performance claim.',
+    legacyDetailBefore:
+      'These predictions predate BetGlitch’s verified pricing standard. Their original price snapshots are not used in public performance reporting, so every price-dependent figure — expected value and profit/loss — reads ',
+    notVerified: 'Not verified',
+    legacyDetailAfter:
+      ' rather than a number. The match, the selection and the actual outcome are still shown, because those do not depend on the recorded price.',
+    notVerifiedTitle:
+      'This prediction predates BetGlitch’s verified pricing standard. Its original price snapshot is not used in public performance reporting.',
+    notVerifiedMeaningBefore: ' means the row’s recorded price predates the verified pricing standard, so no price-dependent figure is published for it.',
+
+    capturePanelTitle: 'Check the receipts, then follow along by email.',
+    capturePanelBody:
+      'Verify every result here, then join the free list for weekly picks and updates as the verified record develops.',
+    capturePanelEyebrow: 'Proof-led funnel',
+    capturePanelSeePublished: 'See the published picks',
+    capturePanelSeeVerified: 'See the verified record',
+    captureTitle: 'Get the weekly summary',
+    captureBody:
+      'A free weekly email covering the picks BetGlitch published and how they settled.',
+    captureDefaultTitle: 'Want the best picks before kickoff?',
+    captureDefaultBody:
+      'Join the free list for weekly high-conviction picks, verified track-record updates, and bankroll guidance.',
   },
 
   footer: {
@@ -503,6 +530,33 @@ const RO: typeof EN = {
       'Istoricul nostru verificat de prețuri a fost restartat și se completează pe măsură ce meciurile se încheie.',
     noBreakdown:
       'Nicio defalcare încă. După ce pontajele publicate se încheie, acuratețea este împărțită aici pe rezultat prezis.',
+
+    legacyHeading: 'Jurnal de predicții — nu este istoricul verificat',
+    legacyAll: (n: number) => `Toate cele ${n} rânduri de mai jos au fost`,
+    legacySome: (n: number, total: number) => `${n} din cele ${total} rânduri de mai jos au fost`,
+    legacyBody:
+      'înregistrate înainte de pragul de integritate a prețului. Sunt păstrate public pentru că BetGlitch nu șterge istoricul, dar prețurile lor nu au putut fi verificate față de piața și casa de pariuri exacte, așa că sunt excluse din cifrele de acuratețe și ROI de mai sus și din orice afirmație publică de performanță.',
+    legacyDetailBefore:
+      'Aceste predicții sunt anterioare standardului verificat de preț al BetGlitch. Capturile lor originale de preț nu sunt folosite în raportarea publică de performanță, așa că fiecare cifră dependentă de preț — valoarea estimată și profitul/pierderea — afișează ',
+    notVerified: 'Neverificat',
+    legacyDetailAfter:
+      ' în loc de un număr. Meciul, selecția și rezultatul real sunt în continuare afișate, pentru că nu depind de prețul înregistrat.',
+    notVerifiedTitle:
+      'Această predicție este anterioară standardului verificat de preț al BetGlitch. Captura originală de preț nu este folosită în raportarea publică de performanță.',
+    notVerifiedMeaningBefore: ' înseamnă că prețul înregistrat al rândului este anterior standardului verificat de preț, așa că pentru el nu se publică nicio cifră dependentă de preț.',
+
+    capturePanelTitle: 'Verifică dovezile, apoi urmărește-ne pe email.',
+    capturePanelBody:
+      'Verifică fiecare rezultat aici, apoi înscrie-te gratuit pentru pontaje săptămânale și actualizări pe măsură ce istoricul verificat se dezvoltă.',
+    capturePanelEyebrow: 'Canal bazat pe dovezi',
+    capturePanelSeePublished: 'Vezi pontajele publicate',
+    capturePanelSeeVerified: 'Vezi istoricul verificat',
+    captureTitle: 'Primește rezumatul săptămânal',
+    captureBody:
+      'Un email săptămânal gratuit despre pontajele publicate de BetGlitch și cum s-au încheiat.',
+    captureDefaultTitle: 'Vrei cele mai bune pontaje înainte de start?',
+    captureDefaultBody:
+      'Înscrie-te gratuit pentru pontaje săptămânale cu convingere ridicată, actualizări ale istoricului verificat și îndrumare pentru buget.',
   },
 
   footer: {

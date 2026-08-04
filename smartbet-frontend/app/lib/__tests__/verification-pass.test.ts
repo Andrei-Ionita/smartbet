@@ -27,24 +27,30 @@ describe('legacy rows never publish price-dependent performance', () => {
     // meaningless. It was previously rendered green with a leading '+'.
     const ev = src.slice(src.indexOf('{isVerified(pred) ? ('))
     expect(ev).toContain('expected_value')
-    expect(ev.indexOf('<NotVerified />')).toBeGreaterThan(-1)
+    // NotVerified now takes the visitor's language; the gate is unchanged.
+    expect(ev.indexOf('<NotVerified lang={language} />')).toBeGreaterThan(-1)
   })
 
   it('gates profit/loss behind isVerified', () => {
     // Line-ending agnostic: the working tree is CRLF on Windows, LF in CI.
     const flat = src.replace(/\r\n/g, '\n')
-    expect(flat).toMatch(/\{!isVerified\(pred\) \? \(\s*<NotVerified \/>/)
+    expect(flat).toMatch(/\{!isVerified\(pred\) \? \(\s*<NotVerified lang=\{language\} \/>/)
   })
 
   it('offers the exact unverified wording', () => {
-    expect(src).toContain('Not verified')
-    expect(src).toContain('predates BetGlitch’s verified pricing standard')
-    expect(src).toContain('not used in public performance reporting')
+    // The wording moved into terminology.ts so it could be translated. The
+    // contract is the wording itself, so assert it there — in both languages.
+    const en = getCopy('en').record
+    expect(src).toContain('{rec.notVerified}')
+    expect(en.notVerified).toBe('Not verified')
+    expect(en.notVerifiedTitle).toContain('predates BetGlitch’s verified pricing standard')
+    expect(en.notVerifiedTitle).toContain('not used in public performance reporting')
+    expect(getCopy('ro').record.notVerified).toBe('Neverificat')
   })
 
   it('badges every non-verified row', () => {
     expect(src).toContain('{!isVerified(pred) && (')
-    expect(src).toContain('<StatusBadge status="legacy" size="sm" />')
+    expect(src).toContain('<StatusBadge status="legacy" size="sm" lang={language} />')
   })
 })
 
