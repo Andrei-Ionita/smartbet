@@ -64,6 +64,10 @@ urlpatterns = [
     path('api/proof/<int:fixture_id>/preview/', transparency_views.proof_preview, name='proof_preview'),
     # STABLE public proof identity. A fixture may carry several claims (different
     # markets), so the claim UUID — not the fixture id — is canonical.
+    # PUBLIC list of immutable published claims. GET-only, PublishedClaim is the
+    # sole authority — the public published-picks section used to derive itself
+    # from the mutable transparency feed.
+    path('api/proof/claims/', transparency_views.published_claims_list, name='published_claims_list'),
     path('api/proof/claim/<uuid:claim_id>/', transparency_views.proof_by_claim, name='proof_by_claim'),
     # Staff-only publication queue: publishable verified snapshots.
     path('api/proof/queue/', transparency_views.publication_queue, name='publication_queue'),

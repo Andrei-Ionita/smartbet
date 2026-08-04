@@ -78,7 +78,11 @@ describe('track-record carries both anchor targets', () => {
   })
 
   it('never counts a pending pick as a settled result', () => {
-    expect(src).toContain('const publishedPicks = predictions.filter(isVerified)')
+    // Superseded source: the list used to be derived with
+    // `predictions.filter(isVerified)`. It now comes from the claims endpoint,
+    // which marks each row's own eligibility.
+    expect(src).not.toContain('const publishedPicks = predictions.filter(isVerified)')
+    expect(src).toContain('claim.counts_towards_verified_record')
     expect(getCopy('en').record.publishedStates).toMatch(/pending is not a result/i)
     expect(getCopy('ro').record.publishedStates).toMatch(/nu este un rezultat/i)
   })
@@ -274,5 +278,87 @@ describe('logout leaves the onboarding dismissal alone', () => {
 
   it('marks onboarding pending on registration only', () => {
     expect(src.match(/markOnboardingPending\(\)/g) ?? []).toHaveLength(1)
+  })
+})
+
+describe('#published-picks reads immutable claims, never the prediction feed', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('fetches the published-claims endpoint', () => {
+    expect(src).toContain('/api/proof/claims/')
+    expect(src).toContain('setClaims(data.claims as PublishedClaimRow[])')
+  })
+
+  it('renders the section from the claims feed, not from predictions', () => {
+    // The old implementation derived the list with
+    // `predictions.filter(isVerified)`, which could show a prediction that was
+    // never published and omit a claim that was.
+    expect(src).not.toContain('predictions.filter(isVerified)')
+    expect(src).toContain('{claims.map((claim) => (')
+    expect(src).toContain('key={claim.claim_id}')
+  })
+
+  it('never falls back to predictions when the endpoint fails', () => {
+    const loader = src
+      .slice(src.indexOf('const loadClaims'), src.indexOf('const loadData'))
+      // A comment may legitimately name the feed the code must not use.
+      .replace(/\/\/[^\r\n]*/g, '')
+    expect(loader).toContain('setClaims(null)')
+    expect(loader).toContain('setClaimsError(true)')
+    expect(loader).not.toContain('setPredictions')
+    expect(loader).not.toContain('predictions.filter')
+    expect(loader).not.toContain('transparency/recent')
+  })
+
+  it('distinguishes loading, empty and error as three separate states', () => {
+    expect(src).toContain('{rec.publishedLoading}')
+    expect(src).toContain('{rec.publishedEmpty}')
+    expect(src).toContain('{rec.publishedError}')
+    expect(src).toContain("role=\"alert\"")
+    expect(src).toContain("role=\"status\"")
+  })
+
+  it('links each claim to its own proof page without hardcoding one', () => {
+    expect(src).toContain('href={claim.proof_url}')
+    expect(src).not.toMatch(UUID)
+  })
+
+  it('states per row whether it counts towards the verified record', () => {
+    expect(src).toContain('claim.counts_towards_verified_record')
+    expect(src).toContain('rec.publishedCountedIn')
+    expect(src).toContain('rec.publishedNotCounted')
+  })
+
+  it('derives the badge from the recorded claim state', () => {
+    expect(src).toContain('statusFromClaim(')
+    expect(src).toContain('claim.claim_state')
+    expect(src).toContain('claim.result?.status ?? null')
+  })
+
+  it('keeps the verified-record aggregate on the settled-only stats source', () => {
+    // The aggregate still comes from the transparency dashboard, which counts
+    // settled results only — pending claims cannot reach it.
+    expect(src).toContain('/api/transparency/dashboard/')
+    const verified = src.slice(src.indexOf('id="verified-record"'))
+    expect(verified).not.toContain('claims.length')
+  })
+
+  it('translates every published-claims state in both languages', () => {
+    for (const key of [
+      'publishedLoading', 'publishedError', 'publishedRetry', 'publishedProofLink',
+      'publishedOddsLabel', 'publishedAtLabel', 'publishedNotCounted',
+      'publishedCountedIn',
+    ] as const) {
+      const en = getCopy('en').record[key]
+      const ro = getCopy('ro').record[key]
+      expect(en.length, `en ${key}`).toBeGreaterThan(0)
+      expect(ro.length, `ro ${key}`).toBeGreaterThan(0)
+      expect(ro, `${key} is still English`).not.toBe(en)
+    }
+  })
+
+  it('introduces no payment surface', () => {
+    expect(src).not.toMatch(/\/api\/checkout/)
+    expect(src).not.toMatch(/upgradeToPro/)
   })
 })

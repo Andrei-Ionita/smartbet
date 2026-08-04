@@ -9,12 +9,15 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
+import logging
 import os
 from datetime import timedelta
 
 from core.models import PredictionLog, PublishedClaim
 from core.services.accuracy_calculator import AccuracyCalculator
 from core.services import claim_publication, public_universe
+
+logger = logging.getLogger(__name__)
 
 
 @csrf_exempt
@@ -414,6 +417,131 @@ def proof_card_data(request, fixture_id):
         }, status=200)
 
     return JsonResponse(_serialize_claim(claim))
+
+
+def _serialize_claim_row(claim):
+    """One row of the public published-claims list.
+
+    Reads ONLY frozen PublishedClaim fields plus the separate, insert-only
+    PublishedClaimResult. It must never reach into PredictionLog: that row is
+    rewritten on every pipeline run, so serving any of it here would put a
+    mutable value inside a list the product presents as immutable.
+
+    Deliberately narrower than `_serialize_claim`: no staff preview data, no
+    correction_reason free text, no raw provenance blob — only what the public
+    published-picks section renders.
+    """
+    prov = claim.odds_provenance or {}
+    conf = claim.confidence or 0.0
+    settlement = getattr(claim, 'result', None)
+
+    result = None
+    if settlement is not None:
+        result = {
+            'status': settlement.status,
+            'settled_at': settlement.settled_at.isoformat(),
+            'actual_score_home': settlement.actual_score_home,
+            'actual_score_away': settlement.actual_score_away,
+            'result_source': settlement.result_source,
+        }
+
+    integrity_ok = claim.verify_integrity()
+    return {
+        'claim_id': str(claim.claim_id),
+        'fixture_id': claim.fixture_id,
+        'home_team': claim.home_team,
+        'away_team': claim.away_team,
+        'league': claim.league,
+        'kickoff': claim.kickoff.isoformat(),
+        'market_type': claim.market_type,
+        'predicted_outcome': claim.predicted_outcome,
+        # A provider-derived model score, NOT a calibrated probability.
+        'model_score_percent': round(conf * 100, 1) if conf <= 1 else round(conf, 1),
+        'odds': claim.odds,
+        'bookmaker': prov.get('odds_bookmaker_name'),
+        'odds_captured_at': (
+            claim.odds_captured_at.isoformat() if claim.odds_captured_at else None
+        ),
+        'published_at': claim.published_at.isoformat(),
+        # PENDING until a settlement row exists. Derived from the recorded
+        # result, never from the mutable prediction's outcome fields.
+        'claim_state': settlement.status if settlement else PublishedClaim.STATUS_PENDING,
+        'pricing_integrity_status': claim.pricing_integrity_status,
+        'claim_hash': claim.claim_hash,
+        'claim_hash_version': claim.claim_hash_version,
+        'integrity_ok': integrity_ok,
+        'superseded': claim.is_superseded,
+        'supersedes': str(claim.supersedes_id) if claim.supersedes_id else None,
+        'is_correction': claim.supersedes_id is not None,
+        'proof_url': f'/proof/claim/{claim.claim_id}',
+        'result': result,
+        # Only a settled row counts towards public performance. Stated per row
+        # so a consumer cannot infer it from presence in the list.
+        'counts_towards_verified_record': bool(settlement) and integrity_ok,
+    }
+
+
+# A page big enough that the current record fits in one request, small enough
+# that a crawler cannot ask for the whole table at once.
+CLAIMS_PAGE_DEFAULT = 50
+CLAIMS_PAGE_MAX = 200
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def published_claims_list(request):
+    """
+    GET /api/proof/claims/ — the PUBLIC list of immutable published claims.
+
+    PublishedClaim (+ its separate PublishedClaimResult) is the sole authority.
+    There is deliberately no fallback to PredictionLog, PredictionSnapshot, the
+    transparency prediction feed or live recommendations: the public
+    published-picks surface previously derived itself from the transparency
+    feed, which could show predictions that were never published and omit
+    claims that were.
+
+    Nothing is filtered out by outcome. Losses, voids, cancellations and
+    corrections stay visible — a record that quietly drops its losses is not a
+    record. Ordering is deterministic: newest publication first, claim_id
+    breaking ties so pagination can never repeat or skip a row.
+
+    Pagination: ?limit= (default 50, max 200) and ?offset=.
+    """
+    try:
+        try:
+            limit = int(request.GET.get('limit', CLAIMS_PAGE_DEFAULT))
+            offset = int(request.GET.get('offset', 0))
+        except (TypeError, ValueError):
+            return Response(
+                {'success': False, 'error': 'limit and offset must be integers'},
+                status=400,
+            )
+        limit = max(1, min(limit, CLAIMS_PAGE_MAX))
+        offset = max(0, offset)
+
+        qs = (
+            PublishedClaim.objects
+            .select_related('result')
+            .order_by('-published_at', 'claim_id')
+        )
+        total = qs.count()
+        rows = [_serialize_claim_row(c) for c in qs[offset:offset + limit]]
+
+        return Response({
+            'success': True,
+            'count': total,
+            'limit': limit,
+            'offset': offset,
+            'claims': rows,
+        })
+    except Exception:
+        # Controlled failure: a stack trace here would leak model and path
+        # detail on a public endpoint.
+        logger.exception('published_claims_list failed')
+        return Response(
+            {'success': False, 'error': 'Published claims are temporarily unavailable.'},
+            status=503,
+        )
 
 
 @api_view(['GET'])

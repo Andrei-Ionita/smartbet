@@ -34,6 +34,42 @@ interface PredictionWithResult {
   pricing_integrity_status?: string | null;
 }
 
+/** One immutable published claim, straight from /api/proof/claims/.
+ *  Mirrors the endpoint's contract exactly — there is no derivation from any
+ *  mutable prediction on this path. */
+interface PublishedClaimRow {
+  claim_id: string;
+  fixture_id: number;
+  home_team: string;
+  away_team: string;
+  league: string;
+  kickoff: string;
+  market_type: string;
+  predicted_outcome: string;
+  model_score_percent: number;
+  odds: number;
+  bookmaker: string | null;
+  odds_captured_at: string | null;
+  published_at: string;
+  claim_state: 'PENDING' | 'WON' | 'LOST' | 'VOID' | 'CANCELLED';
+  pricing_integrity_status: string;
+  claim_hash: string;
+  claim_hash_version: string;
+  integrity_ok: boolean;
+  superseded: boolean;
+  supersedes: string | null;
+  is_correction: boolean;
+  proof_url: string;
+  result: {
+    status: string;
+    settled_at: string;
+    actual_score_home: number | null;
+    actual_score_away: number | null;
+    result_source: string;
+  } | null;
+  counts_towards_verified_record: boolean;
+}
+
 interface AccuracyStats {
   overall: {
     total_predictions: number;
@@ -87,6 +123,12 @@ export default function TrackRecordContent() {
   const [filterOutcome, setFilterOutcome] = useState('all');
   const [showFilters, setShowFilters] = useState(true);
   const [leagues, setLeagues] = useState<string[]>([]);
+  // Published claims are fetched SEPARATELY from the prediction feed, and are
+  // never derived from it. The section below previously read the transparency
+  // predictions, which could show a prediction that was never published and
+  // omit a claim that was — inverting the distinction the page exists to make.
+  const [claims, setClaims] = useState<PublishedClaimRow[] | null>(null);
+  const [claimsError, setClaimsError] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -149,6 +191,26 @@ export default function TrackRecordContent() {
       window.removeEventListener('keydown', onUserScroll);
     };
   }, [loading]);
+
+  const loadClaims = async () => {
+    setClaimsError(false);
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/proof/claims/?limit=200`);
+      const data = await response.json();
+      if (!response.ok || !data.success) throw new Error('claims unavailable');
+      setClaims(data.claims as PublishedClaimRow[]);
+    } catch {
+      // An error state, never a fallback. Showing predictions here would put
+      // mutable rows under a heading that promises immutable ones.
+      setClaims(null);
+      setClaimsError(true);
+    }
+  };
+
+  useEffect(() => {
+    loadClaims();
+  }, []);
 
   const loadData = async () => {
     try {
@@ -248,13 +310,6 @@ export default function TrackRecordContent() {
   // shown, but they are NOT the verified record and must not read as it.
   const legacyCount = filteredPredictions.filter((p) => !isVerified(p)).length;
 
-  // Published picks are the verified-provenance rows, listed whatever their
-  // outcome — that is the point of publishing. Read off the full prediction
-  // set rather than the filtered table, so a league or date filter chosen
-  // further down the page cannot quietly shrink what claims to be the
-  // complete published set.
-  const publishedPicks = predictions.filter(isVerified);
-
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
@@ -340,38 +395,87 @@ export default function TrackRecordContent() {
             {rec.publishedStates}
           </p>
 
-          {publishedPicks.length === 0 ? (
+          {claimsError ? (
+            <div
+              role="alert"
+              className="mt-5 rounded-xl border border-amber-300 bg-amber-50 p-4"
+            >
+              <p className="text-sm leading-relaxed text-gray-700">
+                {rec.publishedError}
+              </p>
+              <button
+                type="button"
+                onClick={loadClaims}
+                className="mt-3 inline-flex min-h-[44px] items-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+              >
+                {rec.publishedRetry}
+              </button>
+            </div>
+          ) : claims === null ? (
+            <p
+              role="status"
+              className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm text-gray-600"
+            >
+              {rec.publishedLoading}
+            </p>
+          ) : claims.length === 0 ? (
             <p className="mt-5 rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-relaxed text-gray-600">
               {rec.publishedEmpty}
             </p>
           ) : (
             <>
               <p className="mt-5 text-xs font-semibold uppercase tracking-widest text-gray-500">
-                {rec.publishedCount}: {publishedPicks.length}
+                {rec.publishedCount}: {claims.length}
               </p>
               <ul className="mt-3 divide-y divide-gray-200 border-t border-gray-200">
-                {publishedPicks.map((pick) => (
-                  <li
-                    key={`${pick.fixture_id}-${pick.predicted_outcome}`}
-                    className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3"
-                  >
-                    <StatusBadge
-                      status={statusFromClaim(
-                        pick.pricing_integrity_status,
-                        pick.actual_outcome,
+                {claims.map((claim) => (
+                  <li key={claim.claim_id} className="py-4">
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+                      <StatusBadge
+                        status={statusFromClaim(
+                          claim.claim_state,
+                          claim.result?.status ?? null,
+                        )}
+                        size="sm"
+                        lang={language}
+                      />
+                      <span className="text-sm font-semibold text-gray-900">
+                        {claim.home_team} v {claim.away_team}
+                      </span>
+                      <span className="text-sm text-gray-600">
+                        {claim.market_type} / {claim.predicted_outcome}
+                      </span>
+                      <a
+                        href={claim.proof_url}
+                        className="ml-auto inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-700 hover:text-blue-900"
+                      >
+                        {rec.publishedProofLink}
+                      </a>
+                    </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-600">
+                      <span>
+                        {rec.publishedOddsLabel}: <strong>{claim.odds}</strong>
+                        {claim.bookmaker ? ` (${claim.bookmaker})` : ''}
+                      </span>
+                      <span>
+                        {rec.publishedAtLabel}: {formatDate(claim.published_at)}
+                      </span>
+                      {claim.result && (
+                        <span>
+                          {claim.result.actual_score_home !== null &&
+                          claim.result.actual_score_away !== null
+                            ? `${claim.result.actual_score_home}–${claim.result.actual_score_away}`
+                            : ''}
+                        </span>
                       )}
-                      size="sm"
-                      lang={language}
-                    />
-                    <span className="text-sm font-semibold text-gray-900">
-                      {pick.home_team} v {pick.away_team}
-                    </span>
-                    <span className="text-sm text-gray-600">
-                      {pick.predicted_outcome}
-                    </span>
-                    <span className="ml-auto text-sm text-gray-600">
-                      {formatDate(pick.kickoff)}
-                    </span>
+                    </div>
+                    {/* Stated per row: presence in this list is not inclusion
+                        in the verified record. */}
+                    <p className="mt-1 text-xs text-gray-500">
+                      {claim.counts_towards_verified_record
+                        ? rec.publishedCountedIn
+                        : rec.publishedNotCounted}
+                    </p>
                   </li>
                 ))}
               </ul>

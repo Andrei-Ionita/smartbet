@@ -225,7 +225,16 @@ const EN = {
       'A pick stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
     publishedEmpty:
       'No published pick has settled yet, so nothing is listed here. Published picks appear as soon as one does — win or lose.',
-    publishedCount: 'Settled published picks listed below',
+    publishedCount: 'Published picks on record',
+    publishedLoading: 'Loading published picks…',
+    publishedError:
+      'Published picks could not be loaded. Nothing is wrong with the record itself — this is a display problem and no claim has changed. Reload in a moment.',
+    publishedRetry: 'Try again',
+    publishedProofLink: 'View proof',
+    publishedOddsLabel: 'Recorded odds',
+    publishedAtLabel: 'Published',
+    publishedNotCounted: 'Not counted in verified performance until it settles',
+    publishedCountedIn: 'Counted in the verified record',
 
     verifiedHeading: 'Verified record',
     verifiedBody:
@@ -514,7 +523,17 @@ const RO: typeof EN = {
       'Un pontaj rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
     publishedEmpty:
       'Niciun pontaj publicat nu s-a încheiat încă, așa că aici nu este listat nimic. Pontajele publicate apar imediat ce se încheie unul — câștig sau pierdere.',
-    publishedCount: 'Pontaje publicate încheiate, listate mai jos',
+    publishedCount: 'Pontaje publicate înregistrate',
+    publishedLoading: 'Se încarcă pontajele publicate…',
+    publishedError:
+      'Pontajele publicate nu au putut fi încărcate. Istoricul în sine este intact — este o problemă de afișare și niciun pontaj nu s-a modificat. Reîncarcă peste puțin timp.',
+    publishedRetry: 'Încearcă din nou',
+    publishedProofLink: 'Vezi dovada',
+    publishedOddsLabel: 'Cotă înregistrată',
+    publishedAtLabel: 'Publicat',
+    publishedNotCounted:
+      'Nu este numărat în performanța verificată până la încheiere',
+    publishedCountedIn: 'Numărat în istoricul verificat',
 
     verifiedHeading: 'Istoric verificat',
     verifiedBody:
