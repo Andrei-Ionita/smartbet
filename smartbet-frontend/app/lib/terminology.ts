@@ -173,7 +173,7 @@ const EN = {
     title: 'Your dashboard',
     manageBankroll: 'Manage bankroll',
     recordBuilding:
-      'The verified record is being built. Published picks will appear here after settlement, including both wins and losses.',
+      'The verified record is being built. Settled published picks will appear here, including both wins and losses.',
   },
 
   auth: {
@@ -471,7 +471,7 @@ const RO: typeof EN = {
     title: 'Panoul tău',
     manageBankroll: 'Gestionează bugetul',
     recordBuilding:
-      'Istoricul verificat este în construcție. Pontajele publicate apar aici după încheiere, atât câștigurile cât și pierderile.',
+      'Istoricul verificat este în construcție. Pontajele publicate și încheiate vor apărea aici, inclusiv câștigurile și pierderile.',
   },
 
   auth: {
