@@ -94,6 +94,36 @@ export default function TrackRecordContent() {
     loadData();
   }, [filterStatus]);
 
+  // Deep links to #published-picks / #verified-record arrive before this page
+  // has any content: the data is fetched client-side, so at the moment the
+  // browser resolves the hash the target element does not exist yet and it
+  // silently stays at the top. Re-run the jump once loading finishes, and
+  // again on later hash changes so back/forward between the two sections
+  // works rather than only the first arrival.
+  useEffect(() => {
+    if (loading) return;
+
+    const jumpToHash = () => {
+      const id = decodeURIComponent(window.location.hash.replace('#', ''));
+      if (!id) return;
+      const target = document.getElementById(id);
+      if (!target) return;
+      target.scrollIntoView({ block: 'start' });
+      // Sighted users get the scroll; keyboard and screen-reader users need
+      // the focus ring to move too, or the next Tab continues from the top.
+      target.setAttribute('tabindex', '-1');
+      target.focus({ preventScroll: true });
+    };
+
+    // One frame, so layout has settled before we measure the offset.
+    const frame = requestAnimationFrame(jumpToHash);
+    window.addEventListener('hashchange', jumpToHash);
+    return () => {
+      cancelAnimationFrame(frame);
+      window.removeEventListener('hashchange', jumpToHash);
+    };
+  }, [loading]);
+
   const loadData = async () => {
     try {
       setLoading(true);

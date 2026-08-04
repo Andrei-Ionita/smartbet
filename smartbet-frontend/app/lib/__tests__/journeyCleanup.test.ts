@@ -93,6 +93,23 @@ describe('track-record carries both anchor targets', () => {
     expect(getCopy('en').record.publishedEmpty).toMatch(/no published pick has settled yet/i)
   })
 
+  it('jumps to the anchor after the client-side data has loaded', () => {
+    // The page fetches its content client-side, so at the moment the browser
+    // resolves the hash the target does not exist yet and the jump is lost.
+    expect(src).toContain("window.addEventListener('hashchange', jumpToHash)")
+    expect(src).toContain('requestAnimationFrame(jumpToHash)')
+    expect(src).toContain('target.scrollIntoView')
+  })
+
+  it('moves focus to the section, not just the scroll position', () => {
+    expect(src).toContain("target.setAttribute('tabindex', '-1')")
+    expect(src).toContain('target.focus({ preventScroll: true })')
+  })
+
+  it('cleans up the hash listener', () => {
+    expect(src).toContain("window.removeEventListener('hashchange', jumpToHash)")
+  })
+
   it('leaves no dangling anchor reference elsewhere in the app', () => {
     expect(read('app/components/EmptyState.tsx')).not.toContain('/track-record#pending')
   })
