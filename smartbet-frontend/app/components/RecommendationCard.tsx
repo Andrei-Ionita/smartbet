@@ -113,15 +113,23 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       }
     }
 
-    // Confidence-based reason
+    // Signal-strength reason.
+    //
+    // This used to claim "all AI models agree" / "Majority agreement across AI
+    // models". There is no ensemble and no agreement to report: every market
+    // takes its value from ONE provider model (SportMonks type_id 237/231/235/
+    // 239). The 2026-08-04 calibration audit also established that this number
+    // is not a calibrated probability — it is a provider value multiplied by a
+    // form heuristic — so it is described as a relative signal score, which is
+    // what it is.
     if (confidence >= 70) {
       reasons.push(language === 'ro'
-        ? 'Încredere ridicată: toate modelele AI sunt de acord'
-        : 'High confidence: all AI models agree')
+        ? 'Scor de semnal ridicat față de celelalte rezultate'
+        : 'High signal score relative to the other outcomes')
     } else if (confidence >= 60) {
       reasons.push(language === 'ro'
-        ? 'Acord majoritar între modele AI'
-        : 'Majority agreement across AI models')
+        ? 'Scor de semnal moderat față de celelalte rezultate'
+        : 'Moderate signal score relative to the other outcomes')
     }
 
     // Value-based reason

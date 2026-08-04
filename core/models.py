@@ -1447,3 +1447,152 @@ class IngestRequest(models.Model):
 
     def __str__(self):
         return f"{self.request_id} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
+
+
+class SignalObservation(models.Model):
+    """An APPEND-ONLY record of one provider outcome, exactly as observed.
+
+    WHY THIS EXISTS
+    ---------------
+    The 2026-08-04 calibration audit could not answer its own question. Three
+    gaps caused that, and this model closes all three:
+
+      1. Only the SELECTED side of a market was ever stored. A calibration set
+         needs the losing side too — you cannot measure whether "Over 2.5 at
+         0.62" is honest without the rows where Under was chosen.
+      2. The raw provider probability was computed, sent over the wire and
+         thrown away. Only `confidence` survived, which is
+         `provider_probability * form_multiplier` capped at 0.95 — a heuristic
+         blend, not a probability, and irreversible once stored.
+      3. Only markets that won the ranking were persisted, so BTTS ended with
+         14 settled rows and double chance with none. Selection bias by
+         construction.
+
+    Every supported fixture-market-outcome candidate is written here BEFORE any
+    ranking, with the raw vector intact and the BetGlitch transformation stored
+    separately alongside it. Nothing here is public and nothing here feeds the
+    verified record; it is evidence for a model BetGlitch does not yet own.
+
+    INSERT-ONLY. `save()` refuses updates for the same reason PublishedClaim
+    does: an invariant enforced structurally cannot be forgotten later.
+    """
+    observation_id = models.UUIDField(primary_key=True, editable=False)
+
+    # ── identity of the observation ──────────────────────────────────────────
+    ingestion_run_id = models.CharField(max_length=64, db_index=True)
+    # sha256 over the provider payload for this fixture-market-outcome. Two
+    # replays of one payload produce one row, so a scheduler retry cannot
+    # inflate the evidence count.
+    source_payload_hash = models.CharField(max_length=64, unique=True)
+
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100, blank=True, default='')
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField(db_index=True)
+
+    observed_at = models.DateTimeField(db_index=True)
+    hours_to_kickoff = models.FloatField(
+        help_text='kickoff - observed_at, in hours. Negative means post-kickoff '
+                  'and the row must be excluded from decision evaluation.',
+    )
+
+    # ── the market and the ONE outcome this row describes ────────────────────
+    market = models.CharField(max_length=24, db_index=True)
+    outcome = models.CharField(max_length=24)
+
+    # ── raw provider values, never overwritten by anything BetGlitch computes ─
+    provider = models.CharField(max_length=32, default='sportmonks')
+    provider_type_id = models.IntegerField(null=True, blank=True)
+    provider_model_version = models.CharField(max_length=64, blank=True, default='')
+    provider_predicted_at = models.DateTimeField(null=True, blank=True)
+    raw_probability = models.FloatField(
+        help_text='Provider value for THIS outcome, exactly as supplied.',
+    )
+    normalized_probability = models.FloatField(
+        help_text='raw/100 when the provider supplies percentages, else raw. '
+                  'No BetGlitch heuristic is applied here.',
+    )
+    # The COMPLETE vector this outcome came from, outcome name -> normalized
+    # value. Kept whole so a missing side can never be inferred as 1-p.
+    raw_vector = models.JSONField()
+    vector_sum = models.FloatField(
+        help_text='Sum of the normalized vector. Stored rather than assumed: a '
+                  'vector that does not sum to 1 must not be treated as a '
+                  'probability distribution.',
+    )
+    vector_complete = models.BooleanField(
+        default=False,
+        help_text='True only when every outcome the market requires is present.',
+    )
+
+    # ── BetGlitch transformation, stored SEPARATELY from the raw values ──────
+    is_selected_outcome = models.BooleanField(
+        default=False, help_text='Did the live pipeline pick this side?',
+    )
+    probability_gap = models.FloatField(null=True, blank=True)
+    form_multiplier = models.FloatField(null=True, blank=True)
+    form_inputs = models.JSONField(
+        null=True, blank=True,
+        help_text='Everything that produced form_multiplier, so the heuristic '
+                  'can be re-derived or reversed later.',
+    )
+    adjusted_score = models.FloatField(
+        null=True, blank=True,
+        help_text='min(normalized_probability * form_multiplier, cap). NOT a '
+                  'calibrated probability — see the class docstring.',
+    )
+    cap_applied = models.BooleanField(default=False)
+    market_score = models.FloatField(
+        null=True, blank=True, help_text='Ranking score. Dimensionless.',
+    )
+    ranking_ev = models.FloatField(null=True, blank=True)
+    is_best_market = models.BooleanField(default=False)
+    selection_reason = models.CharField(max_length=120, blank=True, default='')
+    pipeline_version = models.CharField(max_length=80, blank=True, default='')
+    calculation_version = models.CharField(
+        max_length=80, blank=True, default='',
+        help_text='Frontend build/commit identifier for the code that produced '
+                  'these numbers.',
+    )
+
+    # ── canonical price for THIS outcome ─────────────────────────────────────
+    price_status = models.CharField(max_length=24, blank=True, default='')
+    odds = models.FloatField(null=True, blank=True)
+    bookmaker = models.CharField(max_length=64, blank=True, default='')
+    odds_captured_at = models.DateTimeField(null=True, blank=True)
+    odds_provenance = models.JSONField(null=True, blank=True)
+    provenance_complete = models.BooleanField(default=False)
+    market_price_vector = models.JSONField(
+        null=True, blank=True,
+        help_text='Every outcome price for this market, so a de-vigged '
+                  'baseline can be computed. A baseline from the selected '
+                  'outcome alone is not a baseline.',
+    )
+    price_vector_complete = models.BooleanField(default=False)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Signal Observation'
+        ordering = ['-observed_at']
+        indexes = [
+            models.Index(fields=['fixture_id', 'market', 'outcome']),
+            models.Index(fields=['-observed_at']),
+            models.Index(fields=['kickoff']),
+            models.Index(fields=['ingestion_run_id']),
+        ]
+
+    def __str__(self):
+        return (f'{self.fixture_id} {self.market}/{self.outcome} '
+                f'@{self.hours_to_kickoff:.1f}h')
+
+    def save(self, *args, **kwargs):
+        """Insert-only. A later probability or price appends a new row."""
+        if not self._state.adding:
+            raise ValueError(
+                'SignalObservation is append-only — evidence is never revised. '
+                'Record a new observation instead.'
+            )
+        super().save(*args, **kwargs)

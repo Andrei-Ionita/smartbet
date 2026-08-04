@@ -105,6 +105,11 @@ class Command(BaseCommand):
         # every published claim stays PENDING forever.
         self.run_task('settle_published_claims')
 
+        # Task 5: Append provider signal evidence. Deliberately LAST and fully
+        # isolated — it writes only SignalObservation rows, publishes nothing,
+        # and a failure here must never cost us a settlement.
+        self.run_task('capture_signal_evidence')
+
     def run_task(self, command_name, **kwargs):
         """Helper to run a single management command.
 

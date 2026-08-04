@@ -225,7 +225,7 @@ export default function AboutPage() {
             </span>
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary-600" />
-              <strong className="text-gray-900">3</strong> AI models
+              <strong className="text-gray-900">1</strong> data provider
             </span>
             <span className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-primary-600" />

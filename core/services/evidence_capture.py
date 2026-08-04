@@ -1,0 +1,180 @@
+"""
+Append-only capture of provider signal evidence.
+
+Reads the internal evidence feed (server-to-server, shared secret) and writes
+one SignalObservation per fixture-market-outcome candidate. It performs no
+ranking, publishes nothing, and never touches PredictionLog, PredictionSnapshot
+or PublishedClaim.
+
+Idempotency is content-derived, exactly like the prediction run id: the hash
+covers the provider values and the price for that one candidate, so replaying a
+payload inserts nothing. A genuinely new observation — a moved price, a fresh
+provider value, a later capture time — hashes differently and appends.
+"""
+import logging
+import os
+import uuid
+
+import requests
+from django.utils import timezone
+
+from core.models import SignalObservation
+from core.services.integrity import canonical_sha256, norm_dt, norm_num
+
+logger = logging.getLogger(__name__)
+
+REQUEST_TIMEOUT = 60
+
+
+def _as_aware(value):
+    if not value:
+        return None
+    parsed = value
+    if isinstance(value, str):
+        from django.utils.dateparse import parse_datetime
+        parsed = parse_datetime(value.replace(' ', 'T')) if 'T' not in value \
+            else parse_datetime(value)
+        if parsed is None:
+            return None
+    if timezone.is_naive(parsed):
+        from datetime import timezone as dt_timezone
+        parsed = timezone.make_aware(parsed, dt_timezone.utc)
+    return parsed
+
+
+def observation_hash(candidate):
+    """Deterministic identity for one observed candidate.
+
+    Covers the provider values and the price VALUE. Deliberately excludes both
+    `observed_at` and `odds_captured_at`:
+
+      * `observed_at` would make every retry look new.
+      * `odds_captured_at` advances whenever the provider re-stamps an
+        unchanged quote. Including it is what makes PredictionSnapshot append
+        four rows an hour for fixtures whose prices never moved — at ~10
+        candidates per fixture across four markets, the same mistake here would
+        write tens of thousands of near-identical rows a day.
+
+    What remains is the semantics we actually want: a row appears when the
+    probability or the price genuinely CHANGES, which is exactly the signal
+    closing-line value is measured from.
+    """
+    return canonical_sha256({
+        'v': 1,
+        'fixture_id': candidate.get('fixture_id'),
+        'market': candidate.get('market'),
+        'outcome': candidate.get('outcome'),
+        'provider': candidate.get('provider'),
+        'provider_type_id': candidate.get('provider_type_id'),
+        'raw_probability': norm_num(candidate.get('raw_probability')),
+        'normalized_probability': norm_num(candidate.get('normalized_probability')),
+        'vector': {k: norm_num(v) for k, v in (candidate.get('raw_vector') or {}).items()},
+        'odds': norm_num(candidate.get('odds')),
+        'price_status': candidate.get('price_status'),
+    })
+
+
+def fetch_evidence(base_url=None, secret=None, days=5):
+    """GET the internal feed. Fails closed when the secret is absent."""
+    base_url = base_url or os.environ.get(
+        'FRONTEND_URL', 'https://www.betglitch.com'
+    ).rstrip('/')
+    secret = secret if secret is not None else os.environ.get('INTERNAL_API_SECRET', '')
+    if not secret:
+        raise RuntimeError(
+            'INTERNAL_API_SECRET is not set — refusing to call the evidence feed '
+            'unauthenticated.'
+        )
+
+    response = requests.get(
+        f'{base_url}/api/internal/evidence?days={days}',
+        headers={'X-Internal-Auth': secret},
+        timeout=REQUEST_TIMEOUT,
+    )
+    response.raise_for_status()
+    payload = response.json()
+    if not payload.get('success'):
+        raise RuntimeError(f"evidence feed returned failure: {payload.get('error')}")
+    return payload
+
+
+def capture(payload, ingestion_run_id=None):
+    """Append observations. Returns a summary dict. Never updates a row."""
+    candidates = payload.get('candidates') or []
+    run_id = ingestion_run_id or canonical_sha256({
+        'observed_at': payload.get('observed_at'),
+        'count': len(candidates),
+    })[:32]
+
+    written = skipped = invalid = 0
+    post_kickoff = 0
+
+    for candidate in candidates:
+        kickoff = _as_aware(candidate.get('kickoff'))
+        observed_at = _as_aware(candidate.get('observed_at')) or timezone.now()
+        if kickoff is None or candidate.get('normalized_probability') is None:
+            invalid += 1
+            continue
+
+        hours = (kickoff - observed_at).total_seconds() / 3600.0
+        if hours < 0:
+            # Still recorded — the row is evidence that the sweep ran — but the
+            # negative horizon is what excludes it from decision evaluation.
+            post_kickoff += 1
+
+        digest = observation_hash(candidate)
+        if SignalObservation.objects.filter(source_payload_hash=digest).exists():
+            skipped += 1
+            continue
+
+        vector = candidate.get('raw_vector') or {}
+        try:
+            SignalObservation.objects.create(
+                observation_id=uuid.uuid4(),
+                ingestion_run_id=run_id,
+                source_payload_hash=digest,
+                fixture_id=candidate['fixture_id'],
+                home_team=candidate.get('home_team', '')[:100],
+                away_team=candidate.get('away_team', '')[:100],
+                league=(candidate.get('league') or '')[:100],
+                league_id=candidate.get('league_id'),
+                kickoff=kickoff,
+                observed_at=observed_at,
+                hours_to_kickoff=hours,
+                market=candidate['market'],
+                outcome=candidate['outcome'],
+                provider=candidate.get('provider', 'sportmonks'),
+                provider_type_id=candidate.get('provider_type_id'),
+                provider_model_version=(candidate.get('provider_model_version') or '')[:64],
+                provider_predicted_at=_as_aware(candidate.get('provider_predicted_at')),
+                raw_probability=candidate.get('raw_probability') or 0.0,
+                normalized_probability=candidate['normalized_probability'],
+                raw_vector=vector,
+                vector_sum=candidate.get('vector_sum') or sum(vector.values()),
+                vector_complete=bool(candidate.get('vector_complete')),
+                price_status=(candidate.get('price_status') or '')[:24],
+                odds=candidate.get('odds'),
+                bookmaker=(candidate.get('bookmaker') or '')[:64],
+                odds_captured_at=_as_aware(candidate.get('odds_captured_at')),
+                odds_provenance=candidate.get('odds_provenance'),
+                provenance_complete=bool(candidate.get('odds_provenance')),
+                market_price_vector=candidate.get('market_price_vector'),
+                price_vector_complete=bool(candidate.get('price_vector_complete')),
+                pipeline_version=(candidate.get('pipeline_version') or '')[:80],
+                calculation_version=(candidate.get('calculation_version') or '')[:80],
+            )
+            written += 1
+        except Exception:
+            logger.exception('failed to append observation for fixture %s',
+                             candidate.get('fixture_id'))
+            invalid += 1
+
+    return {
+        'ingestion_run_id': run_id,
+        'candidates': len(candidates),
+        'written': written,
+        'skipped_duplicate': skipped,
+        'invalid': invalid,
+        'post_kickoff': post_kickoff,
+        'fixtures': len({c.get('fixture_id') for c in candidates}),
+    }
