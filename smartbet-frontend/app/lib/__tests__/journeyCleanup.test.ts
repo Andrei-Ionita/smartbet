@@ -96,9 +96,18 @@ describe('track-record carries both anchor targets', () => {
   it('jumps to the anchor after the client-side data has loaded', () => {
     // The page fetches its content client-side, so at the moment the browser
     // resolves the hash the target does not exist yet and the jump is lost.
-    expect(src).toContain("window.addEventListener('hashchange', jumpToHash)")
-    expect(src).toContain('requestAnimationFrame(jumpToHash)')
+    expect(src).toContain("window.addEventListener('hashchange', onHashChange)")
     expect(src).toContain('target.scrollIntoView')
+    // The browser restores its own scroll position after our first attempt on
+    // a cold load, so a single try is not enough.
+    expect(src).toContain('const timers = [0, 100, 300, 600]')
+  })
+
+  it('stops retrying once it lands and never fights a scrolling user', () => {
+    expect(src).toContain('if (settled) return')
+    expect(src).toContain("window.addEventListener('wheel', onUserScroll")
+    expect(src).toContain("window.addEventListener('touchstart', onUserScroll")
+    expect(src).toContain('Math.abs(target.getBoundingClientRect().top - 96) < 8')
   })
 
   it('moves focus to the section, not just the scroll position', () => {
@@ -106,8 +115,10 @@ describe('track-record carries both anchor targets', () => {
     expect(src).toContain('target.focus({ preventScroll: true })')
   })
 
-  it('cleans up the hash listener', () => {
-    expect(src).toContain("window.removeEventListener('hashchange', jumpToHash)")
+  it('cleans up every listener and timer it registered', () => {
+    expect(src).toContain("window.removeEventListener('hashchange', onHashChange)")
+    expect(src).toContain("window.removeEventListener('wheel', onUserScroll)")
+    expect(src).toContain('timers.forEach(clearTimeout)')
   })
 
   it('leaves no dangling anchor reference elsewhere in the app', () => {

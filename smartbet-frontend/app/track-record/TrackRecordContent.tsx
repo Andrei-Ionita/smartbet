@@ -105,22 +105,50 @@ export default function TrackRecordContent() {
 
     const jumpToHash = () => {
       const id = decodeURIComponent(window.location.hash.replace('#', ''));
-      if (!id) return;
+      if (!id) return false;
       const target = document.getElementById(id);
-      if (!target) return;
+      if (!target) return false;
       target.scrollIntoView({ block: 'start' });
       // Sighted users get the scroll; keyboard and screen-reader users need
       // the focus ring to move too, or the next Tab continues from the top.
       target.setAttribute('tabindex', '-1');
       target.focus({ preventScroll: true });
+      // scroll-mt-24 puts the heading 96px down. Landed if we are close.
+      return Math.abs(target.getBoundingClientRect().top - 96) < 8;
     };
 
-    // One frame, so layout has settled before we measure the offset.
-    const frame = requestAnimationFrame(jumpToHash);
-    window.addEventListener('hashchange', jumpToHash);
+    // On a fresh load the browser also restores its own scroll position, and
+    // it can do so *after* our first attempt — which is why a deep link used
+    // to sit at the top of the page. Retry over a short window, but stop the
+    // moment it lands, and never fight a user who has already started
+    // scrolling themselves.
+    let settled = false;
+    const onUserScroll = () => {
+      settled = true;
+    };
+    const attempt = () => {
+      if (settled) return;
+      if (jumpToHash()) settled = true;
+    };
+
+    window.addEventListener('wheel', onUserScroll, { passive: true, once: true });
+    window.addEventListener('touchstart', onUserScroll, { passive: true, once: true });
+    window.addEventListener('keydown', onUserScroll, { once: true });
+
+    const timers = [0, 100, 300, 600].map((delay) => setTimeout(attempt, delay));
+    // A hashchange is an explicit new request, so it overrides the guard.
+    const onHashChange = () => {
+      settled = false;
+      attempt();
+    };
+    window.addEventListener('hashchange', onHashChange);
+
     return () => {
-      cancelAnimationFrame(frame);
-      window.removeEventListener('hashchange', jumpToHash);
+      timers.forEach(clearTimeout);
+      window.removeEventListener('hashchange', onHashChange);
+      window.removeEventListener('wheel', onUserScroll);
+      window.removeEventListener('touchstart', onUserScroll);
+      window.removeEventListener('keydown', onUserScroll);
     };
   }, [loading]);
 
