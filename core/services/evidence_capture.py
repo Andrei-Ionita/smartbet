@@ -23,7 +23,11 @@ from core.services.integrity import canonical_sha256, norm_dt, norm_num
 
 logger = logging.getLogger(__name__)
 
-REQUEST_TIMEOUT = 60
+# The sweep fetches fixtures for ~30 leagues plus batched team form for Variant
+# B, so it legitimately takes minutes on a cold cache. 60s was too tight and
+# timed out the stage on 2026-08-05. Safe to be generous: this stage runs last,
+# is fully isolated, and a slow evidence sweep cannot delay settlement.
+REQUEST_TIMEOUT = 240
 
 
 def _as_aware(value):
