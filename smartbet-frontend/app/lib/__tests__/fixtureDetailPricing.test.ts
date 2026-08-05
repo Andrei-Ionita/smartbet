@@ -539,7 +539,7 @@ describe('the card reads status, not magnitude', () => {
   it('keeps the live-signal framing intact', () => {
     expect(src).toContain("'SEMNAL LIVE' : 'LIVE SIGNAL'")
     expect(src).toContain('is not part of the verified record unless')
-    expect(src).toContain("'Scor model' : 'Model score'")
+    expect(src).toContain("'Scor semnal' : 'Signal score'")
   })
 })
 
@@ -553,7 +553,12 @@ describe('regression 7 — edge compared against an unrelated leg', () => {
   })
 
   it('no longer string-matches the outcome against the 1X2 board', () => {
-    const block = src.slice(src.indexOf('Edge vs Market Comparison'), src.indexOf('Risk Warnings'))
+    // The orange "Risk Warnings" panel was replaced by the pricing-status
+    // panel, so the slice now ends at the section that follows the comparison.
+    const block = src.slice(
+      src.indexOf('Edge vs Market Comparison'),
+      src.indexOf('ONE compact pricing-status panel'),
+    )
     expect(block).not.toContain('odds_data?.away')
     expect(block).not.toContain('odds_data?.home')
   })

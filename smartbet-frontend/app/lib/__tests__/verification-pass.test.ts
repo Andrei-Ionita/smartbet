@@ -447,8 +447,10 @@ describe('price-derived claims are gated on a publishable price', () => {
     expect(src).toContain('if (evPublishable && ev >= 15)')
   })
 
-  it('labels the score as a model score, not confidence', () => {
-    expect(src).toContain("'Scor model' : 'Model score'")
+  it('labels the score as a signal score, not confidence', () => {
+    // Superseded 2026-08-05: "Model score" implied a model BetGlitch owns and
+    // a probability it cannot calibrate. The disclaimer contract is unchanged.
+    expect(src).toContain("'Scor semnal' : 'Signal score'")
     expect(src).toContain('not a calibrated probability')
   })
 })
@@ -494,9 +496,11 @@ describe('signal card states what it is before any number', () => {
     expect(src).not.toContain('confidence_interval.lower_bound')
   })
 
-  it('does not suffix the model score with a percent sign', () => {
-    expect(src).toContain("'Scor model' : 'Model score'")
+  it('does not suffix the signal score with a percent sign', () => {
+    expect(src).toContain("'Scor semnal' : 'Signal score'")
     expect(src).not.toContain('{Math.round(recommendation.confidence * 100)}%')
+    // Now rendered explicitly as "N / 100" so it cannot read as a percentage.
+    expect(src).toContain('/ 100')
   })
 })
 

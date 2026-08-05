@@ -71,13 +71,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
   // Get confidence breakdown explanation
   const getConfidenceBreakdown = () => {
     const modelCount = recommendation.ensemble_info?.model_count || recommendation.debug_info?.model_count || 3
-    const consensus = recommendation.ensemble_info?.consensus || 0
     const variance = recommendation.debug_info?.variance || 'Medium'
     const ev = ((recommendation.ev || 0) * 100).toFixed(1)
 
     return {
       modelCount,
-      modelAgreement: consensus > 0.8 ? 'Strong' : consensus > 0.6 ? 'Moderate' : 'Mixed',
       variance: typeof variance === 'string' ? variance : variance < 0.1 ? 'Low' : variance < 0.2 ? 'Medium' : 'High',
       evValue: ev,
       signalQuality: recommendation.signal_quality || 'Good'
@@ -122,15 +120,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     // is not a calibrated probability — it is a provider value multiplied by a
     // form heuristic — so it is described as a relative signal score, which is
     // what it is.
-    if (confidence >= 70) {
-      reasons.push(language === 'ro'
-        ? 'Scor de semnal ridicat față de celelalte rezultate'
-        : 'High signal score relative to the other outcomes')
-    } else if (confidence >= 60) {
-      reasons.push(language === 'ro'
-        ? 'Scor de semnal moderat față de celelalte rezultate'
-        : 'Moderate signal score relative to the other outcomes')
-    }
+    reasons.push(language === 'ro'
+      ? 'Rezultatul cel mai bine clasat din această piață'
+      : 'Highest-ranked outcome in this market')
 
     // Value-based reason
     // Value claims are price-derived; suppress them when the price is not one
@@ -145,18 +137,23 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         : `Good odds value (+${ev.toFixed(0)}% EV)`)
     }
 
-    // Signal quality reason
-    if (recommendation.signal_quality === 'Strong') {
+    // Price status is a fact the pipeline records, so it belongs here. The
+    // previous "low variance across models" and "N AI models" fallbacks did
+    // not: there is one provider model per market and no variance to report.
+    if (priceVerified) {
       reasons.push(language === 'ro'
-        ? 'Semnal puternic: varianță scăzută între modele'
-        : 'Strong signal: low variance across models')
+        ? 'Preț de piață verificat, cu proveniență completă'
+        : 'Market price verified, with complete provenance')
+    } else {
+      reasons.push(language === 'ro'
+        ? 'Niciun preț verificat pentru această piață — valoarea nu poate fi evaluată'
+        : 'No verified price for this market — value cannot be assessed')
     }
 
-    // If no specific reasons, provide a generic one
     if (reasons.length === 0) {
       reasons.push(language === 'ro'
-        ? `Predicție bazată pe analiză statistică și ${getConfidenceBreakdown().modelCount} modele AI`
-        : `Prediction based on statistical analysis and ${getConfidenceBreakdown().modelCount} AI models`)
+        ? 'Rezultatul cel mai bine clasat din această piață'
+        : 'Highest-ranked outcome in this market')
     }
 
     return reasons.slice(0, 3) // Return max 3 reasons
@@ -254,6 +251,39 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     return Math.min(kellyStake, bankroll * 0.40)
   }
 
+  /**
+   * THE card state, driven solely by whether a verified price exists.
+   *
+   * The old badge ladder (Safe Pick / Value Bet / RECOMMENDED / Speculative)
+   * asserted betting quality the product cannot support: there is no
+   * calibration evidence, so nothing can be called recommended and nothing can
+   * be called speculative relative to a standard that does not exist yet.
+   */
+  const cardState: 'signal_only' | 'verified_price' =
+    priceVerified ? 'verified_price' : 'signal_only'
+
+  const stateCopy = cardState === 'verified_price'
+    ? {
+        status: language === 'ro' ? 'PREȚ DE PIAȚĂ VERIFICAT' : 'VERIFIED MARKET PRICE',
+        value: language === 'ro' ? 'Neevaluată încă' : 'Not yet assessed',
+        explanation: language === 'ro'
+          ? 'Prețul de piață a fost verificat, dar BetGlitch nu are încă dovezi de calibrare suficiente pentru a determina dacă prețul oferă valoare.'
+          : 'The market price has been verified, but BetGlitch does not yet have sufficient calibration evidence to determine whether the price offers value.',
+        panelTitle: language === 'ro' ? 'Valoarea nu a fost evaluată' : 'Value not yet assessed',
+      }
+    : {
+        status: language === 'ro' ? 'DOAR SEMNAL' : 'SIGNAL ONLY',
+        value: language === 'ro' ? 'Nu poate fi evaluată' : 'Cannot be assessed',
+        explanation: language === 'ro'
+          ? 'Acest rezultat se clasează peste celelalte rezultate disponibile, dar BetGlitch nu poate evalua valoarea de pariere fără un preț de piață verificat.'
+          : 'This outcome ranks above the other available outcomes, but BetGlitch cannot assess betting value without a verified market price.',
+        panelTitle: language === 'ro' ? 'Valoarea nu poate fi evaluată' : 'Value cannot be assessed',
+      }
+
+  const highestRankedLabel = language === 'ro'
+    ? 'Rezultatul cel mai bine clasat'
+    : 'Highest-ranked outcome'
+
   // Get opportunity level based on confidence and EV
   // Combines prediction confidence with betting value to categorize opportunities
   const getOpportunityLevel = () => {
@@ -280,7 +310,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
     // Premium: High confidence + excellent value
     if (confidence >= 70 && ev >= 15) return {
-      level: t('card.badges.premium'),
+      level: stateCopy.status,
       color: 'text-green-600',
       bgColor: 'bg-green-100',
       icon: CheckCircle,
@@ -325,7 +355,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
     // Speculative: Lower confidence/value - proceed with caution
     return {
-      level: t('card.badges.speculative'),
+      level: stateCopy.status,
       color: 'text-orange-600',
       bgColor: 'bg-orange-100',
       icon: AlertTriangle,
@@ -385,28 +415,6 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 {t('card.multiMarket.bestMarket')}: {recommendation.best_market.name}
               </span>
             )}
-            {/* AI Model Agreement Dots */}
-            {recommendation.confidence > 0 && (
-              <span
-                className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-purple-50 text-purple-700 border border-purple-200"
-                title={language === 'ro'
-                  ? `${getConfidenceBreakdown().modelCount}/3 modele AI sunt de acord`
-                  : `${getConfidenceBreakdown().modelCount}/3 AI models agree`}
-              >
-                <span className="flex gap-0.5">
-                  {[...Array(3)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={`w-2 h-2 rounded-full ${i < getConfidenceBreakdown().modelCount
-                        ? 'bg-purple-500'
-                        : 'bg-purple-200'
-                        }`}
-                    />
-                  ))}
-                </span>
-                <span className="text-[10px]">AI</span>
-              </span>
-            )}
           </div>
           <h3 className="text-lg font-bold text-gray-900 group-hover:text-primary-600 transition-colors leading-tight flex items-center gap-2">
             <Link href={matchSlug} className="flex items-center gap-2 hover:underline decoration-primary-300 decoration-2">
@@ -434,6 +442,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       <div className="mb-6">
         {recommendation.confidence > 0 ? (
           <>
+            {/* Reading order: fixture/market (above) -> highest-ranked outcome
+                -> signal score -> price/value status -> explanation. */}
+            <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
+              {highestRankedLabel}
+            </p>
             <div className="flex items-center gap-4 mb-4">
               <span className={`text-lg font-bold px-4 py-2 rounded-xl ${getOutcomeColor(recommendation.predicted_outcome)} bg-gray-50`}>
                 {recommendation.predicted_outcome === 'Home' ? t('card.outcomes.home') :
@@ -446,7 +459,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div
                     className="bg-gradient-to-r from-primary-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm"
                     style={{ width: `${recommendation.confidence * 100}%` }}
-                    aria-label={`Model score: ${Math.round(recommendation.confidence * 100)} out of 100`}
+                    aria-label={language === 'ro'
+                      ? `Scor semnal: ${Math.round(recommendation.confidence * 100)} din 100. Clasare relativă, nu o probabilitate calibrată.`
+                      : `Signal score: ${Math.round(recommendation.confidence * 100)} out of 100. A relative ranking, not a calibrated probability.`}
                   />
                 </div>
                 {/* A band labelled as a 95 percent interval used to render
@@ -481,18 +496,7 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                       </button>
                     </div>
                     <div className="space-y-2 text-xs">
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{language === 'ro' ? 'Acord modele AI' : 'AI Model Agreement'}</span>
-                        <span className="font-medium text-gray-900 flex items-center gap-1">
-                          {getConfidenceBreakdown().modelCount}/3
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] ${getConfidenceBreakdown().modelAgreement === 'Strong' ? 'bg-green-100 text-green-700' :
-                            getConfidenceBreakdown().modelAgreement === 'Moderate' ? 'bg-yellow-100 text-yellow-700' :
-                              'bg-orange-100 text-orange-700'
-                            }`}>
-                            {getConfidenceBreakdown().modelAgreement}
-                          </span>
-                        </span>
-                      </div>
+                      
                       <div className="flex justify-between items-center">
                         <span className="text-gray-600">{language === 'ro' ? 'Valoare așteptată' : 'Expected Value'}</span>
                         <span className="font-medium text-green-600">+{getConfidenceBreakdown().evValue}%</span>
@@ -515,8 +519,8 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                     <div className="mt-3 pt-2 border-t border-gray-100">
                       <p className="text-[10px] text-gray-500">
                         {language === 'ro'
-                          ? 'Bazat pe consens între 3 modele AI și date statistice'
-                          : 'Based on consensus across 3 AI models and statistical data'}
+                          ? 'Clasare relativă din datele de probabilitate ale furnizorului. Nu este o probabilitate calibrată.'
+                          : 'A relative ranking derived from provider probability data. Not a calibrated probability.'}
                       </p>
                     </div>
                   </div>
@@ -569,18 +573,16 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </div>
             )}
 
-            {/* Why This Pick Section - Data-driven explanations */}
-            <div className="mb-4 p-3 bg-gradient-to-r from-amber-50 to-yellow-50 rounded-lg border border-amber-200">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-amber-600">💡</span>
-                <span className="text-xs font-bold text-amber-800 uppercase tracking-wide">
-                  {language === 'ro' ? 'De ce această predicție' : 'Why This Pick'}
-                </span>
-              </div>
+            {/* Why this signal — only reasons the pipeline can actually
+                evidence. Neutral grey: this is an explanation, not a warning. */}
+            <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+              <h4 className="mb-2 text-xs font-bold uppercase tracking-wide text-gray-600">
+                {language === 'ro' ? 'De ce acest semnal' : 'Why this signal'}
+              </h4>
               <ul className="space-y-1">
                 {getWhyThisPick().map((reason, idx) => (
-                  <li key={idx} className="text-xs text-amber-900 flex items-start gap-2">
-                    <span className="text-amber-500 mt-0.5">•</span>
+                  <li key={idx} className="flex items-start gap-2 text-xs text-gray-700">
+                    <span className="mt-0.5 text-gray-400">•</span>
                     <span>{reason}</span>
                   </li>
                 ))}
@@ -618,9 +620,12 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 <div className="text-center">
                   {/* "Confidence" read as a calibrated probability. It is a
                       relative ranking score — see MODEL_SCORE_NOTE. */}
-                  <div className="text-2xl font-bold text-blue-600">{Math.round(recommendation.confidence * 100)}</div>
+                  <div className="text-2xl font-bold text-blue-600">
+                    {Math.round(recommendation.confidence * 100)}
+                    <span className="text-base font-semibold text-blue-400"> / 100</span>
+                  </div>
                   <div className="text-xs text-blue-700">
-                    {language === 'ro' ? 'Scor model' : 'Model score'}
+                    {language === 'ro' ? 'Scor semnal' : 'Signal score'}
                   </div>
                 </div>
                 <div className="text-center">
@@ -649,10 +654,16 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
               </div>
 
+              <p className="mb-2 text-xs font-medium text-gray-700">
+                {language === 'ro' ? 'Statut valoare' : 'Value status'}:{' '}
+                <span className={cardState === 'verified_price' ? 'text-gray-900' : 'text-amber-800'}>
+                  {stateCopy.value}
+                </span>
+              </p>
               <p className="mb-4 text-xs leading-relaxed text-gray-600">
                 {language === 'ro'
-                  ? 'Scorul modelului exprimă încrederea relativă a modelului. Nu este o probabilitate calibrată și nu trebuie citit ca șansă procentuală.'
-                  : 'A model score ranks BetGlitch’s relative confidence. It is not a calibrated probability and should not be read as a percentage chance.'}
+                  ? 'Scorul de semnal clasifică preferința relativă a BetGlitch între rezultatele disponibile. Nu este o probabilitate calibrată.'
+                  : 'A signal score ranks BetGlitch’s relative preference among the available outcomes. It is not a calibrated probability.'}
                 {!priceVerified && (language === 'ro'
                   ? ' Nu există un preț verificat pentru piața acestui semnal, așa că nu se afișează nicio valoare derivată din preț.'
                   : ' There is no verified price for this signal’s market, so no price-derived value is shown.')}
@@ -700,32 +711,32 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               )}
             </div>
 
-            {/* Risk Warnings */}
-            {(recommendation.confidence * 100 < 60 || (recommendation.ev || 0) * 100 < 10 ||
-              recommendation.predicted_outcome === 'Draw') && (
-                <div className="mb-4 p-3 bg-orange-50 border-2 border-orange-300 rounded-lg">
-                  <div className="flex items-start gap-2">
-                    <span className="text-orange-600 text-lg">⚠️</span>
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-orange-900 mb-1">{t('card.risk.title')}</p>
-                      <ul className="text-xs text-orange-800 space-y-1">
-                        {recommendation.confidence * 100 < 60 && (
-                          <li>{formatString(t('card.riskMessages.lowerConfidence'), (recommendation.confidence * 100).toFixed(1))}</li>
-                        )}
-                        {(recommendation.ev || 0) * 100 < 10 && (
-                          <li>{formatString(t('card.riskMessages.lowEV'), ((recommendation.ev || 0) * 100).toFixed(1))}</li>
-                        )}
-                        {recommendation.predicted_outcome === 'Draw' && (
-                          <li>{t('card.riskMessages.drawPrediction')}</li>
-                        )}
-                      </ul>
-                      <p className="text-xs text-orange-900 mt-2 font-medium">
-                        💡 {t('card.risk.advice')}
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* ONE compact pricing-status panel. This replaced an orange
+                "Risk Factors Present" box that advised a reduced stake and
+                quoted a confidence percentage — both unsupportable. Amber marks
+                the pricing limitation only, never a dramatic risk warning. */}
+            <div
+              className={`mb-4 rounded-lg border p-3 ${
+                cardState === 'verified_price'
+                  ? 'border-gray-200 bg-gray-50'
+                  : 'border-amber-200 bg-amber-50'
+              }`}
+            >
+              <p
+                className={`mb-1 text-sm font-semibold ${
+                  cardState === 'verified_price' ? 'text-gray-900' : 'text-amber-900'
+                }`}
+              >
+                {stateCopy.panelTitle}
+              </p>
+              <p
+                className={`text-xs leading-relaxed ${
+                  cardState === 'verified_price' ? 'text-gray-700' : 'text-amber-900'
+                }`}
+              >
+                {stateCopy.explanation}
+              </p>
+            </div>
           </>
         ) : (
           <div className="mb-6 p-6 bg-gray-50 rounded-xl border border-gray-200 text-center">
@@ -738,18 +749,22 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             </p>
             {recommendation.odds_data && (
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <p className="text-xs font-medium text-gray-600 mb-2">{t('card.liveOdds')}</p>
+                <p className="mb-2 text-xs font-medium text-gray-500">
+                  {language === 'ro'
+                    ? 'Cote de piață neverificate — doar informativ'
+                    : 'Unverified market quotes — informational only'}
+                </p>
                 <div className="flex justify-center gap-4">
                   <div className="text-center">
-                    <div className="text-lg font-bold text-gray-900">{recommendation.odds_data.home?.toFixed(2) || '-'}</div>
+                    <div className="text-lg font-semibold text-gray-500">{recommendation.odds_data.home?.toFixed(2) || '-'}</div>
                     <div className="text-xs text-gray-500">{t('card.outcomes.home')}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg font-bold text-gray-900">{recommendation.odds_data.draw?.toFixed(2) || '-'}</div>
+                    <div className="text-lg font-semibold text-gray-500">{recommendation.odds_data.draw?.toFixed(2) || '-'}</div>
                     <div className="text-xs text-gray-500">{t('card.outcomes.draw')}</div>
                   </div>
                   <div className="text-center">
-                    <div className="text-lg font-bold text-gray-900">{recommendation.odds_data.away?.toFixed(2) || '-'}</div>
+                    <div className="text-lg font-semibold text-gray-500">{recommendation.odds_data.away?.toFixed(2) || '-'}</div>
                     <div className="text-xs text-gray-500">{t('card.outcomes.away')}</div>
                   </div>
                 </div>
@@ -882,18 +897,29 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             return (
               <div className={`flex items-center gap-2 px-3 py-1 rounded-full ${opportunity.bgColor}`} title={opportunity.description}>
                 <Icon className={`h-4 w-4 ${opportunity.color}`} />
-                <span className={`text-sm font-medium ${opportunity.color}`}>{opportunity.level}</span>
+                {/* State, not a quality claim. RECOMMENDED / Speculative are
+                    gone: neither is supportable without calibration. */}
+                <span
+                  className={`text-sm font-semibold ${
+                    cardState === 'verified_price' ? 'text-blue-700' : 'text-amber-700'
+                  }`}
+                >
+                  {stateCopy.status}
+                </span>
               </div>
             )
           })()}
         </div>
-        <button
-          onClick={() => setIsCalculatorOpen(true)}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium"
+        {/* Stake sizing needs a value assessment, and there is none: no
+            calibration evidence exists. Rather than a disabled button with no
+            explanation, the control is simply absent and the panel above says
+            why. It returns when a price can actually be qualified. */}
+        <Link
+          href={matchSlug}
+          className="inline-flex min-h-[44px] items-center gap-2 rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-50"
         >
-          <Calculator className="h-4 w-4" />
-          {t('card.stake.calculate')}
-        </button>
+          {language === 'ro' ? 'Vezi detaliile semnalului' : 'View signal details'}
+        </Link>
       </div>
 
       {/* View Full Analysis Link */}
@@ -1011,11 +1037,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                     {recommendation.debug_info?.variance === 'Low' ? t('card.analysis.highConfidence') :
                       recommendation.debug_info?.variance === 'Medium' ? t('card.analysis.mediumConfidence') : t('card.analysis.lowConfidence')}
                   </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {recommendation.debug_info?.model_consensus ?
-                      `Variance: ${(recommendation.debug_info.model_consensus.variance * 100).toFixed(2)}%` :
-                      t('card.analysis.modelAgreementAnalysis')
-                    }
+                  <div className="mt-1 text-xs text-gray-500">
+                    {language === 'ro'
+                      ? 'Diferența față de următorul rezultat clasat'
+                      : 'Gap to the next-ranked outcome'}
                   </div>
                 </div>
 
@@ -1088,9 +1113,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
                 <div className="mt-3 p-2 bg-cyan-100 rounded-lg">
                   <p className="text-xs text-cyan-800">
-                    {recommendation.market_indicators.ai_vs_market === 'Disagreement' ?
-                      '💡 AI disagrees with market - potential value opportunity!' :
-                      '✓ AI aligns with market consensus'}
+                    {recommendation.market_indicators.ai_vs_market === 'Disagreement'
+                      ? (language === 'ro'
+                          ? 'Semnalul diferă de prețul pieței. Valoarea nu poate fi confirmată fără dovezi de calibrare.'
+                          : 'The signal differs from the market price. Value cannot be confirmed without calibration evidence.')
+                      : (language === 'ro'
+                          ? 'Semnalul este aliniat cu prețul pieței.'
+                          : 'The signal is aligned with the market price.')}
                   </p>
                 </div>
               </div>
