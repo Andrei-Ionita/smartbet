@@ -212,14 +212,99 @@ class Command(BaseCommand):
         for (fixture_id, market, outcome, horizon), o in picked.items():
             vectors[(fixture_id, market, horizon)][outcome] = o
 
-        scored = [(k, v) for k, v in vectors.items() if k[0] in scoreable]
+        # ── COHORTS ──────────────────────────────────────────────────────────
+        # A vs B must be compared on the SAME fixtures. Variant B exists only
+        # where the provider supplied usable form, and form availability is not
+        # random — cups have no standings at all. Comparing A-on-everything
+        # against B-on-form-covered-only would measure the fixture mix, not the
+        # heuristic.
+        has_b = {}
+        for (fixture_id, market, horizon), outcome_map in vectors.items():
+            has_b[(fixture_id, market, horizon)] = any(
+                o.variant_b_available for o in outcome_map.values()
+            )
+
+        all_units = set(vectors)
+        b_units = {k for k, v in has_b.items() if v}
+        scoreable_units = {k for k in all_units if k[0] in scoreable}
+        matched_units = {k for k in scoreable_units if has_b[k]}
+
         out('')
-        out(f'=== SCOREABLE MARKET-HORIZON DECISIONS: {len(scored)} ===')
+        out('=== COHORTS (unique fixtures are the counting unit) ===')
+        out(f'settled unique fixtures            : '
+            f"{len({k[0] for k in scoreable_units})}")
+        out(f'fixtures with Variant A            : {len({k[0] for k in all_units})} '
+            '(always present)')
+        out(f'fixtures with genuine Variant B    : {len({k[0] for k in b_units})}')
+        out(f'MATCHED fixtures (settled AND B)   : '
+            f"{len({k[0] for k in matched_units})}")
+        excluded = scoreable_units - matched_units
+        out(f'settled but excluded (no usable B) : '
+            f"{len({k[0] for k in excluded})}")
+        reasons = Counter()
+        for key in excluded:
+            for o in vectors[key].values():
+                if o.variant_b_missing_reason:
+                    reasons[o.variant_b_missing_reason] += 1
+        out(f'  exclusion reasons: {dict(reasons)}')
+        out('ALL A-vs-B comparisons below use MATCHED units only.')
+
+        # ── COVERAGE BIAS ────────────────────────────────────────────────────
+        out('')
+        out('=== VARIANT-B COVERAGE BIAS (is form availability random?) ===')
+
+        def bias(label, key_fn):
+            buckets = defaultdict(lambda: [0, 0])
+            for key in all_units:
+                bucket = key_fn(key)
+                if bucket is None:
+                    continue
+                buckets[bucket][0] += 1
+                if has_b[key]:
+                    buckets[bucket][1] += 1
+            if not buckets:
+                return
+            out(f'  by {label}:')
+            for bucket, (total, with_b) in sorted(
+                    buckets.items(), key=lambda kv: -kv[1][0])[:10]:
+                pct = 100.0 * with_b / total if total else 0.0
+                out(f'    {str(bucket)[:26]:26s} {with_b:4d}/{total:4d}  {pct:5.1f}%')
+
+        sample = {k: next(iter(v.values())) for k, v in vectors.items()}
+        CUP_WORDS = ('cup', 'trophy', 'copa', 'coppa', 'pokal', 'league cup')
+
+        bias('market', lambda k: k[1])
+        bias('horizon', lambda k: f'{k[2]}h')
+        bias('league', lambda k: sample[k].league or 'unknown')
+        bias('competition type', lambda k: (
+            'cup' if any(w in (sample[k].league or '').lower() for w in CUP_WORDS)
+            else 'league'))
+        bias('provider score band', lambda k: (
+            f'{min(int(sample[k].normalized_probability * 10) / 10, 0.9):.1f}'
+            if sample[k].normalized_probability is not None else None))
+        bias('verified price', lambda k: (
+            'complete vector' if sample[k].price_vector_complete else 'incomplete'))
+        out('  Any large spread here means Variant-B coverage is NOT random and '
+            'an unmatched comparison would be confounded.')
+
+        scored = [(k, v) for k, v in vectors.items() if k in matched_units]
+        out('')
+        out(f'=== MATCHED SCOREABLE DECISIONS: {len(scored)} ===')
+        matched_fixtures = len({k[0] for k in matched_units})
         if not scored:
             out('Nothing to evaluate yet: no observed fixture has a confirmed, '
-                'scoreable final result. Variants A-D are wired but cannot be '
-                'compared until fixtures settle.')
+                'scoreable final result WITH genuine Variant B. Variants A-D '
+                'are wired but cannot be compared until fixtures settle.')
+            out('Once they do, this command reports matched Brier and log-loss '
+                'differences with a fixture-clustered interval.')
             return
+        if matched_fixtures <= 5:
+            out('')
+            out('*** PIPELINE VALIDATION ONLY — NOT PERFORMANCE EVIDENCE ***')
+            out(f'{matched_fixtures} matched fixture(s). At this size the numbers '
+                'below prove the join and the metrics execute end to end. They '
+                'say nothing whatever about whether the heuristic works, and '
+                'must not be quoted as if they did.')
 
         # ── per-market evaluation ────────────────────────────────────────────
         by_market = defaultdict(list)

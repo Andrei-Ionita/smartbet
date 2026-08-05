@@ -675,24 +675,25 @@ export async function GET(request: NextRequest) {
             // Use the best market's data for the recommendation
             const marketConfig = MARKET_CONFIG[bestMarket.market_type]
 
-            // Build enhancement metadata for frontend display
+            // Public enhancement metadata.
+            //
+            // The form_adjustment block is deliberately ABSENT. It exposed the
+            // Variant-B multiplier, the shadow-adjusted probability, the raw
+            // form inputs and the server-side activation state — an unvalidated
+            // heuristic and an internal switch, neither of which belongs in a
+            // public response. Variant B is reachable only through the
+            // authenticated evidence feed and SignalObservation.
             const enhancementData = {
-              form_adjustment: {
-                multiplier: formMultiplier,
-                // Recorded whether or not it is applied publicly.
-                shadow_adjusted_probability: shadowAdjustedProbability,
-                live_activation: isFormHeuristicLive(),
-                reasons: formReasons,
-                home_form: homeForm,
-                away_form: awayForm
-              },
               value_zone: {
                 zone: valueZone.zone,
                 warning: valueZone.warning,
                 original_ev: bestMarketEV,
                 adjusted_ev: adjustedEV
               },
-              adjustments_applied: formMultiplier !== 1.0 || valueZone.scorePenalty > 0
+              // Reports the value-zone adjustment only. The form heuristic is
+              // never applied to public output while activation is off, so
+              // including it here would leak its state by implication.
+              adjustments_applied: valueZone.scorePenalty > 0
             }
 
             allRecommendations.push({
@@ -756,7 +757,6 @@ export async function GET(request: NextRequest) {
                 variance: probabilityGap >= 0.20 ? 'Low' : probabilityGap >= 0.15 ? 'Medium' : 'High',
                 market_type: bestMarket.market_type,
                 markets_evaluated: marketResults.length,
-                form_multiplier: formMultiplier,
                 value_zone: valueZone.zone
               },
               revenue_vs_risk_score: 0, // Will be calculated

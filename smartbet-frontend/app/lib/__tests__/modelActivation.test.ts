@@ -184,3 +184,81 @@ describe('no unvalidated public claims were reintroduced', () => {
     }
   })
 })
+
+describe('the public response leaks no shadow or activation data', () => {
+  const src = read('app/api/recommendations/route.ts')
+
+  // The response object literal, from the push that builds a recommendation to
+  // the end of the scoring stage. Anything emitted here reaches the browser.
+  const responseBlock = src.slice(
+    src.indexOf('allRecommendations.push({'),
+    src.indexOf('scoredRecommendations.sort('),
+  )
+
+  it.each([
+    'shadow_adjusted_probability',
+    'form_multiplier',
+    'form_inputs',
+    'live_activation',
+    'FORM_HEURISTIC_LIVE_ENABLED',
+    'calibration_version',
+    'calibrated_probability',
+    'conservative_probability',
+    'fair_odds',
+    'minimum_acceptable_odds',
+    'decision_status',
+    'evidence_tier',
+    'NO_BET',
+    'PRICE_QUALIFIES',
+    'INSUFFICIENT_CALIBRATION',
+  ])('never emits %s', (field) => {
+    expect(responseBlock).not.toContain(field)
+  })
+
+  it('emits no form_adjustment block at all', () => {
+    expect(src).not.toContain('form_adjustment:')
+    expect(responseBlock).not.toContain('home_form')
+    expect(responseBlock).not.toContain('away_form')
+  })
+
+  it('does not leak activation state through adjustments_applied', () => {
+    // This used to read `formMultiplier !== 1.0 || ...`, which reveals whether
+    // the heuristic moved the number even without naming it.
+    expect(src).toContain('adjustments_applied: valueZone.scorePenalty > 0')
+    expect(src).not.toContain('adjustments_applied: formMultiplier !== 1.0')
+  })
+
+  it('still computes Variant B internally for parity', () => {
+    // Containment must not become deletion — the parity path stays.
+    expect(src).toContain('const shadowAdjustedProbability = Math.min(')
+    expect(src).toContain('calculateFormMomentum')
+  })
+
+  it('keeps the public value on Variant A', () => {
+    expect(src).toContain('const adjustedProbability = isFormHeuristicLive()')
+    expect(src).toContain(': bestMarket.probability')
+  })
+})
+
+describe('the internal evidence feed still carries Variant B', () => {
+  const src = read('app/api/internal/evidence/route.ts')
+
+  it.each([
+    'form_multiplier',
+    'form_inputs',
+    'adjusted_score',
+    'cap_applied',
+    'variant_b_available',
+    'variant_b_missing_reason',
+    'live_activation_state',
+  ])('emits %s', (field) => {
+    expect(src).toContain(field)
+  })
+
+  it('remains authenticated and fail-closed', () => {
+    expect(src).toContain("process.env.INTERNAL_API_SECRET")
+    expect(src).toContain("request.headers.get('x-internal-auth')")
+    expect(src).toContain('{ status: 401 }')
+    expect(src).toContain('{ status: 503 }')
+  })
+})
