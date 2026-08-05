@@ -90,8 +90,19 @@ def record_run(interval_minutes: int = 60, version: str = ''):
 
     logger.info('scheduler run_id=%s started', run_id)
 
+    stages = {}
+
+    class _Run(str):
+        """The run id, with somewhere for stages to report themselves.
+
+        A str subclass so every existing `with record_run() as run_id` caller
+        keeps working unchanged.
+        """
+        def stage(self, name, ok):
+            stages[name] = 'ok' if ok else 'failed'
+
     try:
-        yield run_id
+        yield _Run(run_id)
     except Exception as exc:
         finished = timezone.now()
         # Full detail to the logs, correlated by run_id. Never to the heartbeat.
@@ -110,12 +121,20 @@ def record_run(interval_minutes: int = 60, version: str = ''):
         finished = timezone.now()
         if hb_pk is not None:
             after = _counts_or_empty()
+            failed_stages = [k for k, v in stages.items() if v != 'ok']
+            degraded = bool(failed_stages)
             _safe_update(
                 hb_pk,
-                status=SchedulerHeartbeat.STATUS_SUCCESS,
+                status=(SchedulerHeartbeat.STATUS_DEGRADED if degraded
+                        else SchedulerHeartbeat.STATUS_SUCCESS),
                 last_run_completed_at=finished,
-                last_success_at=finished,
-                last_failure_code='',
+                # A degraded run is NOT a success: leaving last_success_at
+                # untouched is what makes "when did everything last work?"
+                # answerable.
+                **({} if degraded else {'last_success_at': finished}),
+                last_failure_at=finished if degraded else None,
+                last_failure_code=(f'stage:{failed_stages[0]}'[:64] if degraded else ''),
+                stage_status=stages or None,
                 last_duration_seconds=(finished - now).total_seconds(),
                 **{
                     k: max(0, after.get(k, 0) - before.get(k, 0))

@@ -1343,16 +1343,23 @@ class SchedulerHeartbeat(models.Model):
 
     STATUS_RUNNING = 'running'
     STATUS_SUCCESS = 'success'
+    # The loop finished but at least one stage raised. Previously indistinguishable
+    # from a clean run: run_task() swallows per-stage exceptions so settlement
+    # survives a provider outage, which also meant a cycle where every stage
+    # failed still reported 'success'.
+    STATUS_DEGRADED = 'degraded'
     STATUS_FAILED = 'failed'
     STATUS_CHOICES = [
         (STATUS_RUNNING, 'Running'),
         (STATUS_SUCCESS, 'Success'),
+        (STATUS_DEGRADED, 'Degraded'),
         (STATUS_FAILED, 'Failed'),
     ]
 
     # Health as reported to staff. Derived, not stored — see `health()`.
     HEALTH_NEVER_RUN = 'never_run'
     HEALTH_HEALTHY = 'healthy'
+    HEALTH_DEGRADED = 'degraded'
     HEALTH_DELAYED = 'delayed'
     HEALTH_FAILED = 'failed'
 
@@ -1371,6 +1378,10 @@ class SchedulerHeartbeat(models.Model):
     snapshots_created = models.IntegerField(default=0)
     results_updated = models.IntegerField(default=0)
     claims_settled = models.IntegerField(default=0)
+
+    # Per-stage outcome for the most recent run: {stage_name: 'ok'|'failed'}.
+    # Kept alongside the aggregate so a degraded run names its failure.
+    stage_status = models.JSONField(null=True, blank=True)
 
     # Short, safe identifier — never an exception message.
     last_failure_code = models.CharField(max_length=64, blank=True, default='')
@@ -1414,6 +1425,11 @@ class SchedulerHeartbeat(models.Model):
             return self.HEALTH_FAILED
         if self.is_stale(now=now):
             return self.HEALTH_DELAYED
+        # A cycle that ran on time but lost a stage is not healthy. Staleness
+        # still wins: a degraded run an hour ago is a worse signal than the
+        # stage failure itself.
+        if self.status == self.STATUS_DEGRADED:
+            return self.HEALTH_DEGRADED
         return self.HEALTH_HEALTHY
 
 
@@ -1550,6 +1566,13 @@ class SignalObservation(models.Model):
     ranking_ev = models.FloatField(null=True, blank=True)
     is_best_market = models.BooleanField(default=False)
     selection_reason = models.CharField(max_length=120, blank=True, default='')
+    variant_b_available = models.BooleanField(
+        default=False,
+        help_text='True only when the live heuristic actually produced an '
+                  'adjusted score for this row. Missing Variant B is reported, '
+                  'never inferred.',
+    )
+    variant_b_missing_reason = models.CharField(max_length=80, blank=True, default='')
     pipeline_version = models.CharField(max_length=80, blank=True, default='')
     calculation_version = models.CharField(
         max_length=80, blank=True, default='',
@@ -1594,5 +1617,122 @@ class SignalObservation(models.Model):
             raise ValueError(
                 'SignalObservation is append-only — evidence is never revised. '
                 'Record a new observation instead.'
+            )
+        super().save(*args, **kwargs)
+
+
+class FixtureResultObservation(models.Model):
+    """An APPEND-ONLY provider result for one fixture, at one point in time.
+
+    WHY THIS IS SEPARATE FROM SignalObservation
+    -------------------------------------------
+    A fixture has ~10 signal observations per sweep and many sweeps. Copying the
+    result onto each of them would store one fact hundreds of times and make a
+    provider correction a mass-update — the exact mutation pattern the evidence
+    layer exists to avoid. One row per fixture per RESULT VERSION instead.
+
+    WHY VERSIONS RATHER THAN UPDATES
+    --------------------------------
+    Providers do correct scores. Overwriting would erase the fact that we once
+    believed something else, which is the part an audit actually needs. A
+    correction appends `result_version + 1` pointing at the row it supersedes;
+    the earlier belief stays readable forever.
+
+    Evidence evaluation is NOT bet settlement. This model never decides whether
+    a published claim won — `settle_published_claims` owns that, under its own
+    void/cancel rules. This is only "what did the provider say the score was".
+    """
+    # Ordinary football markets settle on the 90-minute result. Extra time and
+    # penalties are recorded but deliberately not scored: the provider's headline
+    # score for those fixtures is not the number these markets settle on.
+    STATUS_ELIGIBLE_FINAL = {'FT'}
+    STATUS_EXTRA_TIME = {'AET', 'FT_PEN', 'PEN_BREAK', 'EXTRA_TIME'}
+    STATUS_IN_PLAY = {
+        'INPLAY_1ST_HALF', 'INPLAY_2ND_HALF', 'HT', 'BREAK', 'INPLAY_ET',
+        'INPLAY_PENALTIES', 'PEN_LIVE',
+    }
+    STATUS_NOT_STARTED = {'NS', 'TBA', 'DELAYED'}
+    STATUS_VOIDLIKE = {'POSTP', 'CANCL', 'SUSP', 'ABAN', 'AWARDED', 'WO', 'DELETED'}
+
+    result_id = models.UUIDField(primary_key=True, editable=False)
+
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100, blank=True, default='')
+    away_team = models.CharField(max_length=100, blank=True, default='')
+    league = models.CharField(max_length=100, blank=True, default='')
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField(db_index=True)
+
+    # ── what the provider said ───────────────────────────────────────────────
+    provider = models.CharField(max_length=32, default='sportmonks')
+    provider_status = models.CharField(
+        max_length=32, db_index=True,
+        help_text='Raw provider state string, stored verbatim.',
+    )
+    home_score = models.IntegerField(null=True, blank=True)
+    away_score = models.IntegerField(null=True, blank=True)
+    score_type = models.CharField(
+        max_length=24, blank=True, default='',
+        help_text="Which score this is, e.g. 'CURRENT' / '2ND_HALF' / 'FT'.",
+    )
+    provider_result_at = models.DateTimeField(null=True, blank=True)
+    raw_scores = models.JSONField(
+        null=True, blank=True,
+        help_text='Every score entry the provider returned, so the chosen one '
+                  'can be re-derived rather than trusted.',
+    )
+
+    # ── our classification of that ───────────────────────────────────────────
+    is_final = models.BooleanField(
+        default=False,
+        help_text='Provider status is an eligible final state AND both scores '
+                  'are present. Only these may be scored.',
+    )
+    is_scoreable = models.BooleanField(
+        default=False,
+        help_text='is_final AND the status permits deriving ordinary market '
+                  'outcomes. Extra-time and void-like states are never '
+                  'scoreable even when a score exists.',
+    )
+    ineligible_reason = models.CharField(max_length=64, blank=True, default='')
+    confirmed = models.BooleanField(
+        default=False,
+        help_text='A later independent observation returned the same final '
+                  'score. Unconfirmed finals are provisional.',
+    )
+
+    # ── versioning ───────────────────────────────────────────────────────────
+    result_version = models.PositiveIntegerField(default=1)
+    supersedes = models.ForeignKey(
+        'self', null=True, blank=True, on_delete=models.PROTECT,
+        related_name='superseded_by',
+    )
+    is_correction = models.BooleanField(default=False)
+
+    captured_at = models.DateTimeField(db_index=True)
+    ingestion_run_id = models.CharField(max_length=64, db_index=True)
+    source_payload_hash = models.CharField(max_length=64, unique=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Fixture Result Observation'
+        ordering = ['-captured_at']
+        indexes = [
+            models.Index(fields=['fixture_id', '-result_version']),
+            models.Index(fields=['-captured_at']),
+            models.Index(fields=['is_scoreable']),
+        ]
+
+    def __str__(self):
+        score = (f'{self.home_score}-{self.away_score}'
+                 if self.home_score is not None else 'no score')
+        return f'{self.fixture_id} v{self.result_version} {self.provider_status} {score}'
+
+    def save(self, *args, **kwargs):
+        """Insert-only. A provider correction appends a new version."""
+        if not self._state.adding:
+            raise ValueError(
+                'FixtureResultObservation is append-only — a corrected score '
+                'is a new result_version, never an edit.'
             )
         super().save(*args, **kwargs)

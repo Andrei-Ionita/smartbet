@@ -97,7 +97,54 @@ class Command(BaseCommand):
                 'before kickoff; hourly cadence bounds freshness at ~1h.')
 
         out('')
-        out('=== SETTLED COVERAGE ===')
+        out('=== RESULT EVIDENCE ===')
+        from core.models import FixtureResultObservation
+        from core.services import result_evidence
+
+        rows = FixtureResultObservation.objects.all()
+        canonical = result_evidence.canonical_results()
+        obs_fixtures = set(qs.values_list('fixture_id', flat=True))
+        past = set(qs.filter(kickoff__lt=timezone.now())
+                   .values_list('fixture_id', flat=True))
+
+        out(f'result observations: {rows.count()} '
+            f'(versions>1: {rows.filter(result_version__gt=1).count()})')
+        out(f'observed fixtures awaiting kickoff: {len(obs_fixtures - past)}')
+        out(f'observed fixtures past kickoff: {len(past)}')
+        out(f'past kickoff WITHOUT any result: {len(past - set(canonical))}')
+        out(f'provisional (final, unconfirmed): '
+            f'{sum(1 for r in canonical.values() if r.is_final and not r.confirmed)}')
+        out(f'confirmed finals: '
+            f'{sum(1 for r in canonical.values() if r.confirmed)}')
+        out(f'corrected results: '
+            f'{sum(1 for r in canonical.values() if r.is_correction)}')
+        out(f'scoreable: {sum(1 for r in canonical.values() if r.is_scoreable)}')
+        out(f"statuses: {dict(Counter(r.provider_status for r in canonical.values()))}")
+        ambiguous = Counter(r.ineligible_reason for r in canonical.values()
+                            if not r.is_scoreable and r.ineligible_reason)
+        out(f'non-scoreable reasons: {dict(ambiguous)}')
+        if canonical:
+            lat = [(r.captured_at - r.kickoff).total_seconds() / 3600
+                   for r in canonical.values()]
+            lat.sort()
+            out(f'result-capture latency after kickoff (h): '
+                f'min={lat[0]:.1f} median={lat[len(lat) // 2]:.1f} max={lat[-1]:.1f}')
+        out(f"results by league: "
+            f"{dict(Counter(r.league for r in canonical.values()).most_common(8))}")
+
+        out('')
+        out('=== VARIANT COVERAGE ===')
+        out(f'Variant A (raw provider): {total}/{total} — always present')
+        vb = qs.filter(variant_b_available=True).count()
+        out(f'Variant B (current heuristic): {vb}/{total}')
+        missing = Counter(qs.exclude(variant_b_missing_reason='')
+                          .values_list('variant_b_missing_reason', flat=True))
+        out(f'Variant B missing reasons: {dict(missing)}')
+        out(f'Variant D (de-vig eligible, complete price vector): '
+            f'{qs.filter(price_vector_complete=True).count()}/{total}')
+
+        out('')
+        out('=== SETTLED COVERAGE ==='  )
         settled = set(
             PredictionLog.objects
             .filter(actual_outcome__isnull=False)

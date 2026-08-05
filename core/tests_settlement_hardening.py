@@ -96,7 +96,10 @@ class SchedulerPipelineIntactTests(TestCase):
             cmd.run_tasks(interval_minutes=60)
 
         ran = [c.args[0] for c in call.call_args_list]
-        self.assertEqual(ran, [
+        # The SETTLEMENT pipeline, in order. Asserted as a prefix rather than an
+        # exact list so adding an isolated evidence stage cannot fail this test
+        # while still catching a reordering of the stages that matter.
+        self.assertEqual(ran[:4], [
             'log_recommendations_from_homepage',
             'update_results',
             'mark_recommended_predictions',
@@ -105,6 +108,15 @@ class SchedulerPipelineIntactTests(TestCase):
         # settle_published_claims grades off results that update_results wrote,
         # so the order is a correctness requirement, not a preference.
         self.assertLess(ran.index('update_results'), ran.index('settle_published_claims'))
+
+        # Evidence capture is read-mostly and must never run before settlement:
+        # a provider outage there must not be able to cost us a settlement.
+        for evidence_stage in ('capture_signal_evidence', 'capture_fixture_results'):
+            if evidence_stage in ran:
+                self.assertGreater(
+                    ran.index(evidence_stage), ran.index('settle_published_claims'),
+                    f'{evidence_stage} must run after settlement',
+                )
 
     def test_a_failing_task_does_not_abort_the_cycle(self):
         """One provider outage must not stop claims whose results already landed."""

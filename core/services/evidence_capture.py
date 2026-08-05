@@ -71,6 +71,10 @@ def observation_hash(candidate):
         'vector': {k: norm_num(v) for k, v in (candidate.get('raw_vector') or {}).items()},
         'odds': norm_num(candidate.get('odds')),
         'price_status': candidate.get('price_status'),
+        # Variant B belongs to the identity: the same provider probability under
+        # a changed form multiplier is a genuinely different heuristic state.
+        'adjusted_score': norm_num(candidate.get('adjusted_score')),
+        'form_multiplier': norm_num(candidate.get('form_multiplier')),
     })
 
 
@@ -160,6 +164,18 @@ def capture(payload, ingestion_run_id=None):
                 provenance_complete=bool(candidate.get('odds_provenance')),
                 market_price_vector=candidate.get('market_price_vector'),
                 price_vector_complete=bool(candidate.get('price_vector_complete')),
+                is_selected_outcome=bool(candidate.get('is_selected_outcome')),
+                probability_gap=candidate.get('probability_gap'),
+                form_multiplier=candidate.get('form_multiplier'),
+                form_inputs=candidate.get('form_inputs'),
+                adjusted_score=candidate.get('adjusted_score'),
+                cap_applied=bool(candidate.get('cap_applied')),
+                market_score=candidate.get('market_score'),
+                ranking_ev=candidate.get('ranking_ev'),
+                variant_b_available=bool(candidate.get('variant_b_available')),
+                variant_b_missing_reason=(
+                    candidate.get('variant_b_missing_reason') or '')[:80],
+                selection_reason=(candidate.get('selection_reason') or '')[:120],
                 pipeline_version=(candidate.get('pipeline_version') or '')[:80],
                 calculation_version=(candidate.get('calculation_version') or '')[:80],
             )

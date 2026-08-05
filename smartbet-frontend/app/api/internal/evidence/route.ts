@@ -25,7 +25,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { MARKET_SPECS, type ProductMarket } from '@/app/lib/oddsSelection'
-import { priceMarket } from '@/app/lib/marketPricing'
+import { expectedValue as canonicalEV, priceMarket } from '@/app/lib/marketPricing'
+import { calculateFormMomentum, calculateMarketScore } from '@/app/lib/heuristics'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -103,6 +104,33 @@ export async function GET(request: NextRequest) {
     const candidates: any[] = []
     let fixturesSeen = 0
 
+    // Team form drives the Variant-B multiplier. Fetched in batches of 25 via
+    // the provider's multi endpoint — one request per 25 teams, never one per
+    // fixture, or the sweep would cost hundreds of extra calls.
+    const formByTeam = new Map<number, string>()
+    const loadForm = async (teamIds: number[]) => {
+      const missing = teamIds.filter((id) => id && !formByTeam.has(id))
+      for (let i = 0; i < missing.length; i += 25) {
+        const chunk = missing.slice(i, i + 25)
+        try {
+          const res = await api(
+            `https://api.sportmonks.com/v3/football/teams/multi/${chunk.join(',')}` +
+              `?api_token=${token}&include=form`,
+          )
+          for (const team of res.data || []) {
+            const letters = (team.form || [])
+              .slice(0, 5)
+              .map((f: any) => (f.form || '').toString().toUpperCase())
+              .join('')
+            formByTeam.set(team.id, letters)
+          }
+        } catch {
+          // No form is a recorded absence, not a fabricated multiplier.
+        }
+        for (const id of chunk) if (!formByTeam.has(id)) formByTeam.set(id, '')
+      }
+    }
+
     for (const leagueId of leagueIds) {
       const params = new URLSearchParams({
         api_token: token,
@@ -120,7 +148,14 @@ export async function GET(request: NextRequest) {
         continue // one league failing must not lose the whole sweep
       }
 
-      for (const fixture of data.data || []) {
+      const leagueFixtures = data.data || []
+      await loadForm(
+        leagueFixtures.flatMap((f: any) =>
+          (f.participants || []).map((p: any) => p.id),
+        ),
+      )
+
+      for (const fixture of leagueFixtures) {
         fixturesSeen++
         const preds = fixture.predictions || []
         if (!preds.length) continue
@@ -170,9 +205,46 @@ export async function GET(request: NextRequest) {
           const priceVectorComplete =
             pricedCount === MARKET_SPECS[market].outcomes.length
 
+          // ── Variant B: the CURRENT heuristic, recorded as-is ──────────────
+          // The live route applies its form multiplier to the SELECTED outcome
+          // only, and never renormalises the rest of the vector. That is not a
+          // complete transformed vector and must not be recorded as one, so
+          // only the selected side carries variant-B fields; every other
+          // outcome stores null with the reason.
+          const entries = Object.entries(vector).sort((a, b) => b[1] - a[1])
+          const selectedOutcome = entries[0]?.[0]
+          const gap = entries.length > 1 ? entries[0][1] - entries[1][1] : null
+
+          const homeForm = formByTeam.get(home?.id) || ''
+          const awayForm = formByTeam.get(away?.id) || ''
+          const predictingHome = selectedOutcome === 'home' || selectedOutcome === '1x'
+          const predictingAway = selectedOutcome === 'away' || selectedOutcome === 'x2'
+          const homeMomentum = calculateFormMomentum(homeForm, true, predictingHome)
+          const awayMomentum = calculateFormMomentum(awayForm, false, predictingAway)
+          const formMultiplier = (homeMomentum.multiplier + awayMomentum.multiplier) / 2
+          const haveForm = Boolean(homeForm || awayForm)
+
+          const selectedPrice = selectedOutcome
+            ? priceMarket(fixture.odds, market, selectedOutcome)
+            : null
+          const selectedEv =
+            selectedOutcome && selectedPrice
+              ? canonicalEV(vector[selectedOutcome], selectedPrice)
+              : null
+          const rawAdjusted = selectedOutcome
+            ? vector[selectedOutcome] * formMultiplier
+            : null
+          const adjustedScore = rawAdjusted === null ? null : Math.min(rawAdjusted, 0.95)
+          const capApplied = rawAdjusted !== null && rawAdjusted > 0.95
+          const marketScore =
+            selectedOutcome && gap !== null
+              ? calculateMarketScore(gap, Math.max(selectedEv ?? 0, 0), vector[selectedOutcome])
+              : null
+
           // One candidate per OUTCOME, including the side we would not pick.
           for (const outcome of Object.keys(vector)) {
             const price = priceMarket(fixture.odds, market, outcome)
+            const isSelected = outcome === selectedOutcome
             candidates.push({
               fixture_id: fixture.id,
               home_team: home?.name ?? 'Home',
@@ -205,6 +277,31 @@ export async function GET(request: NextRequest) {
               odds_provenance: price.status === 'verified' ? price.provenance : null,
               market_price_vector: priceVector,
               price_vector_complete: priceVectorComplete,
+              // Variant B, only where the live pipeline actually computes it.
+              is_selected_outcome: isSelected,
+              probability_gap: isSelected ? gap : null,
+              form_multiplier: isSelected && haveForm ? formMultiplier : null,
+              form_inputs: isSelected
+                ? {
+                    home_form: homeForm || null,
+                    away_form: awayForm || null,
+                    home_reason: homeMomentum.reason,
+                    away_reason: awayMomentum.reason,
+                    home_multiplier: homeMomentum.multiplier,
+                    away_multiplier: awayMomentum.multiplier,
+                    predicting_home: predictingHome,
+                    predicting_away: predictingAway,
+                  }
+                : null,
+              adjusted_score: isSelected && haveForm ? adjustedScore : null,
+              cap_applied: isSelected && haveForm ? capApplied : false,
+              market_score: isSelected ? marketScore : null,
+              ranking_ev: isSelected ? selectedEv : null,
+              variant_b_available: Boolean(isSelected && haveForm),
+              variant_b_missing_reason: isSelected
+                ? (haveForm ? '' : 'no_form_data')
+                : 'not_selected_outcome_live_route_only_transforms_selection',
+              selection_reason: isSelected ? 'highest_provider_probability' : '',
               pipeline_version: PIPELINE_VERSION,
               calculation_version:
                 process.env.VERCEL_GIT_COMMIT_SHA ||

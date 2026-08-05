@@ -80,6 +80,8 @@ class Command(BaseCommand):
         try:
             with record_run(interval_minutes=interval_minutes) as run_id:
                 self.stdout.write(f'   run_id={run_id}')
+                self._run = run_id
+                self._stages = {}
                 self.run_all_tasks()
         except SchedulerAlreadyRunning as exc:
             # Not an error: the previous cycle is still working. Skip this tick
@@ -87,7 +89,15 @@ class Command(BaseCommand):
             self.stdout.write(self.style.WARNING(f'⏭️  Skipping run — {exc}'))
             return
 
-        self.stdout.write(self.style.SUCCESS('✅ All tasks completed successfully.\n'))
+        failed = [k for k, v in (getattr(self, '_stages', None) or {}).items()
+                  if v != 'ok']
+        if failed:
+            self.stdout.write(self.style.WARNING(
+                '⚠️  Cycle DEGRADED — stages failed: '
+                + ', '.join(failed) + '\n'))
+        else:
+            self.stdout.write(
+                self.style.SUCCESS('✅ All tasks completed successfully.\n'))
 
     def run_all_tasks(self):
         # Task 1: Fetch new recommendations
@@ -119,8 +129,12 @@ class Command(BaseCommand):
         an individual task error; per-task failures are in the logs.
         """
         self.stdout.write(f'▶️  Running {command_name}...')
+        run = getattr(self, '_run', None)
         try:
             call_command(command_name, **kwargs)
+            if run is not None and hasattr(run, 'stage'):
+                run.stage(command_name, True)
+            self._stages[command_name] = 'ok'
         except Exception as e:
             logger.exception('scheduled task %s failed', command_name)
             self.stdout.write(self.style.ERROR(f'❌ Error running {command_name}: {e}'))
