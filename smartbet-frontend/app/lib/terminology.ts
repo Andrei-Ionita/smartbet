@@ -319,7 +319,7 @@ const EN = {
     'BetGlitch publishes model analysis for information only. It does not place bets and no outcome is guaranteed. 18+. Please gamble responsibly.',
 
   modelScoreNote:
-    'A model score ranks BetGlitch’s relative confidence. It is not a calibrated probability and should not be read as a percentage chance.',
+    'A signal score ranks BetGlitch’s relative preference among the available outcomes. It is not a calibrated probability.',
 }
 
 const RO: typeof EN = {
@@ -622,7 +622,7 @@ const RO: typeof EN = {
     'BetGlitch publică analize de model doar cu scop informativ. Nu plasează pariuri și niciun rezultat nu este garantat. 18+. Joacă responsabil.',
 
   modelScoreNote:
-    'Scorul modelului exprimă încrederea relativă a BetGlitch. Nu este o probabilitate calibrată și nu trebuie citit ca șansă procentuală.',
+    'Scorul de semnal clasifică preferința relativă a BetGlitch între rezultatele disponibile. Nu este o probabilitate calibrată.',
 }
 
 const COPY: Record<Lang, typeof EN> = { en: EN, ro: RO }

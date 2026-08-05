@@ -598,16 +598,19 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                       "+-32.3%" in green — observed live on Rijeka v Ilves. */}
                   {evPublishable ? (
                     <>
-                      <div
-                        className={`text-2xl font-bold ${(recommendation.ev || 0) >= 0 ? 'text-green-600' : 'text-red-600'}`}
-                      >
+                      {/* Neutral, not green. A positive expected value beside
+                          "Value status: Not yet assessed" would contradict it —
+                          green reads as actionable, and nothing here has been
+                          shown to be. Green returns when a price can be
+                          qualified. */}
+                      <div className="text-2xl font-bold text-gray-700">
                         {(recommendation.ev || 0) >= 0 ? '+' : '−'}
                         {Math.abs((recommendation.ev || 0) * 100).toFixed(1)}%
                       </div>
-                      <div
-                        className={`text-xs ${(recommendation.ev || 0) >= 0 ? 'text-green-700' : 'text-red-700'}`}
-                      >
-                        {t('card.expectedValue')}
+                      <div className="text-xs text-gray-600">
+                        {language === 'ro'
+                          ? 'Valoare estimată (neevaluată)'
+                          : 'Expected value (unassessed)'}
                       </div>
                     </>
                   ) : (
