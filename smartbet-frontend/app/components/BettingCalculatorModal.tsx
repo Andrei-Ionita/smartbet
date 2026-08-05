@@ -76,49 +76,35 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
   ]
 
   // Calculate Kelly Criterion
-  const calculateKelly = (probability: number, odds: number): number => {
-    if (!odds || odds <= 0) return 0
-    const b = odds - 1 // Net odds received on the wager
-    const p = probability / 100 // Probability of winning
-    const q = 1 - p // Probability of losing
-    const kelly = (b * p - q) / b
-    return Math.max(0, kelly) // Don't bet if Kelly is negative
-  }
+  /**
+   * Kelly needs a CALIBRATED win probability. BetGlitch does not have one.
+   *
+   * This previously called calculateKelly(recommendation.confidence, odds) —
+   * feeding the signal score straight in as `p`. The signal score is a relative
+   * ranking of the available outcomes, explicitly not a probability, and the
+   * 2026-07-16 ROI audit found it systematically ~20pp over-optimistic. An
+   * over-optimistic p makes Kelly over-lever, so the stake it produced was
+   * wrong in the direction that costs money. A 10% bankroll ceiling was added
+   * as a guard, but capping a wrong number does not make it right.
+   *
+   * Kelly-family strategies are therefore unavailable until a calibrated
+   * probability exists. Fixed-percentage staking needs no probability at all
+   * and is unaffected.
+   */
+  const KELLY_STRATEGIES = new Set(['kelly', 'conservative', 'aggressive'])
 
-  // Calculate stake based on selected strategy
   const calculateStake = (strategy: string, bankroll: number): StakeCalculation => {
-    const odds = recommendation.odds || 0
-    const confidence = recommendation.confidence
     let stake = 0
     let risk: 'Low' | 'Medium' | 'High' = 'Medium'
 
-    switch (strategy) {
-      case 'kelly':
-        const kellyPercent = calculateKelly(confidence, odds)
-        stake = kellyPercent * bankroll
-        risk = kellyPercent > 0.05 ? 'High' : kellyPercent > 0.02 ? 'Medium' : 'Low'
-        break
-
-      case 'fixed_percent':
-        stake = bankroll * 0.02 // 2% fixed
-        risk = 'Low'
-        break
-
-      case 'conservative':
-        const kellyStake = calculateKelly(confidence, odds) * bankroll
-        const fixedStake = bankroll * 0.01
-        stake = Math.min(kellyStake * 0.5, fixedStake) // Half Kelly or 1%
-        risk = 'Low'
-        break
-
-      case 'aggressive':
-        const fullKelly = calculateKelly(confidence, odds) * bankroll
-        stake = fullKelly * 2 // Double Kelly
-        risk = 'High'
-        break
-
-      default:
-        stake = 0
+    if (KELLY_STRATEGIES.has(strategy)) {
+      // No probability, no stake. Deliberately returns zero rather than a
+      // plausible-looking number.
+      stake = 0
+      risk = 'Low'
+    } else if (strategy === 'fixed_percent') {
+      stake = bankroll * 0.02 // 2% fixed — independent of any probability
+      risk = 'Low'
     }
 
     // Defensive bankroll ceiling: never recommend more than 10% of bankroll on
@@ -139,6 +125,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
       risk = 'High'
     }
 
+    const odds = recommendation.odds || 0
     const potentialWin = stake * (odds - 1)
     const potentialLoss = stake
     const roi = odds > 0 ? (potentialWin / potentialLoss) * 100 : 0
@@ -283,7 +270,9 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
               </div>
               <div>
                 <span className="text-gray-600">Confidence:</span>
-                <span className="ml-2 font-semibold">{recommendation.confidence}%</span>
+                <span className="ml-2 font-semibold">
+                  {Math.round((recommendation.confidence ?? 0) * 100)} / 100
+                </span>
               </div>
               <div>
                 <span className="text-gray-600">Odds:</span>
@@ -292,7 +281,7 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
               <div>
                 <span className="text-gray-600">Expected Value:</span>
                 <span className="ml-2 font-semibold">
-                  {recommendation.ev ? `${recommendation.ev.toFixed(1)}%` : 'N/A'}
+                  {'—'}
                 </span>
               </div>
             </div>

@@ -4,7 +4,6 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { Recommendation } from '../../src/types/recommendation'
 import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Lock, Info, Activity } from 'lucide-react'
-import BettingCalculatorModal from './BettingCalculatorModal'
 import BettingAcknowledgmentModal from './BettingAcknowledgmentModal'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
 import { canPublishPrice, priceUnavailableLabel } from '../lib/marketPricing'
@@ -18,25 +17,15 @@ interface RecommendationCardProps {
 
 export default function RecommendationCard({ recommendation, onViewDetails }: RecommendationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
-  const [isCalculatorOpen, setIsCalculatorOpen] = useState(false)
   const [showConfidenceTooltip, setShowConfidenceTooltip] = useState(false)
   const [showAcknowledgment, setShowAcknowledgment] = useState(false)
   const { t, language } = useLanguage()
 
-  // Handler to open calculator - checks for acknowledgment first
-  const handleOpenCalculator = () => {
-    // Check if already acknowledged in this session
-    const acknowledged = typeof window !== 'undefined' && sessionStorage.getItem('betting_acknowledged')
-    if (acknowledged) {
-      setIsCalculatorOpen(true)
-    } else {
-      setShowAcknowledgment(true)
-    }
-  }
-
+  // The stake calculator is gone from this card: it sized Kelly stakes from the
+  // signal score, which is not a probability. Its acknowledgment gate goes with
+  // it — there is no longer anything to acknowledge.
   const handleAcknowledgmentConfirm = () => {
     setShowAcknowledgment(false)
-    setIsCalculatorOpen(true)
   }
 
   const matchSlug = generateMatchSlug(
@@ -72,12 +61,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
   const getConfidenceBreakdown = () => {
     const modelCount = recommendation.ensemble_info?.model_count || recommendation.debug_info?.model_count || 3
     const variance = recommendation.debug_info?.variance || 'Medium'
-    const ev = ((recommendation.ev || 0) * 100).toFixed(1)
 
     return {
       modelCount,
       variance: typeof variance === 'string' ? variance : variance < 0.1 ? 'Low' : variance < 0.2 ? 'Medium' : 'High',
-      evValue: ev,
       signalQuality: recommendation.signal_quality || 'Good'
     }
   }
@@ -498,10 +485,6 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                     <div className="space-y-2 text-xs">
                       
                       <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{language === 'ro' ? 'Valoare așteptată' : 'Expected Value'}</span>
-                        <span className="font-medium text-green-600">+{getConfidenceBreakdown().evValue}%</span>
-                      </div>
-                      <div className="flex justify-between items-center">
                         <span className="text-gray-600">{language === 'ro' ? 'Variație predicții' : 'Prediction Variance'}</span>
                         <span className={`font-medium ${getConfidenceBreakdown().variance === 'Low' ? 'text-green-600' :
                           getConfidenceBreakdown().variance === 'Medium' ? 'text-yellow-600' :
@@ -598,19 +581,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                       "+-32.3%" in green — observed live on Rijeka v Ilves. */}
                   {evPublishable ? (
                     <>
-                      {/* Neutral, not green. A positive expected value beside
-                          "Value status: Not yet assessed" would contradict it —
-                          green reads as actionable, and nothing here has been
-                          shown to be. Green returns when a price can be
-                          qualified. */}
-                      <div className="text-2xl font-bold text-gray-700">
-                        {(recommendation.ev || 0) >= 0 ? '+' : '−'}
-                        {Math.abs((recommendation.ev || 0) * 100).toFixed(1)}%
-                      </div>
+                      {/* No public numeric expected value. EV is computed from
+                          an uncalibrated signal score, so any figure — however
+                          neutrally styled or labelled — reads as an assessment
+                          the product has not made. The value STATUS is stated
+                          instead, which is the honest form of the same fact. */}
+                      <div className="text-2xl font-bold text-gray-400">—</div>
                       <div className="text-xs text-gray-600">
-                        {language === 'ro'
-                          ? 'Valoare estimată (neevaluată)'
-                          : 'Expected value (unassessed)'}
+                        {language === 'ro' ? 'Valoare' : 'Value'}
                       </div>
                     </>
                   ) : (
@@ -1047,29 +1025,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 </div>
 
-                <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <div className="text-xs text-gray-600 mb-1">{t('card.analysis.bettingEdge')}</div>
-                  <div className="text-sm font-semibold text-green-600">
-                    {recommendation.ev && recommendation.ev > 0 ? `+${recommendation.ev.toFixed(1)}% ${t('card.analysis.edge')}` : t('card.analysis.negativeEdge')}
-                  </div>
-                  <div className="text-xs text-gray-500 mt-1">
-                    {recommendation.ev && recommendation.ev > 20 ? t('card.analysis.excellentValue') :
-                      recommendation.ev && recommendation.ev > 10 ? t('card.analysis.goodValue') :
-                        recommendation.ev && recommendation.ev > 0 ? t('card.analysis.marginalValue') : t('card.analysis.poorValue')} • Kelly: ${(() => {
-                          if (!recommendation.probabilities) return '0'
-                          const probability = recommendation.predicted_outcome === 'Home' ? recommendation.probabilities.home :
-                            recommendation.predicted_outcome === 'Draw' ? recommendation.probabilities.draw :
-                              recommendation.probabilities.away
-                          const odds = recommendation.predicted_outcome === 'Home' ? recommendation.odds_data?.home :
-                            recommendation.predicted_outcome === 'Draw' ? recommendation.odds_data?.draw :
-                              recommendation.odds_data?.away
-                          if (!odds || !probability) return '0'
-                          const kelly = ((odds * probability) - 1) / (odds - 1)
-                          const stake = Math.min(kelly * 1000, 400)
-                          return stake.toFixed(0)
-                        })()}
-                  </div>
-                </div>
+                {/* "Betting edge" was a green +EV figure with a value verdict
+                    beneath it. Both are derived from an uncalibrated signal
+                    score and are exactly the actionable-value claim the product
+                    cannot make. The value STATUS above says what is true. */}
               </div>
             </div>
 
@@ -1252,11 +1211,6 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       />
 
       {/* Betting Calculator Modal */}
-      <BettingCalculatorModal
-        recommendation={recommendation}
-        isOpen={isCalculatorOpen}
-        onClose={() => setIsCalculatorOpen(false)}
-      />
     </div>
   )
 }

@@ -434,12 +434,15 @@ describe('price-derived claims are gated on a publishable price', () => {
     expect(src).toContain("'Valoare neverificată' : 'Value not verified'")
   })
 
-  it('does not print a negative expected value as a gain', () => {
-    // A hardcoded leading '+' rendered "+-32.3%" in green. Observed live on
-    // Rijeka v Ilves, 2026-08-03.
+  it('prints no public expected value at all', () => {
+    // Superseded 2026-08-05, and more strongly than before. The original defect
+    // was a hardcoded '+' rendering "+-32.3%" as a gain (Rijeka v Ilves,
+    // 2026-08-03); the sign fix made the number honest but not the claim. EV is
+    // derived from an uncalibrated signal score, so no public figure can be
+    // justified — the card states the value STATUS instead.
     expect(src).not.toContain(">+{((recommendation.ev || 0) * 100).toFixed(1)}%<")
-    expect(src).toContain("{(recommendation.ev || 0) >= 0 ? '+' : '−'}")
-    expect(src).toContain("Math.abs((recommendation.ev || 0) * 100).toFixed(1)")
+    expect(src).not.toContain("Math.abs((recommendation.ev || 0) * 100).toFixed(1)")
+    expect(src).not.toMatch(/recommendation\.ev[^\r\n]*toFixed\(1\)\}%/)
   })
 
   it('does not award a value level off an unpublishable price', () => {
