@@ -1573,6 +1573,12 @@ class SignalObservation(models.Model):
                   'never inferred.',
     )
     variant_b_missing_reason = models.CharField(max_length=80, blank=True, default='')
+    live_activation_state = models.CharField(
+        max_length=16, blank=True, default='',
+        help_text="'shadow' when the form heuristic was computed but NOT applied "
+                  "to public output, 'live' when it was. Lets a row be read back "
+                  "as which regime produced it without rewriting old evidence.",
+    )
     pipeline_version = models.CharField(max_length=80, blank=True, default='')
     calculation_version = models.CharField(
         max_length=80, blank=True, default='',

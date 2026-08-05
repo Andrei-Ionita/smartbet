@@ -28,6 +28,10 @@ import { MARKET_SPECS, type ProductMarket } from '@/app/lib/oddsSelection'
 import { expectedValue as canonicalEV, priceMarket } from '@/app/lib/marketPricing'
 import { calculateFormMomentum, calculateMarketScore } from '@/app/lib/heuristics'
 import { buildFormMap, formFor, type ParsedForm } from '@/app/lib/providerForm'
+import {
+  formHeuristicActivationState,
+  pipelineVersion,
+} from '@/app/lib/modelActivation'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -48,7 +52,6 @@ const PROVIDER_MARKETS: Record<ProductMarket, {
   },
 }
 
-const PIPELINE_VERSION = 'evidence-v1'
 
 /** Provider values arrive as percentages or fractions depending on the type. */
 function normalize(value: unknown): number | null {
@@ -314,7 +317,10 @@ export async function GET(request: NextRequest) {
                 ? (haveForm ? '' : formReason)
                 : 'not_selected_outcome_live_route_only_transforms_selection',
               selection_reason: isSelected ? 'highest_provider_probability' : '',
-              pipeline_version: PIPELINE_VERSION,
+              // Versioned so a row is always readable as which regime produced
+              // it: evidence-v1 (inert parser), -v2-shadow, or -v2-live.
+              pipeline_version: pipelineVersion(),
+              live_activation_state: formHeuristicActivationState(),
               calculation_version:
                 process.env.VERCEL_GIT_COMMIT_SHA ||
                 process.env.RAILWAY_GIT_COMMIT_SHA ||

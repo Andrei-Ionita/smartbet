@@ -99,7 +99,7 @@ Value betting is not a get-rich-quick scheme. It is a disciplined, long-term str
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Losing streaks are inevitable.</strong> Even with a genuine 5% edge, you will experience extended losing runs. A bankroll management system like fractional Kelly ensures you survive these drawdowns.</li>
 <li><strong class="text-gray-900">Sample size matters.</strong> You cannot judge a value betting strategy on 20 bets. You need hundreds, ideally thousands, of bets before the edge reliably manifests in your results.</li>
-<li><strong class="text-gray-900">Never bet more than you can afford to lose.</strong> Value betting reduces risk through mathematical edge, but variance is real. Only use money you have explicitly set aside for this purpose.</li>
+<li><strong class="text-gray-900">Never bet more than you can afford to lose.</strong> A positive expected value does not reduce the risk of any individual bet, and variance is real. Only use money you have explicitly set aside for this purpose.</li>
 <li><strong class="text-gray-900">Track everything.</strong> Record every bet, the odds, your assessed probability, and the outcome. This data is essential for evaluating whether your edge is real and persisting over time.</li>
 <li><strong class="text-gray-900">Stay disciplined.</strong> Do not chase losses by increasing stakes. Do not skip value bets because the selection "feels" wrong. Trust the process and the math.</li>
 </ul>

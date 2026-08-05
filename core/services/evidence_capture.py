@@ -179,6 +179,8 @@ def capture(payload, ingestion_run_id=None):
                 variant_b_available=bool(candidate.get('variant_b_available')),
                 variant_b_missing_reason=(
                     candidate.get('variant_b_missing_reason') or '')[:80],
+                live_activation_state=(
+                    candidate.get('live_activation_state') or '')[:16],
                 selection_reason=(candidate.get('selection_reason') or '')[:120],
                 pipeline_version=(candidate.get('pipeline_version') or '')[:80],
                 calculation_version=(candidate.get('calculation_version') or '')[:80],

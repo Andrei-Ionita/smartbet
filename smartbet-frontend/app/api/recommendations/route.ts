@@ -12,6 +12,7 @@ import {
   evaluateValueZone,
 } from '@/app/lib/heuristics'
 import { buildFormMap, formFor } from '@/app/lib/providerForm'
+import { isFormHeuristicLive } from '@/app/lib/modelActivation'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -629,10 +630,20 @@ export async function GET(request: NextRequest) {
             const valueZone = evaluateValueZone(bestMarketEV)
 
             // Apply adjustments to probability and score
-            const adjustedProbability = Math.min(
+            // Variant B is computed for evidence and parity, but it reaches
+            // PUBLIC output only behind the activation flag. The parser repair
+            // on 2026-08-05 made this multiplier real for the first time; the
+            // heuristic has still never been tested against a settled fixture,
+            // so the public route keeps using the raw provider probability
+            // (Variant A) — the same effective behaviour that shipped while the
+            // multiplier was stuck at 1.0.
+            const shadowAdjustedProbability = Math.min(
               bestMarket.probability * formMultiplier,
               0.95 // Cap at 95% to avoid overconfidence
             )
+            const adjustedProbability = isFormHeuristicLive()
+              ? shadowAdjustedProbability
+              : bestMarket.probability
             const adjustedScore = Math.max(
               bestMarket.market_score - valueZone.scorePenalty,
               0
@@ -668,6 +679,9 @@ export async function GET(request: NextRequest) {
             const enhancementData = {
               form_adjustment: {
                 multiplier: formMultiplier,
+                // Recorded whether or not it is applied publicly.
+                shadow_adjusted_probability: shadowAdjustedProbability,
+                live_activation: isFormHeuristicLive(),
                 reasons: formReasons,
                 home_form: homeForm,
                 away_form: awayForm
