@@ -63,7 +63,7 @@ BetGlitch sources its data from premium sports data providers, with SportMonks a
 <li><strong class="text-gray-900">Data Ingestion:</strong> Fixture data, team information, odds from multiple bookmakers, and AI-generated predictions are pulled continuously for all 27 covered leagues.</li>
 <li><strong class="text-gray-900">Probability ingestion:</strong> Provider probabilities are collected for each fixture and market type, with every outcome retained rather than only the favoured side.</li>
 <li><strong class="text-gray-900">Enhancement &amp; Filtering:</strong> Our prediction enhancer applies the quality filters and scoring described above, comparing model probabilities against live bookmaker odds to identify value.</li>
-<li><strong class="text-gray-900">Publication:</strong> Final recommendations, including confidence levels, consensus metrics, and value assessments, are published on the platform before kickoff with immutable timestamps.</li>
+<li><strong class="text-gray-900">Publication:</strong> Final selections, including the signal score, the recorded price and its provenance, are published on the platform before kickoff with immutable timestamps.</li>
 </ul>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Coverage: 27 European Leagues</h2>
