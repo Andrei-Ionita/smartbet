@@ -115,18 +115,24 @@ class Command(BaseCommand):
         # every published claim stays PENDING forever.
         self.run_task('settle_published_claims')
 
-        # Task 5: Append provider signal evidence. Deliberately LAST and fully
-        # isolated — it writes only SignalObservation rows, publishes nothing,
-        # and a failure here must never cost us a settlement.
+        # Task 5: Append provider signal evidence. Deliberately after settlement
+        # and fully isolated — it writes only SignalObservation rows, publishes
+        # nothing, and a failure here must never cost us a settlement.
         self.run_task('capture_signal_evidence')
+
+        # Task 6: Append provider RESULTS for observed fixtures. Works from the
+        # SignalObservation fixture universe, not PredictionLog, so a fixture we
+        # observed but never recommended still becomes scoreable.
+        self.run_task('capture_fixture_results')
 
     def run_task(self, command_name, **kwargs):
         """Helper to run a single management command.
 
         A failing task is logged and the cycle continues — one provider outage
-        must not stop settlement of claims whose results already landed. The
-        heartbeat therefore reports 'success' for a cycle that completed with
-        an individual task error; per-task failures are in the logs.
+        must not stop settlement of claims whose results already landed. But the
+        cycle is then reported as DEGRADED rather than success: an evidence
+        outage used to look identical to a clean run, which is how a stage-1
+        502 on 2026-08-04 still produced a 'healthy' heartbeat.
         """
         self.stdout.write(f'▶️  Running {command_name}...')
         run = getattr(self, '_run', None)
@@ -138,3 +144,6 @@ class Command(BaseCommand):
         except Exception as e:
             logger.exception('scheduled task %s failed', command_name)
             self.stdout.write(self.style.ERROR(f'❌ Error running {command_name}: {e}'))
+            if run is not None and hasattr(run, 'stage'):
+                run.stage(command_name, False)
+            self._stages[command_name] = 'failed'

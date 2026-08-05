@@ -133,8 +133,17 @@ class SchedulerPipelineIntactTests(TestCase):
             cmd.run_tasks(interval_minutes=60)
 
         ran = [c.args[0] for c in call.call_args_list]
+        # The cycle still completes — that contract is unchanged and is why
+        # run_task swallows the exception at all.
         self.assertIn('settle_published_claims', ran)
-        self.assertEqual(get_heartbeat().status, SchedulerHeartbeat.STATUS_SUCCESS)
+
+        # But it is no longer reported as a clean run. Previously this asserted
+        # STATUS_SUCCESS, which is precisely how a stage-1 502 on 2026-08-04
+        # produced a 'healthy' heartbeat for a cycle that fetched nothing.
+        heartbeat = get_heartbeat()
+        self.assertEqual(heartbeat.status, SchedulerHeartbeat.STATUS_DEGRADED)
+        self.assertEqual(heartbeat.stage_status['update_results'], 'failed')
+        self.assertEqual(heartbeat.stage_status['settle_published_claims'], 'ok')
 
 
 class SchedulerHeartbeatRecordingTests(TestCase):
