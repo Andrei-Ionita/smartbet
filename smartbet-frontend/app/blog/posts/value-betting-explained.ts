@@ -53,10 +53,10 @@ A common misconception is that bookmaker odds perfectly reflect the true probabi
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">How BetGlitch Identifies Value</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-BetGlitch aggregates predictions from multiple independent AI models across 27 European leagues. These models generate probability estimates based on data — historical performance, current form, head-to-head records, contextual factors, and various engineered features. By combining multiple model outputs into a consensus forecast, we can identify genuine discrepancies between what the data suggests and what the market is pricing.
+BetGlitch uses probability data from a specialist football data provider across 27 European leagues. The provider's model generates probability estimates from historical performance, current form, head-to-head records and other contextual data. We compare those estimates against recorded prices to identify candidate discrepancies between the data and the market.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Once our consensus probability estimates are generated, we compare them against the best available bookmaker odds. When our models assign a significantly higher probability to an outcome than the odds imply, that selection is flagged as a value bet. We also calculate the expected value and a confidence rating so users can prioritize the strongest opportunities.
+We compare those provider probabilities against recorded bookmaker odds. When the probability is meaningfully higher than the price implies, the selection is flagged as a candidate. We do not claim this has been shown to beat the market — that is exactly what our public record is being built to test. We also calculate the expected value and a confidence rating so users can prioritize the strongest opportunities.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">The Kelly Criterion: Sizing Your Stakes</h2>

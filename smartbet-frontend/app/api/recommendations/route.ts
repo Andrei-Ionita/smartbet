@@ -11,6 +11,7 @@ import {
   calculateMarketScore,
   evaluateValueZone,
 } from '@/app/lib/heuristics'
+import { buildFormMap, formFor } from '@/app/lib/providerForm'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -803,20 +804,17 @@ export async function GET(request: NextRequest) {
         const standingsResults = await Promise.all(standingsPromises)
 
         // 3. Create a map of TeamID -> Form String
+        // Parsed through THE canonical parser. `standing.form` is an ARRAY of
+        // one-letter results with sort_order — the previous code stored it
+        // raw and a later JSON.stringify fed `[{"id` to the momentum function,
+        // which found no W/D/L and returned a 1.0 multiplier every single time.
+        // The heuristic was inert in production until this fix.
+        const parsedForms = buildFormMap(standingsResults)
         const formMap = new Map<string, string>()
-
-        standingsResults.forEach(result => {
-          if (result.data.length > 0) {
-            console.error(`DEBUG: First standing keys:`, Object.keys(result.data[0]))
-            if (!result.data[0].participant_id) console.error(`WARNING: participant_id missing in standing!`)
-          }
-          result.data.forEach((standing: any) => {
-            if (standing.participant_id && standing.form) {
-              // Normalize ID to string to ensure matching works
-              formMap.set(String(standing.participant_id), standing.form)
-            }
-          })
+        parsedForms.forEach((parsed, participantId) => {
+          if (parsed.available) formMap.set(String(participantId), parsed.letters)
         })
+        console.log(`✅ Enrichment: parsed form for ${formMap.size} teams`)
         console.log(`✅ Enrichment: Found form data for ${formMap.size} teams`)
 
         // 3.5 Fallback: Fetch specific team form for Cup matches (where standings failed)

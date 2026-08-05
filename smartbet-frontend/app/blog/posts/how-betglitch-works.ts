@@ -3,7 +3,7 @@ import { BlogPost } from '../types'
 export const howBetglitchWorks: BlogPost = {
   slug: 'how-betglitch-works',
   title: 'How BetGlitch Works: AI-Powered Football Predictions',
-  description: 'Discover how BetGlitch aggregates predictions from multiple AI models, applies intelligent filtering, and publishes every result transparently across 27 European leagues.',
+  description: 'Discover how BetGlitch takes probability data from a specialist football data provider, ranks it with its own filters, and publishes every selected pick immutably across 27 European leagues.',
   author: 'BetGlitch Team',
   date: '2026-03-15',
   readTime: '8 min read',
@@ -11,26 +11,26 @@ export const howBetglitchWorks: BlogPost = {
   content: `
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Introduction: Smarter Predictions Through Data</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a fundamentally different approach. We built a prediction engine that aggregates outputs from multiple AI models, applies data-driven quality filters, and publishes every single forecast transparently — wins and losses alike — across 27 European football leagues.
+The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a fundamentally different approach. We take probability data from a specialist football data provider, apply our own ranking filters, and publish every selected pick before kickoff — wins and losses alike — across 27 European football leagues. We do not yet claim a predictive edge of our own; whether our filtering adds value is something we are still measuring in public.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our mission is simple: replace guesswork with data science. Rather than relying on a single model or a pundit's opinion, BetGlitch combines predictions from multiple machine learning models into a consensus forecast, then applies intelligent filtering to surface only the highest-quality opportunities. This article explains exactly how that works.
+Our mission is simple: replace guesswork with an auditable record. BetGlitch takes probability data from a specialist football data provider, applies its own filtering to surface a small number of candidates, and freezes each published pick before kickoff so the result can be checked afterwards. This article explains exactly how that works.
 </p>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">Multi-Model Consensus: Strength in Numbers</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">Where the probabilities come from</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-At the core of BetGlitch is a multi-model ensemble approach. We source predictions from multiple independent AI models provided by premium sports data providers. Each model uses its own methodology — some are probability-based, some focus on specific markets (match result, over/under, both teams to score), and each brings different strengths to different types of matches and leagues.
+At the core of BetGlitch is a specialist football data provider's probability model. We do not train our own predictive model and do not claim to. Each model uses its own methodology — some are probability-based, some focus on specific markets (match result, over/under, both teams to score), and each brings different strengths to different types of matches and leagues.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Rather than trusting any single model, we aggregate their outputs into a consensus forecast. For each fixture, we calculate three key ensemble metrics:
+We rank those probabilities against recorded market prices. For each fixture and market we record:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Model Count:</strong> How many models produced a prediction for this fixture. More models means more data points and a more reliable consensus.</li>
-<li><strong class="text-gray-900">Consensus Score:</strong> The degree of agreement between models. When multiple independent models converge on the same outcome, confidence increases significantly.</li>
-<li><strong class="text-gray-900">Variance:</strong> How much the models disagree. Low variance means strong agreement; high variance flags uncertainty and signals caution.</li>
+<li><strong class="text-gray-900">Signal score:</strong> A relative ranking score, not a calibrated probability. It orders candidates; it does not state a chance of winning.</li>
+<li><strong class="text-gray-900">Probability gap:</strong> How far the leading outcome sits above the next one. A narrow gap means the market is close to a coin flip.</li>
+<li><strong class="text-gray-900">Recorded price:</strong> The exact odds, bookmaker, market and capture time behind every published pick.</li>
 </ul>
 <p class="text-gray-700 leading-relaxed mb-6">
-This approach has a well-established foundation in statistics and machine learning: ensemble methods consistently outperform individual models because they reduce the impact of any single model's blind spots. When multiple models independently agree on an outcome, the probability of that prediction being correct increases substantially.
+We are deliberately careful about what this does and does not prove. A ranking score is not a calibrated probability, and we have not yet demonstrated that our filtering beats the market price. That is precisely why the public record exists: to test it in the open rather than assert it.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Intelligent Filtering: Being Selective, Not Just Predictive</h2>
@@ -50,8 +50,8 @@ Raw predictions alone are not enough. A critical insight we have built into BetG
 Every prediction that passes our filters receives a quality score from 0 to 100, calculated from a weighted combination of confidence level, expected value, odds range, and probability dominance. This score determines which predictions make it into our daily top recommendations. We categorize predictions into tiers:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Safe Bets:</strong> High confidence, moderate odds, strong model consensus — our most reliable picks.</li>
-<li><strong class="text-gray-900">Value Bets:</strong> Positive expected value where our models see an edge the market has not fully priced in.</li>
+<li><strong class="text-gray-900">Safe Bets:</strong> High signal score, moderate odds — our most reliable picks.</li>
+<li><strong class="text-gray-900">Value Bets:</strong> Positive expected value at the recorded price. Whether that translates into a real edge is still being measured.</li>
 <li><strong class="text-gray-900">Speculative:</strong> Higher odds with potential upside, but more variance — clearly labeled so users understand the risk profile.</li>
 </ul>
 
@@ -61,7 +61,7 @@ BetGlitch sources its data from premium sports data providers, with SportMonks a
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Data Ingestion:</strong> Fixture data, team information, odds from multiple bookmakers, and AI-generated predictions are pulled continuously for all 27 covered leagues.</li>
-<li><strong class="text-gray-900">Prediction Aggregation:</strong> Predictions from multiple models are collected, and their outputs are combined into a consensus probability distribution for each fixture and market type.</li>
+<li><strong class="text-gray-900">Probability ingestion:</strong> Provider probabilities are collected for each fixture and market type, with every outcome retained rather than only the favoured side.</li>
 <li><strong class="text-gray-900">Enhancement &amp; Filtering:</strong> Our prediction enhancer applies the quality filters and scoring described above, comparing model probabilities against live bookmaker odds to identify value.</li>
 <li><strong class="text-gray-900">Publication:</strong> Final recommendations, including confidence levels, consensus metrics, and value assessments, are published on the platform before kickoff with immutable timestamps.</li>
 </ul>
@@ -76,7 +76,7 @@ BetGlitch covers 27 European football leagues, spanning the top divisions of maj
 Several qualities set BetGlitch apart from traditional tipsters and other prediction platforms:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Multi-Model Consensus:</strong> Instead of relying on a single model or methodology, we aggregate multiple independent AI models and only recommend when there is strong agreement.</li>
+<li><strong class="text-gray-900">Signal Ranking:</strong> We rank provider probabilities against recorded prices and only surface a pick when it clears our filters.</li>
 <li><strong class="text-gray-900">Data-Driven Selectivity:</strong> Our filtering thresholds are not arbitrary — they are calibrated from our own historical performance data and updated regularly as we accumulate more results.</li>
 <li><strong class="text-gray-900">Objectivity:</strong> Algorithms do not have favorite teams, recency bias, or emotional reactions to shock results. Every prediction is driven purely by data.</li>
 <li><strong class="text-gray-900">Breadth:</strong> Covering 27 leagues simultaneously across multiple markets is beyond the capacity of any individual tipster. Our system scales effortlessly.</li>

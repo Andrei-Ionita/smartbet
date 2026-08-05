@@ -225,3 +225,40 @@ class SchedulerDegradedTests(TestCase):
         self.assertEqual(hb.status, SchedulerHeartbeat.STATUS_SUCCESS)
         self.assertEqual(hb.health(), SchedulerHeartbeat.HEALTH_HEALTHY)
         self.assertIsNotNone(hb.last_success_at)
+
+
+class StatisticalUnitTests(TestCase):
+    """The resampling unit is the fixture, never the outcome or market row."""
+
+    def test_resampling_draws_whole_fixtures(self):
+        from core.management.commands.audit_shadow_variants import (
+            fixture_clustered_resample,
+        )
+        units = {
+            101: ['101:1x2', '101:btts', '101:ou'],
+            102: ['102:1x2', '102:btts', '102:ou'],
+        }
+        drawn = fixture_clustered_resample(units, rng_seed=7)
+
+        # Every draw contributes a fixture's markets together — they share one
+        # scoreline and are not independent.
+        self.assertEqual(len(drawn) % 3, 0)
+        for fixture_id in (101, 102):
+            present = [d for d in drawn if d.startswith(f'{fixture_id}:')]
+            self.assertIn(len(present), (0, 3, 6))
+
+    def test_empty_input_is_safe(self):
+        from core.management.commands.audit_shadow_variants import (
+            fixture_clustered_resample,
+        )
+        self.assertEqual(fixture_clustered_resample({}), [])
+
+    def test_markets_from_one_fixture_are_not_independent_units(self):
+        from core.services import market_outcomes
+        # 1X2 + BTTS + O/U from one fixture = 3 market decisions but ONE fixture.
+        components = sum(
+            market_outcomes.independent_component_count(m)
+            for m in ('1x2', 'btts', 'over_under_2.5', 'double_chance')
+        )
+        self.assertEqual(components, 3)
+        self.assertEqual(market_outcomes.independent_component_count('double_chance'), 0)

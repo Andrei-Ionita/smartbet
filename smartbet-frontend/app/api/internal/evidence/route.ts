@@ -27,6 +27,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { MARKET_SPECS, type ProductMarket } from '@/app/lib/oddsSelection'
 import { expectedValue as canonicalEV, priceMarket } from '@/app/lib/marketPricing'
 import { calculateFormMomentum, calculateMarketScore } from '@/app/lib/heuristics'
+import { buildFormMap, formFor, type ParsedForm } from '@/app/lib/providerForm'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -104,30 +105,28 @@ export async function GET(request: NextRequest) {
     const candidates: any[] = []
     let fixturesSeen = 0
 
-    // Team form drives the Variant-B multiplier. Fetched in batches of 25 via
-    // the provider's multi endpoint — one request per 25 teams, never one per
-    // fixture, or the sweep would cost hundreds of extra calls.
-    const formByTeam = new Map<number, string>()
-    const loadForm = async (teamIds: number[]) => {
-      const missing = teamIds.filter((id) => id && !formByTeam.has(id))
-      for (let i = 0; i < missing.length; i += 25) {
-        const chunk = missing.slice(i, i + 25)
-        try {
-          const res = await api(
-            `https://api.sportmonks.com/v3/football/teams/multi/${chunk.join(',')}` +
-              `?api_token=${token}&include=form`,
-          )
-          for (const team of res.data || []) {
-            const letters = (team.form || [])
-              .slice(0, 5)
-              .map((f: any) => (f.form || '').toString().toUpperCase())
-              .join('')
-            formByTeam.set(team.id, letters)
-          }
-        } catch {
-          // No form is a recorded absence, not a fabricated multiplier.
-        }
-        for (const id of chunk) if (!formByTeam.has(id)) formByTeam.set(id, '')
+    // Team form drives the Variant-B multiplier. It comes from STANDINGS, keyed
+    // by participant_id — teams/multi returns 403 on this subscription. One
+    // request per unique SEASON, deduplicated, so a 30-league sweep costs ~30
+    // calls rather than one per fixture or per team.
+    const formBySeason = new Map<number, Map<number, ParsedForm>>()
+    let formRequests = 0
+    let formMs = 0
+    const loadSeasonForm = async (seasonId: number) => {
+      if (!seasonId || formBySeason.has(seasonId)) return
+      const began = Date.now()
+      formRequests++
+      try {
+        const res = await api(
+          `https://api.sportmonks.com/v3/football/standings/seasons/${seasonId}` +
+            `?api_token=${token}&include=form`,
+        )
+        formBySeason.set(seasonId, buildFormMap([res]))
+      } catch {
+        // A missing season is a recorded absence, never a fabricated multiplier.
+        formBySeason.set(seasonId, new Map())
+      } finally {
+        formMs += Date.now() - began
       }
     }
 
@@ -149,11 +148,10 @@ export async function GET(request: NextRequest) {
       }
 
       const leagueFixtures = data.data || []
-      await loadForm(
-        leagueFixtures.flatMap((f: any) =>
-          (f.participants || []).map((p: any) => p.id),
-        ),
+      const seasonIds = Array.from(
+        new Set<number>(leagueFixtures.map((f: any) => f.season_id).filter(Boolean)),
       )
+      for (const seasonId of seasonIds) await loadSeasonForm(seasonId)
 
       for (const fixture of leagueFixtures) {
         fixturesSeen++
@@ -215,14 +213,22 @@ export async function GET(request: NextRequest) {
           const selectedOutcome = entries[0]?.[0]
           const gap = entries.length > 1 ? entries[0][1] - entries[1][1] : null
 
-          const homeForm = formByTeam.get(home?.id) || ''
-          const awayForm = formByTeam.get(away?.id) || ''
+          const seasonForm = formBySeason.get(fixture.season_id) ?? new Map()
+          const homeParsed = formFor(seasonForm, home?.id)
+          const awayParsed = formFor(seasonForm, away?.id)
+          const homeForm = homeParsed.letters
+          const awayForm = awayParsed.letters
           const predictingHome = selectedOutcome === 'home' || selectedOutcome === '1x'
           const predictingAway = selectedOutcome === 'away' || selectedOutcome === 'x2'
           const homeMomentum = calculateFormMomentum(homeForm, true, predictingHome)
           const awayMomentum = calculateFormMomentum(awayForm, false, predictingAway)
           const formMultiplier = (homeMomentum.multiplier + awayMomentum.multiplier) / 2
-          const haveForm = Boolean(homeForm || awayForm)
+          // Variant B needs at least one side with usable form; otherwise the
+          // multiplier would be a fabricated 1.0 rather than a measurement.
+          const haveForm = homeParsed.available || awayParsed.available
+          const formReason = homeParsed.available || awayParsed.available
+            ? ''
+            : (homeParsed.reason || awayParsed.reason || 'provider_form_unavailable')
 
           const selectedPrice = selectedOutcome
             ? priceMarket(fixture.odds, market, selectedOutcome)
@@ -287,6 +293,12 @@ export async function GET(request: NextRequest) {
                     away_form: awayForm || null,
                     home_reason: homeMomentum.reason,
                     away_reason: awayMomentum.reason,
+                    home_form_count: homeParsed.count,
+                    away_form_count: awayParsed.count,
+                    home_form_available: homeParsed.available,
+                    away_form_available: awayParsed.available,
+                    home_missing_reason: homeParsed.reason,
+                    away_missing_reason: awayParsed.reason,
                     home_multiplier: homeMomentum.multiplier,
                     away_multiplier: awayMomentum.multiplier,
                     predicting_home: predictingHome,
@@ -299,7 +311,7 @@ export async function GET(request: NextRequest) {
               ranking_ev: isSelected ? selectedEv : null,
               variant_b_available: Boolean(isSelected && haveForm),
               variant_b_missing_reason: isSelected
-                ? (haveForm ? '' : 'no_form_data')
+                ? (haveForm ? '' : formReason)
                 : 'not_selected_outcome_live_route_only_transforms_selection',
               selection_reason: isSelected ? 'highest_provider_probability' : '',
               pipeline_version: PIPELINE_VERSION,
@@ -318,6 +330,10 @@ export async function GET(request: NextRequest) {
       observed_at: observedAt,
       fixtures_seen: fixturesSeen,
       candidate_count: candidates.length,
+      // Request accounting, so cost is visible rather than inferred.
+      form_requests: formRequests,
+      form_ms: formMs,
+      seasons_seen: formBySeason.size,
       candidates,
     })
   } catch (error: any) {

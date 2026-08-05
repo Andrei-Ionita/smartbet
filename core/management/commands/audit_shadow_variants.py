@@ -28,6 +28,29 @@ from core.services import market_outcomes, result_evidence
 HORIZONS = [(72, 12), (24, 6), (6, 2), (1, 0.5)]
 
 
+def fixture_clustered_resample(units, rng_seed=0):
+    """Resampling unit for confidence intervals: the FIXTURE, never the row.
+
+    Documented and tested now so the first A-vs-B comparison cannot quietly use
+    row-level bootstrap, which would treat four markets off one scoreline as
+    four independent draws and shrink every interval by roughly half.
+
+    `units` maps fixture_id -> list of that fixture's decisions. A draw takes a
+    whole fixture with all its markets, preserving their dependence.
+    """
+    import random
+
+    rng = random.Random(rng_seed)
+    fixtures = list(units)
+    if not fixtures:
+        return []
+    drawn = [fixtures[rng.randrange(len(fixtures))] for _ in range(len(fixtures))]
+    out = []
+    for fixture_id in drawn:
+        out.extend(units[fixture_id])
+    return out
+
+
 def brier_binary(pairs):
     return sum((p - y) ** 2 for p, y in pairs) / len(pairs) if pairs else None
 
@@ -161,8 +184,23 @@ class Command(BaseCommand):
         out(f"  by market : {dict(Counter(m for _, m, _ in decision_keys))}")
         eff = sum(market_outcomes.independent_component_count(m)
                   for _, m, _ in decision_keys)
-        out(f'effective independent decisions (double chance contributes 0): {eff}')
-        out(f"unique fixtures represented: {len({f for f, _, _ in decision_keys})}")
+        fixtures_here = {f for f, _, _ in decision_keys}
+        out(f'market-decision components (double chance contributes 0): {eff}')
+        out(f'UNIQUE FIXTURES (the independence unit): {len(fixtures_here)}')
+        out('  NOTE: several markets from one fixture are NOT independent '
+            'observations. They share a scoreline, so 118 fixtures x 3 markets '
+            'is 118 independent units, not 354. Confidence intervals and any '
+            'A-vs-B comparison must resample WHOLE FIXTURES (fixture-clustered '
+            'bootstrap), never outcome rows or market rows.')
+        per_market_fixtures = defaultdict(set)
+        for f, m, _ in decision_keys:
+            per_market_fixtures[m].add(f)
+        out(f"  unique fixtures by market: "
+            f"{ {m: len(v) for m, v in sorted(per_market_fixtures.items())} }")
+        horizons_per_fixture = Counter(f for f, _, _ in decision_keys)
+        if horizons_per_fixture:
+            out(f'  repeated market-horizons per fixture: mean '
+                f'{sum(horizons_per_fixture.values()) / len(horizons_per_fixture):.1f}')
 
         priced = sum(1 for o in picked.values() if o.price_vector_complete)
         out(f'observations with a COMPLETE price vector: {priced}/{len(picked)}')

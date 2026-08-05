@@ -150,10 +150,11 @@ export default function AboutPage() {
               <div className="bg-blue-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <BarChart3 className="h-7 w-7 text-blue-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">Multi-Model Consensus</h3>
+              <h3 className="font-bold text-gray-900 mb-2">Signal ranking</h3>
               <p className="text-sm text-gray-600">
-                Multiple independent models are aggregated into a consensus. A signal is surfaced only when
-                the models agree, which reduces noise. Selection logic keeps changing as we learn.
+                Provider probabilities are ranked against recorded prices, and a signal is surfaced only when
+                it clears our filters. The score is a relative ranking, not a calibrated probability, and the
+                selection logic keeps changing as we learn.
               </p>
             </div>
             <div className="text-center p-4">
