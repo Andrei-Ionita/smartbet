@@ -327,6 +327,48 @@ describe('the route serializes before responding', () => {
   })
 })
 
+describe('every translation key the card uses actually resolves', () => {
+  /*
+   * Removing the quality-ladder badge keys deleted `card.badges.recommended`
+   * while three call sites still used it, so the live odds board rendered the
+   * literal string "card.badges.recommended" next to a price. Nothing caught
+   * it: the source scans look for claims, and a missing key is the absence of
+   * one. Found by looking at the rendered page.
+   *
+   * A missing key is worse than a wrong string here — it leaks internal
+   * identifiers into the UI — so it gets its own guard.
+   */
+  const { readFileSync } = require('node:fs')
+  const { join } = require('node:path')
+  const ROOT = join(__dirname, '..', '..', '..')
+
+  const card = readFileSync(
+    join(ROOT, 'app', 'components', 'RecommendationCard.tsx'), 'utf8',
+  ) as string
+  const translations = readFileSync(
+    join(ROOT, 'app', 'locales', 'translations.ts'), 'utf8',
+  ) as string
+
+  const usedKeys = Array.from(
+    new Set((card.match(/t\('([a-zA-Z0-9_.]+)'\)/g) || [])
+      .map((m) => m.replace(/^t\('/, '').replace(/'\)$/, ''))),
+  )
+
+  it('finds translation keys to check', () => {
+    expect(usedKeys.length).toBeGreaterThan(5)
+  })
+
+  it.each(usedKeys)('%s resolves in the translations module', (key) => {
+    // Keys are dotted paths into a nested object literal; the leaf name is
+    // what appears as an object property in the source.
+    const leaf = key.split('.').pop()!
+    expect(
+      new RegExp(`\\b${leaf}\\s*:`).test(translations),
+      `${key} is used by RecommendationCard but has no entry in translations.ts`,
+    ).toBe(true)
+  })
+})
+
 describe('ranking parity — serialization changes order and selection not at all', () => {
   /** A fixed captured payload, already ranked by the pipeline. */
   const RANKED = [

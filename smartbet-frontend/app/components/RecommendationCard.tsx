@@ -752,19 +752,24 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="text-xs text-gray-600 mb-1">{t('card.outcomes.home')}</div>
             <div className="text-lg font-bold text-blue-600">{recommendation.odds_data?.home?.toFixed(2) || 'N/A'}</div>
             <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.home_bookmaker || recommendation.bookmaker || recommendation.odds_data?.bookmaker || 'Unknown'}</div>
-            {recommendation.predicted_outcome === 'Home' && <div className="text-xs text-blue-600 font-medium mt-1 px-2 py-0.5 bg-blue-100 rounded-full">{t('card.badges.recommended')}</div>}
+            {/* Was t('card.badges.recommended') -> "RECOMMENDED". That key was
+                deleted with the quality ladder, so this rendered the raw string
+                "card.badges.recommended" on the live odds board. Restoring the
+                key would restore the claim; the leg is labelled with what it
+                actually is instead. */}
+            {recommendation.predicted_outcome === 'Home' && <div className="text-xs text-blue-600 font-medium mt-1 px-2 py-0.5 bg-blue-100 rounded-full">{highestRankedLabel}</div>}
           </div>
           <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Draw' ? 'border-gray-500 bg-gray-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
             <div className="text-xs text-gray-600 mb-1">{t('card.outcomes.draw')}</div>
             <div className="text-lg font-bold text-gray-600">{recommendation.odds_data?.draw?.toFixed(2) || 'N/A'}</div>
             <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.draw_bookmaker || recommendation.bookmaker || recommendation.odds_data?.bookmaker || 'Unknown'}</div>
-            {recommendation.predicted_outcome === 'Draw' && <div className="text-xs text-gray-600 font-medium mt-1 px-2 py-0.5 bg-gray-100 rounded-full">{t('card.badges.recommended')}</div>}
+            {recommendation.predicted_outcome === 'Draw' && <div className="text-xs text-gray-600 font-medium mt-1 px-2 py-0.5 bg-gray-100 rounded-full">{highestRankedLabel}</div>}
           </div>
           <div className={`p-3 rounded-lg border-2 transition-all duration-200 ${recommendation.predicted_outcome === 'Away' ? 'border-purple-500 bg-purple-50 shadow-sm' : 'border-gray-200 hover:border-gray-300'}`}>
             <div className="text-xs text-gray-600 mb-1">{t('card.outcomes.away')}</div>
             <div className="text-lg font-bold text-purple-600">{recommendation.odds_data?.away?.toFixed(2) || 'N/A'}</div>
             <div className="text-xs text-gray-500 mt-1">{recommendation.odds_data?.away_bookmaker || recommendation.bookmaker || recommendation.odds_data?.bookmaker || 'Unknown'}</div>
-            {recommendation.predicted_outcome === 'Away' && <div className="text-xs text-purple-600 font-medium mt-1 px-2 py-0.5 bg-purple-100 rounded-full">{t('card.badges.recommended')}</div>}
+            {recommendation.predicted_outcome === 'Away' && <div className="text-xs text-purple-600 font-medium mt-1 px-2 py-0.5 bg-purple-100 rounded-full">{highestRankedLabel}</div>}
           </div>
         </div>
       )}
