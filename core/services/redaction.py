@@ -139,11 +139,22 @@ class RedactingFilter:
         try:
             if isinstance(record.msg, str):
                 record.msg = redact(record.msg)
+            # Only STRINGS are redacted. Coercing every arg through redact()
+            # turned numbers into strings, and `logger.info('... %.1fs', 22.4)`
+            # then raised "TypeError: must be real number, not str" — observed
+            # on the scheduler's own completion line in production. A secret is
+            # always a string, so non-strings are passed through untouched.
             if record.args:
                 if isinstance(record.args, dict):
-                    record.args = {k: redact(v) for k, v in record.args.items()}
+                    record.args = {
+                        k: (redact(v) if isinstance(v, str) else v)
+                        for k, v in record.args.items()
+                    }
                 else:
-                    record.args = tuple(redact(a) for a in record.args)
+                    record.args = tuple(
+                        redact(a) if isinstance(a, str) else a
+                        for a in record.args
+                    )
             # `logger.exception()` is the dangerous case, and it needs care:
             # a filter runs BEFORE any formatter, so `exc_text` is still None
             # here and the traceback has not been rendered yet. Redacting only

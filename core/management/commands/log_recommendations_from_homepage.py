@@ -17,6 +17,7 @@ django.setup()
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from core.models import PredictionLog
+from core.services.redaction import redact, redact_exception
 from datetime import datetime
 
 
@@ -231,15 +232,29 @@ class Command(BaseCommand):
                 total_recommended = PredictionLog.objects.filter(is_recommended=True).count()
                 self.stdout.write(f'\nTotal recommended predictions in database: {total_recommended}')
             
+        # Both handlers RE-RAISE. They used to `return`, which meant a total
+        # ingestion failure — a 404 from a wrong URL, a 502, a refused
+        # credential — was reported to run_scheduler as a completed stage, and
+        # the cycle logged "All tasks completed successfully" having ingested
+        # nothing. Observed on 2026-08-06: the feed 404'd and the cycle still
+        # showed only the evidence stage as failed.
+        #
+        # A stage that did no work must say so. run_scheduler records the
+        # failure, marks the cycle DEGRADED, and continues to settlement — one
+        # failed fetch must not stop claims whose results already landed.
         except requests.exceptions.RequestException as e:
-            self.stdout.write(self.style.ERROR(f'\nError fetching recommendations from API: {e}'))
             self.stdout.write(self.style.ERROR(
-                'Make sure the frontend server is running and the API endpoint is accessible.'
+                f'\nError fetching recommendations from API: {redact_exception(e)}'))
+            self.stdout.write(self.style.ERROR(
+                'Make sure the internal recommendations endpoint is reachable '
+                'and INTERNAL_API_SECRET matches on both services.'
             ))
-            return
+            raise
         except Exception as e:
-            self.stdout.write(self.style.ERROR(f'\nUnexpected error: {e}'))
+            self.stdout.write(self.style.ERROR(f'\nUnexpected error: {redact_exception(e)}'))
             import traceback
-            traceback.print_exc()
-            return
+            # redact: a traceback frame can quote a provider URL, and
+            # SportMonks authenticates by query parameter.
+            self.stdout.write(self.style.ERROR(redact(traceback.format_exc())))
+            raise
 

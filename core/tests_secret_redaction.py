@@ -125,6 +125,25 @@ class LoggingFilterScrubsRecords(SimpleTestCase):
             out = self._capture(lambda log: log.error('url=%s', FAKE_TOKEN))
         self.assertNotIn(FAKE_TOKEN, out)
 
+    def test_numeric_args_survive_percent_formatting(self):
+        """Regression: the filter must not stringify non-string args.
+
+        `record.args = tuple(redact(a) for a in record.args)` coerced a float
+        to str, so `logger.info('... %.1fs', 22.4)` raised
+        "TypeError: must be real number, not str" — seen in production on the
+        scheduler's own completion line, where it silently destroyed the log
+        message. A secret is always a string; numbers pass through untouched.
+        """
+        out = self._capture(
+            lambda log: log.info('run_id=%s completed in %.1fs', 'abc', 22.4396))
+        self.assertIn('22.4', out)
+        self.assertIn('abc', out)
+        self.assertNotIn('must be real number', out)
+
+    def test_dict_args_keep_non_string_values(self):
+        out = self._capture(lambda log: log.info('%(n).1f done', {'n': 3.14159}))
+        self.assertIn('3.1', out)
+
     def test_traceback_text_is_scrubbed(self):
         """logger.exception() writes the traceback — result_evidence uses it."""
         def emit(log):
@@ -200,3 +219,60 @@ class NoRealTokenInTestEnvironment(SimpleTestCase):
             return
         out = redact(f'?api_token={token}&x=1')
         self.assertNotIn(token, out)
+
+
+class IngestionFailureIsLoud(SimpleTestCase):
+    """A stage that ingested nothing must not report success.
+
+    Observed 2026-08-06: the internal feed 404'd, the command caught the
+    RequestException, printed an error and RETURNED — so run_scheduler recorded
+    the stage as completed and the cycle listed only the evidence stage as
+    failed. A total ingestion failure looked healthy.
+    """
+
+    def _source(self, rel):
+        from pathlib import Path
+        root = Path(__file__).resolve().parent.parent
+        return (root / rel).read_text(encoding='utf-8')
+
+    def test_request_errors_propagate(self):
+        src = self._source(
+            'core/management/commands/log_recommendations_from_homepage.py')
+        after = src[src.index('except requests.exceptions.RequestException'):]
+        # The handler must end in `raise`, not `return`.
+        self.assertIn('raise', after)
+        self.assertNotIn(
+            "            return\n", after,
+            'a handler still swallows the failure and reports a healthy stage')
+
+    def test_scheduler_marks_a_failed_stage(self):
+        src = self._source('core/management/commands/run_scheduler.py')
+        self.assertIn("self._stages[command_name] = 'failed'", src)
+        self.assertIn('Cycle DEGRADED', src)
+
+    def test_schema_validation_rejects_the_public_payload(self):
+        """The public DTO must fail validation — that is its whole purpose."""
+        from core.management.commands.log_recommendations_from_homepage import (
+            validate_internal_schema)
+
+        public_row = {
+            'fixture_id': 1, 'confidence': 0.66, 'odds': 1.8,
+            'best_market': {'type': 'btts', 'probability': 0.66, 'odds': 1.8},
+        }
+        problems = validate_internal_schema([public_row])
+        self.assertTrue(problems)
+        joined = ' '.join(problems)
+        self.assertIn('expected_value', joined)
+        self.assertIn('original_ev', joined)
+
+    def test_schema_validation_accepts_the_internal_payload(self):
+        from core.management.commands.log_recommendations_from_homepage import (
+            validate_internal_schema)
+
+        internal_row = {
+            'fixture_id': 1, 'confidence': 0.66, 'expected_value': 0.2, 'ev': 0.2,
+            'best_market': {
+                'type': 'btts', 'market_score': 0.41, 'original_ev': 0.419,
+            },
+        }
+        self.assertEqual(validate_internal_schema([internal_row]), [])
