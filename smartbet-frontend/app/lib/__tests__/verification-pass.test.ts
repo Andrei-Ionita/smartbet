@@ -431,13 +431,21 @@ describe('price-derived claims are gated on a publishable price', () => {
     // the market, so a second-half Over 2.5 quote of 3.00 satisfied it. The
     // gate is now the pricing contract's own verdict.
     expect(src).toContain('const priceVerified = canPublishPrice(priceSource)')
-    expect(src).toContain('const evPublishable = priceVerified &&')
     expect(src).not.toContain('const MIN_USABLE_ODDS')
     expect(src).not.toContain('const MAX_PUBLISHABLE_EV')
+    // Superseded again 2026-08-06, and more strongly. `evPublishable` was
+    // `priceVerified && typeof recommendation.ev === 'number'` — a correct
+    // gate, but one that made an EV field a precondition for rendering. The
+    // public payload no longer carries EV at all, so the card derives its
+    // state from the verified price alone.
+    expect(src).not.toContain('const evPublishable =')
   })
 
   it('suppresses the headline EV when the price is not publishable', () => {
-    expect(src).toContain('{evPublishable ? (')
+    // The EV slot renders a dash in BOTH branches; only the caption differs,
+    // and it now follows priceVerified rather than an EV field.
+    expect(src).not.toContain('{evPublishable ? (')
+    expect(src).toContain('{priceVerified\n                      ?')
     expect(src).toContain("'Valoare neverificată' : 'Value not verified'")
   })
 

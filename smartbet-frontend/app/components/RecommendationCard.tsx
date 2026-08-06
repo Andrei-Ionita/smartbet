@@ -65,8 +65,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
   // Generate data-driven "Why This Pick" explanation
   const getWhyThisPick = () => {
     const reasons: string[] = []
-    const confidence = recommendation.confidence * 100
-    const ev = (recommendation.ev || 0) * 100
+    // `confidence` and `ev` locals are gone: the value-based reasons that used
+    // them ("Excellent value detected (+18% EV)") were removed, and reading an
+    // EV field here would reintroduce the coupling this pass exists to break.
     const outcome = recommendation.predicted_outcome
 
     // Form-based reasons
@@ -164,23 +165,29 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
   // answer is anything other than verified.
   const priceSource = recommendation.best_market ?? recommendation
   const priceVerified = canPublishPrice(priceSource)
-  const evPublishable = priceVerified && typeof recommendation.ev === 'number'
+  /*
+   * Card state depends on ONE public fact: does a verified market price exist
+   * for the market being ranked?
+   *
+   * It used to also require `typeof recommendation.ev === 'number'`, which tied
+   * what the card displayed to an EV field the public payload no longer carries
+   * — and, more importantly, made an unvalidated number a precondition for
+   * showing anything. Neither branch ever rendered a figure derived from it, so
+   * the dependency bought nothing and coupled the UI to the leak.
+   *
+   * verified price  -> VERIFIED MARKET PRICE / Value not yet assessed
+   * no verified price -> SIGNAL ONLY        / Value cannot be assessed
+   *
+   * No colour, badge, warning, CTA or explanation reads an EV field.
+   */
 
   const priceUnavailableText = priceUnavailableLabel(language)
   const valueNotVerifiedText = language === 'ro' ? 'Valoare neverificată' : 'Value not verified'
 
-  const getEVBadgeColor = () => {
-    if (recommendation.ev === null || !evPublishable) return 'hidden'
-    if (recommendation.ev > 0) return 'bg-green-100 text-green-800'
-    return 'bg-gray-100 text-gray-600'
-  }
-
-  const getEVBadgeText = () => {
-    if (recommendation.ev === null || !evPublishable) return ''
-    const evPercent = recommendation.ev * 100
-    if (evPercent > 0) return `EV +${evPercent.toFixed(1)}%`
-    return `EV ${evPercent.toFixed(1)}%`
-  }
+  /* getEVBadgeColor()/getEVBadgeText() are gone. They produced "EV +8.4%" in
+     green, and both were already unreferenced after the numeric EV was pulled
+     from the render — dead code that would have made reintroducing the badge a
+     one-line change. */
 
   const getOutcomeColor = (outcome: string) => {
     switch (outcome) {
@@ -499,28 +506,17 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="mb-4">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
                 <div className="text-center">
-                  {/* Headline EV is only shown for a price we would publish.
-                      The sign and colour follow the number. A leading '+' was
-                      hardcoded, so a negative expected value rendered as
-                      "+-32.3%" in green — observed live on Rijeka v Ilves. */}
-                  {evPublishable ? (
-                    <>
-                      {/* No public numeric expected value. EV is computed from
-                          an uncalibrated signal score, so any figure — however
-                          neutrally styled or labelled — reads as an assessment
-                          the product has not made. The value STATUS is stated
-                          instead, which is the honest form of the same fact. */}
-                      <div className="text-2xl font-bold text-gray-400">—</div>
-                      <div className="text-xs text-gray-600">
-                        {language === 'ro' ? 'Valoare' : 'Value'}
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="text-2xl font-bold text-gray-400">—</div>
-                      <div className="text-xs text-gray-600">{valueNotVerifiedText}</div>
-                    </>
-                  )}
+                  {/* Value slot. Both branches render a dash — there is no
+                      number to show either way — so what differs is only the
+                      LABEL, and the label follows the price status alone.
+                      Previously the branch tested `evPublishable`, i.e. an EV
+                      field, to decide between two captions that never used it. */}
+                  <div className="text-2xl font-bold text-gray-400">—</div>
+                  <div className="text-xs text-gray-600">
+                    {priceVerified
+                      ? (language === 'ro' ? 'Valoare' : 'Value')
+                      : valueNotVerifiedText}
+                  </div>
                 </div>
                 <div className="text-center">
                   {/* "Confidence" read as a calibrated probability. It is a
@@ -908,12 +904,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
 
                 <div className="bg-white rounded-lg p-3 border border-blue-200">
                   <div className="text-xs text-gray-600 mb-1">{t('card.analysis.predictionStrength')}</div>
-                  <div className={`text-sm font-semibold ${recommendation.debug_info?.variance === 'Low' ? 'text-green-600' :
-                    recommendation.debug_info?.variance === 'Medium' ? 'text-yellow-600' : 'text-red-600'
-                    }`}>
-                    {recommendation.debug_info?.variance === 'Low' ? t('card.analysis.highConfidence') :
-                      recommendation.debug_info?.variance === 'Medium' ? t('card.analysis.mediumConfidence') : t('card.analysis.lowConfidence')}
-                  </div>
+                  {/* Was a red/amber/green "High/Medium/Low confidence" verdict
+                      driven by `debug_info.variance` — an internal field named
+                      for a variance that cannot exist (one provider model per
+                      market), bucketed from the probability gap, and read by a
+                      visitor as a confidence grade. `debug_info` is no longer
+                      in the public payload; the gap itself is described below,
+                      which is the structural fact without the verdict. */}
                   <div className="mt-1 text-xs text-gray-500">
                     {language === 'ro'
                       ? 'Diferența față de următorul rezultat clasat'

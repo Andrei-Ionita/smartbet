@@ -13,6 +13,7 @@ import {
 } from '@/app/lib/heuristics'
 import { buildFormMap, formFor } from '@/app/lib/providerForm'
 import { isFormHeuristicLive } from '@/app/lib/modelActivation'
+import { toPublicRecommendationList } from '@/app/lib/publicRecommendation'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -937,15 +938,55 @@ export async function GET(request: NextRequest) {
     // is now the single canonical write path. Nothing a public request can
     // reach may create or update a prediction record.
 
-    return NextResponse.json({
-      recommendations: top10Recommendations,
+    // ── Publication boundary ──────────────────────────────────────────────
+    //
+    // Everything above is the internal working object: expected value, the
+    // pre-adjustment EV, the value-zone classification, the score components.
+    // The ranking needs all of it. The public does not get any of it.
+    //
+    // Two consumers share this route, and they need different things:
+    //
+    //   * The scheduler (core/management/commands/log_recommendations_from_
+    //     homepage.py) ingests the payload into PredictionLog and reads
+    //     expected_value, ev, best_market.original_ev and market_score. It
+    //     authenticates with the same server-only shared secret the evidence
+    //     feed uses, and receives the payload UNCHANGED — stripping fields
+    //     from its view would silently write null EV onto every prediction
+    //     row, which is a data change wearing the costume of a copy fix.
+    //
+    //   * Everyone else — browsers, scrapers, anyone reading the JSON — gets
+    //     the allowlisted DTO, which cannot carry a field nobody added to it
+    //     on purpose.
+    //
+    // The secret is absent in a browser by construction (no NEXT_PUBLIC_
+    // prefix, so Next cannot inline it), and an unset variable yields the
+    // PUBLIC payload. This gate fails toward disclosure of less, never more.
+    const internalSecret = process.env.INTERNAL_API_SECRET || ''
+    const isInternalConsumer =
+      internalSecret.length > 0 &&
+      request.headers.get('x-internal-auth') === internalSecret
+
+    const envelope = {
       total: top10Recommendations.length,
       leagues_covered: keyLeagues.length,
       fixtures_analyzed: totalFixtures,
       fixtures_with_predictions: fixturesWithPredictions,
-      confidence_threshold: 55,
       lastUpdated: new Date().toISOString(),
-      message: 'Success'
+      message: 'Success',
+    }
+
+    if (isInternalConsumer) {
+      return NextResponse.json({
+        recommendations: top10Recommendations,
+        // Retained for the ingest path only; it is a filter internal.
+        confidence_threshold: 55,
+        ...envelope,
+      })
+    }
+
+    return NextResponse.json({
+      recommendations: toPublicRecommendationList(top10Recommendations),
+      ...envelope,
     })
 
   } catch (error) {

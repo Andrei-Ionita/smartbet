@@ -62,7 +62,38 @@ class Command(BaseCommand):
             # The Next.js engine iterates 27 leagues with sequential SportMonks calls,
             # comfortably taking 20-40s. The previous 10s timeout was abandoning the
             # request before any response arrived — yet another silent failure mode.
-            response = requests.get(api_url, timeout=90)
+            # Authenticate as an INTERNAL consumer.
+            #
+            # /api/recommendations now applies a publication boundary: an
+            # unauthenticated caller receives an allowlisted public DTO with no
+            # expected_value, no original_ev and no value-zone classification,
+            # because none of those are defensible publicly (they derive from a
+            # signal score that is a ranking, not a calibrated probability).
+            #
+            # Ingestion needs those fields — PredictionLog stores expected_value
+            # and raw_expected_value — so this call presents the same
+            # server-only shared secret the evidence feed uses and receives the
+            # payload unchanged. The ingested data is therefore identical to
+            # what it was before the boundary existed.
+            #
+            # Fail LOUD rather than silently ingesting nulls: without the secret
+            # we would still get 200 OK and a well-formed body, just one missing
+            # every EV field, and every row written from it would be quietly
+            # wrong. A missing secret is a deployment fault, not a data source.
+            internal_secret = os.environ.get('INTERNAL_API_SECRET', '')
+            if not internal_secret:
+                raise RuntimeError(
+                    'INTERNAL_API_SECRET is not set. The recommendations API '
+                    'would return the public payload, which omits expected_value '
+                    'and best_market.original_ev, and every ingested prediction '
+                    'would record a null EV. Refusing to ingest.'
+                )
+
+            response = requests.get(
+                api_url,
+                timeout=90,
+                headers={'X-Internal-Auth': internal_secret},
+            )
             response.raise_for_status()
             data = response.json()
             
