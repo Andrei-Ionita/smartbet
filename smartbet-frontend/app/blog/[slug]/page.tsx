@@ -122,7 +122,7 @@ export default async function BlogPostPage({ params }: Props) {
               href="/explore"
               className="inline-flex items-center gap-2 bg-primary-600 text-white px-6 py-3 rounded-xl font-medium hover:bg-primary-700 transition-colors"
             >
-              Explore Predictions
+              Explore signals
             </Link>
           </div>
         </footer>

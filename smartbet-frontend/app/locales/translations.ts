@@ -27,7 +27,7 @@ export const translations = {
             heroTitle: 'BetGlitch.',
             heroTitleHighlight: 'Not Guesswork.',
             heroSubtitle: 'Verifiable football market signals. Selected picks are frozen before kickoff and stay public after settlement.',
-            exploreButton: 'Explore Predictions',
+            exploreButton: 'Explore signals',
             stats: {
                 accuracy: 'Accuracy',
                 roi: 'Avg ROI',

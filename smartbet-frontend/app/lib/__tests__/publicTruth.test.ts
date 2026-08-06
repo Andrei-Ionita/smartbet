@@ -72,6 +72,17 @@ const PUBLIC_SURFACES = [
   'app/components/RecommendationCard.tsx',
   'app/components/RecommendedPredictionsTable.tsx',
   'app/components/EmailCapture.tsx',
+  // Added after production verification 2026-08-06: StatusBadge's accessible
+  // hint still read "Live model signal" on every page that renders a badge,
+  // and EmptyState carried "The model signal is still shown". Both shipped
+  // because the surface list below was incomplete, not because the scan was
+  // wrong — shared components are public surfaces too.
+  'app/components/StatusBadge.tsx',
+  'app/components/EmptyState.tsx',
+  'app/components/BettingCalculatorModal.tsx',
+  'app/proof/_shared/ProofPageBody.tsx',
+  'components/Footer.tsx',
+  'components/Navigation.tsx',
   'app/components/dashboard/PersonalizedRecommendations.tsx',
   'app/lib/terminology.ts',
   'app/locales/translations.ts',

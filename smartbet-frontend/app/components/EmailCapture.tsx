@@ -86,7 +86,7 @@ export default function EmailCapture({
         ? 'Follow the published picks by email'
         : 'Get the weekly summary')
     const variantDescription = description || (variant === 'hero'
-        ? 'A weekly email covering the picks BetGlitch published, how they settled, and what changed in the model. Wins and losses both.'
+        ? 'A weekly email covering the picks BetGlitch published and how they settled. Wins and losses both.'
         : 'A weekly summary of published picks and how they settled.')
     const ctaLabel = buttonText || (variant === 'hero' ? 'Subscribe' : variant === 'compact' ? 'Subscribe' : 'Subscribe')
 

@@ -1,7 +1,7 @@
 /**
  * The one visual language for "what kind of object am I looking at?".
  *
- * The core honesty problem this solves: a mutable live model signal and an
+ * The core honesty problem this solves: a mutable live signal and an
  * immutable published claim used to look identical on screen. They are not the
  * same object and must never read as equivalent.
  *
@@ -82,7 +82,7 @@ const SPECS: Record<SignalStatus, Spec> = {
     Icon: Activity,
     // Dashed = mutable. Deliberately the only dashed badge in the product.
     className: 'border-dashed border-sky-400 bg-sky-50 text-sky-800',
-    hint: 'Live model signal — can change before kickoff and is not part of the verified record.',
+    hint: 'Live signal — can change before kickoff and is not part of the verified record.',
   },
   published_pending: {
     label: 'PUBLISHED — PENDING',

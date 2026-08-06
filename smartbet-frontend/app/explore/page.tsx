@@ -23,7 +23,7 @@ export default function ExplorePage() {
     <>
       <BreadcrumbSchema items={[
         { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Explore Predictions', url: 'https://betglitch.com/explore' },
+        { name: 'Explore signals', url: 'https://betglitch.com/explore' },
       ]} />
       <ExploreContent />
     </>

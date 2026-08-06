@@ -58,7 +58,7 @@ Every candidate that passes the filters carries a signal score from 0 to 100. It
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Data Pipeline: From Source to Prediction</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-BetGlitch sources its data from premium sports data providers, with SportMonks as our primary data backbone. Our pipeline operates in several stages:
+BetGlitch sources its probability and fixture data from a single specialist provider, SportMonks. Our pipeline operates in several stages:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Data ingestion:</strong> Fixture data, team information and recorded odds are pulled continuously for every covered competition.</li>

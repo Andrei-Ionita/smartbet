@@ -86,7 +86,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'expected',
     title: 'No verified price is available for this market',
     body:
-      'The model signal is still shown, but BetGlitch will not publish a priced claim without complete market provenance—the exact bookmaker, market and capture time must all be recorded.',
+      'The live signal is still shown, but BetGlitch will not publish a priced claim without complete market provenance—the exact bookmaker, market and capture time must all be recorded.',
   },
   provider_unavailable: {
     Icon: ServerCrash,
