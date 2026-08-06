@@ -687,12 +687,28 @@ export async function GET(request: NextRequest) {
             // heuristic and an internal switch, neither of which belongs in a
             // public response. Variant B is reachable only through the
             // authenticated evidence feed and SignalObservation.
+            // `original_ev` and `adjusted_ev` no longer ship. The rendered card
+            // stopped publishing a numeric expected value, but the API kept
+            // emitting both figures — a public numeric EV is a public numeric
+            // EV whether a component renders it or a reader opens the JSON, and
+            // anyone building on this feed would have taken them as an
+            // assessment BetGlitch has made. EV is derived from the signal
+            // score, which is a ranking, so no figure is defensible.
+            //
+            // The zone label stays: it is a data-quality verdict about the
+            // PRICE ('trap' means the quote looks like a provider error), not a
+            // claim about value, and suppressing it would hide a caveat.
+            //
+            // The form_adjustment block is deliberately ABSENT. It exposed the
+            // Variant-B multiplier, the shadow-adjusted probability, the raw
+            // form inputs and the server-side activation state — an unvalidated
+            // heuristic and an internal switch, neither of which belongs in a
+            // public response. Variant B is reachable only through the
+            // authenticated evidence feed and SignalObservation.
             const enhancementData = {
               value_zone: {
                 zone: valueZone.zone,
                 warning: valueZone.warning,
-                original_ev: bestMarketEV,
-                adjusted_ev: adjustedEV
               },
               // Reports the value-zone adjustment only. The form heuristic is
               // never applied to public output while activation is off, so
