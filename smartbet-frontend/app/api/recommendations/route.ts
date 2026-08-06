@@ -740,7 +740,10 @@ export async function GET(request: NextRequest) {
               probabilities: predictionData,
               odds_data: oddsData,
               teams_data: teamsData,
-              explanation: `Best bet: ${marketConfig.display_name} - ${bestMarket.predicted_outcome}`,
+              // "Best bet: …" told the reader to bet, and called the selection
+              // best. It is the highest-ranked outcome in one market — which is
+              // a statement about our ordering, not about what anyone should do.
+              explanation: `Highest-ranked outcome: ${marketConfig.display_name} — ${bestMarket.predicted_outcome}`,
 
               // NEW: Multi-market data (with adjusted score)
               best_market: {

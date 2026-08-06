@@ -50,7 +50,7 @@ const INTERNAL_RECOMMENDATION = {
   probabilities: { home: 0.44, draw: 0.28, away: 0.28 },
   odds_data: { home: 2.1, draw: 3.4, away: 3.6, bookmaker: '888Sport' },
   teams_data: { home: { form: 'WWDLW' }, away: { form: 'LDWLL' } },
-  explanation: 'Best bet: Both Teams To Score - Btts yes',
+  explanation: 'Highest-ranked outcome: Both Teams To Score — Btts yes',
   best_market: {
     type: 'btts', name: 'BTTS', display_name: 'Both Teams To Score',
     predicted_outcome: 'Btts yes',
@@ -158,6 +158,9 @@ const FORBIDDEN_KEY_RULES: ReadonlyArray<readonly [string, RegExp]> = [
   ['confidence_score', /confidence_score/i],
   ['original_probability', /original_probability/i],
   ['confidence_threshold', /confidence_threshold/i],
+  // True for every row in the top ten, so it carries no information a reader
+  // could act on — while its name asserts an endorsement we do not make.
+  ['is_recommended', /is_recommended/i],
 ]
 
 describe('public payload carries no forbidden key', () => {
@@ -193,6 +196,10 @@ const FORBIDDEN_STRING_RULES: ReadonlyArray<readonly [string, RegExp]> = [
   ['calibration', /calibrat/i],
   ['shadow', /shadow/i],
   ['form multiplier', /form multiplier/i],
+  // The explanation string used to read "Best bet: Match Result - Away",
+  // which both told the reader to bet and called the selection best.
+  ['best bet', /best bet/i],
+  ['recommended wording', /\brecommend/i],
 ]
 
 describe('public payload carries no forbidden string', () => {

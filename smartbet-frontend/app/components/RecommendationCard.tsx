@@ -668,11 +668,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             {recommendation.all_markets.map((market, idx) => (
               <div
                 key={market.type}
+                /* Two tiers, not three. The middle tier was `is_recommended`,
+                   a filter verdict rendered as a green endorsement — and the
+                   field is no longer public, because "recommended" states an
+                   endorsement the product does not make. What remains is
+                   structural: the highest-ranked market, and the rest. */
                 className={`p-2.5 rounded-lg text-center transition-all ${idx === 0
                   ? 'bg-white border-2 border-blue-400 shadow-sm'
-                  : market.is_recommended
-                    ? 'bg-white border border-green-300'
-                    : 'bg-white/60 border border-gray-200 opacity-70'
+                  : 'bg-white/60 border border-gray-200 opacity-70'
                   }`}
               >
                 <div className="text-xs font-medium text-gray-500 mb-0.5">{market.name}</div>
@@ -694,9 +697,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 {idx === 0 && (
                   <div className="text-xs text-green-600 font-medium mt-1">{t('card.multiMarket.starBest')}</div>
                 )}
-                {!market.is_recommended && idx !== 0 && (
-                  <div className="text-xs text-gray-400 mt-1">{t('card.multiMarket.notRecommended')}</div>
-                )}
+                {/* The "not recommended" caption is gone with the flag that
+                    drove it: its absence said nothing true, and with the field
+                    stripped from the payload it would have printed under every
+                    non-leading market regardless. */}
               </div>
             ))}
           </div>

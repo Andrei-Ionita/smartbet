@@ -156,7 +156,10 @@ export function toPublicRecommendation(rec: Record<string, any>): PublicRecommen
         odds: m.odds ?? null,
       }))
       : [],
-    ...(rec.is_recommended !== undefined ? { is_recommended: rec.is_recommended } : {}),
+    // `is_recommended` is NOT published. It is true for every row the ranking
+    // put in the top ten, so as a field it carries no information a reader
+    // could act on — while its name asserts an endorsement the product does
+    // not make. The card's own layout already shows which market led.
   }
 }
 
