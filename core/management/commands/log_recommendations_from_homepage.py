@@ -20,6 +20,56 @@ from core.models import PredictionLog
 from datetime import datetime
 
 
+#: Fields the ingest path genuinely requires, and what reads each one.
+#:
+#: `expected_value`/`ev`      -> PredictionLog.expected_value
+#: `best_market.original_ev`  -> PredictionLog.raw_expected_value
+#: `best_market.market_score` -> PredictionLog.market_score
+#: `best_market.type`         -> PredictionLog.market_type
+#: `fixture_id`, `confidence` -> row identity and the frozen score
+#:
+#: See core/services/recommendation_ingest.py, which is the only write path.
+REQUIRED_TOP_LEVEL = ('fixture_id', 'confidence')
+REQUIRED_BEST_MARKET = ('type', 'market_score', 'original_ev')
+
+#: How many rows to inspect. Enough to catch a wrong-endpoint payload without
+#: turning validation into a second pass over the batch.
+SCHEMA_SAMPLE_SIZE = 3
+
+
+def validate_internal_schema(recommendations):
+    """Return a list of human-readable problems; empty means the shape is good.
+
+    Deliberately checks presence, not values: this guards against receiving the
+    PUBLIC payload (or a truncated one), which is a wiring fault. It is not a
+    data-quality filter — an imperfect but complete row is still classified
+    downstream by public_universe.status_for rather than rejected here.
+    """
+    problems = []
+    for index, rec in enumerate(recommendations[:SCHEMA_SAMPLE_SIZE]):
+        if not isinstance(rec, dict):
+            problems.append(f'row {index} is not an object')
+            continue
+
+        for field in REQUIRED_TOP_LEVEL:
+            if rec.get(field) is None:
+                problems.append(f'row {index}: {field} missing')
+
+        # expected_value and ev are aliases; ingestion accepts either.
+        if rec.get('expected_value') is None and rec.get('ev') is None:
+            problems.append(f'row {index}: expected_value/ev both missing')
+
+        best_market = rec.get('best_market')
+        if not isinstance(best_market, dict):
+            problems.append(f'row {index}: best_market missing')
+            continue
+        for field in REQUIRED_BEST_MARKET:
+            if best_market.get(field) is None:
+                problems.append(f'row {index}: best_market.{field} missing')
+
+    return problems
+
+
 class Command(BaseCommand):
     help = 'Fetch recommendations from home page API and log them to PredictionLog database'
 
@@ -30,9 +80,17 @@ class Command(BaseCommand):
     # only landing in PredictionLog when a user happened to load the homepage
     # and the Next.js endpoint POSTed them back (traffic-coupled persistence).
     # Override via env var for local dev:  RECOMMENDATIONS_API_URL=http://localhost:3000/api/recommendations
+    # The INTERNAL feed, not the public one.
+    #
+    # /api/recommendations serves an allowlisted public DTO with no
+    # expected_value, no best_market.original_ev and no market_score, because
+    # none of those are defensible publicly. Ingestion writes exactly those
+    # fields onto every PredictionLog row, so pointing this command at the
+    # public URL would record a null EV against every prediction — silently,
+    # behind a 200 OK and a well-formed body.
     DEFAULT_API_URL = os.environ.get(
         'RECOMMENDATIONS_API_URL',
-        'https://www.betglitch.com/api/recommendations',
+        'https://www.betglitch.com/api/internal/recommendations',
     )
 
     def add_arguments(self, parser):
@@ -62,31 +120,15 @@ class Command(BaseCommand):
             # The Next.js engine iterates 27 leagues with sequential SportMonks calls,
             # comfortably taking 20-40s. The previous 10s timeout was abandoning the
             # request before any response arrived — yet another silent failure mode.
-            # Authenticate as an INTERNAL consumer.
-            #
-            # /api/recommendations now applies a publication boundary: an
-            # unauthenticated caller receives an allowlisted public DTO with no
-            # expected_value, no original_ev and no value-zone classification,
-            # because none of those are defensible publicly (they derive from a
-            # signal score that is a ranking, not a calibrated probability).
-            #
-            # Ingestion needs those fields — PredictionLog stores expected_value
-            # and raw_expected_value — so this call presents the same
-            # server-only shared secret the evidence feed uses and receives the
-            # payload unchanged. The ingested data is therefore identical to
-            # what it was before the boundary existed.
-            #
-            # Fail LOUD rather than silently ingesting nulls: without the secret
-            # we would still get 200 OK and a well-formed body, just one missing
-            # every EV field, and every row written from it would be quietly
-            # wrong. A missing secret is a deployment fault, not a data source.
+            # The internal feed is fail-closed: without the secret it answers
+            # 401 and there is nothing to ingest. Check here anyway so the
+            # failure names the cause instead of surfacing as an HTTP error.
             internal_secret = os.environ.get('INTERNAL_API_SECRET', '')
             if not internal_secret:
                 raise RuntimeError(
-                    'INTERNAL_API_SECRET is not set. The recommendations API '
-                    'would return the public payload, which omits expected_value '
-                    'and best_market.original_ev, and every ingested prediction '
-                    'would record a null EV. Refusing to ingest.'
+                    'INTERNAL_API_SECRET is not set, so the internal '
+                    'recommendations feed cannot be reached. Refusing to '
+                    'ingest.'
                 )
 
             response = requests.get(
@@ -103,30 +145,26 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING('No recommendations found in API response'))
                 return
 
-            # Verify we actually received the INTERNAL payload.
+            # Validate the payload SHAPE before writing anything.
             #
-            # Presenting a secret is not proof of being trusted: if the two
-            # services ever hold DIFFERENT values for INTERNAL_API_SECRET, the
-            # header simply fails to match and the API answers 200 OK with the
-            # public DTO — well-formed, correctly ordered, and missing every EV
-            # field. Ingestion would then write a null expected_value onto every
-            # row without a single error.
+            # Presenting a secret is not proof of having been trusted. If the
+            # two services ever hold different values for INTERNAL_API_SECRET
+            # the request is simply refused — but a misconfigured URL pointing
+            # back at the public route would answer 200 OK with a well-formed
+            # body that is missing every EV field, and ingestion would write a
+            # null expected_value onto every row without raising anything.
             #
-            # So check the payload rather than the credential. This is the
-            # assertion that actually protects PredictionLog.
-            probe = recommendations[0]
-            has_ev = (
-                probe.get('expected_value') is not None
-                or probe.get('ev') is not None
-            )
-            has_raw_ev = (probe.get('best_market') or {}).get('original_ev') is not None
-            if not (has_ev and has_raw_ev):
+            # So assert on what arrived, not on what we sent. This is the check
+            # that actually protects PredictionLog.
+            missing = validate_internal_schema(recommendations)
+            if missing:
                 raise RuntimeError(
-                    'The recommendations API returned the PUBLIC payload — it '
-                    'has no expected_value/original_ev. The internal request was '
-                    'not recognised, most likely because INTERNAL_API_SECRET '
-                    'differs between the scheduler and the frontend service. '
-                    'Refusing to ingest predictions with null expected value.'
+                    'Internal recommendation payload failed schema validation. '
+                    'Missing required ingestion fields: '
+                    + '; '.join(missing)
+                    + '. This usually means the request reached the PUBLIC '
+                      'route (which strips EV fields by design) rather than '
+                      '/api/internal/recommendations. Refusing to ingest.'
                 )
             
             self.stdout.write(f'Found {len(recommendations)} recommendations from homepage\n')

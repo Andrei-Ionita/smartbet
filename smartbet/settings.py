@@ -287,3 +287,63 @@ if not DEBUG:
     ]
     if os.getenv('FRONTEND_URL'):
         CSRF_TRUSTED_ORIGINS.append(os.getenv('FRONTEND_URL'))
+# ── Credential redaction on every log record ──────────────────────────────────
+#
+# On 2026-08-06 a test run printed the live SportMonks token to stdout. Nobody
+# wrote a line that printed it: SportMonks authenticates by query parameter, and
+# `requests` puts the fully resolved request URL into its exception message, so
+# `logger.exception(...)` around any provider call writes the credential into
+# the traceback.
+#
+# Call sites use core.services.redaction.redact_exception deliberately. This
+# filter is the backstop for the ones that do not — including third-party
+# libraries (urllib3, requests) that log their own request URLs, which we cannot
+# edit. Attached to the root logger so nothing bypasses it.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'filters': {
+        'redact_secrets': {
+            '()': 'core.services.redaction.RedactingFilter',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'filters': ['redact_secrets'],
+            'formatter': 'standard',
+        },
+    },
+    'formatters': {
+        'standard': {
+            'format': '%(asctime)s [%(levelname)s] %(message)s',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': 'INFO',
+    },
+}
+
+# ── Tests must never hold production credentials ──────────────────────────────
+#
+# The 2026-08-06 exposure happened DURING A TEST RUN: a provider call failed,
+# `requests` put the resolved URL into the exception, and the print statement
+# emitted the live token to stdout. Redaction now prevents the emission, but the
+# deeper fix is that a test process has no business holding the real credential
+# in the first place — it never calls the provider for real.
+#
+# Overriding here rather than in a separate settings module keeps it impossible
+# to run the suite against production secrets by forgetting a flag.
+if 'test' in sys.argv or os.environ.get('DJANGO_TEST_MODE') == '1':
+    for _secret_var in (
+        'SPORTMONKS_API_TOKEN',
+        'SPORTMONKS_TOKEN',
+        'INTERNAL_API_SECRET',
+        'RECOMMENDATION_INGEST_SECRET',
+        'MARKETING_WEBHOOK_SECRET',
+        'POLAR_ACCESS_TOKEN',
+        'POLAR_WEBHOOK_SECRET',
+    ):
+        if os.environ.get(_secret_var):
+            os.environ[_secret_var] = f'FAKE_{_secret_var}_FOR_TESTS'

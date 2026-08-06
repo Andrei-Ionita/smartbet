@@ -8,6 +8,7 @@ from django.core.management import call_command
 from django.db import connection
 
 from core.services.scheduler_health import SchedulerAlreadyRunning, record_run
+from core.services.redaction import redact_exception
 
 # Configure logging
 logging.basicConfig(
@@ -143,7 +144,13 @@ class Command(BaseCommand):
             self._stages[command_name] = 'ok'
         except Exception as e:
             logger.exception('scheduled task %s failed', command_name)
-            self.stdout.write(self.style.ERROR(f'❌ Error running {command_name}: {e}'))
+            # redact_exception, not {e}: a stage that failed inside a provider
+            # call carries the resolved request URL in its message, and
+            # SportMonks authenticates by query parameter. This line runs on
+            # every failure, so it is the most likely place for a token to
+            # reach the worker logs.
+            self.stdout.write(self.style.ERROR(
+                f'❌ Error running {command_name}: {redact_exception(e)}'))
             if run is not None and hasattr(run, 'stage'):
                 run.stage(command_name, False)
             self._stages[command_name] = 'failed'

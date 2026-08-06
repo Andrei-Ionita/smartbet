@@ -498,7 +498,10 @@ describe('fixture detail no longer owns a selection contract', () => {
 })
 
 describe('recommendation ingestion uses the same contract', () => {
-  const src = read('app/api/recommendations/route.ts')
+  // The engine moved to engine.ts on 2026-08-06 when the public and internal
+  // routes were split. These assertions are about the PIPELINE, so they follow
+  // the pipeline; the contract is unchanged.
+  const src = read('app/api/recommendations/engine.ts')
 
   it('prices through the shared module', () => {
     expect(src).toContain("from '@/app/lib/marketPricing'")

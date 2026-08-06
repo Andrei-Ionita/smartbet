@@ -388,7 +388,7 @@ describe('one maintained source of truth for coverage counts', () => {
   it('SIGNAL_COMPETITION_IDS still matches the pipeline it mirrors', () => {
     // If keyLeagues changes, this fails and the public copy gets updated with
     // it — which is the entire point of holding the numbers in one module.
-    const route = read('app/api/recommendations/route.ts')
+    const route = read('app/api/recommendations/engine.ts')
     const block = route.slice(
       route.indexOf('const keyLeagues = ['),
       route.indexOf('const allRecommendations'),

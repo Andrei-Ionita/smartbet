@@ -308,29 +308,46 @@ describe('the route serializes before responding', () => {
     ) as string
   })()
 
-  it('passes the public branch through the serializer', () => {
-    expect(src).toContain('recommendations: toPublicRecommendationList(top10Recommendations)')
+  it('passes everything it returns through the serializer', () => {
+    expect(src).toContain('toPublicRecommendationList(result.recommendations)')
   })
 
-  it('gates the raw payload behind the server-only shared secret', () => {
-    expect(src).toContain("process.env.INTERNAL_API_SECRET")
-    expect(src).toContain("request.headers.get('x-internal-auth')")
-    expect(src).toContain('internalSecret.length > 0')
+  /*
+   * SUPERSEDED 2026-08-06, and strictly strengthened.
+   *
+   * These three used to pin the header-branch gate: one route decided between
+   * the raw payload and the DTO by comparing `X-Internal-Auth` against
+   * INTERNAL_API_SECRET, and the test verified the branch failed toward the
+   * public payload.
+   *
+   * The branch is gone. The raw payload now lives behind a SEPARATE route
+   * (/api/internal/recommendations) with its own fail-closed auth, so the
+   * public handler has no code path to internal fields at all — a stronger
+   * guarantee than a correctly-written condition, because there is no
+   * condition left to get wrong. The gate's behaviour is covered by
+   * routeSeparation.test.ts, which invokes both real handlers.
+   */
+  it('has no authentication branch of its own', () => {
+    expect(src).not.toContain('INTERNAL_API_SECRET')
+    expect(src).not.toContain('x-internal-auth')
+    expect(src).not.toContain('isInternalConsumer')
   })
 
-  it('never reads the secret through a NEXT_PUBLIC_ variable', () => {
-    expect(src).not.toMatch(/NEXT_PUBLIC_[A-Z_]*INTERNAL/)
-  })
-
-  it('an unset secret yields the PUBLIC payload, not the raw one', () => {
-    // `internalSecret.length > 0 &&` is the whole guarantee: with the variable
-    // unset the condition short-circuits false and the DTO branch runs.
-    expect(src).toMatch(/const isInternalConsumer =\s*\n\s*internalSecret\.length > 0 &&/)
+  it('cannot return the raw payload under any condition', () => {
+    // The only thing it ever puts in `recommendations` is the serializer call.
+    const returns = src.match(/recommendations:\s*[^\n,]+/g) ?? []
+    expect(returns.length).toBeGreaterThan(0)
+    for (const r of returns) {
+      expect(r).toContain('toPublicRecommendationList')
+    }
   })
 
   it('keeps confidence_threshold out of the public envelope', () => {
-    const publicReturn = src.slice(src.indexOf('return NextResponse.json({\n      recommendations: toPublicRecommendationList'))
-    expect(publicReturn).not.toContain('confidence_threshold')
+    expect(src).not.toContain('confidence_threshold')
+  })
+
+  it('declares an explicit cache policy', () => {
+    expect(src).toContain('Cache-Control')
   })
 })
 

@@ -24,6 +24,7 @@ from .bankroll_utils import calculate_stake_amount
 from .services.marketing import MarketingSyncError, sync_marketing_profile
 from .services import (ingest_auth, public_universe, recommendation_ingest,
                        snapshot_recording)
+from .services.redaction import redact, redact_exception
 
 logger = logging.getLogger(__name__)
 
@@ -321,7 +322,7 @@ def get_recommendations(request):
                 except Exception as e:
                     # Don't fail the whole request if stake calc fails
                     recommendation['stake_recommendation'] = {
-                        'error': str(e)
+                        'error': redact_exception(e)
                     }
             
             recommendations.append(recommendation)
@@ -350,7 +351,7 @@ def get_recommendations(request):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e),
+            'error': redact_exception(e),
             'data': [],
             'count': 0
         }, status=500)
@@ -451,7 +452,7 @@ def get_fixture_details(request, fixture_id):
                     }
             except Exception as e:
                 # Don't fail the whole request if stake calc fails
-                fixture_data['stake_recommendation'] = {'error': str(e)}
+                fixture_data['stake_recommendation'] = {'error': redact_exception(e)}
         
         return JsonResponse({
             'success': True,
@@ -466,7 +467,7 @@ def get_fixture_details(request, fixture_id):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e)
+            'error': redact_exception(e)
         }, status=500)
 
 
@@ -704,11 +705,13 @@ def get_recommended_predictions_with_outcomes(request):
     except Exception as e:
         import traceback
         traceback_str = traceback.format_exc()
-        print(f"❌ ERROR in recommended-predictions: {str(e)}")
-        print(traceback_str)
+        # A traceback frame can quote a URL or a header dict, so the traceback
+        # is redacted too — not just the exception message.
+        print(f"❌ ERROR in recommended-predictions: {redact_exception(e)}")
+        print(redact(traceback_str))
         return JsonResponse({
             'success': False,
-            'error': f"{str(e)} | {traceback_str.splitlines()[-1]}",
+            'error': f"{redact_exception(e)} | {redact(traceback_str.splitlines()[-1])}",
             'data': [],
             'count': 0
         }, status=500)
@@ -937,13 +940,20 @@ def search_fixtures(request):
             print('SportMonks API timeout - falling back to database search')
             return search_fixtures_from_database(request, query, league_filter, limit)
         except Exception as e:
-            print(f"SportMonks API error: {str(e)}")
+            # NEVER str(e) here. requests embeds the fully resolved URL in its
+            # exception message, and SportMonks authenticates by query
+            # parameter, so the unredacted text contains the live token. This
+            # exact line printed it to CI stdout on 2026-08-06.
+            print(f"SportMonks API error: {redact_exception(e)}")
             return search_fixtures_from_database(request, query, league_filter, limit)
 
     except Exception as e:
+        # Same hazard, worse blast radius: this one goes into an HTTP response
+        # body, so an unredacted provider error would hand the token to whoever
+        # made the request.
         return JsonResponse({
             'success': False,
-            'error': str(e),
+            'error': redact_exception(e),
             'results': [],
             'data': [],
             'count': 0
@@ -992,7 +1002,7 @@ def search_fixtures_from_database(request, query, league_filter, limit):
     except Exception as e:
         return JsonResponse({
             'success': False,
-            'error': str(e),
+            'error': redact_exception(e),
             'results': [],
             'data': [],
             'count': 0
@@ -1152,7 +1162,7 @@ def subscribe_email(request):
             'error': 'Invalid JSON body'
         }, status=400)
     except Exception as e:
-        print(f"Email subscription error: {e}")
+        print(f"Email subscription error: {redact_exception(e)}")
         return JsonResponse({
             'success': False,
             'error': 'Something went wrong. Please try again.'
@@ -1195,7 +1205,7 @@ def track_marketing_event(request):
     except json.JSONDecodeError:
         return JsonResponse({'success': False, 'error': 'Invalid JSON body'}, status=400)
     except Exception as e:
-        print(f"Marketing event tracking error: {e}")
+        print(f"Marketing event tracking error: {redact_exception(e)}")
         return JsonResponse({'success': False, 'error': 'Something went wrong. Please try again.'}, status=500)
 
 

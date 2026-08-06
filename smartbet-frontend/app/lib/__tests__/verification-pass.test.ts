@@ -283,7 +283,7 @@ describe('no client can trigger settlement', () => {
 })
 
 describe('the public recommendations route is read-only', () => {
-  const route = read('app/api/recommendations/route.ts')
+  const route = read('app/api/recommendations/engine.ts')
 
   it('makes no write request to our backend', () => {
     // A GET a browser can reach must not create prediction records. This route
@@ -296,7 +296,7 @@ describe('the public recommendations route is read-only', () => {
 
 describe('the ingest secret cannot reach a browser', () => {
   const signer = read('app/lib/ingestSignature.ts')
-  const route = read('app/api/recommendations/route.ts')
+  const route = read('app/api/recommendations/engine.ts')
 
   it('never uses a NEXT_PUBLIC_ name', () => {
     // NEXT_PUBLIC_* is inlined into the client bundle at build time, which
@@ -311,7 +311,15 @@ describe('the ingest secret cannot reach a browser', () => {
     // way to reach this module is from the server runtime.
     expect(signer).not.toContain("'use client'")
     expect(route).not.toContain("'use client'")
-    expect(route).toContain("export const runtime = 'nodejs'")
+    // The engine is no longer a route module, so it carries no runtime export
+    // of its own — it inherits the runtime of whichever route imports it, and
+    // BOTH of those pin nodejs. Assert that where it is now declared.
+    for (const rel of [
+      'app/api/recommendations/route.ts',
+      'app/api/internal/recommendations/route.ts',
+    ]) {
+      expect(read(rel), rel).toContain("export const runtime = 'nodejs'")
+    }
   })
 
   it('signs with the documented header contract', () => {

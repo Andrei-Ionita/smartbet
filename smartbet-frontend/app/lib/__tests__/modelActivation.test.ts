@@ -55,7 +55,7 @@ describe('the flag is server-only and not a browser control', () => {
 
   it('is only consulted from server routes, never a component', () => {
     for (const file of [
-      'app/api/recommendations/route.ts',
+      'app/api/recommendations/engine.ts',
       'app/api/internal/evidence/route.ts',
     ]) {
       expect(read(file)).toMatch(/modelActivation/)
@@ -73,7 +73,7 @@ describe('the flag is server-only and not a browser control', () => {
 })
 
 describe('public output uses Variant A while disabled', () => {
-  const src = read('app/api/recommendations/route.ts')
+  const src = read('app/api/recommendations/engine.ts')
 
   it('computes the shadow value but gates what reaches the public field', () => {
     expect(src).toContain('const shadowAdjustedProbability = Math.min(')
@@ -186,7 +186,7 @@ describe('no unvalidated public claims were reintroduced', () => {
 })
 
 describe('the public response leaks no shadow or activation data', () => {
-  const src = read('app/api/recommendations/route.ts')
+  const src = read('app/api/recommendations/engine.ts')
 
   // The response object literal, from the push that builds a recommendation to
   // the end of the scoring stage. Anything emitted here reaches the browser.
