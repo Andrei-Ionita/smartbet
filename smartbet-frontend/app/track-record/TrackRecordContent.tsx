@@ -808,9 +808,16 @@ export default function TrackRecordContent() {
                   {/* Was "Confidence", rendered as "60.8%" — which reads as a
                       calibrated probability. It is a relative ranking score. */}
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
-                    Model score
+                    {language === 'ro' ? 'Scor semnal' : 'Signal score'}
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.ev')}</th>
+                  {/* Was the expected-value column, rendering "+8.4%" in green.
+                      EV is derived from the signal score, which is a ranking and
+                      not a calibrated probability, so the figure asserted an
+                      assessment BetGlitch has not made. The column now reports
+                      value STATUS, which is the honest form of the same fact. */}
+                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">
+                    {language === 'ro' ? 'Statut valoare' : 'Value status'}
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.pl')}</th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t('trackRecord.table.date')}</th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase">Share</th>
@@ -880,15 +887,17 @@ export default function TrackRecordContent() {
                         {pred.confidence.toFixed(1)}
                       </span>
                     </td>
-                    {/* Expected value and profit/loss are both computed FROM the
+                    {/* Value status and profit/loss are both anchored to the
                         recorded price. On a legacy row that price could not be
-                        verified against the exact market and bookmaker, so the
-                        figures derived from it are not evidence of anything and
-                        must not be shown as green/red money. */}
+                        verified against the exact market and bookmaker, so
+                        nothing derived from it is evidence of anything. On a
+                        verified row the price is known but the value of that
+                        price is not — BetGlitch has no calibration to judge it
+                        against — so the honest answer is "not yet assessed". */}
                     <td className="px-6 py-4 text-right">
                       {isVerified(pred) ? (
-                        <span className="text-sm font-medium text-green-600">
-                          +{pred.expected_value.toFixed(1)}%
+                        <span className="text-sm text-gray-600">
+                          {language === 'ro' ? 'Neevaluată încă' : 'Not yet assessed'}
                         </span>
                       ) : (
                         <NotVerified lang={language} />

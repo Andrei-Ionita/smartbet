@@ -355,36 +355,14 @@ export default function RecommendedPredictionsTable() {
             </div>
           </div>
 
-          {/* Edge vs Market Comparison - THE KEY TRUST METRIC */}
-          {summary.edge_vs_market !== null && summary.implied_baseline !== null && (
-            <div className={`mt-4 rounded-xl p-5 shadow-lg border-2 ${summary.edge_vs_market >= 0 ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                <div className="flex items-center gap-4">
-                  <div className={`w-16 h-16 rounded-full flex items-center justify-center ${summary.edge_vs_market >= 0 ? 'bg-green-100' : 'bg-red-100'}`}>
-                    <span className={`text-2xl font-bold ${summary.edge_vs_market >= 0 ? 'text-green-700' : 'text-red-700'}`}>
-                      {summary.edge_vs_market >= 0 ? '+' : ''}{summary.edge_vs_market.toFixed(1)}%
-                    </span>
-                  </div>
-                  <div>
-                    <h3 className={`text-lg font-bold ${summary.edge_vs_market >= 0 ? 'text-green-800' : 'text-red-800'}`}>
-                      Edge vs. Market
-                    </h3>
-                    <p className="text-sm text-gray-600">
-                      Our accuracy: <strong>{summary.accuracy}%</strong> vs. implied by odds: <strong>{summary.implied_baseline}%</strong>
-                    </p>
-                  </div>
-                </div>
-                <div className="text-sm text-gray-500 max-w-md">
-                  <p>
-                    {summary.edge_vs_market >= 0
-                      ? `✅ We beat the market expectation by ${summary.edge_vs_market.toFixed(1)} percentage points. This is real, verifiable edge.`
-                      : `⚠️ Currently ${Math.abs(summary.edge_vs_market).toFixed(1)}pp below market expectations. Track record is still building.`
-                    }
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
+          {/* The "Edge vs. Market" hero panel is gone.
+              It rendered a green "+X%" ring with the claim "This is real,
+              verifiable edge" — the strongest unsupported assertion anywhere in
+              the product. BetGlitch has not demonstrated predictive or pricing
+              edge; the 2026-07-22 calibration study found the signal score
+              barely separable from a constant. Comparing a raw hit rate against
+              an odds-implied baseline across a mixed set of markets and prices
+              is not an edge measurement either, so nothing replaces it. */}
         </>
       )}
 
@@ -590,9 +568,9 @@ export default function RecommendedPredictionsTable() {
                           </div>
                         ) : null
                       })()}
-                      {pred.expected_value !== null && (
-                        <div className="text-xs text-green-600 mt-0.5">EV: +{pred.expected_value.toFixed(1)}%</div>
-                      )}
+                      {/* No public numeric expected value: it is derived from
+                          the uncalibrated signal score, and the leading '+' was
+                          hardcoded so a negative EV rendered as "+-12.4%". */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">

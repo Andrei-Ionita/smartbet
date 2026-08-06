@@ -4,10 +4,10 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
   title: 'Bankroll Management Calculator',
-  description: 'Smart bankroll management tools for football betting. Calculate optimal stakes, track your betting balance, and manage risk with AI-powered insights.',
+  description: 'Track your own betting balance and apply a fixed-percentage rule to a bankroll you set. BetGlitch does not size stakes from a signal score and does not tell you to bet.',
   openGraph: {
     title: 'Bankroll Management Calculator | BetGlitch',
-    description: 'Smart bankroll management tools. Calculate optimal stakes and manage risk.',
+    description: 'Track your own betting balance against a bankroll you set. BetGlitch does not size stakes for you.',
     url: 'https://betglitch.com/bankroll',
   },
 }

@@ -9,11 +9,11 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 export const metadata: Metadata = {
   title: 'Explore live football signals',
   description:
-    'Browse current model signals across 27 European leagues. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes them as an immutable pick.',
+    'Browse current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes them as an immutable pick.',
   openGraph: {
     title: 'Explore live football signals | BetGlitch',
     description:
-      'Current model signals across 27 European leagues. Live signals can change before kickoff; only published picks enter the verified record.',
+      'Current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff; only published picks enter the verified record.',
     url: 'https://betglitch.com/explore',
   },
 }

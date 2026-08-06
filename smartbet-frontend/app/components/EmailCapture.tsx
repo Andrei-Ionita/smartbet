@@ -115,7 +115,12 @@ export default function EmailCapture({
             <div className="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-8 text-white">
                 <div className="flex items-center gap-2 mb-3">
                     <Sparkles className="h-5 w-5" />
-                    <span className="text-sm font-medium uppercase tracking-wide opacity-90">Free Weekly Tips</span>
+                    {/* Was "Free Weekly Tips" — BetGlitch does not send tips.
+                        The email reports which picks were published and how
+                        they settled, which is what this now says. */}
+                    <span className="text-sm font-medium uppercase tracking-wide opacity-90">
+                        Published-pick and verified-record updates
+                    </span>
                 </div>
                 <h3 className="text-2xl font-bold mb-2">
                     {variantTitle}

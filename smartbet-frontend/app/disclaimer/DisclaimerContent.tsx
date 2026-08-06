@@ -26,8 +26,10 @@ export default function DisclaimerContent() {
                             We are NOT licensed as a bookmaker, betting exchange, or gambling operator in any jurisdiction.
                         </p>
                         <p className="text-red-700">
-                            We are a <strong>data analytics and prediction service</strong> that provides sports predictions
-                            for <strong>informational and entertainment purposes only</strong>.
+                            We are a <strong>data analytics service</strong> that ranks third-party football probability
+                            data into <strong>informational signals</strong>, provided for
+                            <strong> informational and entertainment purposes only</strong>. No output guarantees
+                            profit, and you may lose all money you wager.
                         </p>
                     </div>
                 </div>
@@ -43,12 +45,13 @@ export default function DisclaimerContent() {
                     </h2>
                     <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
                         <p className="text-amber-800">
-                            The predictions, analysis, and information provided by BetGlitch do NOT constitute financial advice,
-                            betting advice, or recommendations to place any wager.
+                            The signals, analysis, and information provided by BetGlitch do NOT constitute financial advice,
+                            betting advice, or recommendations to place any wager. A signal is not a tip and is not a
+                            recommendation to bet.
                         </p>
                     </div>
                     <p className="text-gray-600 mb-4">
-                        Any decision to bet based on our predictions is made entirely at your own risk and discretion.
+                        Any decision to bet based on our signals is made entirely at your own risk and discretion.
                         We strongly encourage you to:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
@@ -63,19 +66,29 @@ export default function DisclaimerContent() {
                 <section>
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Accuracy Limitations</h2>
                     <p className="text-gray-600 mb-4">
-                        While we use advanced machine learning algorithms and real-time data to generate our predictions,
-                        we make NO guarantees regarding:
+                        BetGlitch does not build, train or own a predictive model. Our signals rank probability
+                        data supplied by a third-party football data provider. We make NO guarantees regarding:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4 mb-4">
-                        <li>The accuracy of any individual prediction</li>
+                        <li>The accuracy of any individual signal</li>
                         <li>The completeness or timeliness of data</li>
                         <li>Past performance being indicative of future results</li>
-                        <li>The profitability of following our predictions</li>
+                        <li>The profitability of following our signals</li>
+                        <li>That our signals identify mispriced markets or confer any advantage over a bookmaker</li>
                     </ul>
+                    <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 mb-4">
+                        <p className="text-amber-800 text-sm">
+                            <strong>The signal score is not a probability.</strong> It is a relative ranking of our
+                            preference among the available outcomes in one market, shown out of 100. A score of 66
+                            does not mean the outcome occurs 66% of the time. We do not publish calibrated
+                            probabilities, fair odds, expected-value figures or bet/no-bet decisions, and we have
+                            not demonstrated predictive or pricing edge. We do not size stakes for you.
+                        </p>
+                    </div>
                     <p className="text-gray-600">
-                        Sports outcomes are inherently unpredictable. Even our highest-confidence predictions
-                        can and will be wrong. Historical accuracy rates shown on our platform are for
-                        informational purposes only and do not guarantee future performance.
+                        Sports outcomes are inherently unpredictable. Even our highest-ranked signals can and will
+                        be wrong. Historical figures shown on our platform are for informational purposes only and
+                        do not guarantee future performance.
                     </p>
                 </section>
 
@@ -154,7 +167,7 @@ export default function DisclaimerContent() {
                         officers, employees, and agents shall NOT be liable for:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                        <li>Any financial losses incurred from betting based on our predictions</li>
+                        <li>Any financial losses incurred from betting based on our signals</li>
                         <li>Any errors, inaccuracies, or omissions in our content</li>
                         <li>Any interruption or cessation of the service</li>
                         <li>Any damages arising from your reliance on our information</li>

@@ -3,7 +3,7 @@ import { BlogPost } from '../types'
 export const transparentTrackRecords: BlogPost = {
   slug: 'transparent-track-records',
   title: 'Why Transparent Track Records Matter in Sports Prediction',
-  description: 'Most tipsters cherry-pick results. BetGlitch publishes every prediction — wins and losses — with timestamps and verification. Here is why that matters.',
+  description: 'Most tipsters cherry-pick results. BetGlitch freezes selected picks before kickoff and keeps every one of them public afterwards — wins and losses alike. Here is why that matters, and what it does not claim.',
   author: 'BetGlitch Team',
   date: '2026-03-25',
   readTime: '7 min read',
@@ -11,7 +11,7 @@ export const transparentTrackRecords: BlogPost = {
   content: `
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">The Problem With the Tipster Industry</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-The sports prediction industry has a credibility problem. Scroll through social media, Telegram channels, or tipster websites and you will find countless services claiming 80%, 90%, or even higher win rates. Screenshots of winning bet slips flood timelines daily. The impression created is that profitable sports betting is easy — just follow the right tipster and the money rolls in. The reality is far less glamorous, and far more deceptive.
+The sports prediction industry has a credibility problem. Scroll through social media, Telegram channels, or tipster websites and you will find countless services claiming 80%, 90%, or even higher win rates. Screenshots of winning bet slips flood timelines daily. The impression created is that betting at a profit is easy — just follow the right tipster and the money rolls in. The reality is far less glamorous, and far more deceptive.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
 The vast majority of these claims are built on selective reporting. Winning predictions are amplified and screenshotted. Losing predictions quietly disappear — deleted from channels, removed from websites, or simply never mentioned again. Some services maintain spreadsheets of their "results" that are trivially easy to edit after the fact. Others run multiple accounts or channels, promoting whichever one happens to be on a hot streak while quietly abandoning the losing ones. This is known as survivorship bias, and it systematically misleads anyone evaluating these services.
@@ -34,18 +34,22 @@ Understanding the specific tactics used by dishonest prediction services is esse
 The incentive structure in the tipster industry actively discourages transparency. Most prediction services make money from subscriptions, not from betting. This means their revenue depends on perceived accuracy, not actual accuracy. A service that publishes every prediction — including all the losses — will inevitably look less impressive than a competitor who cherry-picks their best results. In a market where consumers rarely do deep due diligence, the dishonest service wins the marketing battle.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Furthermore, even legitimately skilled predictors experience losing streaks. Publishing a full, unedited record means exposing those streaks to public scrutiny. Many services fear that subscribers will cancel during an inevitable drawdown, even if the long-term performance is strong. So they obscure the bad periods and highlight the good ones, perpetuating the myth that profitable prediction is a smooth, linear journey rather than the volatile, variance-filled process it actually is.
+Furthermore, even legitimately skilled predictors experience losing streaks. Publishing a full, unedited record means exposing those streaks to public scrutiny. Many services fear that subscribers will cancel during an inevitable drawdown, even if the long-term performance is strong. So they obscure the bad periods and highlight the good ones, perpetuating the myth that predicting at a profit is a smooth, linear journey rather than the volatile, variance-filled process it actually is.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">How BetGlitch Does It Differently</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
 BetGlitch was built from the ground up with transparency as a non-negotiable principle. Here is exactly how our system works:
 </p>
+<p class="text-gray-700 leading-relaxed mb-6">
+First, the thing we are careful <em>not</em> to say. We do not publish every prediction. BetGlitch produces far more live signals than it freezes, and claiming otherwise would be the same species of overstatement this article is about. What we publish is a subset — and that subset is immutable.
+</p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Every prediction is published before kickoff.</strong> Predictions are generated from provider probability data and posted with an immutable timestamp. There is no way to add, edit, or delete predictions after the fact.</li>
-<li><strong class="text-gray-900">Results are verified automatically.</strong> Once a match concludes, the actual result is pulled from third-party data sources (SportMonks API) and recorded against the prediction. This process is fully automated — no human intervention, no opportunity for manipulation.</li>
-<li><strong class="text-gray-900">The full history is always accessible.</strong> Every prediction BetGlitch has ever made is available on our <a href="/track-record" class="text-blue-600 hover:underline font-medium">track record page</a>. You can filter by league, date range, market type, and outcome. Nothing is hidden.</li>
-<li><strong class="text-gray-900">Performance metrics are calculated in real time.</strong> Overall accuracy, return on investment, profit and loss by league, and other key metrics are computed from the complete, unedited dataset. These numbers reflect reality, not a curated highlight reel.</li>
+<li><strong class="text-gray-900">Live signals are mutable and count towards nothing.</strong> A live signal is our current ranked output for a fixture. It can change until kickoff. It is not part of any performance figure unless we publish it.</li>
+<li><strong class="text-gray-900">A published claim is frozen before kickoff and never changes.</strong> Publication records the selection, signal score, exact price, bookmaker, provenance and timestamps. There is no code path that edits or withdraws a claim after the fact.</li>
+<li><strong class="text-gray-900">Every published claim stays visible.</strong> Including the losing ones, at the same prominence as the winners. Odds are never rewritten and nothing is deleted.</li>
+<li><strong class="text-gray-900">Only settled published claims count.</strong> Pending claims count towards nothing until the match finishes; void and cancelled claims stay visible but are excluded from the relevant totals. This makes our record smaller than our output, deliberately.</li>
+<li><strong class="text-gray-900">Results are verified against third-party data.</strong> After full-time the result is pulled from an independent data source and graded against the fields frozen at publication. Results are inserted, never overwritten.</li>
 </ul>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">How to Evaluate Any Prediction Service</h2>
@@ -66,13 +70,16 @@ Whether you use BetGlitch or any other prediction service, here are the critical
 We believe the prediction industry needs to grow up. The era of unverifiable claims and cherry-picked screenshots should be over. BetGlitch's accountability model is designed to set a new standard:
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our predictions are generated from provider probability data rather than opinion. They are published with timestamps before matches begin. Results are verified by third-party data feeds. The complete, unedited history is always available for public inspection. Performance metrics are calculated from every prediction, not a selected subset. We show our losses just as prominently as our wins.
+Our signals are ranked from provider probability data rather than opinion. The picks we publish are frozen with timestamps before matches begin. Results are verified against third-party data feeds and graded on the frozen fields. Every published claim stays public permanently, and we show our losses just as prominently as our wins.
+</p>
+<p class="text-gray-700 leading-relaxed mb-6">
+Two limits belong in the same breath, because a transparency article that omits them is doing the thing it criticises. First, the verified record covers settled published claims only — it is not a log of everything we have ever ranked, and it is smaller than our output by design. Second, transparency is not accuracy: publishing our losses honestly does not mean we have demonstrated a predictive or pricing edge. We have not. The signal score is a relative ranking, not a calibrated probability, and whether our filtering adds value is the open question this record exists to settle.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
 This approach means our numbers will never look as flashy as a tipster who only shares their best days. But they will be real. And over time, real, verifiable performance is far more valuable than inflated claims that crumble under scrutiny.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-We invite you to explore our complete prediction history on the <a href="/track-record" class="text-blue-600 hover:underline font-medium">track record page</a>. Filter by any criteria you like. Examine our worst weeks alongside our best ones. Run the numbers yourself. That is the kind of confidence that only comes from genuine transparency — and it is exactly what we believe every bettor deserves from any service they choose to trust.
+We invite you to examine the published claims on the <a href="/track-record" class="text-blue-600 hover:underline font-medium">track record page</a>. Filter by any criteria you like. Look at the losses alongside the wins. Run the numbers yourself, and hold the result against what we claim rather than against what we would like to claim. BetGlitch is a free public beta, is not a bookmaker and does not accept bets; nothing here is advice, no output guarantees profit, and you can lose all the money you wager.
 </p>
 `,
 }

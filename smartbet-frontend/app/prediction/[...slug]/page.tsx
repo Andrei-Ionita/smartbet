@@ -38,8 +38,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     const { home_team, away_team, league, prediction_confidence, predicted_outcome } = data.fixture
     const confidence = Math.round(prediction_confidence * 100)
 
-    const title = `${home_team} vs ${away_team} Prediction, Stats & Odds | BetGlitch`
-    const description = `AI betting prediction for ${home_team} vs ${away_team} in ${league}. Our model predicts ${predicted_outcome} with ${confidence}% confidence. Get full stats and value analysis.`
+    const title = `${home_team} vs ${away_team} — signal, stats & odds | BetGlitch`
+    const description = `BetGlitch's live signal for ${home_team} vs ${away_team} in ${league}. ${predicted_outcome} is the highest-ranked outcome, signal score ${confidence} / 100 — a relative ranking, not a calibrated probability.`
 
     return {
         title,
@@ -96,7 +96,7 @@ export default async function PredictionPage({ params }: PageProps) {
             return rawEv > 1 ? rawEv / 100 : rawEv;
         })(),
         score: fixture.best_market?.market_score || 0, // Fallback
-        explanation: `AI prediction for ${fixture.home_team} vs ${fixture.away_team} favoring ${outcome}.`,
+        explanation: `Live signal for ${fixture.home_team} vs ${fixture.away_team}: ${outcome} is the highest-ranked outcome.`,
         odds_data: fixture.odds_data ? {
             ...fixture.odds_data,
             bookmaker: fixture.odds_data.bookmaker || 'Unknown'

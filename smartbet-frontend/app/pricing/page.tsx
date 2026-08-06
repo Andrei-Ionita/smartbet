@@ -28,10 +28,10 @@ const betaMetadata: Metadata = {
 
 const pricingMetadata: Metadata = {
   title: 'Pricing Plans',
-  description: 'Choose your BetGlitch plan. Get AI-powered football predictions, value bet alerts, and premium analytics tools. Start free, upgrade when ready.',
+  description: 'Choose your BetGlitch plan. Verifiable football market signals and immutable published picks, with analytics tools. Start free, upgrade when ready.',
   openGraph: {
     title: 'Pricing Plans | BetGlitch',
-    description: 'AI-powered football predictions and premium analytics. Start free.',
+    description: 'Verifiable football market signals and immutable published picks. Start free.',
     url: 'https://betglitch.com/pricing',
   },
 }

@@ -164,53 +164,46 @@ export default function PersonalizedRecommendations({ sessionId }: PersonalizedR
                         {/* Prediction Stats */}
                         <div className="grid grid-cols-2 gap-4 mb-6">
                             <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 mb-1">Confidence</p>
+                                {/* Was "Confidence · 66%", which reads as the
+                                    chance of the outcome. It is a ranking. */}
+                                <p className="text-xs text-gray-500 mb-1">Signal score</p>
                                 <div className="flex items-center gap-2">
                                     <div className="flex-1 bg-gray-200 rounded-full h-1.5">
-                                        <div className="bg-green-500 h-1.5 rounded-full" style={{ width: `${rec.confidence}%` }}></div>
+                                        <div className="bg-blue-500 h-1.5 rounded-full" style={{ width: `${rec.confidence}%` }}></div>
                                     </div>
-                                    <span className="text-sm font-bold text-gray-900">{rec.confidence.toFixed(0)}%</span>
+                                    <span className="text-sm font-bold text-gray-900">{rec.confidence.toFixed(0)} / 100</span>
                                 </div>
                             </div>
                             <div className="bg-gray-50 p-3 rounded-lg">
-                                <p className="text-xs text-gray-500 mb-1">Value (EV)</p>
-                                <p className="text-sm font-bold text-green-600">+{rec.expected_value?.toFixed(1)}%</p>
+                                {/* Was "Value (EV) · +8.4%" in green. EV is
+                                    derived from the signal score, so no numeric
+                                    value is published — only the status. */}
+                                <p className="text-xs text-gray-500 mb-1">Value status</p>
+                                <p className="text-sm text-gray-600">Not yet assessed</p>
                             </div>
                         </div>
 
-                        {/* Stake Recommendation */}
-                        {rec.stake_recommendation ? (
-                            <div className="bg-blue-50 border border-blue-100 rounded-lg p-4 mb-6">
-                                <div className="flex justify-between items-start mb-2">
-                                    <div>
-                                        <p className="text-xs font-medium text-blue-800 uppercase tracking-wide">Recommended Stake</p>
-                                        <p className="text-2xl font-bold text-blue-900">
-                                            ${rec.stake_recommendation.recommended_stake.toFixed(2)}
-                                        </p>
-                                    </div>
-                                    <span className="text-xs bg-blue-200 text-blue-800 px-2 py-1 rounded font-medium">
-                                        {rec.stake_recommendation.stake_percentage.toFixed(1)}%
-                                    </span>
-                                </div>
-                                <p className="text-xs text-blue-700 mb-2">
-                                    Strategy: {rec.stake_recommendation.strategy.replace(/_/g, ' ')} ({rec.stake_recommendation.risk_level} risk)
-                                </p>
-
-                                {rec.stake_recommendation.warnings.length > 0 && (
-                                    <div className="mt-2 pt-2 border-t border-blue-200">
-                                        {rec.stake_recommendation.warnings.map((warning, idx) => (
-                                            <p key={idx} className="text-xs text-orange-700 flex items-center gap-1">
-                                                <AlertCircle className="h-3 w-3" /> {warning}
-                                            </p>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        ) : (
-                            <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6 text-center">
-                                <p className="text-sm text-gray-500">Set up your bankroll to see stake recommendations</p>
-                            </div>
-                        )}
+                        {/* No stake figure.
+                            This panel rendered a dollar "Recommended Stake" and
+                            a bankroll percentage sized by a Kelly-family
+                            strategy whose probability input is the signal score.
+                            The signal score is a relative ranking, not a
+                            calibrated probability, so a Kelly fraction built on
+                            it is not a stake size — it is a number with the
+                            shape of one. The same defect was removed from the
+                            betting calculator; leaving it here would simply move
+                            the advice to another surface. */}
+                        <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mb-6">
+                            <p className="text-xs font-medium uppercase tracking-wide text-gray-600">
+                                Stake sizing
+                            </p>
+                            <p className="mt-1 text-sm text-gray-600">
+                                BetGlitch does not size stakes from a signal score. It is a
+                                relative ranking, not a calibrated probability, so no staking
+                                figure can honestly be derived from it. Any stake is your own
+                                decision — you can lose everything you wager.
+                            </p>
+                        </div>
 
                         {/* Action Button */}
                         <button

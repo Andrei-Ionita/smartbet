@@ -66,7 +66,7 @@ export default function PrivacyContent() {
                         <li>Improve and personalize your experience</li>
                         <li>Send you updates and marketing communications (with your consent)</li>
                         <li>Respond to your inquiries and support requests</li>
-                        <li>Analyze usage patterns to improve our predictions and features</li>
+                        <li>Analyze usage patterns to improve our signals and features</li>
                         <li>Detect and prevent fraudulent activity</li>
                         <li>Comply with legal obligations</li>
                     </ul>

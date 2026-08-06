@@ -19,6 +19,7 @@ import RetryButton from './components/RetryButton'
 import EmailCapture from './components/EmailCapture'
 import { StatusBadge } from './components/StatusBadge'
 import { getCopy } from './lib/terminology'
+import { SEARCHABLE_COMPETITION_COUNT } from './lib/coverage'
 import { track } from './lib/analytics'
 import { useLanguage } from './contexts/LanguageContext'
 import { Recommendation } from '../src/types/recommendation'
@@ -27,7 +28,7 @@ import useSWR from 'swr'
 const fetcher = (url: string) => fetch(url).then(res => res.json())
 
 /**
- * Representative coverage, not the full 26-league wall. The old grid made the
+ * Representative coverage, not the full competition wall. The old grid made the
  * homepage scroll for a screen and a half to say something one sentence says
  * better — and every card carried an internal deployment-state chip that meant
  * nothing to a visitor.
@@ -41,7 +42,8 @@ const FEATURED_LEAGUES = [
   { name: 'Eredivisie', country: 'Netherlands' },
 ]
 
-const TOTAL_LEAGUES = 27
+/** Single source of truth — never hardcode a coverage number on a page. */
+const TOTAL_LEAGUES = SEARCHABLE_COMPETITION_COUNT
 
 const BENEFIT_ICONS = [BarChart3, ScrollText, Calculator]
 

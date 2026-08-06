@@ -6,8 +6,8 @@
  * "smart picks", "top quality bets", "predictions"), which made a mutable model
  * output and an immutable published claim look like the same object.
  *
- *   1. LIVE MODEL SIGNAL  — current model output for an upcoming fixture.
- *                           MUTABLE. Not part of public performance.
+ *   1. LIVE SIGNAL        — BetGlitch's current ranked output for an upcoming
+ *                           fixture. MUTABLE. Not part of public performance.
  *   2. PUBLISHED PICK     — an immutable PublishedClaim, frozen before kickoff
  *                           with its selection, score, odds, bookmaker and
  *                           provenance.
@@ -27,13 +27,13 @@ export type Lang = 'en' | 'ro'
 const EN = {
   terms: {
     liveSignal: {
-      label: 'Live model signal',
-      plural: 'Live model signals',
+      label: 'Live signal',
+      plural: 'Live signals',
       short: 'Live signal',
       definition:
-        'The model’s current output for an upcoming fixture. It can change before kickoff.',
+        'BetGlitch’s current ranked outcome for an upcoming fixture, derived from provider probability data. It can change before kickoff.',
       mutability:
-        'Live signals update when models rerun, odds move, new data arrives or a newer snapshot is generated.',
+        'Live signals update when the pipeline runs again, odds move, new provider data arrives or a newer snapshot is generated.',
       notInRecord:
         'Live signals are not part of the verified record unless BetGlitch publishes them as an immutable claim.',
     },
@@ -42,9 +42,9 @@ const EN = {
       plural: 'Published picks',
       short: 'Published',
       definition:
-        'A pick BetGlitch froze before kickoff — selection, model score, recorded odds, bookmaker and timestamps can no longer change.',
+        'A pick BetGlitch froze before kickoff — selection, signal score, recorded odds, bookmaker and timestamps can no longer change.',
       frozenFields: [
-        'Selection', 'Model score', 'Recorded odds', 'Bookmaker', 'Timestamps',
+        'Selection', 'Signal score', 'Recorded odds', 'Bookmaker', 'Timestamps',
         'Provenance',
       ],
     },
@@ -61,7 +61,7 @@ const EN = {
     {
       id: 'explore',
       title: 'Explore',
-      body: 'Browse current model signals for upcoming fixtures across European leagues.',
+      body: 'Browse current live signals for upcoming fixtures across European competitions.',
     },
     {
       id: 'publish',
@@ -77,36 +77,36 @@ const EN = {
 
   hero: {
     eyebrow: 'FREE PUBLIC BETA',
-    headline: 'Football model signals with a record you can verify.',
+    headline: 'Verifiable football market signals.',
     supporting:
-      'Explore AI-generated football predictions across European leagues. Selected picks are frozen before kickoff and remain public after settlement—win or lose.',
+      'Explore provider-derived signals, see which picks BetGlitch freezes before kickoff, and verify every settled result — win or lose.',
     primaryCta: 'Explore live signals',
     secondaryCta: 'View verified record',
     zeroState: 'Building the verified record from zero',
   },
 
   home: {
-    signalsHeading: 'Live model signals right now',
+    signalsHeading: 'Live signals right now',
     browseAll: 'Browse all fixtures',
     howHeading: 'How BetGlitch works',
     differenceHeading: 'Not every signal becomes a published pick',
     differenceBody:
-      'BetGlitch shows far more model output than it publishes. Only published picks count towards the verified record, and you can tell the two apart everywhere in the product.',
+      'BetGlitch shows far more live signals than it publishes. Only published picks count towards the verified record, and you can tell the two apart everywhere in the product.',
     notInPerformance: 'Not part of public performance.',
     frozenIntro: 'Frozen before kickoff. These can never change:',
     benefitsHeading: 'What you can do here',
     benefits: [
       {
-        title: 'Read the model, not a tip',
-        body: 'Every fixture shows its model score, the market signal behind it and the recorded price — not just a selection.',
+        title: 'Read the evidence, not a tip',
+        body: 'Every fixture shows its signal score, the market it applies to and the recorded price with its provenance — not just a selection.',
       },
       {
         title: 'Check the receipts',
-        body: 'Published picks keep a permanent public page showing what was frozen, when, and at which bookmaker.',
+        body: 'Published picks keep a permanent public page showing what was frozen, when, and at which bookmaker. Odds are never rewritten and losses are never deleted.',
       },
       {
-        title: 'Size your own stakes',
-        body: 'The bankroll tools apply Kelly staking to a bankroll you set. BetGlitch never places a bet.',
+        title: 'Decide for yourself',
+        body: 'BetGlitch does not size stakes for you and does not tell you to bet. It shows what it ranked, at what price, and what happened next.',
       },
     ],
     coverageHeading: 'Coverage',
@@ -127,7 +127,7 @@ const EN = {
   register: {
     heading: 'Create your free beta account',
     supporting:
-      'Explore live model signals, use the bankroll tools and follow BetGlitch’s verified public record as it develops.',
+      'Explore live signals, use the bankroll tools and follow BetGlitch’s verified public record as it develops.',
     freeDuringBeta: 'Free during public beta',
     noPayment: 'No payment method is required',
     informational: 'Informational only — BetGlitch does not place bets',
@@ -143,7 +143,7 @@ const EN = {
       {
         id: 'explore',
         title: 'Explore current signals',
-        body: 'Browse upcoming fixtures and current model outputs.',
+        body: 'Browse upcoming fixtures and their current live signals.',
         cta: 'Explore live signals',
         href: '/explore',
       },
@@ -212,15 +212,15 @@ const EN = {
     scopeCutoff:
       'The verified public record begins at a clean pricing-integrity cutoff. Predictions made before it are preserved internally as legacy and excluded from every figure on this page.',
     scopeImmutable:
-      'Only immutable published picks enter the record — picks frozen before kickoff with their selection, model score, recorded odds and bookmaker.',
+      'Only immutable published picks enter the record — picks frozen before kickoff with their selection, signal score, recorded odds and bookmaker.',
     scopePending:
       'Pending picks are not counted in settled performance, and void or cancelled picks are excluded from the relevant denominators.',
     scopeLive:
-      'Live model signals shown elsewhere in the product never enter this record unless they are published.',
+      'Live signals shown elsewhere in the product never enter this record unless they are published.',
 
     publishedHeading: 'Published picks',
     publishedBody:
-      'Every pick BetGlitch froze before kickoff, whatever happened next. A published pick keeps its selection, model score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn.',
+      'Every pick BetGlitch froze before kickoff, whatever happened next. A published pick keeps its selection, signal score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn.',
     publishedStates:
       'A pick stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
     publishedEmpty:
@@ -265,24 +265,24 @@ const EN = {
 
     capturePanelTitle: 'Check the receipts, then follow along by email.',
     capturePanelBody:
-      'Verify every result here, then join the free list for weekly picks and updates as the verified record develops.',
+      'Verify every result here, then join the free list for updates on published picks as the verified record develops.',
     capturePanelEyebrow: 'Proof-led funnel',
     capturePanelSeePublished: 'See the published picks',
     capturePanelSeeVerified: 'See the verified record',
     captureTitle: 'Get the weekly summary',
     captureBody:
       'A free weekly email covering the picks BetGlitch published and how they settled.',
-    captureDefaultTitle: 'Want the best picks before kickoff?',
+    captureDefaultTitle: 'Follow the published picks by email',
     captureDefaultBody:
-      'Join the free list for weekly high-conviction picks, verified track-record updates, and bankroll guidance.',
+      'A free weekly email covering which picks BetGlitch published and how they settled — wins and losses both.',
   },
 
   footer: {
     tagline:
-      'Football model signals across European leagues. Selected picks are frozen before kickoff with their recorded odds and stay public after settlement — win or lose.',
+      'Football market signals across European competitions. Selected picks are frozen before kickoff with their recorded odds and stay public after settlement — win or lose.',
     emailSupport: 'Email BetGlitch support',
     platform: 'Platform',
-    explore: 'Explore predictions',
+    explore: 'Explore signals',
     dashboard: 'User dashboard',
     trackRecord: 'Verified record',
     pricing: 'Pricing',
@@ -298,7 +298,7 @@ const EN = {
     noticeTitle: 'Important legal notice',
     noticeOperatorStrong:
       'BetGlitch is NOT a betting operator, bookmaker, or gambling site.',
-    noticeOperatorRest: ' We do not accept bets, wagers, or deposits of any kind. Our predictions are provided for ',
+    noticeOperatorRest: ' We do not accept bets, wagers, or deposits of any kind. Our signals are provided for ',
     noticeOperatorEmphasis: 'informational and entertainment purposes only',
     noticeOperatorTail: ' and should not be considered financial or betting advice.',
     noticeRiskLabel: 'Risk warning:',
@@ -316,7 +316,7 @@ const EN = {
   },
 
   responsibleUse:
-    'BetGlitch publishes model analysis for information only. It does not place bets and no outcome is guaranteed. 18+. Please gamble responsibly.',
+    'BetGlitch publishes ranked signals for information only. It is not a bookmaker, it does not accept bets, and no outcome is guaranteed — you can lose everything you stake. 18+. Please gamble responsibly.',
 
   modelScoreNote:
     'A signal score ranks BetGlitch’s relative preference among the available outcomes. It is not a calibrated probability.',
@@ -325,13 +325,13 @@ const EN = {
 const RO: typeof EN = {
   terms: {
     liveSignal: {
-      label: 'Semnal live al modelului',
-      plural: 'Semnale live ale modelului',
+      label: 'Semnal live',
+      plural: 'Semnale live',
       short: 'Semnal live',
       definition:
-        'Rezultatul curent al modelului pentru un meci viitor. Se poate schimba până la start.',
+        'Rezultatul clasat curent al BetGlitch pentru un meci viitor, derivat din datele de probabilitate ale furnizorului. Se poate schimba până la start.',
       mutability:
-        'Semnalele live se actualizează când modelele rulează din nou, când cotele se mișcă, când apar date noi sau când se generează un snapshot mai recent.',
+        'Semnalele live se actualizează când pipeline-ul rulează din nou, când cotele se mișcă, când apar date noi de la furnizor sau când se generează un snapshot mai recent.',
       notInRecord:
         'Semnalele live nu fac parte din istoricul verificat decât dacă BetGlitch le publică drept revendicare imutabilă.',
     },
@@ -340,9 +340,9 @@ const RO: typeof EN = {
       plural: 'Pontaje publicate',
       short: 'Publicat',
       definition:
-        'Un pontaj înghețat de BetGlitch înainte de start — selecția, scorul modelului, cota înregistrată, casa de pariuri și marcajele de timp nu se mai pot schimba.',
+        'Un pontaj înghețat de BetGlitch înainte de start — selecția, scorul de semnal, cota înregistrată, casa de pariuri și marcajele de timp nu se mai pot schimba.',
       frozenFields: [
-        'Selecție', 'Scorul modelului', 'Cota înregistrată', 'Casa de pariuri',
+        'Selecție', 'Scor semnal', 'Cota înregistrată', 'Casa de pariuri',
         'Marcaje de timp', 'Proveniență',
       ],
     },
@@ -359,7 +359,7 @@ const RO: typeof EN = {
     {
       id: 'explore',
       title: 'Explorează',
-      body: 'Vezi semnalele curente ale modelului pentru meciurile viitoare din ligile europene.',
+      body: 'Vezi semnalele live curente pentru meciurile viitoare din competițiile europene.',
     },
     {
       id: 'publish',
@@ -375,36 +375,36 @@ const RO: typeof EN = {
 
   hero: {
     eyebrow: 'BETA PUBLIC GRATUIT',
-    headline: 'Semnale de model pentru fotbal, cu un istoric pe care îl poți verifica.',
+    headline: 'Semnale de piață pentru fotbal, verificabile.',
     supporting:
-      'Explorează predicții de fotbal generate de AI din ligile europene. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere—câștigate sau pierdute.',
+      'Explorează semnale derivate din datele furnizorului, vezi ce pontaje îngheață BetGlitch înainte de start și verifică fiecare rezultat încheiat — câștigat sau pierdut.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi istoricul verificat',
     zeroState: 'Construim istoricul verificat de la zero',
   },
 
   home: {
-    signalsHeading: 'Semnale live ale modelului acum',
+    signalsHeading: 'Semnale live acum',
     browseAll: 'Vezi toate meciurile',
     howHeading: 'Cum funcționează BetGlitch',
     differenceHeading: 'Nu orice semnal devine pontaj publicat',
     differenceBody:
-      'BetGlitch afișează mult mai multe rezultate ale modelului decât publică. Doar pontajele publicate contează pentru istoricul verificat, iar diferența se vede peste tot în produs.',
+      'BetGlitch afișează mult mai multe semnale live decât publică. Doar pontajele publicate contează pentru istoricul verificat, iar diferența se vede peste tot în produs.',
     notInPerformance: 'Nu face parte din performanța publică.',
     frozenIntro: 'Înghețate înainte de start. Acestea nu se mai pot schimba:',
     benefitsHeading: 'Ce poți face aici',
     benefits: [
       {
-        title: 'Citește modelul, nu un pont',
-        body: 'Fiecare meci arată scorul modelului, semnalul de piață din spate și prețul înregistrat — nu doar o selecție.',
+        title: 'Citește dovada, nu un pont',
+        body: 'Fiecare meci arată scorul de semnal, piața la care se aplică și prețul înregistrat cu proveniența lui — nu doar o selecție.',
       },
       {
         title: 'Verifică dovezile',
-        body: 'Pontajele publicate păstrează o pagină publică permanentă cu ce a fost înghețat, când și la ce casă de pariuri.',
+        body: 'Pontajele publicate păstrează o pagină publică permanentă cu ce a fost înghețat, când și la ce casă de pariuri. Cotele nu sunt rescrise, iar pierderile nu sunt șterse.',
       },
       {
-        title: 'Îți dimensionezi singur miza',
-        body: 'Instrumentele de bankroll aplică staking Kelly pe un bankroll setat de tine. BetGlitch nu plasează niciodată un pariu.',
+        title: 'Decizi singur',
+        body: 'BetGlitch nu îți dimensionează miza și nu îți spune să pariezi. Îți arată ce a clasat, la ce preț și ce a urmat.',
       },
     ],
     coverageHeading: 'Acoperire',
@@ -425,7 +425,7 @@ const RO: typeof EN = {
   register: {
     heading: 'Creează-ți contul gratuit de beta',
     supporting:
-      'Explorează semnalele live ale modelului, folosește instrumentele de bankroll și urmărește istoricul public verificat BetGlitch pe măsură ce se dezvoltă.',
+      'Explorează semnalele live, folosește instrumentele de bankroll și urmărește istoricul public verificat BetGlitch pe măsură ce se dezvoltă.',
     freeDuringBeta: 'Gratuit în perioada de beta public',
     noPayment: 'Nu este necesară o metodă de plată',
     informational: 'Doar informativ — BetGlitch nu plasează pariuri',
@@ -441,7 +441,7 @@ const RO: typeof EN = {
       {
         id: 'explore',
         title: 'Explorează semnalele curente',
-        body: 'Vezi meciurile viitoare și rezultatele curente ale modelului.',
+        body: 'Vezi meciurile viitoare și semnalele lor live curente.',
         cta: 'Explorează semnalele live',
         href: '/explore',
       },
@@ -510,15 +510,15 @@ const RO: typeof EN = {
     scopeCutoff:
       'Istoricul public verificat începe de la un prag curat de integritate a prețului. Predicțiile făcute înainte de acesta sunt păstrate intern ca moștenire și excluse din fiecare cifră de pe această pagină.',
     scopeImmutable:
-      'Doar pontajele publicate imutabile intră în istoric — pontaje înghețate înainte de start, cu selecția, scorul modelului, cota înregistrată și casa de pariuri.',
+      'Doar pontajele publicate imutabile intră în istoric — pontaje înghețate înainte de start, cu selecția, scorul de semnal, cota înregistrată și casa de pariuri.',
     scopePending:
       'Pontajele în așteptare nu sunt numărate în performanța încheiată, iar cele anulate sau nule sunt excluse din numitorii relevanți.',
     scopeLive:
-      'Semnalele live ale modelului afișate în altă parte a produsului nu intră niciodată în acest istoric decât dacă sunt publicate.',
+      'Semnalele live afișate în altă parte a produsului nu intră niciodată în acest istoric decât dacă sunt publicate.',
 
     publishedHeading: 'Pontaje publicate',
     publishedBody:
-      'Fiecare pontaj pe care BetGlitch l-a înghețat înainte de start, indiferent ce a urmat. Un pontaj publicat își păstrează selecția, scorul modelului, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras.',
+      'Fiecare pontaj pe care BetGlitch l-a înghețat înainte de start, indiferent ce a urmat. Un pontaj publicat își păstrează selecția, scorul de semnal, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras.',
     publishedStates:
       'Un pontaj rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
     publishedEmpty:
@@ -566,24 +566,24 @@ const RO: typeof EN = {
 
     capturePanelTitle: 'Verifică dovezile, apoi urmărește-ne pe email.',
     capturePanelBody:
-      'Verifică fiecare rezultat aici, apoi înscrie-te gratuit pentru pontaje săptămânale și actualizări pe măsură ce istoricul verificat se dezvoltă.',
+      'Verifică fiecare rezultat aici, apoi înscrie-te gratuit pentru actualizări despre pontajele publicate pe măsură ce istoricul verificat se dezvoltă.',
     capturePanelEyebrow: 'Canal bazat pe dovezi',
     capturePanelSeePublished: 'Vezi pontajele publicate',
     capturePanelSeeVerified: 'Vezi istoricul verificat',
     captureTitle: 'Primește rezumatul săptămânal',
     captureBody:
       'Un email săptămânal gratuit despre pontajele publicate de BetGlitch și cum s-au încheiat.',
-    captureDefaultTitle: 'Vrei cele mai bune pontaje înainte de start?',
+    captureDefaultTitle: 'Urmărește pontajele publicate pe email',
     captureDefaultBody:
-      'Înscrie-te gratuit pentru pontaje săptămânale cu convingere ridicată, actualizări ale istoricului verificat și îndrumare pentru buget.',
+      'Un email săptămânal gratuit despre ce pontaje a publicat BetGlitch și cum s-au încheiat — și câștiguri, și pierderi.',
   },
 
   footer: {
     tagline:
-      'Semnale de model pentru fotbal din campionatele europene. Pontajele selectate sunt înghețate înainte de start cu cotele înregistrate și rămân publice după încheiere — câștig sau pierdere.',
+      'Semnale de piață pentru fotbal din competițiile europene. Pontajele selectate sunt înghețate înainte de start cu cotele înregistrate și rămân publice după încheiere — câștig sau pierdere.',
     emailSupport: 'Scrie echipei de suport BetGlitch',
     platform: 'Platformă',
-    explore: 'Explorează predicțiile',
+    explore: 'Explorează semnalele',
     dashboard: 'Panoul utilizatorului',
     trackRecord: 'Istoric verificat',
     pricing: 'Prețuri',
@@ -600,7 +600,7 @@ const RO: typeof EN = {
     noticeOperatorStrong:
       'BetGlitch NU este operator de pariuri, casă de pariuri sau site de jocuri de noroc.',
     noticeOperatorRest:
-      ' Nu acceptăm pariuri, mize sau depuneri de niciun fel. Predicțiile noastre sunt oferite ',
+      ' Nu acceptăm pariuri, mize sau depuneri de niciun fel. Semnalele noastre sunt oferite ',
     noticeOperatorEmphasis: 'exclusiv în scop informativ și de divertisment',
     noticeOperatorTail:
       ' și nu trebuie considerate sfaturi financiare sau de pariere.',
@@ -619,7 +619,7 @@ const RO: typeof EN = {
   },
 
   responsibleUse:
-    'BetGlitch publică analize de model doar cu scop informativ. Nu plasează pariuri și niciun rezultat nu este garantat. 18+. Joacă responsabil.',
+    'BetGlitch publică semnale clasate doar cu scop informativ. Nu este casă de pariuri, nu acceptă pariuri și niciun rezultat nu este garantat — poți pierde tot ce mizezi. 18+. Joacă responsabil.',
 
   modelScoreNote:
     'Scorul de semnal clasifică preferința relativă a BetGlitch între rezultatele disponibile. Nu este o probabilitate calibrată.',
@@ -657,7 +657,24 @@ export const BANNED_CLAIMS = [
   'guaranteed profit',
   'always win',
   'bet smart',
+  // Added by the public-truth pass: each of these was live in product copy
+  // while the product could not support it.
+  'edge vs market',
+  'edge vs. market',
+  'live model signal',
+  'models rerun',
+  'ai-generated predictions',
+  'ai-powered football predictions',
+  'free weekly tips',
+  'free betting tips',
+  'profitable opportunities',
+  'profitable sports betting',
+  'verifiable edge',
+  'proprietary model',
+  'every prediction is published',
   'singura platformă',
   'matematic corect',
   'mii de utilizatori',
+  'edge vs piață',
+  'predicții generate de ai',
 ] as const

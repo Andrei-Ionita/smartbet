@@ -77,7 +77,7 @@ export function ProofPageBody(
         <Row label="Odds captured" value={formatUtc(p.odds_captured_at)} />
         <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
         <Row label="Claim published" value={formatUtc(p.published_at)} />
-        <Row label="Model score" value={`${formatModelScore(p.model_score_percent)} (model score, not a calibrated probability)`} />
+        <Row label="Signal score" value={`${formatModelScore(p.model_score_percent)} (a relative ranking, not a calibrated probability)`} />
         <Row label="Claim ID" value={data.claim_id ?? 'n/a'} />
       </dl>
 

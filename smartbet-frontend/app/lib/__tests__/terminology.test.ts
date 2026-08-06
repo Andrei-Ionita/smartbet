@@ -65,9 +65,10 @@ describe('the homepage answers the five-second question', () => {
   })
 
   it('states what BetGlitch is, in one sentence', () => {
-    expect(HERO.headline).toBe(
-      'Football model signals with a record you can verify.',
-    )
+    // Superseded 2026-08-06. "Football model signals" claimed a model
+    // BetGlitch does not own; the signals are provider-derived and what the
+    // product actually offers is verifiability.
+    expect(HERO.headline).toBe('Verifiable football market signals.')
   })
 
   it('offers one primary action and one secondary, not three peers', () => {
@@ -77,7 +78,11 @@ describe('the homepage answers the five-second question', () => {
 
   it('carries the responsible-use statement', () => {
     expect(src).toContain('responsibleUse')
-    expect(RESPONSIBLE_USE).toContain('does not place bets')
+    // Strengthened 2026-08-06: "does not place bets" was true but weak. The
+    // line now names the bookmaker status and the loss risk explicitly.
+    expect(RESPONSIBLE_USE).toContain('does not accept bets')
+    expect(RESPONSIBLE_USE).toContain('not a bookmaker')
+    expect(RESPONSIBLE_USE).toContain('you can lose everything you stake')
     expect(RESPONSIBLE_USE).toContain('18+')
   })
 })

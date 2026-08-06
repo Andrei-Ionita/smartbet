@@ -548,23 +548,45 @@ describe('the card reads status, not magnitude', () => {
 describe('regression 7 — edge compared against an unrelated leg', () => {
   const src = read('app/components/RecommendationCard.tsx')
 
-  it('derives the implied probability from the price of the predicted market', () => {
-    expect(src).toContain('const marketImplied = (1 / (priceSource.odds as number)) * 100')
+  /*
+   * SUPERSEDED CONTRACT, deliberately.
+   *
+   * These three assertions pinned the REPAIRED comparison panel: implied
+   * probability taken from the predicted market's own price, gated on the
+   * canonical status. The 2026-08-06 public-truth pass removed the panel
+   * entirely instead, because a correct subtraction of a price-implied
+   * probability from an uncalibrated ranking is still not an edge.
+   *
+   * Deleting the comparison satisfies the original defect strictly more than
+   * repairing it did, so these now assert absence. The reproduction test below
+   * is untouched — the arithmetic of the original defect is still the record of
+   * what went wrong.
+   */
+  it('publishes no implied-probability comparison at all', () => {
+    expect(src).not.toContain('const marketImplied =')
+    expect(src).not.toMatch(/1 \/ \(priceSource\.odds as number\)/)
   })
+
+  /** Comments name the defect they removed; only rendered code is scanned. */
+  const rendered = src
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .split('\n')
+    .map((line) => line.replace(/\/\/.*$/, ''))
+    .join('\n')
 
   it('no longer string-matches the outcome against the 1X2 board', () => {
-    // The orange "Risk Warnings" panel was replaced by the pricing-status
-    // panel, so the slice now ends at the section that follows the comparison.
-    const block = src.slice(
-      src.indexOf('Edge vs Market Comparison'),
-      src.indexOf('ONE compact pricing-status panel'),
-    )
-    expect(block).not.toContain('odds_data?.away')
-    expect(block).not.toContain('odds_data?.home')
+    // The odds board still DISPLAYS home/draw/away quotes — clearly labelled as
+    // unverified and informational, which is honest. What must never return is
+    // a leg being selected by outcome name to stand in for the predicted
+    // market's price. That selection pattern is what is asserted absent.
+    expect(rendered).not.toMatch(/outcome === 'home' \? recommendation\.odds_data\?\.home/)
+    expect(rendered).not.toMatch(/predicted_outcome[^\r\n]*toLowerCase\(\)[\s\S]{0,200}odds_data\?\.away/)
   })
 
-  it('is gated on the canonical status, not on the presence of a 1X2 board', () => {
-    expect(src).toContain('{priceVerified && evPublishable && (')
+  it('renders no edge figure under any gate', () => {
+    expect(rendered).not.toContain('Edge vs Market')
+    expect(rendered).not.toContain('Edge vs Piață')
+    expect(rendered).not.toMatch(/const edge = /)
   })
 
   it('reproduces the live figures the defect produced', () => {

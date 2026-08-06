@@ -22,13 +22,17 @@ describe('legacy rows never publish price-dependent performance', () => {
     expect(src).toContain("(p.pricing_integrity_status || '') === 'verified'")
   })
 
-  it('gates expected value behind isVerified', () => {
-    // EV is computed FROM the recorded price, so an unverified price makes it
-    // meaningless. It was previously rendered green with a leading '+'.
-    const ev = src.slice(src.indexOf('{isVerified(pred) ? ('))
-    expect(ev).toContain('expected_value')
-    // NotVerified now takes the visitor's language; the gate is unchanged.
-    expect(ev.indexOf('<NotVerified lang={language} />')).toBeGreaterThan(-1)
+  it('gates value status behind isVerified, and publishes no EV figure', () => {
+    // Superseded 2026-08-06. The original contract gated a numeric EV behind
+    // isVerified, because EV computed from an unverified price is meaningless.
+    // True, but insufficient: EV is derived from the signal score, which is a
+    // ranking rather than a calibrated probability, so the figure is unsound
+    // even on a verified price. The column now reports value STATUS, and the
+    // isVerified gate is retained for the legacy/verified distinction.
+    const cell = src.slice(src.indexOf('{isVerified(pred) ? ('))
+    expect(cell).not.toContain('expected_value')
+    expect(cell).toContain('Not yet assessed')
+    expect(cell.indexOf('<NotVerified lang={language} />')).toBeGreaterThan(-1)
   })
 
   it('gates profit/loss behind isVerified', () => {
@@ -89,8 +93,10 @@ describe('an empty verified record is not rendered as zero performance', () => {
 describe('model score is not presented as a calibrated probability', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
 
-  it('labels the column "Model score"', () => {
-    expect(src).toContain('Model score')
+  it('labels the column "Signal score"', () => {
+    // Superseded 2026-08-06: "Model score" implied a model BetGlitch owns.
+    expect(src).toContain("'Scor semnal' : 'Signal score'")
+    expect(src).not.toContain('>\n                    Model score')
   })
 
   it('does not suffix the score with a percent sign', () => {
@@ -396,7 +402,8 @@ describe('the explore signal detail is framed as a live signal', () => {
 
   it('is an accessible dialog', () => {
     expect(src).toContain('aria-modal="true"')
-    expect(src).toContain('aria-label="Live model signal detail"')
+    // Renamed with the vocabulary: "live model signal" → "live signal".
+    expect(src).toContain('aria-label="Live signal detail"')
     expect(src).toContain('aria-label="Close signal detail"')
   })
 
@@ -445,9 +452,17 @@ describe('price-derived claims are gated on a publishable price', () => {
     expect(src).not.toMatch(/recommendation\.ev[^\r\n]*toFixed\(1\)\}%/)
   })
 
-  it('does not award a value level off an unpublishable price', () => {
-    expect(src).toContain('const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0')
-    expect(src).toContain('if (evPublishable && ev >= 15)')
+  it('awards no value level at all', () => {
+    // Superseded 2026-08-06, and more strongly. This used to pin the EV-gated
+    // quality ladder: an unpublishable price scored ev = 0 so the card could
+    // not award "High Value" off a quote the backend would have rejected. The
+    // public-truth pass removed the ladder outright — every rung graded an
+    // uncalibrated ranking against a calibration standard that does not exist,
+    // and "Safe Pick" told a user a gamble was safe. Two honest states remain.
+    expect(src).not.toContain('const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0')
+    expect(src).not.toContain('if (evPublishable && ev >= 15)')
+    expect(src).toContain('const getOpportunityLevel = () => ({')
+    expect(src).toContain('level: stateCopy.status')
   })
 
   it('labels the score as a signal score, not confidence', () => {

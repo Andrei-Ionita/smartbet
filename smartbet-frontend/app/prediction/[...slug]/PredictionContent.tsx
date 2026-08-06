@@ -73,7 +73,7 @@ export default function PredictionContent({
                     </div>
                     <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
                         <Shield className="h-4 w-4 text-green-500" />
-                        <span>AI Confidence: {Math.round(recommendation.confidence * 100)}%</span>
+                        <span>Signal score: {Math.round(recommendation.confidence * 100)} / 100</span>
                     </div>
                 </div>
             </div>
@@ -92,16 +92,17 @@ export default function PredictionContent({
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Match Analysis</h2>
                     <div className="prose prose-sm text-gray-600">
                         <p className="mb-4">
-                            Our AI model has analyzed the upcoming match between <strong>{homeTeam}</strong> and <strong>{awayTeam}</strong> in the {leagueName}.
-                            Arguments for the prediction include recent form, head-to-head records, and current market odds.
+                            BetGlitch ranked the available outcomes for <strong>{homeTeam}</strong> vs <strong>{awayTeam}</strong> in the {leagueName} using probability data from its football data provider.
                         </p>
+                        {/* This paragraph used to state the system "predicts a
+                            66% chance" and, whenever EV was positive, announced
+                            a "value edge ... making this a potentially
+                            profitable play". Neither survives: the score is a
+                            ranking rather than a probability, and BetGlitch has
+                            not demonstrated pricing edge. */}
                         <p>
-                            The system predicts a <strong>{Math.round(recommendation.confidence * 100)}% chance</strong> of a <strong>{recommendation.predicted_outcome}</strong> outcome.
-                            {recommendation.ev && recommendation.ev > 0 && (
-                                <span>
-                                    {' '}Wait! We've also detected a <strong>{Math.round(recommendation.ev * 100)}% value edge</strong> against the bookmaker odds, making this a potentially profitable play.
-                                </span>
-                            )}
+                            <strong>{recommendation.predicted_outcome}</strong> is the highest-ranked outcome in this market, with a signal score of <strong>{Math.round(recommendation.confidence * 100)} / 100</strong>.
+                            {' '}A signal score ranks BetGlitch&apos;s relative preference among the available outcomes. It is not a calibrated probability, it does not state the chance of the outcome occurring, and it is not a recommendation to bet.
                         </p>
                     </div>
                 </div>
@@ -110,12 +111,12 @@ export default function PredictionContent({
                     <h2 className="text-xl font-bold text-gray-900 mb-4">Key Stats</h2>
                     <ul className="space-y-3">
                         <li className="flex justify-between border-b border-gray-50 pb-2">
-                            <span className="text-gray-600">Prediction</span>
+                            <span className="text-gray-600">Highest-ranked outcome</span>
                             <span className="font-bold text-gray-900">{recommendation.predicted_outcome}</span>
                         </li>
                         <li className="flex justify-between border-b border-gray-50 pb-2">
-                            <span className="text-gray-600">Confidence</span>
-                            <span className="font-bold text-primary-600">{Math.round(recommendation.confidence * 100)}%</span>
+                            <span className="text-gray-600">Signal score</span>
+                            <span className="font-bold text-primary-600">{Math.round(recommendation.confidence * 100)} / 100</span>
                         </li>
                         <li className="flex justify-between border-b border-gray-50 pb-2">
                             <span className="text-gray-600">Best Odds</span>

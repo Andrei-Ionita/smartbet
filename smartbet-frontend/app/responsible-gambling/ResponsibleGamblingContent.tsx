@@ -25,8 +25,10 @@ export default function ResponsibleGamblingContent() {
                     <div>
                         <h2 className="font-semibold text-amber-800 mb-2">Important Reminder</h2>
                         <p className="text-amber-700">
-                            BetGlitch provides predictions for <strong>informational and entertainment purposes only</strong>.
-                            We are NOT a betting operator and do not accept any bets or wagers.
+                            BetGlitch provides informational signals for <strong>informational and entertainment purposes only</strong>.
+                            We are NOT a bookmaker or betting operator and do not accept any bets, wagers or deposits.
+                            Our signal score is a relative ranking, not a calibrated probability, and no output
+                            guarantees profit — you can lose all the money you wager.
                             If you choose to place bets based on our analysis, please do so responsibly through licensed operators.
                         </p>
                     </div>

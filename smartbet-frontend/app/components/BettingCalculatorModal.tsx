@@ -384,7 +384,10 @@ export default function BettingCalculatorModal({ recommendation, isOpen, onClose
                   </div>
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <span className="text-gray-600">Recommended Stake:</span>
+                      {/* Was "Recommended Stake" — BetGlitch recommends no
+                          stake. This is the figure YOUR chosen rule produces
+                          from the bankroll you entered. */}
+                      <span className="text-gray-600">Stake from your rule:</span>
                       <span className="ml-2 font-semibold text-blue-600">${currentCalculation.stake}</span>
                     </div>
                     <div>

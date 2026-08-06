@@ -57,17 +57,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     return { isLocked, hoursUntilKickoff, timeText }
   }
 
-  // Get confidence breakdown explanation
-  const getConfidenceBreakdown = () => {
-    const modelCount = recommendation.ensemble_info?.model_count || recommendation.debug_info?.model_count || 3
-    const variance = recommendation.debug_info?.variance || 'Medium'
-
-    return {
-      modelCount,
-      variance: typeof variance === 'string' ? variance : variance < 0.1 ? 'Low' : variance < 0.2 ? 'Medium' : 'High',
-      signalQuality: recommendation.signal_quality || 'Good'
-    }
-  }
+  /* getConfidenceBreakdown() is gone. It reported a model count (defaulting to
+     3), a cross-model variance and a signal-quality grade — none of which
+     exist: there is one provider model per market, so there is no ensemble to
+     count and no variance to measure. */
 
   // Generate data-driven "Why This Pick" explanation
   const getWhyThisPick = () => {
@@ -111,18 +104,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       ? 'Rezultatul cel mai bine clasat din această piață'
       : 'Highest-ranked outcome in this market')
 
-    // Value-based reason
-    // Value claims are price-derived; suppress them when the price is not one
-    // we would publish.
-    if (evPublishable && ev >= 15) {
-      reasons.push(language === 'ro'
-        ? `Valoare excelentă detectată (+${ev.toFixed(0)}% EV)`
-        : `Excellent value detected (+${ev.toFixed(0)}% EV)`)
-    } else if (evPublishable && ev >= 10) {
-      reasons.push(language === 'ro'
-        ? `Valoare bună la cote (+${ev.toFixed(0)}% EV)`
-        : `Good odds value (+${ev.toFixed(0)}% EV)`)
-    }
+    // No value-based reason. This used to push "Excellent value detected
+    // (+18% EV)" / "Good odds value (+11% EV)" whenever the EV cleared a
+    // threshold. Both the verdict and the number are unsupportable: EV here is
+    // the signal score multiplied by the price, and the signal score is a
+    // ranking rather than a calibrated probability, so "excellent value" is an
+    // assessment BetGlitch has not earned the right to make. The price-status
+    // reason below states what is actually known.
 
     // Price status is a fact the pipeline records, so it belongs here. The
     // previous "low variance across models" and "N AI models" fallbacks did
@@ -271,84 +259,29 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     ? 'Rezultatul cel mai bine clasat'
     : 'Highest-ranked outcome'
 
-  // Get opportunity level based on confidence and EV
-  // Combines prediction confidence with betting value to categorize opportunities
-  const getOpportunityLevel = () => {
-    // Priority 1: Use backend Two-Track label if available
-    if (recommendation.bet_type) {
-      if (recommendation.bet_type === 'safe') return {
-        level: t('card.badges.safe_pick') || recommendation.bet_label || 'Safe Pick',
-        color: 'text-green-600',
-        bgColor: 'bg-green-100',
-        icon: CheckCircle
-      }
-      if (recommendation.bet_type === 'value') return {
-        level: t('card.badges.value_bet') || recommendation.bet_label || 'Value Bet',
-        color: 'text-blue-600',
-        bgColor: 'bg-blue-100',
-        icon: TrendingUp
-      }
-    }
-
-    const confidence = recommendation.confidence * 100 // Convert to percentage
-    // Treat an unpublishable price as no value signal at all, so the card
-    // cannot award "High Value" off a quote the backend would have rejected.
-    const ev = evPublishable ? (recommendation.ev || 0) * 100 : 0
-
-    // Premium: High confidence + excellent value
-    if (confidence >= 70 && ev >= 15) return {
-      level: stateCopy.status,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100',
-      icon: CheckCircle,
-      description: 'High confidence with excellent value'
-    }
-
-    // Strong: Good confidence + good value
-    if (confidence >= 60 && ev >= 10) return {
-      level: t('card.badges.strong'),
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      icon: CheckCircle,
-      description: 'Good confidence with solid value'
-    }
-
-    // High Value: Exceptional EV regardless of confidence
-    if (ev >= 20) return {
-      level: t('card.badges.highValue'),
-      color: 'text-purple-600',
-      bgColor: 'bg-purple-100',
-      icon: TrendingUp,
-      description: 'Exceptional betting value detected'
-    }
-
-    // Good Value: Positive EV with reasonable confidence
-    if (confidence >= 55 && ev >= 5) return {
-      level: t('card.badges.goodValue'),
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100',
-      icon: CheckCircle,
-      description: 'Positive value with moderate confidence'
-    }
-
-    // Value Play: Good EV but lower confidence
-    if (ev >= 10) return {
-      level: t('card.badges.valuePlay'),
-      color: 'text-cyan-600',
-      bgColor: 'bg-cyan-100',
-      icon: TrendingUp,
-      description: 'Good value but higher uncertainty'
-    }
-
-    // Speculative: Lower confidence/value - proceed with caution
-    return {
-      level: stateCopy.status,
-      color: 'text-orange-600',
-      bgColor: 'bg-orange-100',
-      icon: AlertTriangle,
-      description: 'Lower confidence or value - smaller stakes recommended'
-    }
-  }
+  /**
+   * The card's badge. It reports the card STATE and nothing else.
+   *
+   * This used to be a six-rung quality ladder — Safe Pick, Value Bet, Strong,
+   * High Value, Good Value, Value Play, Speculative — selected by thresholding
+   * the signal score against the expected value. Every rung was unsupportable:
+   *
+   *   * the thresholds compared a relative ranking against a calibration
+   *     standard that does not exist, so "High confidence with excellent value"
+   *     asserted an assessment BetGlitch has never validated;
+   *   * "Safe Pick" told a user a gamble was safe;
+   *   * the Speculative rung carried "smaller stakes recommended", which is
+   *     stake advice derived from an uncalibrated number.
+   *
+   * There are exactly two honest states, and stateCopy already holds them.
+   */
+  const getOpportunityLevel = () => ({
+    level: stateCopy.status,
+    description: stateCopy.value,
+    color: cardState === 'verified_price' ? 'text-blue-700' : 'text-amber-700',
+    bgColor: cardState === 'verified_price' ? 'bg-blue-50' : 'bg-amber-50',
+    icon: cardState === 'verified_price' ? CheckCircle : AlertTriangle,
+  })
 
   // Helper for replacing placeholders in translation strings
   const formatString = (str: string, ...args: (string | number)[]) => {
@@ -482,23 +415,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                         ×
                       </button>
                     </div>
-                    <div className="space-y-2 text-xs">
-                      
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{language === 'ro' ? 'Variație predicții' : 'Prediction Variance'}</span>
-                        <span className={`font-medium ${getConfidenceBreakdown().variance === 'Low' ? 'text-green-600' :
-                          getConfidenceBreakdown().variance === 'Medium' ? 'text-yellow-600' :
-                            'text-red-600'
-                          }`}>{getConfidenceBreakdown().variance}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-gray-600">{language === 'ro' ? 'Calitate semnal' : 'Signal Quality'}</span>
-                        <span className={`font-medium ${getConfidenceBreakdown().signalQuality === 'Strong' ? 'text-green-600' :
-                          getConfidenceBreakdown().signalQuality === 'Good' ? 'text-blue-600' :
-                            'text-yellow-600'
-                          }`}>{getConfidenceBreakdown().signalQuality}</span>
-                      </div>
-                    </div>
+                    {/* Two fabricated rows lived here: "Prediction Variance"
+                        (Low/Medium/High) and "Signal Quality" (defaulting to
+                        the literal string 'Good' when the field was absent).
+                        Variance across models cannot exist — every market takes
+                        its value from ONE provider model — and a quality grade
+                        with a hardcoded default is not a measurement. The
+                        tooltip now carries only the explanation below, which is
+                        the one thing here that is true. */}
                     <div className="mt-3 pt-2 border-t border-gray-100">
                       <p className="text-[10px] text-gray-500">
                         {language === 'ro'
@@ -650,46 +574,25 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   : ' There is no verified price for this signal’s market, so no price-derived value is shown.')}
               </p>
 
-              {/* Edge vs Market Comparison.
-                  The implied probability MUST come from the price of the market
-                  being predicted. This block used to read a leg of the 1X2 board
-                  chosen by string-matching `predicted_outcome` against
-                  home/draw/away — so a BTTS or Over/Under pick fell through to
-                  the AWAY price. Observed live on Malmö FF v Degerfors: a BTTS
-                  Yes signal priced at 1.73 (implied 58%) was compared against the
-                  away win at 5.65 (implied 18%) and published a "+44%" edge. */}
-              {priceVerified && evPublishable && (
-                <div className="flex items-center justify-between p-3 bg-gradient-to-r from-indigo-50 to-purple-50 rounded-lg border border-indigo-200">
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs font-semibold text-indigo-700">
-                      {language === 'ro' ? 'Edge vs Piață' : 'Edge vs Market'}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-3 text-xs">
-                    {(() => {
-                      const marketImplied = (1 / (priceSource.odds as number)) * 100
-                      const aiProb = recommendation.confidence * 100
-                      const edge = aiProb - marketImplied
+              {/* The "Edge vs Market" panel that used to sit here has been
+                  removed outright, not repaired.
 
-                      return (
-                        <>
-                          <span className="text-gray-600">
-                            {language === 'ro' ? 'Piață' : 'Market'}: <span className="font-medium text-gray-800">{marketImplied.toFixed(0)}%</span>
-                          </span>
-                          <span className="text-gray-400">vs</span>
-                          <span className="text-gray-600">
-                            AI: <span className="font-medium text-indigo-700">{aiProb.toFixed(0)}%</span>
-                          </span>
-                          <span className={`px-2 py-0.5 rounded-full font-bold ${edge > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                            }`}>
-                            {edge > 0 ? '+' : ''}{edge.toFixed(0)}%
-                          </span>
-                        </>
-                      )
-                    })()}
-                  </div>
-                </div>
-              )}
+                  It rendered `Market: 58% vs AI: 66%  +8%`, subtracting the
+                  price-implied probability from the signal score. That
+                  subtraction is only meaningful if the signal score IS a
+                  calibrated probability — and it is not; it is a relative
+                  ranking. The 2026-07-22 calibration study measured out-of-
+                  sample AUC 0.538 on over_under_2.5 and found 1X2 worse than a
+                  constant, so the difference was noise presented as edge.
+
+                  It had also been quietly wrong: the implied leg was picked by
+                  string-matching `predicted_outcome` against home/draw/away, so
+                  a BTTS or Over/Under signal fell through to the AWAY price.
+                  Malmö FF v Degerfors published "+44%" comparing a BTTS Yes at
+                  1.73 against the away win at 5.65.
+
+                  Nothing replaces it. Value is either assessable or it is not,
+                  and the state panel below already says which. */}
             </div>
 
             {/* ONE compact pricing-status panel. This replaced an orange
@@ -953,27 +856,20 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             <div className="bg-gray-50 rounded-xl p-4">
               <h5 className="text-sm font-semibold text-gray-700 mb-3">💰 {t('card.stake.title')}</h5>
               <div className="space-y-2">
-                {recommendation.odds_data &&
-                  ((recommendation.predicted_outcome.toLowerCase() === 'home' && recommendation.odds_data?.home) ||
-                    (recommendation.predicted_outcome.toLowerCase() === 'draw' && recommendation.odds_data?.draw) ||
-                    (recommendation.predicted_outcome.toLowerCase() === 'away' && recommendation.odds_data?.away)) && (
-                    <div className="bg-white rounded-lg p-3 border border-gray-200">
-                      <div className="text-xs text-gray-600 mb-1">{t('card.analysis.optimalBetSize')}</div>
-                      <div className="text-lg font-bold text-green-600">
-                        ${(() => {
-                          if (!recommendation.probabilities) return '0.00'
-                          const outcome = recommendation.predicted_outcome.toLowerCase()
-                          const probability = recommendation.probabilities[outcome as keyof typeof recommendation.probabilities]
-                          const odds = outcome === 'home' ? recommendation.odds_data?.home! :
-                            outcome === 'draw' ? recommendation.odds_data?.draw! :
-                              recommendation.odds_data?.away!
+                {/* An "Optimal Bet Size" panel stood here, rendering a dollar
+                    figure in green from calculateKellyStake(probability, odds)
+                    against an assumed $1000 bankroll.
 
-                          return calculateKellyStake(probability, odds).toFixed(2)
-                        })()}
-                      </div>
-                      <div className="text-xs text-gray-500">Based on $1000 bankroll</div>
-                    </div>
-                  )}
+                    Two defects, either fatal on its own. First, it is the same
+                    Kelly-from-an-uncalibrated-number problem that was removed
+                    from the betting calculator: the probability fed in is not
+                    calibrated, so the fraction is not a stake size. Second, it
+                    picked the odds by string-matching the outcome against the
+                    1X2 board — so an Over/Under or BTTS signal was sized on a
+                    home/draw/away price, the identical defect that produced the
+                    "+44%" edge on Malmö FF v Degerfors.
+
+                    BetGlitch does not size stakes. Nothing replaces it. */}
                 <div className="bg-white rounded-lg p-3 border border-gray-200">
                   <div className="text-xs text-gray-600 mb-1">{t('card.opportunity')}</div>
                   <div className={`text-sm font-semibold ${(() => {
@@ -1095,19 +991,22 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </h5>
 
               <div className="space-y-3 text-sm text-gray-700">
-                {/* Confidence Reasoning */}
+                {/* Signal score, stated as the ranking it is.
+                    This block used to read "High confidence (66.0%) suggests
+                    strong underlying factors favoring Over 2.5" — a percentage
+                    presented as a probability of the outcome occurring, plus a
+                    causal claim about "underlying factors" that nothing in the
+                    pipeline computes. */}
                 <div className="flex items-start gap-2">
                   <span className="text-purple-600 mt-0.5">•</span>
                   <div>
-                    <span className="font-semibold">Prediction Confidence:</span>
+                    <span className="font-semibold">
+                      {language === 'ro' ? 'Scor semnal:' : 'Signal score:'}
+                    </span>
                     {' '}
-                    {(() => {
-                      const conf = recommendation.confidence * 100
-                      if (conf >= 70) return `High confidence (${conf.toFixed(1)}%) suggests strong underlying factors favoring ${recommendation.predicted_outcome}.`
-                      if (conf >= 60) return `Good confidence (${conf.toFixed(1)}%) indicates a likely outcome for ${recommendation.predicted_outcome}.`
-                      if (conf >= 50) return `Moderate confidence (${conf.toFixed(1)}%) - this is a competitive match with slight edge to ${recommendation.predicted_outcome}.`
-                      return `Lower confidence (${conf.toFixed(1)}%) indicates this is a close match that could go either way.`
-                    })()}
+                    {language === 'ro'
+                      ? `${Math.round(recommendation.confidence * 100)} din 100. Clasează preferința relativă a BetGlitch între rezultatele disponibile din această piață. Nu este o probabilitate calibrată și nu exprimă șansa ca ${recommendation.predicted_outcome} să se producă.`
+                      : `${Math.round(recommendation.confidence * 100)} out of 100. This ranks BetGlitch’s relative preference among the available outcomes in this market. It is not a calibrated probability and does not state the chance of ${recommendation.predicted_outcome} occurring.`}
                   </div>
                 </div>
 
@@ -1142,25 +1041,24 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div className="flex items-start gap-2">
                     <span className="text-purple-600 mt-0.5">•</span>
                     <div>
-                      <span className="font-semibold">Betting Value:</span>
+                      <span className="font-semibold">
+                        {language === 'ro' ? 'Statut valoare:' : 'Value status:'}
+                      </span>
                       {' '}
-                      {(() => {
-                        const ev = (recommendation.ev || 0) * 100
-                        const outcome = recommendation.predicted_outcome.toLowerCase()
-                        const odds = outcome === 'home' ? recommendation.odds_data?.home :
-                          outcome === 'draw' ? recommendation.odds_data?.draw :
-                            recommendation.odds_data?.away
-                        const prob = recommendation.probabilities ?
-                          (outcome === 'home' ? recommendation.probabilities.home :
-                            outcome === 'draw' ? recommendation.probabilities.draw :
-                              recommendation.probabilities.away) * 100 : 0
-
-                        if (!odds) return 'Odds not available for analysis.'
-                        if (ev > 15) return `Market odds (${odds.toFixed(2)}) are significantly higher than implied probability (${(100 / odds).toFixed(1)}%) vs AI prediction (${prob.toFixed(1)}%), creating exceptional value.`
-                        if (ev > 5) return `Current odds (${odds.toFixed(2)}) offer positive value compared to AI probability assessment (${prob.toFixed(1)}%).`
-                        if (ev > 0) return `Slight value edge detected - odds (${odds.toFixed(2)}) marginally favor this bet.`
-                        return `Current market odds (${odds.toFixed(2)}) don't offer positive expected value for this prediction.`
-                      })()}
+                      {/* This narrated an AI-versus-market comparison —
+                          "implied probability (58.0%) vs AI prediction (66.0%),
+                          creating exceptional value" — and, worse, read the
+                          odds by string-matching the outcome against the 1X2
+                          board, so a BTTS or Over/Under signal was compared
+                          against a home/draw/away price. Both the comparison
+                          and the price lookup are gone. */}
+                      {priceVerified
+                        ? (language === 'ro'
+                          ? 'Prețul de piață este verificat, cu proveniență completă. BetGlitch nu are încă dovezi de calibrare suficiente pentru a stabili dacă prețul oferă valoare, așa că valoarea rămâne neevaluată.'
+                          : 'The market price is verified, with complete provenance. BetGlitch does not yet have sufficient calibration evidence to determine whether the price offers value, so value remains not yet assessed.')
+                        : (language === 'ro'
+                          ? 'Nu există un preț de piață verificat pentru această piață, așa că valoarea nu poate fi evaluată.'
+                          : 'There is no verified market price for this market, so value cannot be assessed.')}
                     </div>
                   </div>
                 )}
@@ -1171,12 +1069,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div>
                     <span className="font-semibold">Data Source:</span>
                     {' '}
-                    Prediction from AI analyzing historical performance, recent form, head-to-head records, and statistical models.
-                    {recommendation.signal_quality && (
-                      <span className="ml-1">
-                        Signal quality: <span className="font-semibold">{recommendation.signal_quality}</span>.
-                      </span>
-                    )}
+                    {language === 'ro'
+                      ? 'Probabilitățile provin de la un furnizor specializat de date de fotbal. BetGlitch le filtrează și le clasează — nu antrenează un model predictiv propriu.'
+                      : 'Probabilities come from a specialist football data provider. BetGlitch filters and ranks them — it does not train a predictive model of its own.'}
+                    {/* The "Signal quality: Good" suffix is gone with the rest
+                        of the quality grading — it graded nothing. */}
                   </div>
                 </div>
               </div>

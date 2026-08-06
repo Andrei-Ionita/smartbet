@@ -46,15 +46,27 @@ export default function TermsContent() {
                         </div>
                     </div>
                     <p className="text-gray-600 mb-4">
-                        BetGlitch provides AI-powered sports predictions and data analysis for <strong>informational
-                            and entertainment purposes only</strong>. Our service includes:
+                        BetGlitch ranks football probability data supplied by a third-party data provider
+                        into informational signals. It is currently offered as a <strong>free public beta</strong>,
+                        for <strong>informational and entertainment purposes only</strong>. Our service includes:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                        <li>Football match predictions and probability assessments</li>
-                        <li>Historical performance data and statistics</li>
-                        <li>Odds comparison and value analysis</li>
-                        <li>Educational content about sports analytics</li>
+                        <li>Live signals ranking provider-derived probabilities for upcoming fixtures</li>
+                        <li>Published claims, frozen before kickoff with their recorded odds and provenance</li>
+                        <li>A verified record built only from settled published claims</li>
+                        <li>Historical data and educational content about sports analytics</li>
                     </ul>
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">
+                        <p className="text-gray-700 text-sm">
+                            <strong>What the signal score is not.</strong> The signal score is a relative ranking of
+                            BetGlitch&apos;s preference among the available outcomes in one market. It is
+                            <strong> not a calibrated probability</strong> and does not state the chance of an
+                            outcome occurring. BetGlitch does not build, train or own a predictive model; it does not
+                            publish calibrated probabilities, fair odds or bet/no-bet decisions; it has not
+                            demonstrated predictive or pricing edge; and it does not size stakes for you. No output
+                            guarantees profit, and you may lose all money you wager.
+                        </p>
+                    </div>
                 </section>
 
                 {/* User Responsibilities */}
@@ -68,7 +80,7 @@ export default function TermsContent() {
                         <li>You are at least 18 years old (or the legal age in your jurisdiction)</li>
                         <li>You are legally permitted to access gambling-related content in your jurisdiction</li>
                         <li>You will comply with all applicable local, state, national, and international laws</li>
-                        <li>You understand that our predictions are not guarantees and betting involves risk</li>
+                        <li>You understand that our signals are not guarantees, that betting involves risk, and that you may lose all money you wager</li>
                         <li>You will not use our Service for any unlawful purpose</li>
                         <li>Any betting decisions you make are your own responsibility</li>
                     </ul>
@@ -85,14 +97,16 @@ export default function TermsContent() {
                         WE DO NOT GUARANTEE:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                        <li>The accuracy, completeness, or reliability of any predictions</li>
-                        <li>That use of our predictions will result in profit</li>
+                        <li>The accuracy, completeness, or reliability of any signal</li>
+                        <li>That use of our signals will result in profit</li>
+                        <li>That our signals identify mispriced markets or confer any advantage over a bookmaker</li>
                         <li>Uninterrupted or error-free operation of the Service</li>
                         <li>That our analysis reflects the most current data</li>
                     </ul>
                     <p className="text-gray-600 mt-4">
-                        Past performance of our predictions is not indicative of future results.
-                        Betting involves substantial risk of loss and is not suitable for everyone.
+                        Past performance of our signals is not indicative of future results.
+                        Betting involves substantial risk of loss, including the loss of your entire
+                        stake, and is not suitable for everyone.
                     </p>
                 </section>
 
@@ -103,7 +117,7 @@ export default function TermsContent() {
                         To the fullest extent permitted by law, BetGlitch and its affiliates shall not be liable for:
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
-                        <li>Any financial losses incurred from betting based on our predictions</li>
+                        <li>Any financial losses incurred from betting based on our signals</li>
                         <li>Any indirect, incidental, special, or consequential damages</li>
                         <li>Loss of profits, data, or other intangible losses</li>
                         <li>Any damages resulting from unauthorized access to your account</li>
@@ -120,8 +134,8 @@ export default function TermsContent() {
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
                         <li>Use the Service if you are under 18 years old</li>
                         <li>Access the Service from a jurisdiction where gambling is prohibited</li>
-                        <li>Resell or redistribute our predictions without permission</li>
-                        <li>Attempt to reverse-engineer our prediction algorithms</li>
+                        <li>Resell or redistribute our signals without permission</li>
+                        <li>Attempt to reverse-engineer our ranking and filtering logic</li>
                         <li>Use automated systems to scrape or copy our content</li>
                         <li>Interfere with or disrupt the Service</li>
                     </ul>
@@ -132,8 +146,10 @@ export default function TermsContent() {
                     <h2 className="text-xl font-bold text-gray-900 mb-4">7. Intellectual Property</h2>
                     <p className="text-gray-600">
                         All content, features, and functionality of the Service (including but not limited to text,
-                        graphics, logos, algorithms, and software) are owned by BetGlitch and are protected by
-                        international copyright, trademark, and other intellectual property laws.
+                        graphics, logos, ranking logic, and software) are owned by BetGlitch and are protected by
+                        international copyright, trademark, and other intellectual property laws. The underlying
+                        football probability data is licensed from a third-party data provider and is not owned
+                        by BetGlitch.
                     </p>
                 </section>
 

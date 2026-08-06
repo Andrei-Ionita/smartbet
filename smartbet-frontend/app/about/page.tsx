@@ -2,15 +2,21 @@ import { Metadata } from 'next'
 import Link from 'next/link'
 import { Shield, Target, BarChart3, Users, Zap, TrendingUp } from 'lucide-react'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
+import {
+  COVERAGE_HORIZON_DAYS,
+  SEARCHABLE_COMPETITION_COUNT,
+  SIGNAL_COMPETITION_COUNT,
+  SUPPORTED_MARKET_COUNT,
+} from '../lib/coverage'
 
 export const metadata: Metadata = {
   title: 'About BetGlitch — how a signal becomes a public result',
   description:
-    'How BetGlitch works: live model signals across 27 European leagues, selected picks frozen before kickoff with their recorded odds, and a verified record built only from settled published picks.',
+    `Verifiable football market signals and immutable published picks. BetGlitch ranks provider probability data across ${SEARCHABLE_COMPETITION_COUNT} European competitions, freezes selected picks before kickoff with their recorded odds, and builds its verified record only from settled published picks.`,
   openGraph: {
     title: 'About BetGlitch — how a signal becomes a public result',
     description:
-      'Live model signals, picks frozen before kickoff with their recorded odds, and a verified record built only from settled published picks.',
+      'Verifiable football market signals and immutable published picks. Frozen before kickoff with their recorded odds, kept public after settlement.',
     url: 'https://betglitch.com/about',
   },
 }
@@ -22,7 +28,7 @@ export default function AboutPage() {
     "name": "BetGlitch",
     "url": "https://betglitch.com",
     "logo": "https://betglitch.com/images/logo-final-v6.png",
-    "description": "Football model signals for 27 European leagues, with selected picks frozen before kickoff and kept public after settlement.",
+    "description": `Verifiable football market signals and immutable published picks across ${SEARCHABLE_COMPETITION_COUNT} European competitions. Selected picks are frozen before kickoff and kept public after settlement.`,
     "sameAs": [],
   }
 
@@ -41,8 +47,9 @@ export default function AboutPage() {
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">About BetGlitch</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            We build AI systems that analyze football matches across 27 European leagues,
-            providing data-driven predictions with full transparency.
+            BetGlitch ranks provider-derived football probability data into live signals,
+            freezes selected picks before kickoff, and publishes every settled result —
+            win or lose.
           </p>
         </div>
 
@@ -55,9 +62,9 @@ export default function AboutPage() {
             We do the opposite.
           </p>
           <p className="text-gray-700 leading-relaxed">
-            BetGlitch generates far more model output than it publishes. When a
+            BetGlitch generates far more live signals than it publishes. When a
             pick <em>is</em> published, it is frozen before kickoff with its
-            selection, model score, recorded odds and bookmaker, and it stays
+            selection, signal score, recorded odds and bookmaker, and it stays
             public afterwards whether it wins or loses. Our{' '}
             <Link href="/track-record" className="text-primary-600 hover:underline font-medium">
               verified record
@@ -77,12 +84,16 @@ export default function AboutPage() {
           <ol className="space-y-4">
             {[
               {
-                title: 'Live model signal',
-                body: 'Every model run is written to an append-only snapshot. Signals are mutable in the sense that a newer snapshot can supersede them — but no snapshot is ever edited or deleted.',
+                title: 'Provider data',
+                body: 'A specialist football data provider supplies the probability vectors. BetGlitch does not train a predictive model of its own and does not claim to.',
+              },
+              {
+                title: 'Filtering and ranking → live signal',
+                body: 'BetGlitch filters and ranks those provider probabilities against recorded prices, producing a signal score. Every run is written to an append-only snapshot: a newer snapshot can supersede a signal, but no snapshot is ever edited or deleted.',
               },
               {
                 title: 'Published pick (optional)',
-                body: 'BetGlitch selects some snapshots to publish. Publication freezes the market, selection, model score, recorded odds, bookmaker and timestamps. Most snapshots are never published.',
+                body: 'BetGlitch selects some snapshots to publish. Publication freezes the market, selection, signal score, recorded odds, bookmaker and timestamps. Most snapshots are never published.',
               },
               {
                 title: 'Settlement (automatic)',
@@ -114,16 +125,16 @@ export default function AboutPage() {
           <dl className="space-y-4">
             {[
               {
-                term: 'Model score',
-                def: 'A provider-derived confidence ranking. It is not a calibrated probability and should not be read as a percentage chance.',
+                term: 'Signal score',
+                def: 'A relative ranking of BetGlitch’s preference among the available outcomes in one market, out of 100. It is not a calibrated probability and does not state the chance of an outcome occurring.',
               },
               {
                 term: 'Implied probability',
-                def: 'What a bookmaker’s price implies, before their margin. Derived from odds, not from our model.',
+                def: 'What a bookmaker’s price implies, before their margin. Derived from odds, not from BetGlitch.',
               },
               {
-                term: 'Expected value',
-                def: 'An estimate comparing a model score against a recorded price. An estimate is not a forecast of profit.',
+                term: 'Value status',
+                def: 'Whether BetGlitch can assess the price at all. Without a verified market price, value cannot be assessed; with one, it is not yet assessed, because BetGlitch has no validated calibration to judge a price against. BetGlitch publishes no numeric expected value.',
               },
               {
                 term: 'Realized ROI',
@@ -150,7 +161,7 @@ export default function AboutPage() {
               <div className="bg-blue-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <BarChart3 className="h-7 w-7 text-blue-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">Signal ranking</h3>
+              <h3 className="font-bold text-gray-900 mb-2">Filtering and ranking</h3>
               <p className="text-sm text-gray-600">
                 Provider probabilities are ranked against recorded prices, and a signal is surfaced only when
                 it clears our filters. The score is a relative ranking, not a calibrated probability, and the
@@ -161,23 +172,46 @@ export default function AboutPage() {
               <div className="bg-green-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Zap className="h-7 w-7 text-green-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">Real-Time Data</h3>
+              <h3 className="font-bold text-gray-900 mb-2">One data provider</h3>
               <p className="text-sm text-gray-600">
-                We process live data from premium sports data providers, refreshing predictions every 60 seconds
-                as new information becomes available.
+                Probability data comes from a single specialist football data provider. There is no
+                second model, no averaging of opinions and no model trained by BetGlitch — a signal
+                is that provider&apos;s numbers put through our filters.
               </p>
             </div>
             <div className="text-center p-4">
               <div className="bg-purple-100 w-14 h-14 rounded-xl flex items-center justify-center mx-auto mb-4">
                 <Target className="h-7 w-7 text-purple-600" />
               </div>
-              <h3 className="font-bold text-gray-900 mb-2">Value Detection</h3>
+              <h3 className="font-bold text-gray-900 mb-2">Still being evaluated</h3>
               <p className="text-sm text-gray-600">
-                Expected-value analysis compares a model score against the recorded bookmaker price. It is an
-                estimate of value, not a forecast of profit.
+                BetGlitch has not demonstrated predictive or pricing edge, and does not publish
+                calibrated probabilities, fair odds or bet/no-bet decisions. Whether the filtering
+                adds value is what the public record is being built to test.
               </p>
             </div>
           </div>
+        </div>
+
+        {/* Said plainly, once, in its own block — a caveat buried in a
+            methodology card is easy to miss. */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">What BetGlitch does not claim</h2>
+          <ul className="space-y-2 text-gray-700">
+            {[
+              'BetGlitch does not build, train or own a predictive model. The probabilities come from a third-party provider.',
+              'BetGlitch does not publish calibrated probabilities. The signal score is a relative ranking out of 100.',
+              'BetGlitch has not demonstrated predictive or pricing edge. Both are still being evaluated in public.',
+              'BetGlitch does not publish fair odds, minimum acceptable odds or bet/no-bet decisions.',
+              'BetGlitch is not a bookmaker, does not accept bets, and does not size stakes for you.',
+              'No output guarantees profit. You can lose all the money you wager.',
+            ].map((claim) => (
+              <li key={claim} className="flex gap-3">
+                <span aria-hidden className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-gray-400" />
+                <span className="text-sm leading-relaxed">{claim}</span>
+              </li>
+            ))}
+          </ul>
         </div>
 
         {/* Transparency */}
@@ -210,11 +244,15 @@ export default function AboutPage() {
 
         {/* Coverage */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">League Coverage</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Coverage</h2>
           <p className="text-gray-700 leading-relaxed mb-4">
-            BetGlitch covers 27 European football leagues, including the Premier League, La Liga, Bundesliga,
-            Serie A, Ligue 1, Eredivisie, and many more. Our models are trained on historical data
-            specific to each league, accounting for differences in playing style, competitiveness, and home advantage.
+            Two different numbers, because they measure two different things.{' '}
+            <strong className="text-gray-900">{SEARCHABLE_COMPETITION_COUNT} competitions</strong> are indexed and
+            searchable, including the Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Eredivisie, domestic
+            cups and the UEFA club tournaments. Of those,{' '}
+            <strong className="text-gray-900">{SIGNAL_COMPETITION_COUNT}</strong> are swept for live signals — the
+            UEFA tournaments are indexed but do not currently produce signals, so a fixture can be searchable
+            without ever being ranked.
           </p>
           {/* flex-wrap: without it these three stats forced the page to 410px
               wide at a 320px viewport, so the whole of /about scrolled
@@ -222,7 +260,15 @@ export default function AboutPage() {
           <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm text-gray-500 mt-6">
             <span className="flex items-center gap-2">
               <TrendingUp className="h-4 w-4 text-primary-600" />
-              <strong className="text-gray-900">27</strong> leagues covered
+              <strong className="text-gray-900">{SEARCHABLE_COMPETITION_COUNT}</strong> indexed competitions
+            </span>
+            <span className="flex items-center gap-2">
+              <Target className="h-4 w-4 text-primary-600" />
+              <strong className="text-gray-900">{SIGNAL_COMPETITION_COUNT}</strong> swept for signals
+            </span>
+            <span className="flex items-center gap-2">
+              <BarChart3 className="h-4 w-4 text-primary-600" />
+              <strong className="text-gray-900">{SUPPORTED_MARKET_COUNT}</strong> supported markets
             </span>
             <span className="flex items-center gap-2">
               <Users className="h-4 w-4 text-primary-600" />
@@ -230,7 +276,7 @@ export default function AboutPage() {
             </span>
             <span className="flex items-center gap-2">
               <Zap className="h-4 w-4 text-primary-600" />
-              <strong className="text-gray-900">60s</strong> refresh rate
+              <strong className="text-gray-900">{COVERAGE_HORIZON_DAYS} days</strong> of fixture coverage
             </span>
           </div>
         </div>
@@ -239,9 +285,10 @@ export default function AboutPage() {
         <div className="bg-amber-50 border border-amber-200 rounded-2xl p-8 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">Responsible Gambling</h2>
           <p className="text-gray-700 leading-relaxed mb-4">
-            BetGlitch is not a betting operator. We provide data analysis for informational purposes.
-            If you choose to bet, please do so responsibly through licensed operators. Never bet more
-            than you can afford to lose.
+            BetGlitch is not a bookmaker and does not accept bets. Our outputs are informational
+            signals, not advice, and no output guarantees profit. If you choose to bet, do so
+            responsibly through licensed operators — you can lose all the money you wager, so never
+            bet more than you can afford to lose.
           </p>
           <Link
             href="/responsible-gambling"
@@ -259,7 +306,7 @@ export default function AboutPage() {
               href="/explore"
               className="inline-flex items-center justify-center gap-2 bg-primary-600 text-white px-8 py-3 rounded-xl font-medium hover:bg-primary-700 transition-colors"
             >
-              Explore Predictions
+              Explore signals
             </Link>
             <Link
               href="/track-record"

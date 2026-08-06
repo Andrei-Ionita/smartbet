@@ -26,7 +26,7 @@ export const translations = {
         landing: {
             heroTitle: 'BetGlitch.',
             heroTitleHighlight: 'Not Guesswork.',
-            heroSubtitle: 'Football model signals with a record you can verify. Selected picks are frozen before kickoff and stay public after settlement.',
+            heroSubtitle: 'Verifiable football market signals. Selected picks are frozen before kickoff and stay public after settlement.',
             exploreButton: 'Explore Predictions',
             stats: {
                 accuracy: 'Accuracy',
@@ -37,7 +37,7 @@ export const translations = {
                 totalFixtures: 'Total Fixtures',
                 highestConfidence: 'Highest Confidence',
                 daysAhead: 'Days Ahead',
-                aiEnsemble: 'AI Ensemble'
+                dataProvider: 'Provider data'
             },
             trackRecord: 'Track Record',
             learnMore: 'Learn More',
@@ -80,7 +80,7 @@ export const translations = {
             hideAnalysis: 'Hide Analysis',
             analysisPending: {
                 title: 'Analysis Pending',
-                desc: 'Our AI models are currently analyzing this fixture.'
+                desc: 'No ranked signal is available for this fixture yet.'
             },
             risk: {
                 title: 'Risk Factors Present',
@@ -118,28 +118,15 @@ export const translations = {
                 draw: 'Draw',
                 away: 'Away'
             },
+            // The quality ladder (RECOMMENDED / Premium / Strong / High Value /
+            // Value Play / Speculative / Safe Pick / Value Bet) is gone, and so
+            // are the risk messages that quoted a confidence percentage and an
+            // expected-value "edge". Every rung graded an uncalibrated ranking
+            // against a standard that does not exist, and "Safe Pick" told a
+            // user a gamble was safe. The card now renders two honest states.
             badges: {
-                recommended: 'RECOMMENDED',
-                premium: 'Premium',
-                strong: 'Strong',
-                highValue: 'High Value',
-                goodValue: 'Good Value',
-                valuePlay: 'Value Play',
-                speculative: 'Speculative',
-                veryStrong: 'Very Strong',
-                moderate: 'Moderate',
-                weak: 'Weak',
-                strongSignal: 'Strong Signal',
-                goodSignal: 'Good Signal',
-                moderateSignal: 'Moderate Signal',
-                weakSignal: 'Weak Signal',
-                safe_pick: 'Safe Pick',
-                value_bet: 'Value Bet'
-            },
-            riskMessages: {
-                lowerConfidence: '• Lower confidence ({0}%) - higher uncertainty',
-                lowEV: '• Low expected value ({0}%) - small edge',
-                drawPrediction: '• Draw prediction - historically harder to predict accurately'
+                signalOnly: 'SIGNAL ONLY',
+                verifiedPrice: 'VERIFIED MARKET PRICE'
             },
             multiMarket: {
                 bestMarket: 'Best',
@@ -225,7 +212,7 @@ export const translations = {
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
                 note: 'Note:',
-                noteDesc: 'Only published picks enter the verified record. Live model signals shown elsewhere in the product are not counted, and a published pick is never withdrawn or re-graded once it settles.'
+                noteDesc: 'Only published picks enter the verified record. Live signals shown elsewhere in the product are not counted, and a published pick is never withdrawn or re-graded once it settles.'
             }
         },
         monitoring: {
@@ -356,7 +343,7 @@ export const translations = {
             heading: 'BetGlitch Public Beta — free while we build the verified public record',
             badge: 'Free public beta',
             account: 'An account is free and needs no payment method.',
-            supporting: 'You can use every public surface without paying: live model signals, the verified record and every published proof page.',
+            supporting: 'You can use every public surface without paying: live signals, the verified record and every published proof page.',
             meansTitle: 'What this means today',
             m1: 'Access is currently free — there is nothing to buy.',
             m2: 'No payment method is required, and none is collected.',
@@ -367,29 +354,29 @@ export const translations = {
         },
         explore: {
             title: 'Explore live football signals',
-            subtitle: 'Search upcoming fixtures and inspect current model scores, market signals and recorded odds. Live signals can update before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
+            subtitle: 'Search upcoming fixtures and inspect current signal scores, market signals and recorded odds. Live signals can update before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
             results: 'Search Results',
             howTo: {
                 title: 'How to Use the Explorer',
                 step1Title: 'Search',
                 step1Body: 'Enter a team, league or country to find upcoming fixtures',
                 step2Title: 'Inspect',
-                step2Body: 'Open a fixture to see its model score, market signal and recorded odds',
+                step2Body: 'Open a fixture to see its signal score, market signal and recorded odds',
                 step3Title: 'Decide for yourself',
-                step3Body: 'A model score ranks relative confidence — it is not a calibrated probability'
+                step3Body: 'A signal score is a relative ranking — it is not a calibrated probability'
             },
             search: {
                 placeholder: "Search by team name (e.g., 'Manchester City', 'Barcelona', 'Bayern')",
                 allLeagues: 'All Leagues',
                 features: {
-                    leagues: 'Search across all 27 leagues',
-                    odds: 'Real-time odds',
-                    predictions: 'AI predictions'
+                    leagues: 'Search every indexed competition',
+                    odds: 'Recorded market odds',
+                    predictions: 'Provider-derived signals'
                 },
                 loading: 'Searching fixtures...',
                 noResults: 'No matches found',
                 tryStandard: 'Try using standard team names (e.g., use "Man City" instead of "City")',
-                initialState: 'Search for any upcoming match to see AI predictions'
+                initialState: 'Search for any upcoming match to see its live signal'
             },
             browse: {
                 title: 'Upcoming Fixtures',
@@ -430,7 +417,7 @@ export const translations = {
         landing: {
             heroTitle: 'Pariază Inteligent.',
             heroTitleHighlight: 'Nu la Ghici.',
-            heroSubtitle: 'Semnale de model pentru fotbal, cu un istoric pe care îl poți verifica. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
+            heroSubtitle: 'Semnale de piață pentru fotbal, verificabile. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
             exploreButton: 'Explorează Predicții',
             stats: {
                 accuracy: 'Acuratețe',
@@ -441,7 +428,7 @@ export const translations = {
                 totalFixtures: 'Total Meciuri',
                 highestConfidence: 'Încredere Maximă',
                 daysAhead: 'Zile în Avans',
-                aiEnsemble: 'Ansamblu AI'
+                dataProvider: 'Date de la furnizor'
             },
             trackRecord: 'Istoric Performanță',
             learnMore: 'Află Mai Multe',
@@ -523,28 +510,11 @@ export const translations = {
                 away: 'Oaspeți'
             },
             badges: {
-                recommended: 'RECOMANDAT',
-                premium: 'Premium',
-                strong: 'Puternic',
-                highValue: 'Valoare Mare',
-                goodValue: 'Valoare Bună',
-                valuePlay: 'Joc Valoare',
-                speculative: 'Speculativ',
-                veryStrong: 'Foarte Puternic',
-                moderate: 'Moderat',
-                weak: 'Slab',
-                strongSignal: 'Semnal Puternic',
-                goodSignal: 'Semnal Bun',
-                moderateSignal: 'Semnal Moderat',
-                weakSignal: 'Semnal Slab',
-                safe_pick: 'Pariu Sigur',
-                value_bet: 'Pariu de Valoare'
+                signalOnly: 'DOAR SEMNAL',
+                verifiedPrice: 'PREȚ DE PIAȚĂ VERIFICAT'
             },
-            riskMessages: {
-                lowerConfidence: '• Încredere mai mică ({0}%) - incertitudine mai mare',
-                lowEV: '• Valoare așteptată mică ({0}%) - avantaj redus',
-                drawPrediction: '• Predicție de egalitate - istoric mai greu de prezis'
-            },
+            // Risk messages removed alongside the English ones — they quoted a
+            // confidence percentage and an expected-value "edge".
             multiMarket: {
                 bestMarket: 'Cel mai bun',
                 allMarkets: 'Toate Piețele',
@@ -770,25 +740,25 @@ export const translations = {
             seeRecord: 'Vezi istoricul verificat'
         },
         explore: {
-            title: 'Explorează semnale de model pentru fotbal',
-            subtitle: 'Caută meciuri viitoare și inspectează scorurile actuale ale modelului, semnalele de piață și cotele înregistrate. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
+            title: 'Explorează semnale live pentru fotbal',
+            subtitle: 'Caută meciuri viitoare și inspectează scorurile de semnal actuale, semnalele de piață și cotele înregistrate. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
             results: 'Rezultatele căutării',
             howTo: {
                 title: 'Cum folosești Exploratorul',
                 step1Title: 'Caută',
                 step1Body: 'Introdu o echipă, o ligă sau o țară pentru a găsi meciuri viitoare',
                 step2Title: 'Inspectează',
-                step2Body: 'Deschide un meci pentru a-i vedea scorul modelului, semnalul de piață și cotele înregistrate',
+                step2Body: 'Deschide un meci pentru a-i vedea scorul de semnal, semnalul de piață și cotele înregistrate',
                 step3Title: 'Decide singur',
-                step3Body: 'Scorul modelului exprimă încrederea relativă — nu este o probabilitate calibrată'
+                step3Body: 'Scorul de semnal este o clasare relativă — nu este o probabilitate calibrată'
             },
             search: {
                 placeholder: "Caută după nume echipă (ex: 'FCSB', 'Real Madrid', 'Liverpool')",
                 allLeagues: 'Toate Ligile',
                 features: {
-                    leagues: 'Caută în toate cele 27 de ligi',
-                    odds: 'Cote în timp real',
-                    predictions: 'Predicții AI'
+                    leagues: 'Caută în toate competițiile indexate',
+                    odds: 'Cote de piață înregistrate',
+                    predictions: 'Semnale derivate de la furnizor'
                 },
                 loading: 'Se caută meciuri...',
                 noResults: 'Nu s-au găsit meciuri',

@@ -5,11 +5,11 @@ import { ArrowRight, Clock, Calendar } from 'lucide-react'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
-  title: 'Blog — AI Betting Insights & Strategy',
-  description: 'Expert articles on AI-powered football predictions, value betting strategy, and transparent sports analytics from the BetGlitch team.',
+  title: 'Blog — signals, settlement and transparency',
+  description: 'How BetGlitch turns provider data into verifiable football market signals and immutable published picks, plus educational articles on expected value and transparent track records.',
   openGraph: {
-    title: 'Blog — AI Betting Insights & Strategy | BetGlitch',
-    description: 'Expert articles on AI-powered football predictions, value betting, and sports analytics.',
+    title: 'Blog — signals, settlement and transparency | BetGlitch',
+    description: 'Verifiable football market signals and immutable published picks, explained.',
     url: 'https://betglitch.com/blog',
   },
 }
@@ -27,7 +27,7 @@ export default function BlogPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">BetGlitch Blog</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Insights on AI-powered football predictions, value betting strategy, and transparent sports analytics.
+            How BetGlitch turns provider data into verifiable market signals and immutable published picks, plus educational articles on expected value and transparent track records.
           </p>
         </div>
 

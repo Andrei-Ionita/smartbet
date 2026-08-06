@@ -170,7 +170,11 @@ export async function GET(request: NextRequest) {
     const startDate = now.toISOString().split('T')[0]
     const endDate = fourteenDaysFromNow.toISOString().split('T')[0]
 
-    // All 27 leagues covered by subscription
+    // The competitions swept for signals. Mirrored, and asserted equal, by
+    // SIGNAL_COMPETITION_IDS in app/lib/coverage.ts — the single source of
+    // truth for every coverage number the product displays. Changing this list
+    // changes pipeline behaviour, so change it deliberately and let the
+    // coverage test tell you which public copy needs to follow.
     const keyLeagues = [
       { id: 8, name: 'Premier League' },
       { id: 9, name: 'Championship' },

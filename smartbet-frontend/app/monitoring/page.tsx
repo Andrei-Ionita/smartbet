@@ -3,11 +3,11 @@ import MonitoringContent from './MonitoringContent'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
-  title: 'Model Monitoring — AI Performance Dashboard',
-  description: 'Real-time monitoring of BetGlitch AI prediction models. Track accuracy, calibration, and performance metrics across all leagues.',
+  title: 'Signal Monitoring — pipeline health',
+  description: 'Operational monitoring of the BetGlitch signal pipeline. Track ingestion, settlement and coverage across covered competitions.',
   openGraph: {
-    title: 'Model Monitoring — AI Performance Dashboard | BetGlitch',
-    description: 'Real-time AI model performance monitoring. Track accuracy and calibration.',
+    title: 'Signal Monitoring — pipeline health | BetGlitch',
+    description: 'Operational monitoring of the BetGlitch signal pipeline.',
     url: 'https://betglitch.com/monitoring',
   },
 }

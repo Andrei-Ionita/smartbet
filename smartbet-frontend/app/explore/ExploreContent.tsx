@@ -11,6 +11,7 @@ import { StatusBadge } from '../components/StatusBadge'
 import { getCopy } from '../lib/terminology'
 import { track } from '../lib/analytics'
 import { canPublishPrice, priceUnavailableLabel, type CanonicalPriceFields } from '../lib/marketPricing'
+import { EXPLORE_LEAGUE_OPTIONS, SEARCHABLE_COMPETITION_COUNT } from '../lib/coverage'
 
 interface SearchResult {
   fixture_id: number
@@ -111,41 +112,13 @@ interface FixtureAnalysis {
   }>
 }
 
-const LEAGUES = [
-  { id: '', name: 'All Leagues' },
-  // European Club Tournaments (UCL, UEL, UECL)
-  { id: '2', name: 'UEFA Champions League' },
-  { id: '5', name: 'UEFA Europa League' },
-  { id: '2286', name: 'UEFA Europa Conference League' },
-  // Domestic Leagues
-  { id: '8', name: 'Premier League' },
-  { id: '9', name: 'Championship' },
-  { id: '24', name: 'FA Cup' },
-  { id: '27', name: 'Carabao Cup' },
-  { id: '72', name: 'Eredivisie' },
-  { id: '82', name: 'Bundesliga' },
-  { id: '181', name: 'Admiral Bundesliga' },
-  { id: '208', name: 'Pro League' },
-  { id: '244', name: '1. HNL' },
-  { id: '271', name: 'Superliga' },
-  { id: '301', name: 'Ligue 1' },
-  { id: '384', name: 'Serie A' },
-  { id: '387', name: 'Serie B' },
-  { id: '390', name: 'Coppa Italia' },
-  { id: '444', name: 'Eliteserien' },
-  { id: '453', name: 'Ekstraklasa' },
-  { id: '462', name: 'Liga Portugal' },
-  { id: '486', name: 'Russian Premier League' },
-  { id: '501', name: 'Premiership' },
-  { id: '564', name: 'La Liga' },
-  { id: '567', name: 'La Liga 2' },
-  { id: '570', name: 'Copa Del Rey' },
-  { id: '573', name: 'Allsvenskan' },
-  { id: '591', name: 'Super League' },
-  { id: '600', name: 'Super Lig' },
-  { id: '609', name: 'Premier League (Additional)' },
-  { id: '1371', name: 'UEFA Europa League Play-offs' },
-]
+/**
+ * The filter options now come from app/lib/coverage.ts, which is the single
+ * source of truth for every coverage number the product displays. This list
+ * used to be defined here and counted inline as `LEAGUES.length - 1` = 30,
+ * while /about hardcoded "27 leagues" — two numbers, one click apart.
+ */
+const LEAGUES = EXPLORE_LEAGUE_OPTIONS
 
 /** Distinct outcomes a search can have. "empty" is not an error. */
 type SearchState = 'idle' | 'loading' | 'ok' | 'empty' | 'timeout' | 'provider_error'
@@ -420,8 +393,8 @@ export default function ExploreContent() {
             <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
               <Trophy className="h-3.5 w-3.5" />
               {language === 'ro'
-                ? `${LEAGUES.length - 1} competiții europene`
-                : `${LEAGUES.length - 1} European competitions`}
+                ? `${SEARCHABLE_COMPETITION_COUNT} competiții europene indexate`
+                : `${SEARCHABLE_COMPETITION_COUNT} indexed European competitions`}
             </span>
             <span className="flex items-center gap-1.5 px-3 py-1 bg-gray-100 rounded-full">
               <Calendar className="h-3.5 w-3.5" />
@@ -547,7 +520,7 @@ export default function ExploreContent() {
             <div
               role="dialog"
               aria-modal="true"
-              aria-label="Live model signal detail"
+              aria-label="Live signal detail"
               className="bg-white rounded-2xl w-full max-w-4xl max-h-[90vh] overflow-y-auto shadow-2xl relative animate-in fade-in zoom-in-95 duration-300"
               onClick={e => e.stopPropagation()}
             >
@@ -593,7 +566,7 @@ export default function ExploreContent() {
                     {/* This modal is the surface where a visitor actually reads
                         a signal, and it previously carried no indication that
                         the numbers are mutable or outside the verified record.
-                        Everything below is a live model signal until BetGlitch
+                        Everything below is a live signal until BetGlitch
                         publishes it as an immutable claim. */}
                     <div className="mb-6 rounded-xl border border-sky-200 bg-sky-50 p-4">
                       <StatusBadge status="live" size="sm" lang={language} />
@@ -637,35 +610,27 @@ export default function ExploreContent() {
                             : (selectedFixture.prediction_confidence || 0)
                           const marketName = bestMarket?.display_name || 'Match Result'
 
+                          // The signal score is a ranking, so it is stated as
+                          // "N / 100", never as "X% probability" or "X%
+                          // confidence" — both of which read as the chance of
+                          // the outcome occurring. The strength ladder that
+                          // followed ("a strong prediction with high
+                          // confidence") graded that ranking against a
+                          // calibration standard that does not exist.
                           let explanation = bestMarket
-                            ? `Best bet: ${marketName} - ${outcome} (${confidence.toFixed(1)}% probability).`
-                            : `AI predicts a ${outcome} win with ${confidence.toFixed(1)}% confidence.`
+                            ? `Highest-ranked outcome: ${marketName} — ${outcome}. Signal score ${Math.round(confidence)} / 100, a relative ranking among the available outcomes rather than a calibrated probability.`
+                            : `Highest-ranked outcome: ${outcome}. Signal score ${Math.round(confidence)} / 100, a relative ranking rather than a calibrated probability.`
 
-                          if (confidence >= 70) {
-                            explanation += ` This is a strong prediction with high confidence.`
-                          } else if (confidence >= 60) {
-                            explanation += ` This is a good prediction with solid confidence.`
-                          } else if (confidence >= 50) {
-                            explanation += ` This is a moderate prediction - the match could go either way.`
-                          } else {
-                            explanation += ` This is a close match with higher uncertainty.`
-                          }
-
-                          // Everything price-derived below is gated on the same
-                          // canonical status the card uses. A signal without a
-                          // verified quote says so instead of narrating value.
+                          // Price status only. No numeric expected value: EV is
+                          // computed from the uncalibrated signal score, so any
+                          // figure reads as an assessment BetGlitch has not made.
                           const priced = canPublishPrice(bestMarket)
-                          const ev = priced ? (bestMarket!.expected_value as number) * 100 : null
 
-                          if (priced && ev !== null) {
+                          if (priced) {
                             const odds = bestMarket!.odds as number
-                            if (ev > 0) {
-                              explanation += ` Recorded price ${odds.toFixed(2)} implies ${ev.toFixed(1)}% expected value against the model's probability.`
-                            } else {
-                              explanation += ` Recorded price ${odds.toFixed(2)} does not imply positive expected value.`
-                            }
+                            explanation += ` Verified market price ${odds.toFixed(2)}, with complete provenance. Value not yet assessed.`
                           } else {
-                            explanation += ` ${priceUnavailableLabel(language)} for this market, so no expected value is shown.`
+                            explanation += ` ${priceUnavailableLabel(language)} for this market, so value cannot be assessed.`
                           }
 
                           return explanation

@@ -2,16 +2,19 @@ import { BlogPost } from '../types'
 
 export const howBetglitchWorks: BlogPost = {
   slug: 'how-betglitch-works',
-  title: 'How BetGlitch Works: AI-Powered Football Predictions',
-  description: 'Discover how BetGlitch takes probability data from a specialist football data provider, ranks it with its own filters, and publishes every selected pick immutably across 27 European leagues.',
+  title: 'How BetGlitch Works: From Provider Data to a Verified Record',
+  description: 'How BetGlitch takes probability data from a specialist football data provider, ranks it with its own filters, and freezes selected picks before kickoff so every settled result can be checked.',
   author: 'BetGlitch Team',
   date: '2026-03-15',
   readTime: '8 min read',
-  tags: ['AI', 'Football Predictions', 'How It Works'],
+  tags: ['Signals', 'Transparency', 'How It Works'],
   content: `
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Introduction: Smarter Predictions Through Data</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a fundamentally different approach. We take probability data from a specialist football data provider, apply our own ranking filters, and publish every selected pick before kickoff — wins and losses alike — across 27 European football leagues. We do not yet claim a predictive edge of our own; whether our filtering adds value is something we are still measuring in public.
+The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a different approach. We take probability data from a specialist football data provider, apply our own ranking filters, and freeze selected picks before kickoff — wins and losses alike — across European competitions. We do not claim a predictive edge of our own; whether our filtering adds value is something we are still measuring in public.
+</p>
+<p class="text-gray-700 leading-relaxed mb-6">
+One distinction runs through everything below, so it is worth stating first. A <strong class="text-gray-900">live signal</strong> is our current ranked output for a fixture and it can change at any time before kickoff. A <strong class="text-gray-900">published claim</strong> is a signal we froze, and it can never change. Most live signals are never published. Only <em>settled</em> published claims count towards the verified record — pending claims count towards nothing — and every published claim stays visible afterwards, including the losing ones.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
 Our mission is simple: replace guesswork with an auditable record. BetGlitch takes probability data from a specialist football data provider, applies its own filtering to surface a small number of candidates, and freezes each published pick before kickoff so the result can be checked afterwards. This article explains exactly how that works.
@@ -19,7 +22,7 @@ Our mission is simple: replace guesswork with an auditable record. BetGlitch tak
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Where the probabilities come from</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-At the core of BetGlitch is a specialist football data provider's probability model. We do not train our own predictive model and do not claim to. Each model uses its own methodology — some are probability-based, some focus on specific markets (match result, over/under, both teams to score), and each brings different strengths to different types of matches and leagues.
+At the core of BetGlitch is a specialist football data provider's probability model. We do not build, train or own a predictive model, and we do not claim to. There is no second model and no averaging of opinions: one provider supplies a probability vector per market — match result, over/under 2.5, both teams to score, double chance — and we work from those numbers.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
 We rank those probabilities against recorded market prices. For each fixture and market we record:
@@ -33,42 +36,41 @@ We rank those probabilities against recorded market prices. For each fixture and
 We are deliberately careful about what this does and does not prove. A ranking score is not a calibrated probability, and we have not yet demonstrated that our filtering beats the market price. That is precisely why the public record exists: to test it in the open rather than assert it.
 </p>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">Intelligent Filtering: Being Selective, Not Just Predictive</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">Filtering: Being Selective</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-Raw predictions alone are not enough. A critical insight we have built into BetGlitch is that accuracy improves dramatically when you are more selective about which predictions to recommend. Our prediction enhancer applies multiple data-driven filters that were calibrated from our own historical performance data:
+Raw provider probabilities alone are not enough, so BetGlitch narrows them before anything is surfaced. These filters are selection rules, not validated predictors — they decide what we look at, and we have not shown that they improve results:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Confidence Floor:</strong> Only predictions above a 60% minimum confidence threshold are considered for recommendation. This eliminates low-conviction picks that historically underperform.</li>
-<li><strong class="text-gray-900">Expected Value (EV) Threshold:</strong> We compare our predicted probabilities against bookmaker odds to calculate expected value. Only selections with positive expected value at the recorded price make the cut. Positive expected value on paper is not the same as a demonstrated edge, and we do not claim one.</li>
-<li><strong class="text-gray-900">Odds Range Filtering:</strong> Our data shows accuracy collapses above certain odds levels. We cap recommended predictions at moderate odds (under 2.50), focusing on the sweet spot where our models are most reliable.</li>
-<li><strong class="text-gray-900">League-Specific Intelligence:</strong> Not all leagues are equally predictable. We maintain a performance-based league blacklist and watchlist — leagues where our predictions have historically underperformed are either excluded or require extra confidence before recommendations are issued.</li>
-<li><strong class="text-gray-900">Probability Dominance:</strong> Predictions where the gap between the top probability and the second-highest is at least 25% have historically achieved 83% accuracy. We weight these high-dominance predictions accordingly.</li>
+<li><strong class="text-gray-900">Signal-score floor:</strong> Candidates below a minimum score are not surfaced. The threshold is a selection rule we tune, not a validated accuracy boundary.</li>
+<li><strong class="text-gray-900">Price gating:</strong> A candidate is only considered when we hold a verified market price for the exact market being ranked, with complete provenance. Without one, value cannot be assessed at all.</li>
+<li><strong class="text-gray-900">Odds range:</strong> We concentrate on moderate odds. This bounds variance; it is not evidence that we price long shots correctly.</li>
+<li><strong class="text-gray-900">Competition-specific handling:</strong> Some competitions are excluded or handled more conservatively. These lists are maintained by hand and revised as the sample grows.</li>
+<li><strong class="text-gray-900">Probability gap:</strong> How far the leading outcome sits above the next one. A narrow gap means the market is close to a coin flip.</li>
 </ul>
+<p class="text-gray-700 leading-relaxed mb-6">
+We used to publish an accuracy figure against the probability-gap filter. We have withdrawn it. It was measured on a sample that included predictions priced from the wrong market, so it was not a valid measurement of anything, and we would rather show no number than a number we cannot stand behind.
+</p>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">Quality Scoring: Ranking Every Opportunity</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">The signal score</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-Every prediction that passes our filters receives a quality score from 0 to 100, calculated from a weighted combination of confidence level, expected value, odds range, and probability dominance. This score determines which predictions make it into our daily top recommendations. We categorize predictions into tiers:
+Every candidate that passes the filters carries a signal score from 0 to 100. It ranks our relative preference among the available outcomes in one market. It is <strong class="text-gray-900">not</strong> a calibrated probability: a score of 66 does not mean the outcome happens 66% of the time, and a score of 70 is not "safer" than one of 60 in any way we have validated. We publish no tiers, no bet/no-bet decision, no fair odds and no numeric expected value, because each of those would assert a calibration standard we do not have.
 </p>
-<ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Safe Bets:</strong> High signal score, moderate odds — our most reliable picks.</li>
-<li><strong class="text-gray-900">Value Bets:</strong> Positive expected value at the recorded price. Whether that translates into a real edge is still being measured.</li>
-<li><strong class="text-gray-900">Speculative:</strong> Higher odds with potential upside, but more variance — clearly labeled so users understand the risk profile.</li>
-</ul>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Data Pipeline: From Source to Prediction</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
 BetGlitch sources its data from premium sports data providers, with SportMonks as our primary data backbone. Our pipeline operates in several stages:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Data Ingestion:</strong> Fixture data, team information, odds from multiple bookmakers, and AI-generated predictions are pulled continuously for all 27 covered leagues.</li>
+<li><strong class="text-gray-900">Data ingestion:</strong> Fixture data, team information and recorded odds are pulled continuously for every covered competition.</li>
 <li><strong class="text-gray-900">Probability ingestion:</strong> Provider probabilities are collected for each fixture and market type, with every outcome retained rather than only the favoured side.</li>
-<li><strong class="text-gray-900">Enhancement &amp; Filtering:</strong> Our prediction enhancer applies the quality filters and scoring described above, comparing model probabilities against live bookmaker odds to identify value.</li>
-<li><strong class="text-gray-900">Publication:</strong> Final selections, including the signal score, the recorded price and its provenance, are published on the platform before kickoff with immutable timestamps.</li>
+<li><strong class="text-gray-900">Filtering and ranking:</strong> The filters above narrow the candidates, and the survivors are ranked to produce a signal score.</li>
+<li><strong class="text-gray-900">Publication:</strong> Some selections — not all — are frozen before kickoff with their signal score, recorded price, bookmaker, provenance and immutable timestamps. A published claim is never edited or withdrawn.</li>
+<li><strong class="text-gray-900">Settlement:</strong> After full-time a published claim is graded against the fields frozen at publication. Results are inserted, never overwritten.</li>
 </ul>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">Coverage: 27 European Leagues</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">Coverage</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-BetGlitch covers 27 European football leagues, spanning the top divisions of major footballing nations as well as selected second-tier competitions where data quality is sufficient for reliable modeling. This includes the Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Eredivisie, Primeira Liga, Super Lig, and many more. Broader coverage means more predictions, more historical data for calibrating our filters, and more opportunities for users to find value across different markets.
+BetGlitch indexes European competitions spanning the top divisions of major footballing nations, selected second tiers, domestic cups and the UEFA club tournaments — the Premier League, La Liga, Bundesliga, Serie A, Ligue 1, Eredivisie, Liga Portugal, Süper Lig and more. Not every indexed competition produces signals: the UEFA tournaments are searchable but are not currently swept, so a fixture can be visible without ever being ranked. The current figures are shown on the <a href="/about" class="text-blue-600 hover:underline font-medium">about page</a>, which reads them from the same source the product does.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">What Makes BetGlitch Different</h2>
@@ -76,19 +78,29 @@ BetGlitch covers 27 European football leagues, spanning the top divisions of maj
 Several qualities set BetGlitch apart from traditional tipsters and other prediction platforms:
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
-<li><strong class="text-gray-900">Signal Ranking:</strong> We rank provider probabilities against recorded prices and only surface a pick when it clears our filters.</li>
-<li><strong class="text-gray-900">Data-Driven Selectivity:</strong> Our filtering thresholds are not arbitrary — they are calibrated from our own historical performance data and updated regularly as we accumulate more results.</li>
-<li><strong class="text-gray-900">Objectivity:</strong> Algorithms do not have favorite teams, recency bias, or emotional reactions to shock results. Every prediction is driven purely by data.</li>
-<li><strong class="text-gray-900">Breadth:</strong> Covering 27 leagues simultaneously across multiple markets is beyond the capacity of any individual tipster. Our system scales effortlessly.</li>
-<li><strong class="text-gray-900">Transparency:</strong> Every prediction is published before kickoff with a timestamp and is permanently recorded. We never delete losses or cherry-pick results. Our full track record is always available for inspection.</li>
+<li><strong class="text-gray-900">Ranking, not tipping:</strong> We rank provider probabilities against recorded prices and only surface a candidate when it clears our filters.</li>
+<li><strong class="text-gray-900">Immutability:</strong> A published claim freezes its selection, signal score, price, bookmaker and provenance. It cannot be edited, re-priced, re-graded or withdrawn.</li>
+<li><strong class="text-gray-900">Consistency:</strong> The same rules run on every fixture. There are no favourite teams and no retrospective reinterpretation of a result.</li>
+<li><strong class="text-gray-900">Breadth:</strong> Sweeping every covered competition across four markets at once is beyond the capacity of an individual tipster.</li>
+<li><strong class="text-gray-900">Published losses:</strong> Losing claims stay up at the same prominence as winning ones. Odds are never rewritten.</li>
 </ul>
 
-<h2 class="text-2xl font-semibold text-gray-900 mb-4">Full Transparency: Every Prediction, Every Result</h2>
+<h2 class="text-2xl font-semibold text-gray-900 mb-4">What Actually Counts</h2>
 <p class="text-gray-700 leading-relaxed mb-6">
-Transparency is not a marketing slogan at BetGlitch — it is a core architectural principle. Every prediction generated by our system is timestamped and published before the match kicks off. After the match concludes, the result is automatically recorded against the prediction. There is no manual intervention, no selective editing, and no way for us to retroactively alter our track record.
+It would be easy to claim that we publish everything we produce. It would also be false, and the difference matters more than the slogan. BetGlitch generates far more live signals than it publishes; only the ones we freeze become claims. So the honest version is narrower:
+</p>
+<ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
+<li>Live signals can change until kickoff, and count towards nothing.</li>
+<li>Every published claim is immutable and stays permanently visible, win or lose.</li>
+<li>Only <em>settled</em> published claims count in the verified record.</li>
+<li>Pending claims count towards nothing until the match finishes.</li>
+<li>Void and cancelled claims stay visible but are excluded from the relevant totals.</li>
+</ul>
+<p class="text-gray-700 leading-relaxed mb-6">
+This makes our record smaller than the number of signals we produce, and that is deliberate. Settlement is graded against the fields frozen at publication, results are inserted rather than overwritten, and nothing is deleted. Visit the <a href="/track-record" class="text-blue-600 hover:underline font-medium">track record page</a> to check any of it yourself.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-This means you can audit our performance at any time. Visit our track record page to see every prediction we have ever made, complete with the probabilities we assigned, the odds available at the time, and the actual outcome. We believe this level of accountability should be the minimum standard in the prediction industry — and we are committed to leading by example.
+BetGlitch is a free public beta, is not a bookmaker, and does not accept bets. Nothing here is advice, no output guarantees profit, and you can lose all the money you wager.
 </p>
 `,
 }
