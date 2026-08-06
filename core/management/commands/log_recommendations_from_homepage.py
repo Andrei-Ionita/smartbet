@@ -102,6 +102,32 @@ class Command(BaseCommand):
             if not recommendations:
                 self.stdout.write(self.style.WARNING('No recommendations found in API response'))
                 return
+
+            # Verify we actually received the INTERNAL payload.
+            #
+            # Presenting a secret is not proof of being trusted: if the two
+            # services ever hold DIFFERENT values for INTERNAL_API_SECRET, the
+            # header simply fails to match and the API answers 200 OK with the
+            # public DTO — well-formed, correctly ordered, and missing every EV
+            # field. Ingestion would then write a null expected_value onto every
+            # row without a single error.
+            #
+            # So check the payload rather than the credential. This is the
+            # assertion that actually protects PredictionLog.
+            probe = recommendations[0]
+            has_ev = (
+                probe.get('expected_value') is not None
+                or probe.get('ev') is not None
+            )
+            has_raw_ev = (probe.get('best_market') or {}).get('original_ev') is not None
+            if not (has_ev and has_raw_ev):
+                raise RuntimeError(
+                    'The recommendations API returned the PUBLIC payload — it '
+                    'has no expected_value/original_ev. The internal request was '
+                    'not recognised, most likely because INTERNAL_API_SECRET '
+                    'differs between the scheduler and the frontend service. '
+                    'Refusing to ingest predictions with null expected value.'
+                )
             
             self.stdout.write(f'Found {len(recommendations)} recommendations from homepage\n')
             
