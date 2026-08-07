@@ -320,16 +320,28 @@ export default function RecommendedPredictionsTable() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Accuracy</p>
-                  <p className={`text-2xl font-bold ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                    {summary.accuracy !== null ? `${summary.accuracy}%` : 'N/A'}
-                  </p>
-                  {summary.accuracy !== null && (
-                    <p className="text-xs text-gray-500 mt-1">
-                      {summary.correct} correct, {summary.incorrect} incorrect
-                    </p>
+                  {/* The old guard tested `!== null` but the API omits the
+                      field entirely at zero settled results, so `undefined`
+                      slipped through and the card rendered "undefined%" — in
+                      red, since undefined fails every threshold. A missing
+                      figure is neutral information, not a bad grade. */}
+                  {typeof summary.accuracy === 'number' ? (
+                    <>
+                      <p className={`text-2xl font-bold ${summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
+                        {summary.accuracy}%
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        {summary.correct} correct, {summary.incorrect} incorrect
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-2xl font-bold text-gray-400">—</p>
+                      <p className="text-xs text-gray-500 mt-1">No settled results yet</p>
+                    </>
                   )}
                 </div>
-                <TrendingUp className={`h-8 w-8 ${summary.accuracy && summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy && summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
+                <TrendingUp className={`h-8 w-8 ${typeof summary.accuracy !== 'number' ? 'text-gray-300' : summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
               </div>
             </div>
 
