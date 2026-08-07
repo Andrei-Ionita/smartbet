@@ -86,9 +86,12 @@ export const translations = {
                 title: 'Risk Factors Present',
                 advice: 'Consider: Reduced stake, skip if uncertain'
             },
+            // Was "Recommended Stake" / "Calculate Stake". BetGlitch does not
+            // recommend or size stakes; the section this heads now shows the
+            // card STATE, so the title says what the cell actually contains.
             stake: {
-                title: 'Recommended Stake',
-                calculate: 'Calculate Stake'
+                title: 'Signal state',
+                calculate: 'View signal details'
             },
             analysis: {
                 title: 'Betting Analysis',
@@ -478,8 +481,8 @@ export const translations = {
                 advice: 'Sfat: miză redusă sau evită dacă nu ești sigur'
             },
             stake: {
-                title: 'Miză Recomandată',
-                calculate: 'Calculează Miza'
+                title: 'Starea semnalului',
+                calculate: 'Vezi detaliile semnalului'
             },
             analysis: {
                 title: 'Analiză Pariuri',

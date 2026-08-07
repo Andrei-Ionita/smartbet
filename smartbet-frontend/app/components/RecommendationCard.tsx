@@ -864,7 +864,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
           <h4 className="text-lg font-bold text-gray-900 mb-4">{t('card.analysis.title')}</h4>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="bg-gray-50 rounded-xl p-4">
-              <h5 className="text-sm font-semibold text-gray-700 mb-3">💰 {t('card.stake.title')}</h5>
+              {/* No money-bag emoji: the section states the card's state, and
+                  a 💰 on a panel whose content is "cannot be assessed" was the
+                  interface promising what the copy denies. */}
+              <h5 className="text-sm font-semibold text-gray-700 mb-3">{t('card.stake.title')}</h5>
               <div className="space-y-2">
                 {/* An "Optimal Bet Size" panel stood here, rendering a dollar
                     figure in green from calculateKellyStake(probability, odds)
