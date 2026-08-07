@@ -17,7 +17,7 @@ export default function MonitoringPage() {
     <>
       <BreadcrumbSchema items={[
         { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Model Monitoring', url: 'https://betglitch.com/monitoring' },
+        { name: 'Signal monitoring', url: 'https://betglitch.com/monitoring' },
       ]} />
       <MonitoringContent />
     </>

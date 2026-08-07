@@ -166,6 +166,56 @@ describe('unverified quotes are informational', () => {
   })
 })
 
+describe('the expanded analysis is fully bilingual and inside the brand', () => {
+  /*
+   * 2026-08-07 brand-consistency cleanup. The Romanian drill-down was quoting
+   * English fragments ("Match Dynamics: Strong favorite with 28.0%
+   * advantage", the API's English `explanation` under a Romanian heading),
+   * and two DEAD blocks — gated on fields the public DTO never carries —
+   * would have rendered "AI vs Market", a value-opportunity caption and a
+   * fabricated "Trading Volume" if those fields ever returned.
+   */
+  it.each([
+    // The retired English-only verdict ladder for the probability gap.
+    'Match Dynamics',
+    'Clear favorite',
+    'Strong favorite',
+    'Moderate favorite',
+    // The dead market-indicators grid and its banned vocabulary.
+    'market_indicators',
+    'AI vs Market',
+    'Market Favorite',
+    'Trading Volume',
+    'value_opportunity',
+    // The dead league-accuracy grade.
+    'league_accuracy',
+    'accuracy_percent',
+  ])('rendered code no longer contains %s', (phrase) => {
+    expect(CARD_CODE).not.toContain(phrase)
+  })
+
+  it('does not quote the API explanation string (it is English-only)', () => {
+    expect(CARD_CODE).not.toContain('{recommendation.explanation}')
+  })
+
+  it('states the probability gap in both languages, as a fact not a verdict', () => {
+    expect(CARD).toContain("'Diferența de probabilitate:' : 'Probability gap:'")
+    expect(CARD).toContain('the leading outcome sits ${gap} points above the next')
+    expect(CARD).toContain('primul rezultat este cu ${gap} puncte peste următorul')
+  })
+
+  it('builds the signal summary locally in both languages', () => {
+    expect(CARD).toContain('`Rezultatul cel mai bine clasat: ${selection}.`')
+    expect(CARD).toContain('`Highest-ranked outcome: ${selection}.`')
+  })
+
+  it("renders 'What we don't know' in both languages from real state only", () => {
+    expect(CARD).toContain("'Ce nu știm' : \"What we don't know\"")
+    expect(CARD).toContain('There is not yet enough calibration evidence')
+    expect(CARD).toContain('Nu există încă suficiente dovezi de calibrare')
+  })
+})
+
 describe('accessibility', () => {
   it('describes the score as a ranking, not a recommendation', () => {
     expect(CARD).toContain('A relative ranking, not a calibrated probability.')

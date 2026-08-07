@@ -136,6 +136,11 @@ const BANNED: ReadonlyArray<readonly [string, RegExp]> = [
   ['machine-learning algorithm claim', /(we use|using|advanced) (advanced )?machine learning/i],
   ['we build AI systems', /we build ai/i],
   ['highest-confidence predictions', /highest[- ]confidence (prediction|pick)/i],
+  // 'Model monitoring' handed visitors an internal engineering concept — and
+  // a model BetGlitch does not own. The nav and page now say signal
+  // monitoring / signal performance.
+  ['Model monitoring label', /model monitoring|monitorizare model|model performance|performanță model/i],
+  ['opportunity-assessment label', /opportunity assessment|evaluare oportunitate/i],
 ]
 
 describe('banned public claims', () => {

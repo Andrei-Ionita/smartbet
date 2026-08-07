@@ -827,36 +827,11 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
         </Link>
       </div>
 
-      {/* League Accuracy Badge */}
-      {recommendation.league_accuracy && (
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-blue-50 to-purple-50 rounded-xl p-4 border border-blue-200">
-            <div className="flex items-center gap-3">
-              <div className="p-2 bg-blue-100 rounded-lg">
-                <Target className="h-5 w-5 text-blue-600" />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-1">
-                  <span className="text-sm font-semibold text-gray-700">
-                    {recommendation.league} Performance
-                  </span>
-                  <span className={`px-2 py-1 rounded-full text-xs font-bold ${recommendation.league_accuracy.accuracy_percent >= 65
-                    ? 'text-green-700 bg-green-100'
-                    : recommendation.league_accuracy.accuracy_percent >= 55
-                      ? 'text-yellow-700 bg-yellow-100'
-                      : 'text-red-700 bg-red-100'
-                    }`}>
-                    {recommendation.league_accuracy.accuracy_percent}% accuracy
-                  </span>
-                </div>
-                <div className="text-xs text-gray-600">
-                  {recommendation.league_accuracy.correct_predictions} correct out of {recommendation.league_accuracy.total_predictions} predictions
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* The "League Accuracy Badge" that stood here is gone, twice over.
+          Dead: `league_accuracy` is not in the public DTO, so the block could
+          never render. Dangerous: if the field ever returned, it would paint a
+          red/amber/green accuracy grade from an unverified sample — exactly
+          the certainty-shaped judgment the brand retired. */}
 
       {/* Expanded Betting Details */}
       {isExpanded && (
@@ -914,8 +889,23 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               <div className="space-y-3">
                 <div className="bg-white rounded-lg p-3 border border-blue-200">
                   <div className="text-xs text-gray-600 mb-1">{t('card.analysis.predictionSummary')}</div>
+                  {/* Built locally, not from `recommendation.explanation`: the
+                      API composes that sentence in English, so the Romanian
+                      card was quoting an English summary under a Romanian
+                      heading. The market name resolves through the translated
+                      market map; the outcome is provider data and stays as-is. */}
                   <div className="text-sm text-gray-700 leading-relaxed">
-                    {recommendation.explanation}
+                    {(() => {
+                      const marketName = recommendation.best_market?.type
+                        ? t(`card.multiMarket.markets.${recommendation.best_market.type}`)
+                        : recommendation.best_market?.display_name
+                      const selection = marketName
+                        ? `${marketName} — ${recommendation.predicted_outcome}`
+                        : recommendation.predicted_outcome
+                      return language === 'ro'
+                        ? `Rezultatul cel mai bine clasat: ${selection}.`
+                        : `Highest-ranked outcome: ${selection}.`
+                    })()}
                   </div>
                 </div>
 
@@ -942,60 +932,15 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </div>
             </div>
 
-            {/* Market Indicators Section */}
-            {recommendation.market_indicators && (
-              <div className="mt-6 bg-gradient-to-br from-cyan-50 to-blue-50 rounded-xl p-4 border border-cyan-200">
-                <h5 className="text-sm font-semibold text-cyan-800 mb-3 flex items-center gap-2">
-                  <span className="text-lg">📈</span>
-                  Market Analysis
-                </h5>
-
-                <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs text-gray-600 mb-1">Market Favorite</div>
-                    <div className="font-bold text-cyan-700">{recommendation.market_indicators.market_favorite}</div>
-                    <div className="text-xs text-gray-500">{recommendation.market_indicators.market_implied_prob} implied</div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs text-gray-600 mb-1">AI vs Market</div>
-                    <div className={`font-bold ${recommendation.market_indicators.ai_vs_market === 'Agreement' ? 'text-green-600' : 'text-orange-600'
-                      }`}>
-                      {recommendation.market_indicators.ai_vs_market}
-                    </div>
-                    <div className="text-xs text-gray-500">{recommendation.market_indicators.value_opportunity}</div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs text-gray-600 mb-1">Market Efficiency</div>
-                    <div className="font-bold text-cyan-700">{recommendation.market_indicators.odds_efficiency}</div>
-                    <div className="text-xs text-gray-500">Margin: {recommendation.market_indicators.bookmaker_margin}</div>
-                  </div>
-
-                  <div className="bg-white rounded-lg p-3 border border-cyan-100">
-                    <div className="text-xs text-gray-600 mb-1">Trading Volume</div>
-                    <div className={`font-bold ${recommendation.market_indicators.volume_estimate === 'High' ? 'text-green-600' :
-                      recommendation.market_indicators.volume_estimate === 'Medium' ? 'text-blue-600' : 'text-gray-600'
-                      }`}>
-                      {recommendation.market_indicators.volume_estimate}
-                    </div>
-                    <div className="text-xs text-gray-500">Estimated activity</div>
-                  </div>
-                </div>
-
-                <div className="mt-3 p-2 bg-cyan-100 rounded-lg">
-                  <p className="text-xs text-cyan-800">
-                    {recommendation.market_indicators.ai_vs_market === 'Disagreement'
-                      ? (language === 'ro'
-                          ? 'Semnalul diferă de prețul pieței. Valoarea nu poate fi confirmată fără dovezi de calibrare.'
-                          : 'The signal differs from the market price. Value cannot be confirmed without calibration evidence.')
-                      : (language === 'ro'
-                          ? 'Semnalul este aliniat cu prețul pieței.'
-                          : 'The signal is aligned with the market price.')}
-                  </p>
-                </div>
-              </div>
-            )}
+            {/* The "Market Analysis" grid is gone, for the same two reasons.
+                Dead: `market_indicators` is not in the public DTO. Dangerous:
+                it rendered "AI vs Market" (the banned comparison), a
+                "value_opportunity" caption, and a "Trading Volume" cell from a
+                `volume_estimate` no provider supplies — fabricated context
+                presented as data, in English only, with green/orange verdict
+                colouring. Nothing replaces it: real market context is the
+                verified price and its provenance, which the card already
+                shows. */}
 
             {/* Why This Prediction? Section — neutral surface; the purple/pink
                 gradient read as decoration, not evidence. */}
@@ -1029,22 +974,28 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   <div className="flex items-start gap-2">
                     <span className="text-purple-600 mt-0.5">•</span>
                     <div>
-                      <span className="font-semibold">Match Dynamics:</span>
+                      {/* Was "Match Dynamics: Strong favorite with 28.0%
+                          advantage." — English-only inside the Romanian card,
+                          and worse, a verdict ladder (Clear/Strong/Moderate
+                          favorite, "advantage", "edge") grading provider
+                          probabilities as if the grade were validated. The
+                          replacement states the structural fact in both
+                          languages: how far apart the provider's top two
+                          outcomes sit. */}
+                      <span className="font-semibold">
+                        {language === 'ro' ? 'Diferența de probabilitate:' : 'Probability gap:'}
+                      </span>
                       {' '}
                       {(() => {
                         const probs = recommendation.probabilities
-                        const sortedProbs = [
-                          { outcome: 'Home', value: probs.home * 100 },
-                          { outcome: 'Draw', value: probs.draw * 100 },
-                          { outcome: 'Away', value: probs.away * 100 }
-                        ].sort((a, b) => b.value - a.value)
+                        const sorted = [probs.home, probs.draw, probs.away]
+                          .map((v) => v * 100)
+                          .sort((a, b) => b - a)
+                        const gap = (sorted[0] - sorted[1]).toFixed(1)
 
-                        const gap = sortedProbs[0].value - sortedProbs[1].value
-
-                        if (gap >= 30) return `Clear favorite with ${gap.toFixed(1)}% margin over next likely outcome.`
-                        if (gap >= 20) return `Strong favorite with ${gap.toFixed(1)}% advantage.`
-                        if (gap >= 10) return `Moderate favorite with ${gap.toFixed(1)}% edge.`
-                        return `Very competitive match with only ${gap.toFixed(1)}% separation between top outcomes.`
+                        return language === 'ro'
+                          ? `în datele furnizorului, primul rezultat este cu ${gap} puncte peste următorul. O diferență mică înseamnă un meci apropiat de echilibru.`
+                          : `in the provider data, the leading outcome sits ${gap} points above the next. A small gap means the match is close to even.`
                       })()}
                     </div>
                   </div>

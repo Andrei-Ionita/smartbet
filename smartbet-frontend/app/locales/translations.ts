@@ -6,7 +6,10 @@ export const translations = {
             home: 'Home',
             dashboard: 'Dashboard',
             explore: 'Explore',
-            monitoring: 'Model monitoring',
+            // 'Model monitoring' handed visitors an internal engineering
+            // concept — and a model BetGlitch does not own. The page tracks
+            // how published signals performed, so it is named for that.
+            monitoring: 'Signal monitoring',
             trackRecord: 'Verified record',
             bankroll: 'Bankroll',
             pricing: 'Pricing',
@@ -64,8 +67,8 @@ export const translations = {
             manageBankroll: 'Manage Bankroll',
             smartPicks: 'Smart Recommendations',
             modelPerformance: {
-                title: 'Model Performance',
-                subtitle: 'Transparency is our core value. See how our models are performing.',
+                title: 'Signal performance',
+                subtitle: 'Transparency is our core value. See how published signals have performed.',
                 viewAuditLog: 'View Full History'
             }
         },
@@ -75,7 +78,9 @@ export const translations = {
             confidence: 'Confidence',
             bestOdds: 'Best Odds',
             liveOdds: 'Live Odds Available',
-            opportunity: 'Opportunity Assessment',
+            // Was 'Opportunity Assessment' — the cell beneath it states the
+            // card STATE, and "opportunity" is betting-pressure vocabulary.
+            opportunity: 'Current state',
             viewAnalysis: 'View Analysis',
             hideAnalysis: 'Hide Analysis',
             analysisPending: {
@@ -93,28 +98,18 @@ export const translations = {
                 title: 'Signal state',
                 calculate: 'View signal details'
             },
+            // Only the five keys the card actually renders. Seventeen dead
+            // keys were deleted here — the retired judgment ladder (Betting
+            // Edge, High/Medium/Low Confidence, model-agreement grades, Kelly
+            // stake sizing, Excellent/Poor Value). None had a consumer, and a
+            // dormant translation is a one-line reintroduction of a claim the
+            // product cannot support.
             analysis: {
-                title: 'Betting Analysis',
-                quickInsights: 'Quick Insights',
-                whyPrediction: 'Why This Prediction?',
-                predictionStrength: 'Prediction Strength',
-                marketConsensus: 'Market Consensus',
-                bettingEdge: 'Betting Edge',
-                predictionSummary: 'Prediction Summary',
-                optimalBetSize: 'Optimal Bet Size (Kelly Criterion)',
-                basedOnBankroll: 'Based on $1000 bankroll',
-                highConfidence: 'High Confidence',
-                mediumConfidence: 'Medium Confidence',
-                lowConfidence: 'Low Confidence',
-                unknownAgreement: 'Unknown',
-                modelAgreementAnalysis: 'Model agreement analysis',
-                multipleModelAnalysis: 'Multiple model analysis',
-                excellentValue: 'Excellent Value',
-                goodValue: 'Good Value',
-                marginalValue: 'Marginal Value',
-                poorValue: 'Poor Value',
-                negativeEdge: 'Negative Edge',
-                edge: 'Edge'
+                title: 'Signal analysis',
+                quickInsights: 'Quick context',
+                whyPrediction: 'Why this signal',
+                predictionStrength: 'Probability gap',
+                predictionSummary: 'Signal summary'
             },
             outcomes: {
                 home: 'Home',
@@ -219,18 +214,18 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Official Results',
-            subtitle: 'Transparent tracking of our prediction accuracy and history',
+            title: 'Signal performance',
+            subtitle: 'Transparent tracking of how published signals performed — wins and losses alike.',
             tabs: {
-                dashboard: 'Model Performance',
+                dashboard: 'Signal performance',
                 accuracy: 'Detailed Accuracy',
-                recommended: 'Recommendation History',
+                recommended: 'Signal history',
                 analytics: 'Analytics',
                 settings: 'Settings'
             },
             whyTrack: {
                 title: 'Why We Track Performance',
-                description: 'Transparency is our core value. We believe you should know exactly how our models perform before you place a bet. That\'s why we track every single recommendation we make, win or lose.'
+                description: 'Transparency is our core value. You should be able to see exactly how published signals have performed before deciding what the evidence means to you. That\'s why every settled result stays visible, win or lose.'
             },
             analytics: {
                 title: 'Analytics Dashboard',
@@ -400,7 +395,7 @@ export const translations = {
             home: 'Acasă',
             dashboard: 'Panou Control',
             explore: 'Explorează',
-            monitoring: 'Monitorizare model',
+            monitoring: 'Monitorizare semnale',
             trackRecord: 'Istoric verificat',
             bankroll: 'Buget',
             pricing: 'Prețuri',
@@ -458,8 +453,8 @@ export const translations = {
             manageBankroll: 'Gestionează Buget',
             smartPicks: 'Recomandări Inteligente',
             modelPerformance: {
-                title: 'Performanță Model',
-                subtitle: 'Transparența este valoarea noastră. Vezi cum performează modelele.',
+                title: 'Performanța semnalelor',
+                subtitle: 'Transparența este valoarea noastră. Vezi cum s-au comportat semnalele publicate.',
                 viewAuditLog: 'Vezi Istoric Complet'
             }
         },
@@ -469,7 +464,7 @@ export const translations = {
             confidence: 'Încredere',
             bestOdds: 'Cote Top',
             liveOdds: 'Cote Live Disponibile',
-            opportunity: 'Evaluare Oportunitate',
+            opportunity: 'Stare curentă',
             viewAnalysis: 'Vezi Analiza',
             hideAnalysis: 'Ascunde Analiza',
             analysisPending: {
@@ -485,27 +480,11 @@ export const translations = {
                 calculate: 'Vezi detaliile semnalului'
             },
             analysis: {
-                title: 'Analiză Pariuri',
-                quickInsights: 'Insight-uri Rapide',
-                whyPrediction: 'De ce această predicție?',
-                predictionStrength: 'Putere Predicție',
-                marketConsensus: 'Consens Piață',
-                bettingEdge: 'Avantaj Pariu',
-                predictionSummary: 'Rezumat Predicție',
-                optimalBetSize: 'Miză Optimă (Criteriu Kelly)',
-                basedOnBankroll: 'Bazat pe buget de $1000',
-                highConfidence: 'Încredere Ridicată',
-                mediumConfidence: 'Încredere Medie',
-                lowConfidence: 'Încredere Scăzută',
-                unknownAgreement: 'Necunoscut',
-                modelAgreementAnalysis: 'Analiză acord modele',
-                multipleModelAnalysis: 'Analiză modele multiple',
-                excellentValue: 'Valoare Excelentă',
-                goodValue: 'Valoare Bună',
-                marginalValue: 'Valoare Marginală',
-                poorValue: 'Valoare Slabă',
-                negativeEdge: 'Avantaj Negativ',
-                edge: 'Avantaj'
+                title: 'Analiza semnalului',
+                quickInsights: 'Context rapid',
+                whyPrediction: 'De ce acest semnal',
+                predictionStrength: 'Diferența de probabilitate',
+                predictionSummary: 'Rezumatul semnalului'
             },
             outcomes: {
                 home: 'Gazde',
@@ -606,18 +585,18 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Rezultate Oficiale',
-            subtitle: 'Urmărire transparentă a acurateței și istoricului nostru',
+            title: 'Performanța semnalelor',
+            subtitle: 'Urmărire transparentă a modului în care s-au comportat semnalele publicate — și câștiguri, și pierderi.',
             tabs: {
-                dashboard: 'Performanță Model',
+                dashboard: 'Performanța semnalelor',
                 accuracy: 'Acuratețe Detaliată',
-                recommended: 'Istoric Recomandări',
+                recommended: 'Istoric semnale',
                 analytics: 'Analitice',
                 settings: 'Setări'
             },
             whyTrack: {
                 title: 'De Ce Urmărim Performanța',
-                description: 'Transparența este valoarea noastră fundamentală. Credem că ar trebui să știi exact cum performează modelele noastre înainte de a plasa un pariu. De aceea urmărim fiecare recomandare pe care o facem, câștigătoare sau pierzătoare.'
+                description: 'Transparența este valoarea noastră fundamentală. Ar trebui să poți vedea exact cum s-au comportat semnalele publicate înainte să decizi ce înseamnă dovezile pentru tine. De aceea fiecare rezultat încheiat rămâne vizibil, câștig sau pierdere.'
             },
             analytics: {
                 title: 'Panou Analitice',
