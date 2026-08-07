@@ -3,6 +3,53 @@
 import { useState } from 'react'
 import { Mail, CheckCircle, Loader2, Sparkles } from 'lucide-react'
 import { getSubscriberCaptureContext, storeSubscriberId } from '@/src/lib/marketing'
+import { useLanguage } from '../contexts/LanguageContext'
+
+/**
+ * All visible newsletter copy, both languages. This component rendered
+ * English-only defaults on the Romanian homepage — the same class of defect as
+ * the StatusBadge lang-prop trap: a shared component with an English fallback
+ * silently breaks the "no mixed-language surfaces" rule on every page that
+ * embeds it.
+ */
+const CAPTURE_COPY = {
+    en: {
+        eyebrow: 'Published-pick and verified-record updates',
+        heroTitle: 'Follow the published picks by email',
+        heroDescription:
+            'A weekly email covering the picks BetGlitch published and how they settled. Wins and losses both.',
+        defaultTitle: 'Get the weekly summary',
+        defaultDescription: 'A weekly summary of published picks and how they settled.',
+        cta: 'Subscribe',
+        placeholder: 'Enter your email...',
+        joining: 'Joining...',
+        subscribing: 'Subscribing...',
+        successTitle: 'You’re in',
+        noSpam: 'No spam. Unsubscribe anytime. We respect your inbox.',
+        errorEmpty: 'Please enter your email',
+        errorGeneric: 'Something went wrong',
+        errorNetwork: 'Could not connect. Please try again.',
+        thanks: 'Thank you for subscribing!',
+    },
+    ro: {
+        eyebrow: 'Actualizări despre pontajele publicate și istoricul verificat',
+        heroTitle: 'Urmărește pontajele publicate pe email',
+        heroDescription:
+            'Un email săptămânal despre pontajele publicate de BetGlitch și cum s-au încheiat. Și câștiguri, și pierderi.',
+        defaultTitle: 'Primește rezumatul săptămânal',
+        defaultDescription: 'Un rezumat săptămânal al pontajelor publicate și al rezultatelor lor.',
+        cta: 'Abonează-te',
+        placeholder: 'Introdu adresa de email...',
+        joining: 'Se trimite...',
+        subscribing: 'Se trimite...',
+        successTitle: 'Te-ai abonat',
+        noSpam: 'Fără spam. Te poți dezabona oricând. Îți respectăm inboxul.',
+        errorEmpty: 'Te rugăm să introduci adresa de email',
+        errorGeneric: 'Ceva nu a funcționat',
+        errorNetwork: 'Conexiunea a eșuat. Încearcă din nou.',
+        thanks: 'Mulțumim pentru abonare!',
+    },
+} as const
 
 interface EmailCaptureProps {
     source?: string
@@ -31,12 +78,18 @@ export default function EmailCapture({
     const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
     const [message, setMessage] = useState('')
 
+    // Display language comes from the app context; the `language` prop stays
+    // as the capture-context override some embedders pass for analytics.
+    const { language: contextLanguage } = useLanguage()
+    const displayLanguage = (language || contextLanguage) === 'ro' ? 'ro' : 'en'
+    const words = CAPTURE_COPY[displayLanguage]
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
         if (!email.trim()) {
             setStatus('error')
-            setMessage('Please enter your email')
+            setMessage(words.errorEmpty)
             return
         }
 
@@ -66,29 +119,26 @@ export default function EmailCapture({
 
             if (data.success) {
                 setStatus('success')
-                setMessage(data.message || 'Thank you for subscribing!')
+                setMessage(data.message || words.thanks)
                 setEmail('')
                 storeSubscriberId(data.subscriber_id)
             } else {
                 setStatus('error')
-                setMessage(data.error || 'Something went wrong')
+                setMessage(data.error || words.errorGeneric)
             }
         } catch (error) {
             setStatus('error')
-            setMessage('Could not connect. Please try again.')
+            setMessage(words.errorNetwork)
         }
     }
 
     // Describes what actually arrives, in the product's own vocabulary. The
     // previous copy promised "our best picks" and implied an unverified crowd
     // ("Join bettors receiving…") — neither is supported by the record.
-    const variantTitle = title || (variant === 'hero'
-        ? 'Follow the published picks by email'
-        : 'Get the weekly summary')
-    const variantDescription = description || (variant === 'hero'
-        ? 'A weekly email covering the picks BetGlitch published and how they settled. Wins and losses both.'
-        : 'A weekly summary of published picks and how they settled.')
-    const ctaLabel = buttonText || (variant === 'hero' ? 'Subscribe' : variant === 'compact' ? 'Subscribe' : 'Subscribe')
+    const variantTitle = title || (variant === 'hero' ? words.heroTitle : words.defaultTitle)
+    const variantDescription = description
+        || (variant === 'hero' ? words.heroDescription : words.defaultDescription)
+    const ctaLabel = buttonText || words.cta
 
     if (status === 'success') {
         return (
@@ -99,7 +149,7 @@ export default function EmailCapture({
                     </div>
                     <div>
                         <h3 className={`font-bold ${variant === 'hero' ? 'text-white' : 'text-green-800'}`}>
-                            You&apos;re In!
+                            {words.successTitle}
                         </h3>
                         <p className={`text-sm ${variant === 'hero' ? 'text-white/90' : 'text-green-700'}`}>
                             {message}
@@ -119,7 +169,7 @@ export default function EmailCapture({
                         The email reports which picks were published and how
                         they settled, which is what this now says. */}
                     <span className="text-sm font-medium uppercase tracking-wide opacity-90">
-                        Published-pick and verified-record updates
+                        {words.eyebrow}
                     </span>
                 </div>
                 <h3 className="text-2xl font-bold mb-2">
@@ -137,7 +187,7 @@ export default function EmailCapture({
                             aria-label="Email address"
                             value={email}
                             onChange={(e) => setEmail(e.target.value)}
-                            placeholder="Enter your email..."
+                            placeholder={words.placeholder}
                             className="w-full pl-12 pr-4 py-4 rounded-xl bg-white text-gray-900 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/50"
                             disabled={status === 'loading'}
                         />
@@ -150,7 +200,7 @@ export default function EmailCapture({
                         {status === 'loading' ? (
                             <>
                                 <Loader2 className="h-5 w-5 animate-spin" />
-                                Joining...
+                                {words.joining}
                             </>
                         ) : (
                             ctaLabel
@@ -163,7 +213,7 @@ export default function EmailCapture({
                 )}
 
                 <p className="mt-4 text-xs text-white/60">
-                    No spam. Unsubscribe anytime. We respect your inbox.
+                    {words.noSpam}
                 </p>
             </div>
         )
@@ -178,7 +228,7 @@ export default function EmailCapture({
                             aria-label="Email address"
                         value={email}
                         onChange={(e) => setEmail(e.target.value)}
-                        placeholder="Your email..."
+                        placeholder={words.placeholder}
                         className="flex-1 px-4 py-2 rounded-lg border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent text-sm"
                         disabled={status === 'loading'}
                     />
@@ -215,7 +265,7 @@ export default function EmailCapture({
                             aria-label="Email address"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    placeholder="Enter your email..."
+                    placeholder={words.placeholder}
                     className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-transparent"
                     disabled={status === 'loading'}
                 />
@@ -227,7 +277,7 @@ export default function EmailCapture({
                     {status === 'loading' ? (
                         <>
                             <Loader2 className="h-5 w-5 animate-spin" />
-                            Subscribing...
+                            {words.subscribing}
                         </>
                     ) : (
                         ctaLabel
@@ -240,7 +290,7 @@ export default function EmailCapture({
             )}
 
             <p className="mt-3 text-xs text-gray-500 text-center">
-                No spam. Unsubscribe anytime.
+                {words.noSpam}
             </p>
         </div>
     )

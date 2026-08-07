@@ -184,7 +184,7 @@ export default function HomePage() {
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="mb-2">
-                <StatusBadge status="live" size="sm" />
+                <StatusBadge status="live" size="sm" lang={language} />
               </div>
               <h2
                 id="signals-heading"
@@ -365,7 +365,7 @@ export default function HomePage() {
 
           <div className="mt-6 grid gap-4 md:grid-cols-2">
             <div className="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/50 p-5">
-              <StatusBadge status="live" size="sm" />
+              <StatusBadge status="live" size="sm" lang={language} />
               <h3 className="mt-3 font-bold text-gray-900">
                 {copy.terms.liveSignal.label}
               </h3>
@@ -378,7 +378,7 @@ export default function HomePage() {
             </div>
 
             <div className="rounded-xl border-2 border-indigo-400 bg-indigo-50/50 p-5">
-              <StatusBadge status="published_pending" size="sm" />
+              <StatusBadge status="published_pending" size="sm" lang={language} />
               <h3 className="mt-3 font-bold text-gray-900">
                 {copy.terms.publishedPick.label}
               </h3>
