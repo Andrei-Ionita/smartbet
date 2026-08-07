@@ -39,7 +39,7 @@ export type { SignalStatus }
 const RO: Record<SignalStatus, { label: string; hint: string }> = {
   live: {
     label: 'SEMNAL LIVE',
-    hint: 'Semnal live al modelului — se poate modifica înainte de start și nu face parte din istoricul verificat.',
+    hint: 'Semnal live — se poate modifica înainte de start și nu face parte din istoricul verificat.',
   },
   published_pending: {
     label: 'PUBLICAT — ÎN AȘTEPTARE',
