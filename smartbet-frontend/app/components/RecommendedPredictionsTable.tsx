@@ -337,19 +337,29 @@ export default function RecommendedPredictionsTable() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm text-gray-600">Total P/L ($10 stakes)</p>
-                  <p className={`text-2xl font-bold ${summary.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    ${summary.total_profit_loss.toFixed(2)}
-                  </p>
-                  {summary.average_roi !== null && (
+                  {/* Null-guarded: with zero settled results the API returns
+                      no P/L, and `.toFixed` on undefined crashed the whole
+                      /monitoring page (observed live 2026-08-07). An absent
+                      figure is information — say so instead of dying. */}
+                  {typeof summary.total_profit_loss === 'number' ? (
+                    <p className={`text-2xl font-bold ${summary.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                      ${summary.total_profit_loss.toFixed(2)}
+                    </p>
+                  ) : (
+                    <p className="text-2xl font-bold text-gray-400">—</p>
+                  )}
+                  {typeof summary.average_roi === 'number' ? (
                     <p className="text-xs text-gray-500 mt-1">
                       Avg ROI: {summary.average_roi.toFixed(1)}%
                     </p>
+                  ) : (
+                    <p className="text-xs text-gray-500 mt-1">No settled results yet</p>
                   )}
                 </div>
-                {summary.total_profit_loss >= 0 ? (
-                  <TrendingUp className="h-8 w-8 text-green-600" />
-                ) : (
+                {typeof summary.total_profit_loss === 'number' && summary.total_profit_loss < 0 ? (
                   <TrendingDown className="h-8 w-8 text-red-600" />
+                ) : (
+                  <TrendingUp className={`h-8 w-8 ${typeof summary.total_profit_loss === 'number' ? 'text-green-600' : 'text-gray-300'}`} />
                 )}
               </div>
             </div>
@@ -509,7 +519,7 @@ export default function RecommendedPredictionsTable() {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Match</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">League</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Our Prediction</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Confidence</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal score</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Outcome</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
@@ -580,7 +590,12 @@ export default function RecommendedPredictionsTable() {
                             style={{ width: `${pred.confidence}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm text-gray-900">{pred.confidence.toFixed(1)}%</span>
+                        {/* "61.0%" read as a calibrated probability; the score
+                            is a ranking and renders as N / 100 like everywhere
+                            else. Null-guarded like the summary above. */}
+                        <span className="text-sm text-gray-900">
+                          {typeof pred.confidence === 'number' ? `${Math.round(pred.confidence)} / 100` : '—'}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
