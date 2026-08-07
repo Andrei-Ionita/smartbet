@@ -9,10 +9,10 @@ import AgeGateModal from './components/AgeGateModal'
 export const metadata: Metadata = {
   metadataBase: new URL('https://betglitch.com'),
   title: {
-    default: 'BetGlitch — verifiable football market signals',
+    default: 'BetGlitch — better football decisions start with better evidence',
     template: '%s | BetGlitch'
   },
-  description: 'Verifiable football market signals and immutable published picks. Explore provider-derived signals across European competitions, see which picks BetGlitch freezes before kickoff, and verify every settled result — win or lose.',
+  description: 'Better football decisions start with better evidence. Transparent football signals, verified market prices and immutable published picks — every eligible settled result stays visible, win or lose.',
   keywords: ['football signals', 'published picks', 'verified track record', 'sports analytics', 'football statistics', 'settled results'],
   authors: [{ name: 'BetGlitch Team' }],
   creator: 'BetGlitch',
@@ -20,8 +20,8 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'en_US',
     url: 'https://betglitch.com',
-    title: 'BetGlitch — verifiable football market signals',
-    description: 'Verifiable football market signals and immutable published picks. Frozen before kickoff with their recorded odds and bookmaker, kept public after settlement — win or lose.',
+    title: 'BetGlitch — better football decisions start with better evidence',
+    description: 'Transparent football signals and immutable published picks. Frozen before kickoff with their recorded odds and bookmaker, kept public after settlement — win or lose.',
     siteName: 'BetGlitch',
     images: [
       {
@@ -34,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BetGlitch — verifiable football market signals',
-    description: 'Verifiable football market signals and immutable published picks. Frozen before kickoff, settled in public after full-time.',
+    title: 'BetGlitch — better football decisions start with better evidence',
+    description: 'Transparent football signals and immutable published picks. Frozen before kickoff, settled in public after full-time.',
     images: ['/images/og-image.jpg'],
     creator: '@BetGlitch',
   },

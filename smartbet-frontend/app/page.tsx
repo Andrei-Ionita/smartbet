@@ -150,6 +150,13 @@ export default function HomePage() {
             </button>
           </div>
 
+          {/* Three commitments in one quiet line. Deliberately NOT badges:
+              these are rules the architecture enforces, and rules read best
+              as a plain sentence. */}
+          <p className="mt-5 text-xs uppercase tracking-wide text-gray-500">
+            {copy.hero.trustLine}
+          </p>
+
           {/* Verified-record status. At zero settled picks this states the
               honest position instead of rendering 0%, which reads as
               break-even performance rather than "no data yet". */}
@@ -260,11 +267,15 @@ export default function HomePage() {
           >
             {copy.home.howHeading}
           </h2>
-          <ol className="mt-6 grid gap-4 md:grid-cols-3">
+          {/* Five stages now, so the grid steps 1 → 2 → 3 → 5 across
+              breakpoints instead of assuming three. The last two stages —
+              Measure and Improve — are why the triad was retired: the old flow
+              ended at the result, which reads as a static prediction engine. */}
+          <ol className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
             {copy.workflow.map((step, i) => (
               <li
                 key={step.id}
-                className="rounded-2xl border border-gray-200 bg-white p-6"
+                className="rounded-2xl border border-gray-200 bg-white p-5"
               >
                 <span className="text-xs font-bold tracking-widest text-gray-400">
                   {String(i + 1).padStart(2, '0')}
@@ -278,6 +289,61 @@ export default function HomePage() {
               </li>
             ))}
           </ol>
+        </section>
+
+        {/* ── 3b. The difference, as a contrast a visitor can read in three
+            seconds: everyone else's pipeline stops at the result; ours loops
+            back into evaluation. ── */}
+        <section aria-labelledby="difference-contrast-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="difference-contrast-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.differenceContrastHeading}
+          </h2>
+          <div className="mt-6 grid gap-4 md:grid-cols-2">
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+                {copy.home.differenceOthersLabel}
+              </p>
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-500">
+                {copy.home.differenceOthersFlow.map((step, i) => (
+                  <span key={step} className="flex items-center gap-2">
+                    {i > 0 && <ArrowRight aria-hidden className="h-4 w-4 text-gray-300" />}
+                    <span>{step}</span>
+                  </span>
+                ))}
+              </p>
+            </div>
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-6">
+              <p className="text-xs font-bold uppercase tracking-widest text-blue-700">
+                {copy.home.differenceUsLabel}
+              </p>
+              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-800">
+                {copy.home.differenceUsFlow.map((step, i) => (
+                  <span key={step} className="flex items-center gap-2">
+                    {i > 0 && <ArrowRight aria-hidden className="h-4 w-4 text-blue-300" />}
+                    <span>{step}</span>
+                  </span>
+                ))}
+              </p>
+            </div>
+          </div>
+
+          {/* Product rules. Plain bordered cells, no icons, no colour — they
+              should look like constraints, because they are. */}
+          <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6">
+            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
+              {copy.home.rulesHeading}
+            </p>
+            <ul className="mt-4 grid gap-3 text-sm font-medium text-gray-800 sm:grid-cols-2 lg:grid-cols-4">
+              {copy.home.rules.map((rule) => (
+                <li key={rule} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+                  {rule}
+                </li>
+              ))}
+            </ul>
+          </div>
         </section>
 
         {/* ── 4. Signal vs published proof ────────────────────────────────
@@ -431,6 +497,42 @@ export default function HomePage() {
           >
             {copy.home.viewAllLeagues} →
           </Link>
+        </section>
+
+        {/* ── 7b. Continuous improvement — stated without claiming success.
+            The honest tense is future-conditional: the record exists to find
+            out whether the filtering helps, not to celebrate that it does. ── */}
+        <section aria-labelledby="improvement-heading" className="mt-16 sm:mt-20">
+          <h2
+            id="improvement-heading"
+            className="text-2xl font-bold text-gray-900 sm:text-3xl"
+          >
+            {copy.home.improvementHeading}
+          </h2>
+          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-gray-600 sm:text-base">
+            {copy.home.improvementBody}
+          </p>
+        </section>
+
+        {/* ── 7c. The manifesto. One authored text shared with About — the
+            philosophy must not be paraphrased per-page or it drifts. ── */}
+        <section
+          aria-labelledby="manifesto-heading"
+          className="mt-16 rounded-2xl border border-gray-200 bg-white p-8 sm:mt-20 sm:p-10"
+        >
+          <h2
+            id="manifesto-heading"
+            className="max-w-3xl text-xl font-bold leading-snug text-gray-900 sm:text-2xl"
+          >
+            {copy.manifesto.heading}
+          </h2>
+          <div className="mt-5 max-w-3xl space-y-4">
+            {copy.manifesto.paragraphs.map((paragraph) => (
+              <p key={paragraph.slice(0, 24)} className="text-sm leading-relaxed text-gray-600 sm:text-base">
+                {paragraph}
+              </p>
+            ))}
+          </div>
         </section>
 
         {/* ── 8. Final CTA ────────────────────────────────────────────── */}

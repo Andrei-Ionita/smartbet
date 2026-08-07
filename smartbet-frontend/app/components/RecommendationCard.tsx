@@ -504,7 +504,12 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             </div>
 
             <div className="mb-4">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-green-50 to-blue-50 rounded-xl border border-green-200 mb-4">
+              {/* Neutral surface, deliberately. This panel was a green-to-blue
+                  gradient with a green border — green implying a positive
+                  verdict on a row whose actual content is "value not yet
+                  assessed". Colour semantics: green is reserved for settled
+                  wins and genuinely verified positive states. */}
+              <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl border border-gray-200 mb-4">
                 <div className="text-center">
                   {/* Value slot. Both branches render a dash — there is no
                       number to show either way — so what differs is only the
@@ -989,10 +994,10 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
               </div>
             )}
 
-            {/* Why This Prediction? Section */}
-            <div className="mt-6 bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4 border border-purple-200">
-              <h5 className="text-sm font-semibold text-purple-800 mb-3 flex items-center gap-2">
-                <span className="text-lg">🤔</span>
+            {/* Why This Prediction? Section — neutral surface; the purple/pink
+                gradient read as decoration, not evidence. */}
+            <div className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+              <h5 className="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-2">
                 {t('card.analysis.whyPrediction')}
               </h5>
 
@@ -1073,7 +1078,9 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 <div className="flex items-start gap-2">
                   <span className="text-purple-600 mt-0.5">•</span>
                   <div>
-                    <span className="font-semibold">Data Source:</span>
+                    <span className="font-semibold">
+                      {language === 'ro' ? 'Sursa datelor:' : 'Data source:'}
+                    </span>
                     {' '}
                     {language === 'ro'
                       ? 'Probabilitățile provin de la un furnizor specializat de date de fotbal. BetGlitch le filtrează și le clasează — nu antrenează un model predictiv propriu.'
@@ -1083,6 +1090,50 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                   </div>
                 </div>
               </div>
+            </div>
+
+            {/* What we don't know.
+                Uncertainty stated as information, never invented: every line
+                below is derived from the actual state of THIS signal, and a
+                line only renders when its condition genuinely holds. An empty
+                list would mean we know everything — which is never true here,
+                so the calibration line is always honest to show. */}
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-4">
+              <h5 className="mb-3 flex items-center gap-2 text-sm font-semibold text-amber-900">
+                <Info className="h-4 w-4" aria-hidden />
+                {language === 'ro' ? 'Ce nu știm' : "What we don't know"}
+              </h5>
+              <ul className="space-y-2 text-sm text-amber-900">
+                <li className="flex items-start gap-2">
+                  <span aria-hidden className="mt-0.5">•</span>
+                  {language === 'ro'
+                    ? 'Nu există încă suficiente dovezi de calibrare pentru a evalua valoarea acestui preț.'
+                    : 'There is not yet enough calibration evidence to assess the value of this price.'}
+                </li>
+                {!priceVerified && (
+                  <li className="flex items-start gap-2">
+                    <span aria-hidden className="mt-0.5">•</span>
+                    {language === 'ro'
+                      ? 'Niciun preț de piață verificat pentru această piață.'
+                      : 'No verified market price for this market.'}
+                  </li>
+                )}
+                {(recommendation.teams_data?.home?.form === '?????'
+                  || recommendation.teams_data?.away?.form === '?????') && (
+                  <li className="flex items-start gap-2">
+                    <span aria-hidden className="mt-0.5">•</span>
+                    {language === 'ro'
+                      ? 'Forma recentă nu este disponibilă pentru cel puțin una dintre echipe.'
+                      : 'Recent form is unavailable for at least one of the teams.'}
+                  </li>
+                )}
+                <li className="flex items-start gap-2">
+                  <span aria-hidden className="mt-0.5">•</span>
+                  {language === 'ro'
+                    ? 'Echipele de start nu sunt confirmate până aproape de lovitura de începere.'
+                    : 'Lineups are not confirmed until close to kickoff.'}
+                </li>
+              </ul>
             </div>
           </div>
         </div>

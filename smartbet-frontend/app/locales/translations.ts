@@ -26,7 +26,7 @@ export const translations = {
         landing: {
             heroTitle: 'BetGlitch.',
             heroTitleHighlight: 'Not Guesswork.',
-            heroSubtitle: 'Verifiable football market signals. Selected picks are frozen before kickoff and stay public after settlement.',
+            heroSubtitle: 'Better football decisions start with better evidence. Selected picks are frozen before kickoff and stay public after settlement.',
             exploreButton: 'Explore signals',
             stats: {
                 accuracy: 'Accuracy',
@@ -246,7 +246,7 @@ export const translations = {
         },
         bankroll: {
             title: 'Set Up Your Bankroll',
-            subtitle: 'Manage your betting budget responsibly with our bankroll management system',
+            subtitle: 'Understand your exposure. Track what you stake against a bankroll you set — BetGlitch does not size bets for you.',
             form: {
                 initialBankroll: 'Initial Bankroll',
                 initialBankrollHelp: "Amount you're willing to allocate for betting",
@@ -354,7 +354,7 @@ export const translations = {
         },
         explore: {
             title: 'Explore live football signals',
-            subtitle: 'Search upcoming fixtures and inspect current signal scores, market signals and recorded odds. Live signals can update before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
+            subtitle: 'Search upcoming fixtures, inspect the current signal, review pricing and context, and decide what the evidence means to you. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
             results: 'Search Results',
             howTo: {
                 title: 'How to Use the Explorer',
@@ -417,7 +417,7 @@ export const translations = {
         landing: {
             heroTitle: 'Pariază Inteligent.',
             heroTitleHighlight: 'Nu la Ghici.',
-            heroSubtitle: 'Semnale de piață pentru fotbal, verificabile. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
+            heroSubtitle: 'Deciziile mai bune în fotbal încep cu dovezi mai bune. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
             exploreButton: 'Explorează Predicții',
             stats: {
                 accuracy: 'Acuratețe',
@@ -633,7 +633,7 @@ export const translations = {
         },
         bankroll: {
             title: 'Configurează Bugetul',
-            subtitle: 'Gestionează-ți bugetul de pariuri responsabil cu sistemul nostru de management',
+            subtitle: 'Înțelege-ți expunerea. Urmărește ce mizezi față de un buget setat de tine — BetGlitch nu dimensionează pariuri pentru tine.',
             form: {
                 initialBankroll: 'Buget Inițial',
                 initialBankrollHelp: 'Suma pe care ești dispus să o aloci pentru pariuri',
@@ -741,7 +741,7 @@ export const translations = {
         },
         explore: {
             title: 'Explorează semnale live pentru fotbal',
-            subtitle: 'Caută meciuri viitoare și inspectează scorurile de semnal actuale, semnalele de piață și cotele înregistrate. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
+            subtitle: 'Caută meciuri viitoare, inspectează semnalul curent, analizează prețurile și contextul și decide singur ce înseamnă dovezile. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
             results: 'Rezultatele căutării',
             howTo: {
                 title: 'Cum folosești Exploratorul',

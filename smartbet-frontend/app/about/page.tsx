@@ -53,13 +53,14 @@ export default function AboutPage() {
           </p>
         </div>
 
-        {/* Mission */}
+        {/* Why BetGlitch exists — the philosophy, stated before any mechanism. */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
-          <h2 className="text-2xl font-bold text-gray-900 mb-4">Our Mission</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Why BetGlitch exists</h2>
           <p className="text-gray-700 leading-relaxed mb-4">
-            BetGlitch was built on a simple premise: sports prediction should be transparent, data-driven,
-            and accountable. Too many prediction services hide their losing bets and inflate their track records.
-            We do the opposite.
+            Sports betting is full of confidence claims. We wanted something different:
+            a system where decisions could be checked. Betting platforms usually show
+            certainty — BetGlitch shows evidence. Too many prediction services hide
+            their losing bets and inflate their track records. We do the opposite.
           </p>
           <p className="text-gray-700 leading-relaxed">
             BetGlitch generates far more live signals than it publishes. When a
@@ -212,6 +213,34 @@ export default function AboutPage() {
               </li>
             ))}
           </ul>
+        </div>
+
+        {/* The manifesto — the same authored text the homepage carries, plus
+            the line that closes the philosophy. Confident, not defensive: the
+            product can afford to expose uncertainty precisely because it does. */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">
+            Betting platforms usually show certainty. BetGlitch shows evidence.
+          </h2>
+          <div className="space-y-4 text-gray-700 leading-relaxed">
+            <p>
+              We publish the decisions we commit to before kickoff. We preserve the
+              price, the timestamp and the proof. We keep every eligible result
+              visible, including the losses.
+            </p>
+            <p>
+              We continuously test new signals, strategies and fixture context — not
+              to manufacture more picks, but to understand what genuinely improves
+              decision quality.
+            </p>
+            <p>
+              We do not promise perfect predictions. We promise transparency,
+              accountability and measurable improvement.
+            </p>
+            <p className="font-semibold text-gray-900">
+              We would rather show uncertainty honestly than manufacture confidence.
+            </p>
+          </div>
         </div>
 
         {/* Transparency */}

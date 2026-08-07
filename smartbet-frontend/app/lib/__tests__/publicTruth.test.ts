@@ -410,22 +410,37 @@ describe('one maintained source of truth for coverage counts', () => {
 // ── Positioning ────────────────────────────────────────────────────────────
 
 describe('consistent public positioning', () => {
-  it('the homepage headline is the agreed one, in both languages', () => {
+  it('the homepage headline is the brand line, in both languages', () => {
+    // Superseded 2026-08-07 by the brand pass: the line names the mission
+    // (better decisions through better evidence), not the feature. It promises
+    // evidence quality, never outcomes — which keeps it inside the truth
+    // contract this suite enforces.
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toContain("headline: 'Verifiable football market signals.'")
-    expect(copy).toContain("headline: 'Semnale de piață pentru fotbal, verificabile.'")
+    expect(copy).toContain("headline: 'Better football decisions start with better evidence.'")
+    expect(copy).toContain("headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.'")
   })
 
-  it('the supporting copy names signals, freezing and settlement', () => {
+  it('the supporting copy names freezing, visibility of losses, and context', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain(
-      'Explore provider-derived signals, see which picks BetGlitch freezes before kickoff, and verify every settled result — win or lose.',
+      'When BetGlitch publishes a pick, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
     )
   })
 
-  it('root metadata carries the positioning rather than an AI claim', () => {
+  it('the manifesto is present and promises improvement, not predictions', () => {
+    const copy = read('app/lib/terminology.ts')
+    expect(copy).toContain('Betting platforms usually show certainty. BetGlitch shows evidence.')
+    expect(copy).toContain('We do not promise perfect predictions. We promise transparency, accountability and measurable improvement.')
+  })
+
+  it('the hero trust line commits to no guaranteed wins and no hidden losses', () => {
+    const copy = read('app/lib/terminology.ts')
+    expect(copy).toContain('Free public beta · No guaranteed wins · No hidden losses')
+  })
+
+  it('root metadata carries the brand line rather than an AI claim', () => {
     const src = read('app/layout.tsx')
-    expect(src).toMatch(/verifiable football market signals/i)
+    expect(src).toMatch(/better football decisions start with better evidence/i)
     expect(src).toMatch(/immutable published picks/i)
   })
 

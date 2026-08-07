@@ -65,10 +65,11 @@ describe('the homepage answers the five-second question', () => {
   })
 
   it('states what BetGlitch is, in one sentence', () => {
-    // Superseded 2026-08-06. "Football model signals" claimed a model
-    // BetGlitch does not own; the signals are provider-derived and what the
-    // product actually offers is verifiability.
-    expect(HERO.headline).toBe('Verifiable football market signals.')
+    // Superseded 2026-08-07 by the brand pass. "Verifiable football market
+    // signals" named the feature; the brand line names the reason the feature
+    // exists. The truth constraints are unchanged — the line promises better
+    // evidence, not better outcomes.
+    expect(HERO.headline).toBe('Better football decisions start with better evidence.')
   })
 
   it('offers one primary action and one secondary, not three peers', () => {
@@ -113,8 +114,13 @@ describe('terminology is defined once and used everywhere', () => {
     expect(MODEL_SCORE_NOTE).toContain('not a calibrated probability')
   })
 
-  it('explains the workflow in three ordered steps', () => {
-    expect(WORKFLOW_STEPS.map(s => s.title)).toEqual(['Explore', 'Publish', 'Verify'])
+  it('explains the workflow in five ordered stages, ending in evaluation', () => {
+    // Superseded 2026-08-07. The Explore/Publish/Verify triad ended at the
+    // result, presenting BetGlitch as a static prediction engine. Measure and
+    // Improve are the brand's actual claim: the system is evaluated in public.
+    expect(WORKFLOW_STEPS.map(s => s.title)).toEqual([
+      'Analyse', 'Rank', 'Publish', 'Measure', 'Improve',
+    ])
   })
 })
 

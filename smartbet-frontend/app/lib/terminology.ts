@@ -57,37 +57,94 @@ const EN = {
     },
   },
 
+  /**
+   * Five stages, not three. The old Explore/Publish/Verify triad ended at the
+   * result, which quietly told visitors BetGlitch is a static prediction
+   * engine. Measure and Improve are the point: the system is evaluated in
+   * public and changed by what the evidence shows.
+   */
   workflow: [
     {
-      id: 'explore',
-      title: 'Explore',
-      body: 'Browse current live signals for upcoming fixtures across European competitions.',
+      id: 'analyse',
+      title: 'Analyse',
+      body: 'We review provider-derived probability data, market pricing and the available fixture context.',
+    },
+    {
+      id: 'rank',
+      title: 'Rank',
+      body: 'BetGlitch surfaces the strongest current signals while preserving what remains uncertain.',
     },
     {
       id: 'publish',
       title: 'Publish',
-      body: 'Selected picks are frozen before kickoff with their recorded odds and bookmaker.',
+      body: 'Selected decisions are frozen before kickoff with their price, bookmaker, timestamp and public proof.',
     },
     {
-      id: 'verify',
-      title: 'Verify',
-      body: 'Results are added after full-time. Wins and losses both stay public.',
+      id: 'measure',
+      title: 'Measure',
+      body: 'Eligible settled results enter the record — including the losses.',
+    },
+    {
+      id: 'improve',
+      title: 'Improve',
+      body: 'We study what worked, what failed and what should change.',
     },
   ],
 
   hero: {
     eyebrow: 'FREE PUBLIC BETA',
-    headline: 'Verifiable football market signals.',
+    // The brand line. Not "verifiable signals" (a feature) but the reason the
+    // feature exists: decisions improve when the evidence behind them does.
+    headline: 'Better football decisions start with better evidence.',
     supporting:
-      'Explore provider-derived signals, see which picks BetGlitch freezes before kickoff, and verify every settled result — win or lose.',
+      'Explore transparent football signals, verified market prices and the context behind each fixture. When BetGlitch publishes a pick, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
     primaryCta: 'Explore live signals',
-    secondaryCta: 'View verified record',
+    secondaryCta: 'View the verified record',
+    // Three commitments in one quiet line — a rule, not a badge.
+    trustLine: 'Free public beta · No guaranteed wins · No hidden losses',
     zeroState: 'Building the verified record from zero',
+  },
+
+  /**
+   * The public manifesto. One authored text, rendered on the homepage and
+   * About — never paraphrased per-page, or the philosophy drifts exactly the
+   * way the vocabulary once did.
+   */
+  manifesto: {
+    heading: 'Betting platforms usually show certainty. BetGlitch shows evidence.',
+    paragraphs: [
+      'We publish the decisions we commit to before kickoff. We preserve the price, the timestamp and the proof. We keep every eligible result visible, including the losses.',
+      'We continuously test new signals, strategies and fixture context — not to manufacture more picks, but to understand what genuinely improves decision quality.',
+      'We do not promise perfect predictions. We promise transparency, accountability and measurable improvement.',
+    ],
   },
 
   home: {
     signalsHeading: 'Live signals right now',
     browseAll: 'Browse all fixtures',
+
+    // ── The BetGlitch difference: a conceptual contrast, not a feature list.
+    differenceContrastHeading: 'The BetGlitch difference',
+    differenceOthersLabel: 'Most prediction products',
+    differenceOthersFlow: ['Prediction', 'Result'],
+    differenceUsLabel: 'BetGlitch',
+    differenceUsFlow: ['Signal', 'Evidence', 'Publication', 'Result', 'Evaluation', 'Improvement'],
+
+    // ── Product rules. Presented as constraints the system obeys, not as
+    // marketing badges — each one is enforced by architecture, not policy.
+    rulesHeading: 'Rules the product cannot break',
+    rules: [
+      'No deleted losses',
+      'No rewritten odds',
+      'No retrospective picks',
+      'No guaranteed wins',
+    ],
+
+    // ── Continuous improvement, stated without claiming it has succeeded.
+    improvementHeading: 'We measure the system, not just the scoreline.',
+    improvementBody:
+      'BetGlitch is continuously testing whether its filtering, pricing evidence and fixture context genuinely improve decision quality. We do not claim they already do — the public record exists to find out. What does not improve the evidence does not earn a place in the product.',
+
     howHeading: 'How BetGlitch works',
     differenceHeading: 'Not every signal becomes a published pick',
     differenceBody:
@@ -220,7 +277,7 @@ const EN = {
 
     publishedHeading: 'Published picks',
     publishedBody:
-      'Every pick BetGlitch froze before kickoff, whatever happened next. A published pick keeps its selection, signal score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn.',
+      'Published before kickoff. Preserved afterwards. A published pick keeps its selection, signal score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn, whatever happened next.',
     publishedStates:
       'A pick stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
     publishedEmpty:
@@ -238,7 +295,7 @@ const EN = {
 
     verifiedHeading: 'Verified record',
     verifiedBody:
-      'These aggregate figures are calculated from settled published picks only. Pending picks, void and cancelled picks, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of predictions BetGlitch has made, and that is deliberate.',
+      'This is the record we cannot rewrite. These aggregate figures are calculated from settled published picks only. Pending picks, void and cancelled picks, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of predictions BetGlitch has made, and that is deliberate.',
 
     noAccuracy: 'No verified results yet',
     accuracyAppears: 'Accuracy appears once the first published pick settles.',
@@ -357,35 +414,74 @@ const RO: typeof EN = {
 
   workflow: [
     {
-      id: 'explore',
-      title: 'Explorează',
-      body: 'Vezi semnalele live curente pentru meciurile viitoare din competițiile europene.',
+      id: 'analyse',
+      title: 'Analizăm',
+      body: 'Analizăm datele de probabilitate ale furnizorului, prețurile pieței și contextul de meci disponibil.',
+    },
+    {
+      id: 'rank',
+      title: 'Clasăm',
+      body: 'BetGlitch scoate la suprafață cele mai puternice semnale curente, păstrând vizibil ce rămâne incert.',
     },
     {
       id: 'publish',
-      title: 'Publică',
-      body: 'Pontajele selectate sunt înghețate înainte de start, cu cota înregistrată și casa de pariuri.',
+      title: 'Publicăm',
+      body: 'Deciziile selectate sunt înghețate înainte de start, cu prețul, casa de pariuri, marcajul de timp și dovada publică.',
     },
     {
-      id: 'verify',
-      title: 'Verifică',
-      body: 'Rezultatele se adaugă după fluierul final. Și câștigurile, și pierderile rămân publice.',
+      id: 'measure',
+      title: 'Măsurăm',
+      body: 'Rezultatele eligibile încheiate intră în istoric — inclusiv pierderile.',
+    },
+    {
+      id: 'improve',
+      title: 'Îmbunătățim',
+      body: 'Studiem ce a funcționat, ce a eșuat și ce trebuie schimbat.',
     },
   ],
 
   hero: {
     eyebrow: 'BETA PUBLIC GRATUIT',
-    headline: 'Semnale de piață pentru fotbal, verificabile.',
+    headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.',
     supporting:
-      'Explorează semnale derivate din datele furnizorului, vezi ce pontaje îngheață BetGlitch înainte de start și verifică fiecare rezultat încheiat — câștigat sau pierdut.',
+      'Explorează semnale transparente de fotbal, prețuri de piață verificate și contextul din spatele fiecărui meci. Când BetGlitch publică un pontaj, decizia este înghețată înainte de start și fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi istoricul verificat',
+    trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse',
     zeroState: 'Construim istoricul verificat de la zero',
+  },
+
+  manifesto: {
+    heading: 'Platformele de pariuri afișează de obicei certitudine. BetGlitch arată dovezi.',
+    paragraphs: [
+      'Publicăm deciziile la care ne angajăm înainte de start. Păstrăm prețul, marcajul de timp și dovada. Menținem vizibil fiecare rezultat eligibil, inclusiv pierderile.',
+      'Testăm continuu semnale, strategii și context de meci noi — nu ca să producem mai multe pontaje, ci ca să înțelegem ce îmbunătățește cu adevărat calitatea deciziilor.',
+      'Nu promitem predicții perfecte. Promitem transparență, responsabilitate și îmbunătățire măsurabilă.',
+    ],
   },
 
   home: {
     signalsHeading: 'Semnale live acum',
     browseAll: 'Vezi toate meciurile',
+
+    differenceContrastHeading: 'Diferența BetGlitch',
+    differenceOthersLabel: 'Majoritatea produselor de predicții',
+    differenceOthersFlow: ['Predicție', 'Rezultat'],
+    differenceUsLabel: 'BetGlitch',
+    differenceUsFlow: ['Semnal', 'Dovezi', 'Publicare', 'Rezultat', 'Evaluare', 'Îmbunătățire'],
+
+    rulesHeading: 'Reguli pe care produsul nu le poate încălca',
+    rules: [
+      'Nicio pierdere ștearsă',
+      'Nicio cotă rescrisă',
+      'Niciun pontaj retroactiv',
+      'Niciun câștig garantat',
+    ],
+
+    improvementHeading: 'Măsurăm sistemul, nu doar scorul.',
+    improvementBody:
+      'BetGlitch testează continuu dacă filtrarea, dovezile de preț și contextul de meci îmbunătățesc cu adevărat calitatea deciziilor. Nu susținem că o fac deja — istoricul public există exact ca să aflăm. Ce nu îmbunătățește dovezile nu își câștigă locul în produs.',
+
     howHeading: 'Cum funcționează BetGlitch',
     differenceHeading: 'Nu orice semnal devine pontaj publicat',
     differenceBody:
@@ -518,7 +614,7 @@ const RO: typeof EN = {
 
     publishedHeading: 'Pontaje publicate',
     publishedBody:
-      'Fiecare pontaj pe care BetGlitch l-a înghețat înainte de start, indiferent ce a urmat. Un pontaj publicat își păstrează selecția, scorul de semnal, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras.',
+      'Publicate înainte de start. Păstrate după aceea. Un pontaj publicat își păstrează selecția, scorul de semnal, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras, indiferent ce a urmat.',
     publishedStates:
       'Un pontaj rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
     publishedEmpty:
@@ -537,7 +633,7 @@ const RO: typeof EN = {
 
     verifiedHeading: 'Istoric verificat',
     verifiedBody:
-      'Aceste cifre agregate sunt calculate exclusiv din pontaje publicate încheiate. Pontajele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de predicții făcute de BetGlitch, iar asta este intenționat.',
+      'Acesta este istoricul pe care nu îl putem rescrie. Aceste cifre agregate sunt calculate exclusiv din pontaje publicate încheiate. Pontajele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de predicții făcute de BetGlitch, iar asta este intenționat.',
 
     noAccuracy: 'Niciun rezultat verificat încă',
     accuracyAppears:
