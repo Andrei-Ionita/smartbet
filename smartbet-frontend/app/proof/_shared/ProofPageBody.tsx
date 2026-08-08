@@ -112,20 +112,67 @@ export function ProofPageBody(
       {/* What the hash does and does not prove.
           A skeptical reviewer (2026-08-08) pointed out that a self-hosted hash
           over self-hosted content is not independent proof: BetGlitch could in
-          principle replace the content and recompute the hash. That is true,
-          and the page should say so rather than let "immutable proof" imply
-          more than the mechanism delivers. */}
+          principle replace the content and recompute the hash. Correct — so
+          the digest is now timestamped by parties who are not us, and this
+          block reports the ACTUAL anchor state rather than asserting one. */}
       <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
-        <p className="text-xs font-semibold text-gray-800">What this hash proves</p>
+        <p className="text-xs font-semibold text-gray-800">
+          What this hash proves
+        </p>
         <p className="mt-1 text-xs leading-relaxed text-gray-600">
           It fixes the exact content of this commitment: change any recorded
-          field and the hash no longer matches, so silent edits are detectable.
-          It does <strong>not</strong>, on its own, prove to a third party that
-          this record existed before kickoff — the hash and the record are both
-          served by BetGlitch. Independent, externally timestamped anchoring is
-          not live yet; until it is, treat this as tamper-evidence rather than
-          third-party proof.
+          field and the hash stops matching, so silent edits are detectable.
+          On its own it does <strong>not</strong> prove to a third party
+          <em> when</em> the record existed — BetGlitch serves both the record
+          and the hash.
         </p>
+
+        {data.anchor ? (
+          <>
+            <p className="mt-2 text-xs leading-relaxed text-gray-600">
+              {data.anchor.status === 'CONFIRMED' ? (
+                <>
+                  This commitment&apos;s digest is anchored in the Bitcoin
+                  chain at block{' '}
+                  <strong>{data.anchor.bitcoin_block_height}</strong>, via
+                  independent OpenTimestamps calendars. That timestamp cannot
+                  be backdated or withdrawn by BetGlitch.
+                </>
+              ) : (
+                <>
+                  This commitment&apos;s digest has been submitted to
+                  independent OpenTimestamps calendars and is awaiting its
+                  Bitcoin block — calendars batch submissions, so confirmation
+                  takes a few hours. The operators already hold the digest.
+                </>
+              )}
+            </p>
+            {!data.anchor.matches_current_hash && (
+              /* Loud on purpose. If this ever renders, the claim differs from
+                 what was timestamped, and the anchored value is the evidence. */
+              <p className="mt-2 rounded border border-red-300 bg-red-50 p-2 text-xs font-semibold text-red-900">
+                This claim no longer matches the hash that was timestamped
+                ({data.anchor.claim_hash_at_anchor}). Trust the anchored value,
+                not this page.
+              </p>
+            )}
+            <p className="mt-2 break-all font-mono text-[10px] leading-relaxed text-gray-500">
+              Anchor digest: {data.anchor.digest}
+            </p>
+          </>
+        ) : (
+          <p className="mt-2 text-xs leading-relaxed text-gray-600">
+            This commitment has not been externally timestamped yet. Anchoring
+            runs on the next publication cycle, before kickoff.
+          </p>
+        )}
+
+        <a
+          href="/proof/anchors"
+          className="mt-2 inline-block text-xs font-semibold text-blue-700 hover:text-blue-900"
+        >
+          How to verify this yourself →
+        </a>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

@@ -418,6 +418,18 @@ export default function TrackRecordContent() {
             </p>
           </details>
 
+          {/* The answer to "why should I believe the timestamp?" — an
+              independent, Bitcoin-anchored proof anyone can check without us. */}
+          <a
+            href="/proof/anchors"
+            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-700 underline-offset-2 hover:underline"
+          >
+            {language === 'ro'
+              ? 'Marcaje de timp independente — verifică singur'
+              : 'Independent timestamps — verify them yourself'}{' '}
+            →
+          </a>
+
           {claimsError ? (
             <div
               role="alert"

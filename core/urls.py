@@ -69,6 +69,11 @@ urlpatterns = [
     # from the mutable transparency feed.
     path('api/proof/claims/', transparency_views.published_claims_list, name='published_claims_list'),
     path('api/proof/claim/<uuid:claim_id>/', transparency_views.proof_by_claim, name='proof_by_claim'),
+    # Independent timestamping. Public and unauthenticated by design: proof
+    # nobody can check is not proof.
+    path('api/proof/anchors/', transparency_views.anchors_list, name='anchors_list'),
+    path('api/proof/anchors/<str:digest>/', transparency_views.anchor_detail, name='anchor_detail'),
+    path('api/proof/anchors/<str:digest>/proof/', transparency_views.anchor_proof, name='anchor_proof'),
     # Staff-only publication queue: publishable verified snapshots.
     path('api/proof/queue/', transparency_views.publication_queue, name='publication_queue'),
     # Staff-only, POST-only explicit publication of ONE chosen snapshot.

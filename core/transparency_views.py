@@ -478,6 +478,44 @@ def _serialize_claim_row(claim):
         # Only a settled row counts towards public performance. Stated per row
         # so a consumer cannot infer it from presence in the list.
         'counts_towards_verified_record': bool(settlement) and integrity_ok,
+        # External timestamp, if this claim has been anchored. `None` means
+        # not anchored — never omitted and never implied, because an absent
+        # anchor is exactly the thing a reader must be able to see.
+        'anchor': _serialize_claim_anchor(claim),
+    }
+
+
+def _serialize_claim_anchor(claim):
+    """The external timestamp covering this claim, or None.
+
+    A claim published in the last hour may legitimately have no anchor yet:
+    stamping happens on the next scheduler pass. Returning None rather than
+    omitting the key keeps "not anchored" a visible state instead of an
+    ambiguous absence.
+    """
+    entry = (
+        claim.anchor_entries
+        .select_related('anchor')
+        .order_by('anchor__created_at')
+        .first()
+    )
+    if entry is None:
+        return None
+
+    anchor = entry.anchor
+    return {
+        'digest': anchor.digest,
+        'status': anchor.status,
+        'bitcoin_block_height': anchor.bitcoin_block_height,
+        'anchored_at': anchor.created_at.isoformat() if anchor.created_at else None,
+        'confirmed_at': anchor.confirmed_at.isoformat() if anchor.confirmed_at else None,
+        'calendars': anchor.calendars,
+        # The hash AS ANCHORED. If this ever differs from claim_hash above,
+        # the claim was altered after it was timestamped.
+        'claim_hash_at_anchor': entry.claim_hash,
+        'matches_current_hash': entry.claim_hash == claim.claim_hash,
+        'proof_url': f'/api/proof/anchors/{anchor.digest}/proof/',
+        'detail_url': f'/api/proof/anchors/{anchor.digest}/',
     }
 
 
@@ -948,3 +986,107 @@ def proof_preview(request, fixture_id):
         'snapshots': _snapshot_list_for(pred),
     })
 
+
+
+# ── Independent anchoring ────────────────────────────────────────────────────
+# These endpoints exist so that verifying BetGlitch does not require trusting
+# BetGlitch. A reader rebuilds the manifest from /api/proof/claims/, recomputes
+# the SHA-256, downloads the .ots proof, and checks it with the standard `ots`
+# tool against their own Bitcoin node. Nothing here needs our cooperation
+# beyond serving bytes we have already committed to.
+
+def _serialize_anchor(anchor, include_manifest=False):
+    row = {
+        'digest': anchor.digest,
+        'manifest_version': anchor.manifest_version,
+        'claim_count': anchor.claim_count,
+        'calendars': anchor.calendars,
+        'status': anchor.status,
+        'bitcoin_block_height': anchor.bitcoin_block_height,
+        'created_at': anchor.created_at.isoformat() if anchor.created_at else None,
+        'confirmed_at': anchor.confirmed_at.isoformat() if anchor.confirmed_at else None,
+        'proof_url': f'/api/proof/anchors/{anchor.digest}/proof/',
+        'detail_url': f'/api/proof/anchors/{anchor.digest}/',
+    }
+    if include_manifest:
+        row['manifest'] = anchor.manifest
+    return row
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def anchors_list(request):
+    """GET /api/proof/anchors/ — every external timestamp, newest first."""
+    from core.models import ClaimAnchor
+
+    try:
+        try:
+            limit = int(request.GET.get('limit', 50))
+            offset = int(request.GET.get('offset', 0))
+        except (TypeError, ValueError):
+            return Response(
+                {'success': False, 'error': 'limit and offset must be integers'},
+                status=400,
+            )
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+
+        qs = ClaimAnchor.objects.order_by('-created_at', 'digest')
+        total = qs.count()
+        return Response({
+            'success': True,
+            'count': total,
+            'limit': limit,
+            'offset': offset,
+            'how_to_verify': (
+                'Rebuild the manifest from /api/proof/claims/ as '
+                '"<claim_id>:<claim_hash>" lines sorted by claim_id, prefixed '
+                'by the manifest_version line and newline-terminated. Its '
+                'SHA-256 must equal `digest`. Then run: ots verify --digest '
+                '<digest> proof.ots'
+            ),
+            'anchors': [_serialize_anchor(a) for a in qs[offset:offset + limit]],
+        })
+    except Exception:
+        logger.exception('anchors_list failed')
+        return Response(
+            {'success': False, 'error': 'Anchors are temporarily unavailable.'},
+            status=503,
+        )
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def anchor_detail(request, digest):
+    """GET /api/proof/anchors/<digest>/ — one anchor, with its full manifest."""
+    from core.models import ClaimAnchor
+
+    anchor = ClaimAnchor.objects.filter(digest=digest).first()
+    if anchor is None:
+        return Response({'success': False, 'error': 'Anchor not found'}, status=404)
+
+    payload = _serialize_anchor(anchor, include_manifest=True)
+    payload['claims'] = list(
+        anchor.entries.values_list('claim__claim_id', flat=True)
+    )
+    payload['claims'] = [str(c) for c in payload['claims']]
+    return Response({'success': True, 'anchor': payload})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def anchor_proof(request, digest):
+    """GET /api/proof/anchors/<digest>/proof/ — the raw .ots proof bytes."""
+    from django.http import HttpResponse
+
+    from core.models import ClaimAnchor
+
+    anchor = ClaimAnchor.objects.filter(digest=digest).first()
+    if anchor is None or not anchor.ots_proof:
+        return Response({'success': False, 'error': 'Proof not found'}, status=404)
+
+    response = HttpResponse(
+        bytes(anchor.ots_proof), content_type='application/octet-stream')
+    response['Content-Disposition'] = (
+        f'attachment; filename="betglitch-{anchor.digest[:16]}.ots"')
+    return response

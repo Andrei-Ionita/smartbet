@@ -2,6 +2,8 @@
 Core models for SmartBet - Prediction Tracking & Bankroll Management
 """
 
+import uuid
+
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import post_save
@@ -1742,3 +1744,82 @@ class FixtureResultObservation(models.Model):
                 'is a new result_version, never an edit.'
             )
         super().save(*args, **kwargs)
+
+
+class ClaimAnchor(models.Model):
+    """A digest of published claims, timestamped by parties who are not us.
+
+    BetGlitch's own claim hash proves tamper-evidence: change a field and the
+    hash stops matching. It cannot prove WHEN the record existed, because we
+    serve both the record and the hash. A public reviewer named that gap on
+    2026-08-08, and this model closes it.
+
+    The digest is submitted to independent OpenTimestamps calendars, which
+    aggregate it into the Bitcoin chain. The resulting proof lets anyone
+    demonstrate the digest existed before a given block — no BetGlitch
+    cooperation required, and no account, key or vendor relationship needed to
+    create or to check it.
+
+    Anchoring happens AT PUBLICATION, never overnight: a timestamp taken after
+    kickoff would prove nothing about foresight.
+    """
+    STATUS_PENDING = 'PENDING'
+    STATUS_CONFIRMED = 'CONFIRMED'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Submitted to calendars, awaiting Bitcoin block'),
+        (STATUS_CONFIRMED, 'Attested in a Bitcoin block'),
+    ]
+
+    anchor_id = models.UUIDField(primary_key=True, default=uuid.uuid4,
+                                 editable=False)
+
+    # SHA-256 over `manifest`. Unique: the same set of claims always produces
+    # the same digest, so a retried run links rather than double-stamps.
+    digest = models.CharField(max_length=64, unique=True, db_index=True)
+
+    # The exact bytes the digest was taken over, kept public so a third party
+    # can rebuild it from /api/proof/claims/ and compare.
+    manifest = models.TextField()
+    manifest_version = models.CharField(max_length=64)
+
+    claim_count = models.IntegerField()
+    calendars = models.JSONField(default=list)
+
+    # The serialized .ots proof. Grows an attestation when upgraded.
+    ots_proof = models.BinaryField(null=True, blank=True)
+
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES,
+                              default=STATUS_PENDING, db_index=True)
+    bitcoin_block_height = models.IntegerField(null=True, blank=True)
+
+    created_at = models.DateTimeField(db_index=True)
+    confirmed_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f'{self.digest[:12]} ({self.claim_count} claims, {self.status})'
+
+
+class ClaimAnchorEntry(models.Model):
+    """Join row: which claims a given anchor covers.
+
+    A separate table rather than a field on PublishedClaim, because a published
+    claim is insert-only — writing an anchor reference onto it after the fact
+    would trip its own immutability guard, and rightly so.
+    """
+    anchor = models.ForeignKey(ClaimAnchor, on_delete=models.CASCADE,
+                               related_name='entries')
+    claim = models.ForeignKey('PublishedClaim', on_delete=models.CASCADE,
+                              related_name='anchor_entries')
+    # The hash AS ANCHORED. If the live claim ever stopped matching this, the
+    # anchored proof is the evidence of it.
+    claim_hash = models.CharField(max_length=64)
+
+    class Meta:
+        unique_together = [('anchor', 'claim')]
+        indexes = [models.Index(fields=['claim'])]
+
+    def __str__(self):
+        return f'{self.claim_id} in {self.anchor_id}'

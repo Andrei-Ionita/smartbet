@@ -120,6 +120,13 @@ class Command(BaseCommand):
         # the published policy rather than to a human choice.
         self.run_task('auto_publish_claims')
 
+        # Task 3c: Hand the new claims to an independent timestamp,
+        # IMMEDIATELY — while they are still hours from kickoff. Anchoring
+        # later (a nightly sweep, say) would prove only that the record
+        # existed after the matches were played, which is worthless as
+        # evidence of foresight. A calendar outage never blocks publication.
+        self.run_task('anchor_published_claims')
+
         # Task 4: Settle published claims whose fixtures have finished.
         # MUST run after update_results, which is what grades the underlying
         # predictions. Without this the public lifecycle never completes and

@@ -22,6 +22,24 @@ export interface ProofPayload {
   card_cache_version?: string
   integrity_error?: string | null
   superseded?: boolean
+  /**
+   * External timestamp covering this claim, or null when it has not been
+   * anchored yet. Null is a real state the page must show, never hidden: a
+   * self-hosted hash alone is tamper-evidence, not third-party proof.
+   */
+  anchor?: {
+    digest: string
+    status: 'PENDING' | 'CONFIRMED'
+    bitcoin_block_height: number | null
+    anchored_at: string | null
+    confirmed_at: string | null
+    calendars: string[]
+    claim_hash_at_anchor: string
+    /** False means the claim changed after it was timestamped. */
+    matches_current_hash: boolean
+    proof_url: string
+    detail_url: string
+  } | null
   pick: {
     home_team: string
     away_team: string
