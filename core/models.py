@@ -886,17 +886,24 @@ class UserBankroll(models.Model):
     )
     
     # Staking Strategy
+    #
+    # Kelly (full and fractional) and confidence_scaled are GONE, and so is the
+    # Kelly default. All three size a stake from an estimated edge over the
+    # price, which requires a calibrated probability. BetGlitch's signal score
+    # is not one: measured on 304 graded calls its AUC is 0.554, so a Kelly
+    # fraction built on it is not a stake size — it is a number shaped like
+    # one. Existing rows keep their stored value; nothing is rewritten.
+    #
+    # What remains are flat schemes that need no edge estimate at all, because
+    # this is a JOURNAL of bets the user chose, not a staking engine.
     STAKING_STRATEGIES = [
-        ('kelly', 'Kelly Criterion'),
-        ('kelly_fractional', 'Fractional Kelly (1/4)'),
-        ('fixed_percentage', 'Fixed Percentage'),
         ('fixed_amount', 'Fixed Amount'),
-        ('confidence_scaled', 'Confidence Scaled'),
+        ('fixed_percentage', 'Fixed Percentage'),
     ]
     staking_strategy = models.CharField(
-        max_length=20, 
-        choices=STAKING_STRATEGIES, 
-        default='kelly_fractional'
+        max_length=20,
+        choices=STAKING_STRATEGIES,
+        default='fixed_amount'
     )
     fixed_stake_amount = models.DecimalField(
         max_digits=10, 

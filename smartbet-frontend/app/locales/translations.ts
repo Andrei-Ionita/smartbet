@@ -240,14 +240,6 @@ export const translations = {
                 }
             },
             strategies: {
-                kelly_fractional: {
-                    label: 'Fractional Kelly (1/4)',
-                    description: 'A more conservative fixed-fraction approach'
-                },
-                kelly: {
-                    label: 'Full Kelly Criterion',
-                    description: 'Aggressive: Mathematical optimal but high variance'
-                },
                 fixed_percentage: {
                     label: 'Fixed Percentage',
                     description: 'Bet same % of bankroll every time'
@@ -575,14 +567,6 @@ export const translations = {
                 }
             },
             strategies: {
-                kelly_fractional: {
-                    label: 'Kelly Fracționat (1/4)',
-                    description: 'Versiune mai prudentă a criteriului Kelly'
-                },
-                kelly: {
-                    label: 'Criteriul Kelly Complet',
-                    description: 'Agresiv: Optim matematic dar cu variație mare'
-                },
                 fixed_percentage: {
                     label: 'Procent Fix',
                     description: 'Pariază același % din buget de fiecare dată'

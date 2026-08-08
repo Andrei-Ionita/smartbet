@@ -386,8 +386,13 @@ describe('every translation key the card uses actually resolves', () => {
     // Keys are dotted paths into a nested object literal; the leaf name is
     // what appears as an object property in the source.
     const leaf = key.split('.').pop()!
+    // A leaf that cannot be a bare identifier — '1x2', 'over_under_2.5' —
+    // must appear QUOTED in a JS object literal, so allow an optional quote
+    // on either side. Without this the guard reported a missing key that was
+    // present all along, the moment the card started resolving markets.1x2.
+    const escaped = leaf.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
     expect(
-      new RegExp(`\\b${leaf}\\s*:`).test(translations),
+      new RegExp(`(^|[^\\w.])['"]?${escaped}['"]?\\s*:`, 'm').test(translations),
       `${key} is used by RecommendationCard but has no entry in translations.ts`,
     ).toBe(true)
   })

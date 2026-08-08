@@ -105,6 +105,11 @@ export function ProofPageBody(
         <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
         <Row label="Claim published" value={formatUtc(p.published_at)} />
         <Row label="Signal score at commitment" value={formatModelScore(p.model_score_percent)} />
+        {/* Which rule produced this. Without it a record spanning changes
+            to the ranking logic is several systems averaged together. */}
+        {p.ranking_version && (
+          <Row label="Ranking version" value={p.ranking_version} />
+        )}
         <Row label="Claim ID" value={data.claim_id ?? 'n/a'} />
       </dl>
 

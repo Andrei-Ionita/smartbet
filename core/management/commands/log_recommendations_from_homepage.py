@@ -204,6 +204,9 @@ class Command(BaseCommand):
                 # hourly run — a much worse failure than one unpublishable row.
                 payload = recommendation_ingest.ingest_recommendations(
                     recommendations, validate=False,
+                    # Which ranking policy produced this run. Absent on an old
+                    # feed; recorded as unreported rather than guessed.
+                    ranking_version=data.get('ranking_version'),
                 )
 
                 logged_count = payload.get('logged_count', 0)

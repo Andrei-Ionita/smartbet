@@ -30,6 +30,7 @@ import {
 } from '@/app/lib/heuristics'
 import { buildFormMap, formFor } from '@/app/lib/providerForm'
 import { isFormHeuristicLive } from '@/app/lib/modelActivation'
+import { RANKING_VERSION } from '@/app/lib/rankingPolicy'
 
 
 // Simplified inline apiClient implementation with Timeout
@@ -992,6 +993,11 @@ export async function buildRecommendationPayload(): Promise<
         fixtures_analyzed: totalFixtures,
         fixtures_with_predictions: fixturesWithPredictions,
         lastUpdated: new Date().toISOString(),
+        // WHICH ranking policy produced these. Ingest stamps it onto every
+        // snapshot and therefore onto every published claim, so a record
+        // accumulated across changes to the logic stays interpretable rather
+        // than silently blending several different systems.
+        ranking_version: RANKING_VERSION,
         message: 'Success',
       },
       confidenceThreshold: 55,

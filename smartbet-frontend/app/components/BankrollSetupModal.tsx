@@ -45,13 +45,13 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
     },
   ];
 
-  // Flat staking first, Kelly last — and nothing here is "recommended".
-  // This list used to lead with Fractional Kelly, star it as ⭐ Recommended
-  // and cite "backtested +540% growth over 275 bets". That backtest was
-  // computed on the pre-2026-07-30 odds data whose prices were later shown to
-  // be captured from the wrong market, and Kelly sizing requires a calibrated
-  // edge estimate BetGlitch explicitly says it does not have. Endorsing it
-  // was the single least defensible claim on the site.
+  // Kelly is gone, not merely unendorsed.
+  //
+  // Kelly sizes a stake from an estimated edge over the price, which requires
+  // a calibrated probability. Ours is not one — measured AUC 0.554 on 304
+  // graded calls — so offering Kelly at all, however hedged, contradicted the
+  // product's own stated restraint. What remains needs no edge estimate:
+  // this is a JOURNAL of bets the user chose, not a staking engine.
   const stakingStrategies = [
     {
       value: 'fixed_amount',
@@ -62,16 +62,6 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
       value: 'fixed_percentage',
       label: t('bankroll.strategies.fixed_percentage.label'),
       description: t('bankroll.strategies.fixed_percentage.description'),
-    },
-    {
-      value: 'kelly_fractional',
-      label: t('bankroll.strategies.kelly_fractional.label'),
-      description: t('bankroll.strategies.kelly_fractional.description'),
-    },
-    {
-      value: 'kelly',
-      label: t('bankroll.strategies.kelly.label'),
-      description: t('bankroll.strategies.kelly.description'),
     },
   ];
 
@@ -228,13 +218,11 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
                   </option>
                 ))}
               </select>
-              {(formData.stakingStrategy === 'kelly' || formData.stakingStrategy === 'kelly_fractional') && (
-                <p className="mt-1 rounded-md border border-amber-200 bg-amber-50 p-2 text-xs text-amber-900">
-                  {language === 'ro'
-                    ? 'Kelly dimensionează mizele dintr-un avantaj estimat față de preț. BetGlitch nu poate estima acest avantaj — scorurile sale de semnal nu sunt probabilități calibrate — deci Kelly trebuie alimentat de propriile tale estimări de probabilitate, nu de cifrele BetGlitch.'
-                    : 'Kelly sizes stakes from an estimated edge over the price. BetGlitch cannot estimate that edge — its signal scores are not calibrated probabilities — so Kelly must be driven by your own probability estimates, not by BetGlitch’s numbers.'}
-                </p>
-              )}
+              <p className="mt-1 rounded-md border border-gray-200 bg-gray-50 p-2 text-xs text-gray-700">
+                {language === 'ro'
+                  ? 'Acesta este un jurnal al pariurilor pe care le alegi tu. BetGlitch nu dimensionează mize și nu știe dacă un preț oferă valoare, așa că nu sunt oferite strategii bazate pe avantaj estimat (precum Kelly).'
+                  : 'This is a journal of bets you choose. BetGlitch does not size stakes and does not know whether a price offers value, so no edge-based strategy (such as Kelly) is offered.'}
+              </p>
             </div>
 
             {/* Loss Limits */}

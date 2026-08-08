@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { readFileSync } from 'fs'
+import { existsSync, readFileSync } from 'fs'
 import { join } from 'path'
 
 /**
@@ -118,10 +118,27 @@ describe('no staking method is endorsed and no growth figure is claimed', () => 
     expect(rendered).not.toContain("stakingStrategy: 'kelly_fractional'")
   })
 
-  it('warns that Kelly needs an edge estimate BetGlitch cannot supply', () => {
-    expect(BANKROLL_MODAL).toContain('Kelly sizes stakes from an estimated edge')
-    expect(BANKROLL_MODAL).toContain('not calibrated probabilities')
-    expect(BANKROLL_MODAL).toContain('Kelly dimensionează mizele')
+  it('offers no edge-based staking method at all', () => {
+    // First response was to keep Kelly but warn about it. That still
+    // contradicted "BetGlitch does not size bets for you", so after the
+    // score's measured AUC came in at 0.554 the options were removed
+    // outright — the bankroll is a journal, not a staking engine.
+    // Kelly may still be NAMED — the copy explains why it is not offered —
+    // but it must not exist as a selectable option anywhere.
+    const rendered = scannable(BANKROLL_MODAL)
+    expect(rendered).not.toContain("value: 'kelly'")
+    expect(rendered).not.toContain("value: 'kelly_fractional'")
+    expect(rendered).toContain("value: 'fixed_amount'")
+    expect(rendered).toContain("value: 'fixed_percentage'")
+
+    // ...and the dead component that still labelled Kelly strategies is gone.
+    expect(existsSync(join(root, 'app/components/StakeRecommendation.tsx')))
+      .toBe(false)
+  })
+
+  it('says plainly what the bankroll page is, in both languages', () => {
+    expect(BANKROLL_MODAL).toContain('This is a journal of bets you choose')
+    expect(BANKROLL_MODAL).toContain('Acesta este un jurnal al pariurilor')
   })
 
   it('offers no one-click staking instruction on the dashboard', () => {

@@ -60,6 +60,8 @@ export interface ProofPayload {
      * committed price was six days old.
      */
     price_age_hours_at_publication?: number | null
+    /** The ranking policy version that produced this selection. */
+    ranking_version?: string | null
     kickoff: string
     prediction_logged_at: string
     published_at: string

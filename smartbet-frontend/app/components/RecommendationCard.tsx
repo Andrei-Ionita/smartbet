@@ -264,6 +264,13 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
         panelTitle: language === 'ro' ? 'Valoarea nu poate fi evaluată' : 'Value cannot be assessed',
       }
 
+  // The market this selection belongs to. Shown ABOVE the outcome so a
+  // visitor never has to infer which market a bare "Yes" or "Home" refers to.
+  const marketLabel = recommendation.best_market?.type
+    ? t(`card.multiMarket.markets.${recommendation.best_market.type}`)
+    : recommendation.best_market?.display_name
+      ?? t('card.multiMarket.markets.1x2')
+
   const highestRankedLabel = language === 'ro'
     ? 'Rezultatul cel mai bine clasat'
     : 'Highest-ranked outcome'
@@ -382,78 +389,45 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
       <div className="mb-6">
         {recommendation.confidence > 0 ? (
           <>
-            {/* Reading order: fixture/market (above) -> highest-ranked outcome
-                -> signal score -> price/value status -> explanation. */}
+            {/* THE SELECTION leads; the score is secondary detail.
+                A bold 0-100 number with a progress bar was the loudest thing
+                on the card, and it implied precision the evidence does not
+                support: measured on 304 graded calls the score separates
+                right from wrong with AUC 0.554. Worse, the shared 0-100 scale
+                invited cross-market comparison ("BTTS 52" labelled Best beside
+                "Double Chance 75") that the score cannot carry. So the market
+                and the selection lead, and the number is a quiet line that
+                links to the measured separation. */}
             <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              {highestRankedLabel}
+              {marketLabel}
             </p>
-            <div className="flex items-center gap-4 mb-4">
-              <span className={`text-lg font-bold px-4 py-2 rounded-xl ${getOutcomeColor(recommendation.predicted_outcome)} bg-gray-50`}>
-                {recommendation.predicted_outcome === 'Home' ? t('card.outcomes.home') :
-                  recommendation.predicted_outcome === 'Draw' ? t('card.outcomes.draw') :
-                    recommendation.predicted_outcome === 'Away' ? t('card.outcomes.away') : recommendation.predicted_outcome}
+            <p className={`text-2xl font-bold leading-tight ${getOutcomeColor(recommendation.predicted_outcome)}`}>
+              {recommendation.predicted_outcome === 'Home' ? t('card.outcomes.home') :
+                recommendation.predicted_outcome === 'Draw' ? t('card.outcomes.draw') :
+                  recommendation.predicted_outcome === 'Away' ? t('card.outcomes.away') : recommendation.predicted_outcome}
+            </p>
+            <p className="mt-1 mb-4 text-xs text-gray-500">
+              {highestRankedLabel}
+              {' · '}
+              <span
+                className="whitespace-nowrap"
+                aria-label={language === 'ro'
+                  ? `Scor semnal: ${Math.round(recommendation.confidence * 100)} din 100. Clasare relativă, nu o probabilitate calibrată.`
+                  : `Signal score: ${Math.round(recommendation.confidence * 100)} out of 100. A relative ranking, not a calibrated probability.`}
+              >
+                {language === 'ro' ? 'scor semnal ' : 'signal score '}
+                {Math.round(recommendation.confidence * 100)}/100
               </span>
-              <div className="flex-1">
-                {/* Main confidence bar */}
-                <div className="bg-gray-200 rounded-full h-4 shadow-inner mb-1">
-                  <div
-                    className="bg-gradient-to-r from-primary-500 to-blue-600 h-4 rounded-full transition-all duration-500 shadow-sm"
-                    style={{ width: `${recommendation.confidence * 100}%` }}
-                    aria-label={language === 'ro'
-                      ? `Scor semnal: ${Math.round(recommendation.confidence * 100)} din 100. Clasare relativă, nu o probabilitate calibrată.`
-                      : `Signal score: ${Math.round(recommendation.confidence * 100)} out of 100. A relative ranking, not a calibrated probability.`}
-                  />
-                </div>
-                {/* A band labelled as a 95 percent interval used to render
-                    here. It was not a statistical interval:
-                    src/services/fixtureService.ts derives it as the score minus
-                    a hardcoded 5/7/10 by tier. Presenting a fixed offset that
-                    way asserts rigour the number does not have, so it is gone. */}
-              </div>
-              {/* Confidence with Info Tooltip */}
-              <div className="relative">
-                <button
-                  onClick={() => setShowConfidenceTooltip(!showConfidenceTooltip)}
-                  className="flex items-center gap-1 text-lg font-bold text-gray-700 min-w-[4rem] text-right hover:text-primary-600 transition-colors"
-                  aria-label={language === 'ro' ? 'Arată detalii scor model' : 'Show model score breakdown'}
-                >
-                  {Math.round(recommendation.confidence * 100)}
-                  <Info className="h-4 w-4 text-gray-400 hover:text-primary-500" />
-                </button>
-
-                {/* Confidence Breakdown Tooltip */}
-                {showConfidenceTooltip && (
-                  <div className="absolute right-0 top-full mt-2 z-50 w-64 bg-white rounded-xl shadow-xl border border-gray-200 p-4 text-left">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-bold text-gray-900">
-                        {language === 'ro' ? 'Cum am calculat' : 'How we calculated this'}
-                      </span>
-                      <button
-                        onClick={() => setShowConfidenceTooltip(false)}
-                        className="text-gray-400 hover:text-gray-600"
-                      >
-                        ×
-                      </button>
-                    </div>
-                    {/* Two fabricated rows lived here: "Prediction Variance"
-                        (Low/Medium/High) and "Signal Quality" (defaulting to
-                        the literal string 'Good' when the field was absent).
-                        Variance across models cannot exist — every market takes
-                        its value from ONE provider model — and a quality grade
-                        with a hardcoded default is not a measurement. The
-                        tooltip now carries only the explanation below, which is
-                        the one thing here that is true. */}
-                    <div className="mt-3 pt-2 border-t border-gray-100">
-                      <p className="text-[10px] text-gray-500">
-                        {language === 'ro'
-                          ? 'Clasare relativă din datele de probabilitate ale furnizorului. Nu este o probabilitate calibrată.'
-                          : 'A relative ranking derived from provider probability data. Not a calibrated probability.'}
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
+              {' · '}
+              <Link
+                href="/monitoring"
+                className="font-medium text-gray-600 underline underline-offset-2 hover:text-gray-900"
+              >
+                {language === 'ro'
+                  ? 'cât de bine separă acest scor?'
+                  : 'how well does this score separate?'}
+              </Link>
+            </p>
 
             {/* Recent Form Section */}
             {(recommendation.teams_data?.home?.form || recommendation.teams_data?.away?.form) && (

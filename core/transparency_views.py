@@ -413,6 +413,10 @@ def _serialize_claim(claim):
             ),
             'price_age_hours_at_publication':
                 claim_publication.price_age_hours_at_publication(claim),
+            # WHICH ranking policy produced this selection. Published so a
+            # record spanning changes to the logic can be split by rule
+            # instead of blended into one meaningless average.
+            'ranking_version': claim.model_version,
             'kickoff': claim.kickoff.isoformat(),
             'prediction_logged_at': claim.prediction_generated_at.isoformat(),
             'published_at': claim.published_at.isoformat(),

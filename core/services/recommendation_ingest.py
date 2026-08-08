@@ -196,7 +196,8 @@ def derive_run_id(recommendations) -> str:
 
 
 @transaction.atomic
-def ingest_recommendations(recommendations, *, prediction_run_id=None, validate=True):
+def ingest_recommendations(recommendations, *, prediction_run_id=None,
+                           validate=True, ranking_version=None):
     """Persist one prediction run. Returns the same payload shape as before.
 
     Wrapped in a transaction so a failure part-way cannot leave a run with
@@ -207,6 +208,17 @@ def ingest_recommendations(recommendations, *, prediction_run_id=None, validate=
 
     prediction_run_id = prediction_run_id or derive_run_id(recommendations)
     run_generated_at = timezone.now()
+
+    # WHICH ranking policy produced this run.
+    #
+    # `model_version` previously stored 'consensus_ensemble' — a constant that
+    # identified nothing. A reviewer pointed out that the record would blend
+    # every future change to the selection logic into one undifferentiated
+    # sample. The engine now derives a version from its own ranking parameters
+    # and sends it with the payload; it lands in model_version, which is
+    # already inside the snapshot and claim integrity hashes, so the stamp is
+    # tamper-evident without a migration.
+    model_version = ranking_version or 'ranking-version-unreported'
 
     logged_count = updated_count = snapshots_created = 0
     skipped_blacklist = skipped_outcome = skipped_high_ev = skipped_watchlist = 0
@@ -333,7 +345,7 @@ def ingest_recommendations(recommendations, *, prediction_run_id=None, validate=
             confidence=prediction_data.get('confidence'),
             expected_value=prediction_data.get('expected_value'),
             is_recommended=True,
-            model_version=prediction_data.get('ensemble_strategy'),
+            model_version=model_version,
             odds=bet_odds,
             odds_provenance=odds_provenance,
             prediction_generated_at=run_generated_at,
