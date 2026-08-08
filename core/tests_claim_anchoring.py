@@ -211,3 +211,48 @@ class AnchorApiTests(TestCase):
         self.assertEqual(self.client.get('/api/proof/anchors/deadbeef/').status_code, 404)
         self.assertEqual(
             self.client.get('/api/proof/anchors/deadbeef/proof/').status_code, 404)
+
+
+class ProofPagePayloadTests(TestCase):
+    """The proof page renders anchor state, so ITS payload must carry it.
+
+    The anchor field was first added only to the claims-LIST serializer. The
+    list and the single-claim proof endpoint are separate serializers, so
+    /proof/claim/<uuid> kept rendering "not anchored yet" for claims that were
+    in fact anchored — a page understating its own evidence.
+    """
+
+    def setUp(self):
+        self.client = APIClient()
+        self.claim = publish(991040)
+
+    def test_proof_payload_reports_the_anchor_once_stamped(self):
+        with mock.patch.object(claim_anchoring, 'stamp_digest', stub_stamp):
+            claim_anchoring.anchor_pending_claims()
+
+        response = self.client.get(f'/api/proof/claim/{self.claim.claim_id}/')
+        self.assertEqual(response.status_code, 200)
+        anchor = response.json()['anchor']
+        self.assertIsNotNone(anchor)
+        self.assertEqual(anchor['status'], ClaimAnchor.STATUS_PENDING)
+        self.assertTrue(anchor['matches_current_hash'])
+        self.assertIn('.ots', anchor['proof_url'] + '.ots')
+
+    def test_an_unanchored_claim_reports_null_not_a_missing_key(self):
+        """Absence must be visible, not inferred from a missing field."""
+        response = self.client.get(f'/api/proof/claim/{self.claim.claim_id}/')
+        body = response.json()
+        self.assertIn('anchor', body)
+        self.assertIsNone(body['anchor'])
+
+    def test_a_claim_altered_after_anchoring_is_flagged(self):
+        """The whole point: the anchored hash is the evidence, not the row."""
+        with mock.patch.object(claim_anchoring, 'stamp_digest', stub_stamp):
+            claim_anchoring.anchor_pending_claims()
+
+        entry = ClaimAnchorEntry.objects.get(claim=self.claim)
+        entry.claim_hash = 'f' * 64
+        entry.save(update_fields=['claim_hash'])
+
+        response = self.client.get(f'/api/proof/claim/{self.claim.claim_id}/')
+        self.assertFalse(response.json()['anchor']['matches_current_hash'])

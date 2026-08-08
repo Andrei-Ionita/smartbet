@@ -311,6 +311,40 @@ def _record_block():
     }
 
 
+def _serialize_claim_anchor(claim):
+    """The external timestamp covering this claim, or None.
+
+    A claim published in the last hour may legitimately have no anchor yet:
+    stamping happens on the next scheduler pass. Returning None rather than
+    omitting the key keeps "not anchored" a visible state instead of an
+    ambiguous absence.
+    """
+    entry = (
+        claim.anchor_entries
+        .select_related('anchor')
+        .order_by('anchor__created_at')
+        .first()
+    )
+    if entry is None:
+        return None
+
+    anchor = entry.anchor
+    return {
+        'digest': anchor.digest,
+        'status': anchor.status,
+        'bitcoin_block_height': anchor.bitcoin_block_height,
+        'anchored_at': anchor.created_at.isoformat() if anchor.created_at else None,
+        'confirmed_at': anchor.confirmed_at.isoformat() if anchor.confirmed_at else None,
+        'calendars': anchor.calendars,
+        # The hash AS ANCHORED. If this ever differs from claim_hash above,
+        # the claim was altered after it was timestamped.
+        'claim_hash_at_anchor': entry.claim_hash,
+        'matches_current_hash': entry.claim_hash == claim.claim_hash,
+        'proof_url': f'/api/proof/anchors/{anchor.digest}/proof/',
+        'detail_url': f'/api/proof/anchors/{anchor.digest}/',
+    }
+
+
 def _serialize_claim(claim):
     """Public payload for an immutable claim. Reads ONLY frozen claim fields."""
     prov = claim.odds_provenance or {}
@@ -350,6 +384,10 @@ def _serialize_claim(claim):
         ),
         'pricing_integrity_status': claim.pricing_integrity_status,
         'superseded': claim.is_superseded,
+        # External timestamp, or None when not yet anchored. The proof page
+        # renders this state directly, so it must be present on THIS payload
+        # too — the claims-list serializer having it is not enough.
+        'anchor': _serialize_claim_anchor(claim),
         # Versions the public card's Open Graph image URL. Next's own image hash
         # is derived from the module contents, so it does NOT change when
         # settlement changes the data — without this a crawler would keep the
@@ -482,40 +520,6 @@ def _serialize_claim_row(claim):
         # not anchored — never omitted and never implied, because an absent
         # anchor is exactly the thing a reader must be able to see.
         'anchor': _serialize_claim_anchor(claim),
-    }
-
-
-def _serialize_claim_anchor(claim):
-    """The external timestamp covering this claim, or None.
-
-    A claim published in the last hour may legitimately have no anchor yet:
-    stamping happens on the next scheduler pass. Returning None rather than
-    omitting the key keeps "not anchored" a visible state instead of an
-    ambiguous absence.
-    """
-    entry = (
-        claim.anchor_entries
-        .select_related('anchor')
-        .order_by('anchor__created_at')
-        .first()
-    )
-    if entry is None:
-        return None
-
-    anchor = entry.anchor
-    return {
-        'digest': anchor.digest,
-        'status': anchor.status,
-        'bitcoin_block_height': anchor.bitcoin_block_height,
-        'anchored_at': anchor.created_at.isoformat() if anchor.created_at else None,
-        'confirmed_at': anchor.confirmed_at.isoformat() if anchor.confirmed_at else None,
-        'calendars': anchor.calendars,
-        # The hash AS ANCHORED. If this ever differs from claim_hash above,
-        # the claim was altered after it was timestamped.
-        'claim_hash_at_anchor': entry.claim_hash,
-        'matches_current_hash': entry.claim_hash == claim.claim_hash,
-        'proof_url': f'/api/proof/anchors/{anchor.digest}/proof/',
-        'detail_url': f'/api/proof/anchors/{anchor.digest}/',
     }
 
 
