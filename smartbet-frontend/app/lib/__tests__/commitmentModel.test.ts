@@ -179,10 +179,28 @@ describe('anchors: new concept, unbroken links', () => {
 })
 
 describe('publication policy is honest', () => {
-  it('describes a deliberate manual step gated by eligibility checks', () => {
-    expect(en.record.policyBody).toContain('deliberate manual step')
-    expect(en.record.policyBody).toContain('eligibility checks')
-    expect(ro.record.policyBody).toContain('pas manual deliberat')
+  it('describes the automatic pre-registered rule, incl. no human veto', () => {
+    // Policy v1 (2026-08-08): publication is automatic. The copy must state
+    // the rule exactly as auto_publish_claims implements it.
+    expect(en.record.policyBody).toContain('published automatically')
+    expect(en.record.policyBody).toContain('pre-registered')
+    expect(en.record.policyBody).toContain('no human picks or vetoes')
+    expect(en.record.policyBody).toContain('eligibility gate')
+    expect(en.record.policyBody).toContain('at least 6 hours')
+    expect(en.record.policyBody).toContain('does not already hold a commitment')
+    expect(ro.record.policyBody).toContain('publicate automat')
+    expect(ro.record.policyBody).toContain('pre-înregistrată')
+    expect(ro.record.policyBody).toContain('cel puțin 6 ore')
+  })
+
+  it('never describes publication as a manual choice', () => {
+    expect(en.record.policyBody.toLowerCase()).not.toContain('manual')
+    expect(ro.record.policyBody.toLowerCase()).not.toContain('manual')
+  })
+
+  it('states top-ranked as a construction fact, not a quality judgment', () => {
+    expect(en.record.policyBody).toContain('top-ranked outcome in its market')
+    expect(ro.record.policyBody).toContain('clasat cel mai sus')
   })
 
   it('publication is explicitly not a value claim', () => {

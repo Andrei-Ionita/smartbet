@@ -13,9 +13,13 @@ import { useLanguage } from '../contexts/LanguageContext'
 interface RecommendationCardProps {
   recommendation: Recommendation
   onViewDetails?: (fixtureId: number) => void
+  /** When this signal was computed (ISO). A live signal without a visible
+   *  timestamp makes a legitimate update look like unreliable data — the
+   *  exact misreading a reviewer reported on 2026-08-08. */
+  lastUpdated?: string | null
 }
 
-export default function RecommendationCard({ recommendation, onViewDetails }: RecommendationCardProps) {
+export default function RecommendationCard({ recommendation, onViewDetails, lastUpdated }: RecommendationCardProps) {
   const [isExpanded, setIsExpanded] = useState(false)
   const [showConfidenceTooltip, setShowConfidenceTooltip] = useState(false)
   const [showAcknowledgment, setShowAcknowledgment] = useState(false)
@@ -101,9 +105,13 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
     // is not a calibrated probability — it is a provider value multiplied by a
     // form heuristic — so it is described as a relative signal score, which is
     // what it is.
+    // Provenance-based, with the actual selection named: "the provider's
+    // model rates X highest" tells the reader WHOSE assessment this is and
+    // what it applies to — the generic "highest-ranked outcome" line repeated
+    // the label above it without adding information.
     reasons.push(language === 'ro'
-      ? 'Rezultatul cel mai bine clasat din această piață'
-      : 'Highest-ranked outcome in this market')
+      ? `Modelul furnizorului clasează ${outcome} cel mai sus în această piață`
+      : `The provider's model rates ${outcome} highest in this market`)
 
     // No value-based reason. This used to push "Excellent value detected
     // (+18% EV)" / "Good odds value (+11% EV)" whenever the EV cleared a
@@ -124,12 +132,6 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
       reasons.push(language === 'ro'
         ? 'Niciun preț verificat pentru această piață — valoarea nu poate fi evaluată'
         : 'No verified price for this market — value cannot be assessed')
-    }
-
-    if (reasons.length === 0) {
-      reasons.push(language === 'ro'
-        ? 'Rezultatul cel mai bine clasat din această piață'
-        : 'Highest-ranked outcome in this market')
     }
 
     return reasons.slice(0, 3) // Return max 3 reasons
@@ -315,6 +317,14 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
             ? 'Se poate modifica înainte de start și nu face parte din istoricul verificat decât dacă BetGlitch îl publică drept revendicare imuabilă.'
             : 'Can change before kickoff and is not part of the verified record unless BetGlitch publishes it as an immutable claim.'}
         </p>
+        {lastUpdated && (
+          <p className="mt-1 text-[11px] font-medium text-sky-700">
+            {language === 'ro' ? 'Semnal actualizat: ' : 'Signal updated: '}
+            {new Date(lastUpdated).toLocaleString(language === 'ro' ? 'ro-RO' : 'en-GB', {
+              day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+            })}
+          </p>
+        )}
       </div>
 
       {/* Header */}
@@ -560,19 +570,22 @@ export default function RecommendationCard({ recommendation, onViewDetails }: Re
                 </div>
               </div>
 
-              <p className="mb-2 text-xs font-medium text-gray-700">
-                {language === 'ro' ? 'Statut valoare' : 'Value status'}:{' '}
-                <span className={cardState === 'verified_price' ? 'text-gray-900' : 'text-amber-800'}>
-                  {stateCopy.value}
-                </span>
-              </p>
+              {/* ONE score disclaimer on the collapsed card, plus one honest
+                  positive-use sentence. A first-visitor review (2026-08-08)
+                  read the stacked caveats — value status line + score
+                  disclaimer + price-status sentence + state panel, all above
+                  the fold — as "so what am I supposed to do with this?".
+                  The separate "Value status:" line is gone (the state badge
+                  and the panel below both carry it), and the card now says
+                  what the signal is FOR. */}
               <p className="mb-4 text-xs leading-relaxed text-gray-600">
                 {language === 'ro'
                   ? 'Scorul de semnal clasifică preferința relativă a BetGlitch între rezultatele disponibile. Nu este o probabilitate calibrată.'
                   : 'A signal score ranks BetGlitch’s relative preference among the available outcomes. It is not a calibrated probability.'}
-                {!priceVerified && (language === 'ro'
-                  ? ' Nu există un preț verificat pentru piața acestui semnal, așa că nu se afișează nicio valoare derivată din preț.'
-                  : ' There is no verified price for this signal’s market, so no price-derived value is shown.')}
+                {' '}
+                {language === 'ro'
+                  ? 'Folosește-l ca punct de plecare pentru propria evaluare a meciului și a prețului — nu ca o instrucțiune de pariere.'
+                  : 'Use it as a starting point for your own read of the match and the price — not as an instruction to bet.'}
               </p>
 
               {/* The "Edge vs Market" panel that used to sit here has been

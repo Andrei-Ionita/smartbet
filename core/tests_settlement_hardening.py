@@ -99,10 +99,14 @@ class SchedulerPipelineIntactTests(TestCase):
         # The SETTLEMENT pipeline, in order. Asserted as a prefix rather than an
         # exact list so adding an isolated evidence stage cannot fail this test
         # while still catching a reordering of the stages that matter.
-        self.assertEqual(ran[:4], [
+        # auto_publish_claims sits between marking and settlement: commitments
+        # must be computed from CURRENT recommendation flags, and settlement
+        # must still see any claim published earlier the same cycle.
+        self.assertEqual(ran[:5], [
             'log_recommendations_from_homepage',
             'update_results',
             'mark_recommended_predictions',
+            'auto_publish_claims',
             'settle_published_claims',
         ])
         # settle_published_claims grades off results that update_results wrote,

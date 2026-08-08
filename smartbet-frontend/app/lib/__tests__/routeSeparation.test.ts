@@ -155,7 +155,8 @@ describe('PUBLIC /api/recommendations', () => {
     const { GET } = await import('../../api/recommendations/route')
     const cc = (await GET()).headers.get('cache-control') || ''
     expect(cc).toContain('public')
-    expect(cc).toContain('s-maxage=60')
+    expect(cc).toContain('s-maxage=300')
+    expect(cc).toContain('stale-while-revalidate')
     expect(cc).not.toContain('no-store')
   })
 

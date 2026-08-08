@@ -395,8 +395,9 @@ export default function TrackRecordContent() {
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.publishedBody}
           </p>
-          {/* Why is one fixture here while the homepage shows many? Because
-              commitment is a deliberate act, not a ranking of the signals. */}
+          {/* Why fewer fixtures here than the homepage shows? Because
+              commitment is gated (verified price, ≥6h lead, one per
+              fixture), not a ranking of the signals. */}
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.publishedDistinction}
           </p>
@@ -404,9 +405,10 @@ export default function TrackRecordContent() {
             {rec.publishedStates}
           </p>
 
-          {/* Honest publication policy. Manual during beta, hard-gated by
-              machine-checked eligibility — and never a value claim. Kept in a
-              disclosure so the ledger stays a ledger. */}
+          {/* Honest publication policy. Automatic since policy v1
+              (auto_publish_claims, 2026-08-08), hard-gated by machine-checked
+              eligibility — and never a value claim. Kept in a disclosure so
+              the ledger stays a ledger. */}
           <details className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
             <summary className="cursor-pointer text-sm font-semibold text-gray-800">
               {rec.policyLink}

@@ -35,6 +35,10 @@ USER nextjs
 
 EXPOSE 3000
 ENV PORT 3000
-ENV HOSTNAME "0.0.0.0"
+# "::" (dual-stack), not "0.0.0.0": Railway's private network is IPv6-only,
+# and the scheduler worker reaches this service over
+# smartbet-frontend.railway.internal to avoid the public edge's ~40s
+# cold-start 502s. An IPv4-only bind makes the private domain unreachable.
+ENV HOSTNAME "::"
 
 CMD ["node", "server.js"]

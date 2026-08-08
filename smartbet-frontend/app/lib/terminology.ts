@@ -275,7 +275,7 @@ const EN = {
   record: {
     scopeHeading: 'What counts towards this record',
     scopeCutoff:
-      'The verified public record begins at a clean pricing-integrity cutoff. Predictions made before it are preserved internally as legacy and excluded from every figure on this page.',
+      'The verified public record begins on the date BetGlitch started verifying every recorded price. Predictions made before that date are preserved as legacy and excluded from every figure on this page.',
     scopeImmutable:
       'Only immutable public commitments enter the record — signals frozen before kickoff with their selection, signal score, recorded odds and bookmaker.',
     scopePending:
@@ -286,9 +286,9 @@ const EN = {
     publishedHeading: 'Public commitments',
     publishedBody:
       'Signals BetGlitch has deliberately frozen before kickoff for public forward evaluation. Once committed, the selection, recorded price and publication time cannot be rewritten or quietly removed.',
-    // The sentence a confused visitor needs most: why is one fixture here
-    // while the homepage shows many? Because commitment is a separate,
-    // deliberate act — not a quality ranking of the live signals.
+    // The sentence a confused visitor needs most: why fewer fixtures here
+    // than the homepage shows? Because commitment is a separate, gated act
+    // (policy v1) — not a quality ranking of the live signals.
     publishedDistinction:
       'A public commitment is not the same thing as every live signal. Live signals may change before kickoff. Public commitments are the subset BetGlitch has formally placed into the permanent evaluation record.',
     publishedStates:
@@ -306,18 +306,19 @@ const EN = {
     publishedNotCounted: 'Awaiting settlement — not included in verified performance',
     publishedCountedIn: 'Counted in the verified record',
 
-    // Honest publication policy. There is NO automatic selection rule in the
-    // code: publication is a deliberate manual act during beta, hard-gated by
-    // machine-checked eligibility (pre-kickoff, verified pricing integrity,
-    // complete provenance, coherent timestamps, not superseded). Do not claim
-    // "strongest signal" or "best value" here — no such rule exists.
+    // Honest publication policy — AUTOMATIC since policy v1 (2026-08-08).
+    // This copy must state exactly what core/management/commands/
+    // auto_publish_claims.py does and nothing more. Do not claim "strongest
+    // signal" or "best value" here — no such rule exists; the committed
+    // selection is the top-ranked outcome by construction, and every other
+    // criterion is a machine-checked gate, not a judgment call.
     policyLink: 'How commitments are selected',
     policyBody:
-      'During public beta, BetGlitch commits selected live signals to the public record for forward evaluation. Each commitment is a deliberate manual step, allowed only when hard eligibility checks pass: the fixture has not kicked off, the price is verified with complete bookmaker and market provenance, and the timestamps are coherent. Publication itself is not a claim that a signal has proven betting value.',
+      'Commitments are published automatically by a fixed, pre-registered rule — no human picks or vetoes individual fixtures. A live signal is committed when all of the following hold: it passes the machine-checked eligibility gate (verified price with complete bookmaker and market provenance, coherent timestamps, not superseded), kickoff is at least 6 hours away, and the fixture does not already hold a commitment. The committed selection is simply the top-ranked outcome in its market. Publication itself is not a claim that a signal has proven betting value.',
 
     verifiedHeading: 'Verified record',
     verifiedBody:
-      'This is the record we cannot rewrite. These aggregate figures are calculated from eligible settled commitments only. Pending commitments, void and cancelled commitments, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of signals BetGlitch has produced, and that is deliberate.',
+      'This is the record we cannot rewrite. These aggregate figures are calculated from eligible settled commitments only. Pending commitments, void and cancelled commitments, and every legacy prediction from before price verification began are excluded — so this record is smaller than the number of signals BetGlitch has produced, and that is deliberate.',
     verifiedFromCommitments:
       'Public commitments may include pending entries. The verified record below contains only eligible settled commitments.',
 
@@ -334,7 +335,7 @@ const EN = {
     legacyAll: (n: number) => `All ${n} rows below were`,
     legacySome: (n: number, total: number) => `${n} of the ${total} rows below were`,
     legacyBody:
-      'recorded before the pricing-integrity cutoff. They are kept public because BetGlitch does not delete history, but their prices could not be verified against the exact market and bookmaker, so they are excluded from the accuracy and ROI figures above and from every public performance claim.',
+      'recorded before BetGlitch began verifying every recorded price. They are kept public because BetGlitch does not delete history, but their prices could not be verified against the exact market and bookmaker, so they are excluded from the accuracy and ROI figures above and from every public performance claim.',
     legacyDetailBefore:
       'These predictions predate BetGlitch’s verified pricing standard. Their original price snapshots are not used in public performance reporting, so every price-dependent figure — expected value and profit/loss — reads ',
     notVerified: 'Not verified',
@@ -630,7 +631,7 @@ const RO: typeof EN = {
   record: {
     scopeHeading: 'Ce intră în acest istoric',
     scopeCutoff:
-      'Istoricul public verificat începe de la un prag curat de integritate a prețului. Predicțiile făcute înainte de acesta sunt păstrate intern ca moștenire și excluse din fiecare cifră de pe această pagină.',
+      'Istoricul public verificat începe de la data la care BetGlitch a început să verifice fiecare preț înregistrat. Predicțiile făcute înainte de această dată sunt păstrate ca moștenire și excluse din fiecare cifră de pe această pagină.',
     scopeImmutable:
       'Doar angajamentele publice imutabile intră în istoric — semnale înghețate înainte de start, cu selecția, scorul de semnal, cota înregistrată și casa de pariuri.',
     scopePending:
@@ -661,11 +662,11 @@ const RO: typeof EN = {
 
     policyLink: 'Cum sunt selectate angajamentele',
     policyBody:
-      'În perioada de beta public, BetGlitch angajează semnale live selectate în registrul public pentru evaluare prospectivă. Fiecare angajament este un pas manual deliberat, permis doar când trec verificările stricte de eligibilitate: meciul nu a început, prețul este verificat cu proveniență completă de casă de pariuri și piață, iar marcajele de timp sunt coerente. Publicarea în sine nu este o afirmație că semnalul are valoare de pariere dovedită.',
+      'Angajamentele sunt publicate automat, după o regulă fixă, pre-înregistrată — niciun om nu alege și nu respinge meciuri individuale. Un semnal live este angajat când toate condițiile sunt îndeplinite: trece de verificarea automată de eligibilitate (preț verificat cu proveniență completă de casă de pariuri și piață, marcaje de timp coerente, neînlocuit), mai sunt cel puțin 6 ore până la începerea meciului, iar meciul nu are deja un angajament. Selecția angajată este pur și simplu rezultatul clasat cel mai sus în piața sa. Publicarea în sine nu este o afirmație că semnalul are valoare de pariere dovedită.',
 
     verifiedHeading: 'Istoric verificat',
     verifiedBody:
-      'Acesta este istoricul pe care nu îl putem rescrie. Aceste cifre agregate sunt calculate exclusiv din angajamente eligibile încheiate. Angajamentele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de semnale produse de BetGlitch, iar asta este intenționat.',
+      'Acesta este istoricul pe care nu îl putem rescrie. Aceste cifre agregate sunt calculate exclusiv din angajamente eligibile încheiate. Angajamentele în așteptare, cele nule și anulate, precum și fiecare predicție de dinainte de începerea verificării prețurilor sunt excluse — deci acest istoric este mai mic decât numărul de semnale produse de BetGlitch, iar asta este intenționat.',
     verifiedFromCommitments:
       'Angajamentele publice pot include intrări în așteptare. Istoricul verificat de mai jos conține doar angajamente eligibile încheiate.',
 
@@ -684,7 +685,7 @@ const RO: typeof EN = {
     legacyAll: (n: number) => `Toate cele ${n} rânduri de mai jos au fost`,
     legacySome: (n: number, total: number) => `${n} din cele ${total} rânduri de mai jos au fost`,
     legacyBody:
-      'înregistrate înainte de pragul de integritate a prețului. Sunt păstrate public pentru că BetGlitch nu șterge istoricul, dar prețurile lor nu au putut fi verificate față de piața și casa de pariuri exacte, așa că sunt excluse din cifrele de acuratețe și ROI de mai sus și din orice afirmație publică de performanță.',
+      'înregistrate înainte ca BetGlitch să înceapă verificarea fiecărui preț înregistrat. Sunt păstrate public pentru că BetGlitch nu șterge istoricul, dar prețurile lor nu au putut fi verificate față de piața și casa de pariuri exacte, așa că sunt excluse din cifrele de acuratețe și ROI de mai sus și din orice afirmație publică de performanță.',
     legacyDetailBefore:
       'Aceste predicții sunt anterioare standardului verificat de preț al BetGlitch. Capturile lor originale de preț nu sunt folosite în raportarea publică de performanță, așa că fiecare cifră dependentă de preț — valoarea estimată și profitul/pierderea — afișează ',
     notVerified: 'Neverificat',

@@ -46,6 +46,10 @@ class Command(BaseCommand):
         self.stdout.write('  1. Fetch new recommendations (log_recommendations_from_homepage)')
         self.stdout.write('  2. Update match outcomes (update_results)')
         self.stdout.write('  3. Refresh recommendation status (mark_recommended_predictions)')
+        self.stdout.write('  4. Auto-publish commitments per policy v1 (auto_publish_claims)')
+        self.stdout.write('  5. Settle published claims (settle_published_claims)')
+        self.stdout.write('  6. Append signal evidence (capture_signal_evidence)')
+        self.stdout.write('  7. Append fixture results (capture_fixture_results)')
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:
@@ -109,6 +113,12 @@ class Command(BaseCommand):
 
         # Task 3: Refresh recommendation flags
         self.run_task('mark_recommended_predictions', **{'min_confidence': 60.0, 'min_ev': 15.0})
+
+        # Task 3b: Automatic public commitment (policy v1, pre-registered).
+        # Runs ONLY here — after recommendation flags are current, before
+        # settlement — never manually, so every commitment is attributable to
+        # the published policy rather than to a human choice.
+        self.run_task('auto_publish_claims')
 
         # Task 4: Settle published claims whose fixtures have finished.
         # MUST run after update_results, which is what grades the underlying

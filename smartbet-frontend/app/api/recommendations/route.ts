@@ -35,7 +35,11 @@ export const runtime = 'nodejs'
  * inferred.
  */
 const PUBLIC_CACHE_HEADERS = {
-  'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=120',
+  // The signal set only meaningfully changes when a scheduler run lands
+  // (hourly), so a 5-minute shared cache serves virtually every visitor from
+  // the edge instead of paying the ~40s engine computation. SWR keeps a
+  // stale-but-instant response flowing while the edge revalidates.
+  'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
 } as const
 
 export async function GET() {

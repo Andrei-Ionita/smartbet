@@ -128,6 +128,9 @@ export default function ExploreContent() {
   const [selectedLeague, setSelectedLeague] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [selectedFixture, setSelectedFixture] = useState<FixtureAnalysis | null>(null)
+  // When the open fixture's signal was computed. The engine computes on
+  // request, so receipt time is the honest computation stamp.
+  const [fixtureLoadedAt, setFixtureLoadedAt] = useState<string | null>(null)
   const [isSearching, setIsSearching] = useState(false)
   const [searchState, setSearchState] = useState<SearchState>('idle')
   const [browseMode, setBrowseMode] = useState(false)
@@ -307,6 +310,7 @@ export default function ExploreContent() {
       if (data.fixture) {
         console.log('Fixture loaded successfully:', data.fixture.fixture_id)
         setSelectedFixture(data.fixture)
+        setFixtureLoadedAt(new Date().toISOString())
       } else {
         console.error('No fixture data in response', data)
       }
@@ -589,7 +593,7 @@ export default function ExploreContent() {
               <div className="p-6 md:p-8">
                 {isLoadingFixture ? (
                   <div className="flex flex-col items-center justify-center py-12">
-                    <LoadingSpinner size="lg" text="Loading AI Analysis..." />
+                    <LoadingSpinner size="lg" text={t('explore.analysis.loading')} />
                   </div>
                 ) : fixtureError ? (
                   <div role="alert" className="py-10 text-center">
@@ -653,6 +657,7 @@ export default function ExploreContent() {
                     )}
 
                     <RecommendationCard
+                      lastUpdated={fixtureLoadedAt}
                       recommendation={{
                         fixture_id: selectedFixture.fixture_id,
                         home_team: selectedFixture.home_team,

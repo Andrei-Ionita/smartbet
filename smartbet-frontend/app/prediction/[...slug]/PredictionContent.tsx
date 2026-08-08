@@ -14,6 +14,8 @@ interface PredictionContentProps {
     homeTeam: string
     awayTeam: string
     kickoff: string
+    /** When this signal was computed (server request time — the engine computes on request). */
+    lastUpdated?: string | null
 }
 
 export default function PredictionContent({
@@ -21,7 +23,8 @@ export default function PredictionContent({
     leagueName,
     homeTeam,
     awayTeam,
-    kickoff
+    kickoff,
+    lastUpdated
 }: PredictionContentProps) {
     const router = useRouter()
 
@@ -60,7 +63,7 @@ export default function PredictionContent({
             {/* SEO Header */}
             <div className="text-center mb-8">
                 <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">
-                    {homeTeam} vs {awayTeam} Prediction & Betting Tips
+                    {homeTeam} vs {awayTeam} — Football Signal
                 </h1>
                 <div className="flex flex-wrap justify-center gap-4 text-gray-600 text-sm md:text-base">
                     <div className="flex items-center gap-2 bg-white px-4 py-2 rounded-full shadow-sm border border-gray-100">
@@ -83,6 +86,7 @@ export default function PredictionContent({
                 <RecommendationCard
                     recommendation={recommendation}
                     onViewDetails={handleViewDetails}
+                    lastUpdated={lastUpdated}
                 />
             </div>
 
@@ -135,14 +139,14 @@ export default function PredictionContent({
                 <ProofCapturePanel
                     source="prediction_page"
                     leagueInterest={leagueName}
-                    title="Like this edge? Get the best ones by email."
-                    description="We use the free list to send weekly high-conviction picks and transparent track-record updates, without touching the live prediction flow."
+                    title="Follow the verified record by email."
+                    description="Occasional updates from the public record: new commitments, settled results, and what changed — wins and losses alike."
                 />
             </div>
 
             {/* Disclaimer */}
             <div className="text-center text-xs text-gray-400 mt-12 mb-4">
-                <p>Predictions are based on statistical analysis and machine learning. Gambling involves risk. Please gamble responsibly.</p>
+                <p>Signal scores rank outcomes using probability data from BetGlitch&apos;s football data provider. They are not betting advice. Gambling involves risk. Please gamble responsibly.</p>
             </div>
         </div>
     )

@@ -225,7 +225,20 @@ describe('accessibility', () => {
   it('conveys state as text, not colour alone', () => {
     // Both status and value-status render readable strings.
     expect(CARD).toContain('{stateCopy.status}')
-    expect(CARD).toContain('{stateCopy.value}')
-    expect(CARD).toContain("'Statut valoare' : 'Value status'")
+    // The value status flows through the state badge's description.
+    expect(CARD).toContain('description: stateCopy.value')
+    expect(CARD).toContain('{stateCopy.panelTitle}')
+  })
+
+  it('states value status ONCE on the collapsed card, not as a stack of caveats', () => {
+    // The separate "Value status:" line was consolidated into the state badge
+    // + state panel on 2026-08-08 after a first-visitor review read the
+    // repeated caveats as noise. Reintroducing it re-creates the stack.
+    expect(CARD).not.toContain("'Statut valoare' : 'Value status'")
+  })
+
+  it('tells the reader what a signal is FOR, in both languages', () => {
+    expect(CARD).toContain('Use it as a starting point for your own read')
+    expect(CARD).toContain('Folosește-l ca punct de plecare')
   })
 })

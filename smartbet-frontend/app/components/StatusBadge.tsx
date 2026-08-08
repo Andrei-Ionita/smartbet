@@ -63,7 +63,7 @@ const RO: Record<SignalStatus, { label: string; hint: string }> = {
   },
   legacy: {
     label: 'ISTORIC — NU E ÎN ISTORICUL VERIFICAT',
-    hint: 'Înregistrat înainte de pragul de integritate a prețurilor. Păstrat, dar exclus din performanța publică.',
+    hint: 'Înregistrat înainte de începerea verificării prețurilor. Păstrat, dar exclus din performanța publică.',
   },
 }
 
@@ -119,7 +119,7 @@ const SPECS: Record<SignalStatus, Spec> = {
     label: 'LEGACY — NOT IN VERIFIED RECORD',
     Icon: Archive,
     className: 'border-solid border-amber-400 bg-amber-50 text-amber-900',
-    hint: 'Recorded before the pricing-integrity cutoff. Preserved, but excluded from public performance.',
+    hint: 'Recorded before price verification began. Preserved, but excluded from public performance.',
   },
 }
 

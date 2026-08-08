@@ -348,7 +348,7 @@ export const translations = {
             },
             analysis: {
                 title: 'Match Analysis',
-                loading: 'Generating AI analysis...',
+                loading: 'Computing signal...',
                 error: 'Failed to load analysis',
                 back: 'Back to results'
             }
@@ -683,7 +683,7 @@ export const translations = {
             },
             analysis: {
                 title: 'Analiză Meci',
-                loading: 'Se generează analiza AI...',
+                loading: 'Se calculează semnalul...',
                 error: 'Nu s-a putut încărca analiza',
                 back: 'Înapoi la rezultate'
             }

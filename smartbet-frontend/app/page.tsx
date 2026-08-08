@@ -258,6 +258,7 @@ export default function HomePage() {
                   key={recommendation.fixture_id}
                   recommendation={recommendation}
                   onViewDetails={handleViewDetails}
+                  lastUpdated={data?.lastUpdated ?? null}
                 />
               ))}
             </div>
