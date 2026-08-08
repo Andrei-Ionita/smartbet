@@ -80,9 +80,23 @@ describe('timestamps', () => {
   })
 })
 
-describe('model score is labelled as a score', () => {
-  it('keeps one decimal', () => {
-    expect(formatModelScore(62.36)).toBe('62.4%')
+describe('the frozen signal score renders as a ranking, never a percentage', () => {
+  // Superseded 2026-08-08. "62.4%" presented the frozen ranking as a
+  // calibrated probability — the exact reading every other surface retired.
+  // Display-only change: the stored claim value and hash are untouched, and
+  // one decimal preserves the immutable value's precision.
+  it('keeps one decimal, out of 100', () => {
+    expect(formatModelScore(62.36)).toBe('62.4 / 100')
+  })
+
+  it('never emits a percent sign', () => {
+    for (const v of [0, 12, 62.36, 99.95]) {
+      expect(formatModelScore(v)).not.toContain('%')
+    }
+  })
+
+  it('still handles a missing value', () => {
+    expect(formatModelScore(null)).toBe('n/a')
   })
 })
 

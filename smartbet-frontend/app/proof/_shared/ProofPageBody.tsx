@@ -90,9 +90,20 @@ export function ProofPageBody(
         <Row label="Odds captured" value={formatUtc(p.odds_captured_at)} />
         <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
         <Row label="Claim published" value={formatUtc(p.published_at)} />
-        <Row label="Signal score" value={`${formatModelScore(p.model_score_percent)} (a relative ranking, not a calibrated probability)`} />
+        <Row label="Signal score at commitment" value={formatModelScore(p.model_score_percent)} />
         <Row label="Claim ID" value={data.claim_id ?? 'n/a'} />
       </dl>
+
+      {/* The frozen score, explained. This page is a server-rendered shareable
+          artifact with no language context, so both languages are stated. */}
+      <p className="mt-3 text-xs leading-relaxed text-gray-600">
+        This is the signal score recorded when the commitment was published. It
+        is a relative ranking, not a calibrated probability.
+      </p>
+      <p className="mt-1 text-xs leading-relaxed text-gray-500">
+        Acesta este scorul de semnal înregistrat la publicarea angajamentului.
+        Este o clasare relativă, nu o probabilitate calibrată.
+      </p>
 
       <p className="mt-4 break-all font-mono text-[11px] leading-relaxed text-gray-500">
         SHA-256 ({data.claim_hash_version}): {data.claim_hash}

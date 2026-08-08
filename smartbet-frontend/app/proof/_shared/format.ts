@@ -75,7 +75,11 @@ export function formatUtc(iso: string | null | undefined): string {
 /** Model score, labelled as a score — never as a calibrated probability. */
 export function formatModelScore(pct: number | null | undefined): string {
   if (pct === null || pct === undefined || Number.isNaN(pct)) return 'n/a'
-  return `${pct.toFixed(1)}%`
+  // "62.4 / 100", never "62.4%". A percent sign presents the frozen ranking as
+  // a calibrated probability — the exact reading every other surface retired.
+  // Display-only: the stored claim value and its hash are untouched, and the
+  // one decimal place preserves the immutable value's precision.
+  return `${pct.toFixed(1)} / 100`
 }
 
 /**

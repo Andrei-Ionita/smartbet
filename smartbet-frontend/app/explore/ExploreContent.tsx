@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { Search, Filter, Calendar, Trophy, TrendingUp } from 'lucide-react'
+import { Search, Filter, Calendar, Trophy, TrendingUp, Lock } from 'lucide-react'
 import RecommendationCard from '../components/RecommendationCard'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { useLanguage } from '../contexts/LanguageContext'
@@ -131,6 +131,37 @@ export default function ExploreContent() {
   const [isSearching, setIsSearching] = useState(false)
   const [searchState, setSearchState] = useState<SearchState>('idle')
   const [browseMode, setBrowseMode] = useState(false)
+
+  // Fixtures that already carry a PUBLIC COMMITMENT, keyed by fixture id.
+  //
+  // One lookup against the sole claims authority (/api/proof/claims/), joined
+  // by fixture_id — never a per-card request, never derived from the
+  // prediction feed, and never a hardcoded fixture. A fixture can hold BOTH a
+  // current live signal (mutable) and an earlier frozen commitment; this map
+  // is what lets the UI state that plainly. Publication status and signal
+  // quality are separate concepts: the badge is a factual marker, not a
+  // quality tier, so uncommitted signals are not demoted by its absence.
+  const [commitments, setCommitments] = useState<Map<number, { proofUrl: string }>>(new Map())
+
+  useEffect(() => {
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+    fetch(`${apiUrl}/api/proof/claims/?limit=200`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!Array.isArray(data?.claims)) return
+        const map = new Map<number, { proofUrl: string }>()
+        for (const claim of data.claims) {
+          if (claim.superseded) continue
+          if (typeof claim.fixture_id === 'number' && claim.proof_url) {
+            map.set(claim.fixture_id, { proofUrl: claim.proof_url })
+          }
+        }
+        setCommitments(map)
+      })
+      // A failed lookup means no badges, never an error state: commitment
+      // markers are additive context, not core signal data.
+      .catch(() => {})
+  }, [])
 
   // Request supersession.
   //
@@ -466,6 +497,25 @@ export default function ExploreContent() {
                       </div>
                     </div>
 
+                    {/* Factual commitment marker. Rendered ONLY when this
+                        fixture has a frozen PublishedClaim — a state marker,
+                        not a quality tier. */}
+                    {commitments.has(fixture.fixture_id) && (
+                      <div className="mb-3 flex flex-wrap items-center gap-2">
+                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-solid border-indigo-500 bg-indigo-50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                          <Lock className="h-3 w-3" aria-hidden />
+                          {language === 'ro' ? 'ANGAJAMENT PUBLIC' : 'PUBLIC COMMITMENT'}
+                        </span>
+                        <a
+                          href={commitments.get(fixture.fixture_id)!.proofUrl}
+                          onClick={(e) => e.stopPropagation()}
+                          className="text-xs font-semibold text-indigo-700 underline-offset-2 hover:underline"
+                        >
+                          {language === 'ro' ? 'Vezi dovada' : 'View proof'}
+                        </a>
+                      </div>
+                    )}
+
                     {/* No prediction or odds badges here.
                         Producing them meant pulling `predictions;odds` for every
                         fixture in every league — a fixture carries 900-2700 odds
@@ -578,6 +628,29 @@ export default function ExploreContent() {
                         {copy.modelScoreNote}
                       </p>
                     </div>
+
+                    {/* This fixture ALSO holds a frozen public commitment. Two
+                        objects, stated as such: the live analysis above may
+                        keep changing; the commitment below cannot. */}
+                    {selectedFixture && commitments.has(selectedFixture.fixture_id) && (
+                      <div className="mb-6 rounded-xl border-2 border-solid border-indigo-300 bg-indigo-50 p-4">
+                        <span className="inline-flex items-center gap-1 rounded-md border-2 border-solid border-indigo-500 bg-white px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-indigo-900">
+                          <Lock className="h-3 w-3" aria-hidden />
+                          {language === 'ro' ? 'ANGAJAMENT PUBLIC' : 'PUBLIC COMMITMENT'}
+                        </span>
+                        <p className="mt-2 text-sm leading-relaxed text-gray-700">
+                          {language === 'ro'
+                            ? 'Semnalul live poate continua să se schimbe. Angajamentul public păstrează starea la care BetGlitch s-a angajat înainte de start.'
+                            : 'The live signal may continue to change. The public commitment preserves the state BetGlitch committed to before kickoff.'}
+                        </p>
+                        <a
+                          href={commitments.get(selectedFixture.fixture_id)!.proofUrl}
+                          className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-indigo-700 underline-offset-2 hover:underline"
+                        >
+                          {language === 'ro' ? 'Vezi dovada' : 'View proof'} →
+                        </a>
+                      </div>
+                    )}
 
                     <RecommendationCard
                       recommendation={{

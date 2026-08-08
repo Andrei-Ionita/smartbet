@@ -244,7 +244,8 @@ describe('signal-score terminology and its explanation', () => {
   })
 
   it('the proof page labels the frozen score as a signal score', () => {
-    expect(read('app/proof/_shared/ProofPageBody.tsx')).toContain('label="Signal score"')
+    // Superseded 2026-08-08: the label names the moment the value was frozen.
+    expect(read('app/proof/_shared/ProofPageBody.tsx')).toContain('label="Signal score at commitment"')
   })
 })
 

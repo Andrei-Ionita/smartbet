@@ -233,6 +233,61 @@ describe('the proof page is an accountability artifact, not an endorsement', () 
   })
 })
 
+describe('the frozen score and the Explore commitment marker', () => {
+  it('the proof surfaces render the score as /100 with the bilingual note', () => {
+    const body = read('app/proof/_shared/ProofPageBody.tsx')
+    expect(body).toContain('label="Signal score at commitment"')
+    expect(body).toContain('recorded when the commitment was published')
+    expect(body).toContain('It\n        is a relative ranking, not a calibrated probability.')
+    expect(body).toContain('Este o clasare relativă, nu o probabilitate calibrată.')
+    // The PNG card follows the same convention.
+    expect(read('app/proof/_shared/proofCard.tsx')).toContain('label="SIGNAL SCORE"')
+    const fmt = read('app/proof/_shared/format.ts')
+    expect(fmt).toContain('/ 100`')
+    expect(fmt).not.toContain('}%`')
+  })
+
+  it('Explore joins commitments by fixture id from the claims authority', () => {
+    const src = read('app/explore/ExploreContent.tsx')
+    // One list lookup, joined client-side. Never per-card, never hardcoded.
+    expect(src).toContain("/api/proof/claims/?limit=200")
+    expect(src).toContain('map.set(claim.fixture_id')
+    expect(src).not.toMatch(/Cardiff/i)
+    expect(rendered('app/explore/ExploreContent.tsx')).not.toMatch(
+      /['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i,
+    )
+  })
+
+  it('the marker renders ONLY for committed fixtures, in both languages', () => {
+    const src = read('app/explore/ExploreContent.tsx')
+    expect(src).toContain('commitments.has(fixture.fixture_id) && (')
+    expect(src).toContain("language === 'ro' ? 'ANGAJAMENT PUBLIC' : 'PUBLIC COMMITMENT'")
+    expect(src).toContain("language === 'ro' ? 'Vezi dovada' : 'View proof'")
+  })
+
+  it('states the dual-state distinction without a quality claim', () => {
+    const src = read('app/explore/ExploreContent.tsx')
+    expect(src).toContain(
+      'The live signal may continue to change. The public commitment preserves the state BetGlitch committed to before kickoff.',
+    )
+    expect(src).toContain(
+      'Semnalul live poate continua să se schimbe. Angajamentul public păstrează starea la care BetGlitch s-a angajat înainte de start.',
+    )
+    // No better/stronger/value wording around the marker.
+    const scan = rendered('app/explore/ExploreContent.tsx').toLowerCase()
+    for (const banned of ['stronger signal', 'best commitment', 'top commitment', 'recommended commitment']) {
+      expect(scan).not.toContain(banned)
+    }
+  })
+
+  it('live and committed remain visually distinct treatments', () => {
+    const src = read('app/explore/ExploreContent.tsx')
+    // Dashed sky = mutable live signal; solid indigo = frozen commitment.
+    expect(src).toContain('border-sky-200 bg-sky-50')
+    expect(src).toContain('border-solid border-indigo-500')
+  })
+})
+
 describe('the homepage funnel strip makes 1 commitment look normal', () => {
   const src = read('app/page.tsx')
 

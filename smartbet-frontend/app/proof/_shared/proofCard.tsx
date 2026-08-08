@@ -143,7 +143,7 @@ function PickCard({ data }: { data: ProofPayload }) {
           {formatSelection(p.market_type, p.predicted_outcome)}
         </div>
         <Meta label="RECORDED ODDS" value={priceLine(p)} />
-        <Meta label="MODEL SCORE" value={formatModelScore(p.model_score_percent)} />
+        <Meta label="SIGNAL SCORE" value={formatModelScore(p.model_score_percent)} />
       </div>
       <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
