@@ -252,7 +252,10 @@ describe('live signal versus published claim', () => {
   it('terminology keeps the two concepts separate and names the mutability of each', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain("label: 'Live signal'")
-    expect(copy).toContain("label: 'Published pick'")
+    // Superseded 2026-08-08. 'Published pick' made the one committed fixture
+    // read as a featured betting recommendation.
+    expect(copy).toContain("label: 'Public commitment'")
+    expect(copy).toContain("label: 'Angajament public'")
     expect(copy).toMatch(/can change before kickoff/i)
     expect(copy).toMatch(/can no longer change/i)
   })
@@ -288,7 +291,7 @@ describe('verified price versus assessed value', () => {
 describe('pending claims are excluded from performance', () => {
   it('the record copy says pending counts towards nothing', () => {
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toMatch(/pending picks are not counted/i)
+    expect(copy).toMatch(/pending commitments are not counted as results/i)
     expect(copy).toMatch(/Pending is not a result/i)
   })
 
@@ -428,7 +431,7 @@ describe('consistent public positioning', () => {
   it('the supporting copy names freezing, visibility of losses, and context', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain(
-      'When BetGlitch publishes a pick, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
+      'When BetGlitch commits a signal to the public record, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
     )
   })
 
@@ -458,7 +461,7 @@ describe('consistent public positioning', () => {
 
   it('the newsletter promises updates, not tips', () => {
     const src = read('app/components/EmailCapture.tsx')
-    expect(src).toContain('Published-pick and verified-record updates')
+    expect(src).toContain('Public-commitment and verified-record updates')
   })
 })
 

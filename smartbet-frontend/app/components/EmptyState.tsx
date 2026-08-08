@@ -45,16 +45,16 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'expected',
     title: 'The verified record is being built',
     body:
-      'No published pick has settled yet. Once one does, its result appears here automatically—win or lose. BetGlitch restarted its public record under a stricter pricing and publication standard, so earlier predictions are excluded.',
-    primary: { label: 'View published pending picks', href: '/track-record#published-picks' },
+      'No public commitment has settled yet. Once one does, its result appears here automatically—win or lose. BetGlitch restarted its public record under a stricter pricing and publication standard, so earlier predictions are excluded.',
+    primary: { label: 'View public commitments', href: '/track-record#public-commitments' },
     secondary: { label: 'Explore live signals', href: '/explore' },
   },
   no_pending_claims: {
     Icon: Hourglass,
     tone: 'expected',
-    title: 'No published picks are awaiting a result',
+    title: 'No public commitments are awaiting settlement',
     body:
-      'Nothing is currently frozen and waiting on a match. Published picks appear here between publication and full-time.',
+      'Nothing is currently frozen and waiting on a match. Public commitments appear here between commitment and full-time.',
     primary: { label: 'Explore live signals', href: '/explore' },
   },
   no_live_signals: {
@@ -101,7 +101,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'expected',
     title: 'Your dashboard fills in as you use BetGlitch',
     body:
-      'Set a bankroll to size stakes, and follow the verified record as published picks settle.',
+      'Track your exposure with the bankroll tools, and follow the verified record as public commitments settle.',
     primary: { label: 'Explore live signals', href: '/explore' },
     secondary: { label: 'Set up bankroll', href: '/bankroll' },
   },
@@ -122,14 +122,14 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   no_verified_results: {
     title: 'Istoricul verificat este în construcție',
     body:
-      'Niciun pontaj publicat nu s-a încheiat încă. Când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. BetGlitch și-a restartat istoricul public sub un standard mai strict de preț și publicare, așa că predicțiile anterioare sunt excluse.',
-    primary: 'Vezi pontajele publicate în așteptare',
+      'Niciun angajament public nu s-a încheiat încă. Când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. BetGlitch și-a restartat istoricul public sub un standard mai strict de preț și publicare, așa că predicțiile anterioare sunt excluse.',
+    primary: 'Vezi angajamentele publice',
     secondary: 'Explorează semnalele live',
   },
   no_pending_claims: {
-    title: 'Niciun pontaj publicat nu așteaptă un rezultat',
+    title: 'Niciun angajament public nu așteaptă încheierea',
     body:
-      'Momentan nimic nu este înghețat în așteptarea unui meci. Pontajele publicate apar aici între publicare și finalul meciului.',
+      'Momentan nimic nu este înghețat în așteptarea unui meci. Angajamentele publice apar aici între angajare și finalul meciului.',
     primary: 'Explorează semnalele live',
   },
   no_live_signals: {
@@ -153,7 +153,7 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   missing_odds: {
     title: 'Niciun preț verificat nu este disponibil pentru această piață',
     body:
-      'Semnalul modelului este în continuare afișat, dar BetGlitch nu publică o revendicare cu preț fără proveniență completă de piață — casa de pariuri exactă, piața și momentul capturii trebuie toate înregistrate.',
+      'Semnalul live este în continuare afișat, dar BetGlitch nu angajează o revendicare cu preț fără proveniență completă de piață — casa de pariuri exactă, piața și momentul capturii trebuie toate înregistrate.',
   },
   provider_unavailable: {
     title: 'Datele despre meciuri sunt temporar indisponibile',
@@ -164,7 +164,7 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   first_dashboard: {
     title: 'Panoul tău se completează pe măsură ce folosești BetGlitch',
     body:
-      'Setează un buget pentru a dimensiona mizele și urmărește istoricul verificat pe măsură ce pontajele publicate se încheie.',
+      'Urmărește-ți expunerea cu instrumentele de buget și istoricul verificat pe măsură ce angajamentele publice se încheie.',
     primary: 'Explorează semnalele live',
     secondary: 'Configurează bugetul',
   },

@@ -11,12 +11,12 @@ import {
 export function UnpublishedState() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <h1 className="text-2xl font-bold text-gray-900">Not published as a claim</h1>
+      <h1 className="text-2xl font-bold text-gray-900">Not a public commitment</h1>
       <p className="mt-3 text-gray-600">
-        This prediction has not been published as an immutable BetGlitch claim.
+        This signal has not been committed to the public record as an immutable BetGlitch claim.
       </p>
       <p className="mt-2 text-sm text-gray-500">
-        We only publish proof for picks we have snapshotted and hashed before kickoff.
+        We only publish proof for signals we have snapshotted and hashed before kickoff.
       </p>
       <Link href="/track-record" className="mt-6 inline-block font-semibold text-blue-700 hover:text-blue-900">
         Review the full public track record →
@@ -27,9 +27,9 @@ export function UnpublishedState() {
 
 // Must match the canonical states in app/components/StatusBadge.tsx. The page
 // previously said "Pick — pending", which is a fourth spelling of a state the
-// rest of the product calls PUBLISHED — PENDING.
+// rest of the product now calls COMMITMENT — PENDING.
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'PUBLISHED — PENDING',
+  PENDING: 'COMMITMENT — PENDING',
   WON: 'RESULT — WON',
   LOST: 'RESULT — LOST',
   VOID: 'VOID',
@@ -48,7 +48,7 @@ export function ProofPageBody(
       <TrackOnMount event="published_proof_opened" surface="proof" />
       <img
         src={imageUrl}
-        alt="BetGlitch published claim"
+        alt="BetGlitch public commitment"
         width={1200}
         height={630}
         className="w-full rounded-2xl border border-gray-200 shadow-sm"
@@ -59,9 +59,22 @@ export function ProofPageBody(
       </h1>
 
       <p className="mt-3 text-sm font-semibold text-gray-800">{STATUS_LABEL[status]}</p>
-      {status === 'PENDING' && (
+      {/* What this page IS: an accountability artifact, not an endorsement.
+          "BetGlitch recommended this bet" is exactly the reading to prevent. */}
+      <p className="mt-1 text-sm text-gray-600">
+        This signal was committed to the public record before kickoff. Its
+        selection, recorded price and publication timestamp are preserved so
+        the eventual result can be evaluated without hindsight. A public
+        commitment is not a claim of proven betting value.
+      </p>
+      {status === 'PENDING' ? (
         <p className="mt-1 text-sm text-gray-600">
-          Published before kickoff. The result will be shown here after settlement—win or lose.
+          Awaiting settlement — not yet counted as a verified result.
+        </p>
+      ) : (
+        <p className="mt-1 text-sm text-gray-600">
+          This commitment has settled and is included in the verified record
+          when eligible.
         </p>
       )}
 

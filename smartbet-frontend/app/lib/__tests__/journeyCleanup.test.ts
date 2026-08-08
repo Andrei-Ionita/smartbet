@@ -39,7 +39,9 @@ describe('onboarding actions have three distinct destinations', () => {
     it(`points the ${lang} actions at the anchored sections`, () => {
       const hrefs = actions.map((a) => a.href)
       expect(hrefs).toContain('/explore')
-      expect(hrefs).toContain('/track-record#published-picks')
+      // Superseded 2026-08-08: the concept is PUBLIC COMMITMENT; the old anchor
+      // survives as an alias for links already in the wild.
+      expect(hrefs).toContain('/track-record#public-commitments')
       expect(hrefs).toContain('/track-record#verified-record')
     })
 
@@ -62,18 +64,20 @@ describe('track-record carries both anchor targets', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
 
   it('renders an element with each anchor id', () => {
+    expect(src).toContain('id="public-commitments"')
+    // The legacy anchor must survive as an alias — external links depend on it.
     expect(src).toContain('id="published-picks"')
     expect(src).toContain('id="verified-record"')
   })
 
   it('offsets both anchors so a sticky header cannot cover them', () => {
-    const sections = src.match(/id="(?:published-picks|verified-record)"[\s\S]{0,240}?>/g) ?? []
+    const sections = src.match(/id="(?:public-commitments|verified-record)"[\s\S]{0,240}?>/g) ?? []
     expect(sections).toHaveLength(2)
     for (const section of sections) expect(section).toContain('scroll-mt-')
   })
 
   it('labels each section for assistive technology', () => {
-    expect(src).toContain('aria-labelledby="published-picks-heading"')
+    expect(src).toContain('aria-labelledby="public-commitments-heading"')
     expect(src).toContain('aria-labelledby="verified-record-heading"')
   })
 
@@ -88,13 +92,13 @@ describe('track-record carries both anchor targets', () => {
   })
 
   it('says the verified aggregate counts settled picks only', () => {
-    expect(getCopy('en').record.verifiedBody).toMatch(/settled published picks only/i)
+    expect(getCopy('en').record.verifiedBody).toMatch(/eligible settled commitments only/i)
     expect(src).toContain('{rec.verifiedBody}')
   })
 
   it('keeps the zero state honest', () => {
     expect(src).toContain('{rec.publishedEmpty}')
-    expect(getCopy('en').record.publishedEmpty).toMatch(/no published pick has settled yet/i)
+    expect(getCopy('en').record.publishedEmpty).toMatch(/no public commitment has settled yet/i)
   })
 
   it('jumps to the anchor after the client-side data has loaded', () => {

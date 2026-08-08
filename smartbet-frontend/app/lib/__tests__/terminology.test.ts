@@ -91,22 +91,26 @@ describe('the homepage answers the five-second question', () => {
 describe('terminology is defined once and used everywhere', () => {
   it('names exactly three public concepts', () => {
     expect(Object.keys(TERMS).sort()).toEqual([
-      'liveSignal', 'publishedPick', 'verifiedRecord',
+      // Superseded 2026-08-08: publishedPick became publicCommitment.
+      'liveSignal', 'publicCommitment', 'verifiedRecord',
     ])
   })
 
   it('states the boundary between a live signal and the verified record', () => {
-    expect(TERMS.liveSignal.notInRecord).toContain('not part of the verified record')
+    // Superseded 2026-08-08: the boundary sentence now ALSO denies the
+    // recommendation reading, which was the bigger confusion.
+    expect(TERMS.liveSignal.notInRecord).toContain('not a betting recommendation')
+    expect(TERMS.liveSignal.notInRecord).toContain('only if BetGlitch formally commits it')
     expect(TERMS.liveSignal.definition).toContain('can change')
   })
 
   it('lists what publication freezes', () => {
-    expect(TERMS.publishedPick.frozenFields).toContain('Recorded odds')
-    expect(TERMS.publishedPick.frozenFields).toContain('Bookmaker')
+    expect(TERMS.publicCommitment.frozenFields).toContain('Recorded odds')
+    expect(TERMS.publicCommitment.frozenFields).toContain('Bookmaker')
   })
 
-  it('scopes the verified record to settled published picks only', () => {
-    expect(TERMS.verifiedRecord.scope).toContain('Only settled published picks')
+  it('scopes the verified record to eligible settled commitments only', () => {
+    expect(TERMS.verifiedRecord.scope).toContain('Only eligible settled commitments')
     expect(TERMS.verifiedRecord.scope).toMatch(/void or cancelled/i)
   })
 
@@ -250,7 +254,7 @@ describe('live signals are visually distinct from published claims', () => {
 
   it('carries the status in text as well as colour', () => {
     const src = read('app/components/StatusBadge.tsx')
-    for (const label of ['LIVE SIGNAL', 'PUBLISHED — PENDING', 'RESULT — WON',
+    for (const label of ['LIVE SIGNAL', 'COMMITMENT — PENDING', 'RESULT — WON',
                          'RESULT — LOST', 'VOID', 'CANCELLED']) {
       expect(src).toContain(label)
     }
@@ -295,7 +299,7 @@ describe('the verified record page does not promise a proven history', () => {
   })
 
   it('describes the published-pick universe in its metadata', () => {
-    expect(src).toContain('settled published picks')
+    expect(src).toContain('eligible settled commitments')
   })
 })
 

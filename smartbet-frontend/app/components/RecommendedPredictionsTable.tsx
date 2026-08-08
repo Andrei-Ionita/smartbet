@@ -296,7 +296,7 @@ export default function RecommendedPredictionsTable() {
             <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-sm text-gray-600">Total Recommended</p>
+                  <p className="text-sm text-gray-600">Signals tracked</p>
                   <p className="text-2xl font-bold text-gray-900">{summary.total_recommended}</p>
                 </div>
                 <Award className="h-8 w-8 text-primary-600" />
@@ -530,7 +530,7 @@ export default function RecommendedPredictionsTable() {
               <tr>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Match</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">League</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Our Prediction</th>
+                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal score</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Outcome</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>

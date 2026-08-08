@@ -14,12 +14,12 @@ import { useLanguage } from '../contexts/LanguageContext'
  */
 const CAPTURE_COPY = {
     en: {
-        eyebrow: 'Published-pick and verified-record updates',
-        heroTitle: 'Follow the published picks by email',
+        eyebrow: 'Public-commitment and verified-record updates',
+        heroTitle: 'Follow the public commitments by email',
         heroDescription:
-            'A weekly email covering the picks BetGlitch published and how they settled. Wins and losses both.',
+            'A weekly email covering the signals BetGlitch committed and how they settled. Wins and losses both.',
         defaultTitle: 'Get the weekly summary',
-        defaultDescription: 'A weekly summary of published picks and how they settled.',
+        defaultDescription: 'A weekly summary of public commitments and how they settled.',
         cta: 'Subscribe',
         placeholder: 'Enter your email...',
         joining: 'Joining...',
@@ -32,12 +32,12 @@ const CAPTURE_COPY = {
         thanks: 'Thank you for subscribing!',
     },
     ro: {
-        eyebrow: 'Actualizări despre pontajele publicate și istoricul verificat',
-        heroTitle: 'Urmărește pontajele publicate pe email',
+        eyebrow: 'Actualizări despre angajamentele publice și istoricul verificat',
+        heroTitle: 'Urmărește angajamentele publice pe email',
         heroDescription:
-            'Un email săptămânal despre pontajele publicate de BetGlitch și cum s-au încheiat. Și câștiguri, și pierderi.',
+            'Un email săptămânal despre semnalele angajate de BetGlitch și cum s-au încheiat. Și câștiguri, și pierderi.',
         defaultTitle: 'Primește rezumatul săptămânal',
-        defaultDescription: 'Un rezumat săptămânal al pontajelor publicate și al rezultatelor lor.',
+        defaultDescription: 'Un rezumat săptămânal al angajamentelor publice și al rezultatelor lor.',
         cta: 'Abonează-te',
         placeholder: 'Introdu adresa de email...',
         joining: 'Se trimite...',

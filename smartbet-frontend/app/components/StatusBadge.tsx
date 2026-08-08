@@ -42,16 +42,16 @@ const RO: Record<SignalStatus, { label: string; hint: string }> = {
     hint: 'Semnal live — se poate modifica înainte de start și nu face parte din istoricul verificat.',
   },
   published_pending: {
-    label: 'PUBLICAT — ÎN AȘTEPTARE',
-    hint: 'Pontaj publicat — înghețat înainte de start, așteaptă rezultatul.',
+    label: 'ANGAJAMENT — ÎN AȘTEPTARE',
+    hint: 'Angajament public — înghețat înainte de start, în așteptarea încheierii. Nu este inclus în performanța verificată.',
   },
   won: {
     label: 'REZULTAT — CÂȘTIGAT',
-    hint: 'Pontaj publicat încheiat — câștigat.',
+    hint: 'Angajament public încheiat — câștigat.',
   },
   lost: {
     label: 'REZULTAT — PIERDUT',
-    hint: 'Pontaj publicat încheiat — pierdut.',
+    hint: 'Angajament public încheiat — pierdut.',
   },
   void: {
     label: 'ANULAT',
@@ -85,23 +85,23 @@ const SPECS: Record<SignalStatus, Spec> = {
     hint: 'Live signal — can change before kickoff and is not part of the verified record.',
   },
   published_pending: {
-    label: 'PUBLISHED — PENDING',
+    label: 'COMMITMENT — PENDING',
     Icon: Lock,
     className: 'border-solid border-indigo-500 bg-indigo-50 text-indigo-900',
-    hint: 'Published pick — frozen before kickoff, awaiting the result.',
+    hint: 'Public commitment — frozen before kickoff, awaiting settlement. Not included in verified performance.',
   },
   won: {
     label: 'RESULT — WON',
     Icon: CheckCircle2,
     className: 'border-solid border-emerald-600 bg-emerald-600 text-white',
-    hint: 'Settled published pick — won.',
+    hint: 'Settled public commitment — won.',
   },
   lost: {
     label: 'RESULT — LOST',
     Icon: XCircle,
     // Same weight as WON. Losses are not hidden or softened.
     className: 'border-solid border-rose-600 bg-rose-600 text-white',
-    hint: 'Settled published pick — lost.',
+    hint: 'Settled public commitment — lost.',
   },
   void: {
     label: 'VOID',

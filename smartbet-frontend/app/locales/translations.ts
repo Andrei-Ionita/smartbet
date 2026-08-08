@@ -26,46 +26,11 @@ export const translations = {
             viewAnalysis: 'View Analysis',
             search: 'Search'
         },
-        landing: {
-            heroTitle: 'BetGlitch.',
-            heroTitleHighlight: 'Not Guesswork.',
-            heroSubtitle: 'Better football decisions start with better evidence. Selected picks are frozen before kickoff and stay public after settlement.',
-            exploreButton: 'Explore signals',
-            stats: {
-                accuracy: 'Accuracy',
-                roi: 'Avg ROI',
-                coverage: 'Leagues',
-                topPicksToday: 'Top Picks Today',
-                confidenceThreshold: 'Confidence Threshold',
-                totalFixtures: 'Total Fixtures',
-                highestConfidence: 'Highest Confidence',
-                daysAhead: 'Days Ahead',
-                dataProvider: 'Provider data'
-            },
-            trackRecord: 'Track Record',
-            learnMore: 'Learn More',
-            featuredBadge: 'Featured Picks',
-            topRecsTitle: "Today's Top Recommendations",
-            topRecsSubtitle: 'Hand-picked predictions with the highest confidence scores and expected value',
-            featured: 'Featured Recommendations',
-            refreshTimer: 'Updates in',
-            noBets: 'No high-confidence predictions available right now.',
-            features: {
-                title: 'Why Choose BetGlitch?',
-                subtitle: 'Stop wasting time on manual research. Bet on Value, instantly.',
-                f1Title: 'Read the model, not a tip',
-                f1Desc: "We analyze 2,000+ matches so you don't have to. We deliver only the top opportunities, saving you hours of research every week.",
-                f2Title: 'Transparent Track Record',
-                f2Desc: 'We track every recommendation. Wins and losses. No deleting history. Pure accountability.',
-                f3Title: 'Bankroll Protection',
-                f3Desc: "We don't just tell you WHO to bet on. We tell you HOW MUCH to bet using the Kelly Criterion."
-            }
-        },
         dashboard: {
             title: 'My Dashboard',
-            subtitle: 'Welcome back to your betting command center',
+            subtitle: 'Your live signals, public commitments and verified record in one place',
             manageBankroll: 'Manage Bankroll',
-            smartPicks: 'Smart Recommendations',
+            smartPicks: 'Live signals',
             modelPerformance: {
                 title: 'Signal performance',
                 subtitle: 'Transparency is our core value. See how published signals have performed.',
@@ -142,14 +107,13 @@ export const translations = {
                     'over_under_2.5': 'O/U 2.5',
                     'double_chance': 'DC'
                 },
-                starBest: '★ Best',
-                notRecommended: 'Not recommended'
+                starBest: '★ Best'
             }
         },
         trackRecord: {
             title: 'Verified record',
-            subtitle: 'Settled published picks — the ones BetGlitch froze before kickoff. Wins and losses both.',
-            disclaimer: 'Only settled published picks count towards these figures.',
+            subtitle: 'Public commitments and their settled results — signals BetGlitch froze before kickoff. Wins and losses both.',
+            disclaimer: 'Only eligible settled commitments count towards these figures.',
             updateResults: 'Update Results',
             updating: 'Updating...',
             stats: {
@@ -194,12 +158,12 @@ export const translations = {
             transparency: {
                 title: '🔒 Our Transparency Commitment',
                 whatWeTrack: '📋 What We Track',
-                whatWeTrackDesc: 'Public performance is measured only on published picks — the ones BetGlitch froze before kickoff with their recorded odds and bookmaker. The log below also shows earlier predictions, clearly marked as legacy and excluded from every figure.',
+                whatWeTrackDesc: 'Public performance is measured only on public commitments — signals BetGlitch froze before kickoff with their recorded odds and bookmaker. The log below also shows earlier predictions, clearly marked as legacy and excluded from every figure.',
                 why: 'Why?',
-                whyDesc: 'Because a record is only meaningful if it cannot be edited afterwards. Only published picks — frozen before kickoff — count towards public performance.',
+                whyDesc: 'Because a record is only meaningful if it cannot be edited afterwards. Only public commitments — frozen before kickoff — count towards public performance.',
                 points: {
                     timestamped: 'Timestamped BEFORE kickoff',
-                    timestampedDesc: 'A published pick records its selection, odds, bookmaker and time before the match starts, and settlement grades that frozen copy',
+                    timestampedDesc: 'A public commitment records its selection, odds, bookmaker and time before the match starts, and settlement grades that frozen copy',
                     verified: 'Third-party verified',
                     verifiedDesc: 'Match outcomes come from an independent data provider rather than being self-reported',
                     permanent: 'Never deleted',
@@ -210,7 +174,7 @@ export const translations = {
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
                 note: 'Note:',
-                noteDesc: 'Only published picks enter the verified record. Live signals shown elsewhere in the product are not counted, and a published pick is never withdrawn or re-graded once it settles.'
+                noteDesc: 'Only public commitments enter the verified record. Live signals shown elsewhere in the product are not counted, and a commitment is never withdrawn or re-graded once it settles.'
             }
         },
         monitoring: {
@@ -278,7 +242,7 @@ export const translations = {
             strategies: {
                 kelly_fractional: {
                     label: 'Fractional Kelly (1/4)',
-                    description: 'Recommended: Safer version of Kelly Criterion'
+                    description: 'A more conservative fixed-fraction approach'
                 },
                 kelly: {
                     label: 'Full Kelly Criterion',
@@ -352,7 +316,7 @@ export const translations = {
         },
         explore: {
             title: 'Explore live football signals',
-            subtitle: 'Search upcoming fixtures, inspect the current signal, review pricing and context, and decide what the evidence means to you. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes an immutable claim.',
+            subtitle: 'Search upcoming fixtures, inspect the current signal, review pricing and context, and decide what the evidence means to you. Live signals can change before kickoff and enter the public evaluation record only if BetGlitch formally commits them.',
             results: 'Search Results',
             howTo: {
                 title: 'How to Use the Explorer',
@@ -412,46 +376,11 @@ export const translations = {
             viewAnalysis: 'Vezi Analiza',
             search: 'Caută'
         },
-        landing: {
-            heroTitle: 'Pariază Inteligent.',
-            heroTitleHighlight: 'Nu la Ghici.',
-            heroSubtitle: 'Deciziile mai bune în fotbal încep cu dovezi mai bune. Pontajele selectate sunt înghețate înainte de start și rămân publice după încheiere.',
-            exploreButton: 'Explorează Predicții',
-            stats: {
-                accuracy: 'Acuratețe',
-                roi: 'ROI Mediu',
-                coverage: 'Ligi',
-                topPicksToday: 'Topul Zilei',
-                confidenceThreshold: 'Prag Încredere',
-                totalFixtures: 'Total Meciuri',
-                highestConfidence: 'Încredere Maximă',
-                daysAhead: 'Zile în Avans',
-                dataProvider: 'Date de la furnizor'
-            },
-            trackRecord: 'Istoric Performanță',
-            learnMore: 'Află Mai Multe',
-            featuredBadge: 'Ponturi Recomandate',
-            topRecsTitle: 'Recomandările de Top de Astăzi',
-            topRecsSubtitle: 'Predicții selectate cu cele mai mari scoruri de încredere și valoare așteptată',
-            featured: 'Recomandări Top',
-            refreshTimer: 'Actualizare în',
-            noBets: 'Nu există predicții cu grad ridicat de încredere momentan.',
-            features: {
-                title: 'De ce BetGlitch?',
-                subtitle: "Nu mai pierde ore întregi analizând manual. Pariază pe Valoare, instant.",
-                f1Title: 'Citește modelul, nu un pont',
-                f1Desc: 'Analizăm 2.000+ meciuri în locul tău. Tu primești direct selecția finală de top, economisind zeci de ore de documentare săptămânal.',
-                f2Title: 'Istoric 100% Transparent',
-                f2Desc: 'Monitorizăm fiecare recomandare. Câștiguri și pierderi. Fără istoric șters. Responsabilitate totală.',
-                f3Title: 'Protecția Bugetului',
-                f3Desc: 'Nu îți spunem doar PE CINE să pariezi. Îți spunem CÂT să pariezi folosind criteriul Kelly pentru a-ți proteja banii.'
-            }
-        },
         dashboard: {
             title: 'Panoul Meu',
             subtitle: 'Bine ai revenit la portalul tău de pariuri',
             manageBankroll: 'Gestionează Buget',
-            smartPicks: 'Recomandări Inteligente',
+            smartPicks: 'Semnale live',
             modelPerformance: {
                 title: 'Performanța semnalelor',
                 subtitle: 'Transparența este valoarea noastră. Vezi cum s-au comportat semnalele publicate.',
@@ -513,14 +442,13 @@ export const translations = {
                     'over_under_2.5': 'P/S 2.5',
                     'double_chance': 'ȘD'
                 },
-                starBest: '★ Cel mai bun',
-                notRecommended: 'Nerecomandat'
+                starBest: '★ Cel mai bun'
             }
         },
         trackRecord: {
             title: 'Istoric verificat',
             subtitle: 'Pontaje publicate încheiate — cele înghețate de BetGlitch înainte de start. Și câștiguri, și pierderi.',
-            disclaimer: 'Doar pontajele publicate încheiate contează pentru aceste cifre.',
+            disclaimer: 'Doar angajamentele eligibile încheiate contează pentru aceste cifre.',
             updateResults: 'Actualizează Rezultate',
             updating: 'Se actualizează...',
             stats: {
@@ -565,12 +493,12 @@ export const translations = {
             transparency: {
                 title: '🔒 Angajamentul Nostru de Transparență',
                 whatWeTrack: '📋 Ce Urmărim',
-                whatWeTrackDesc: 'Performanța publică se măsoară doar pe pontajele publicate — cele înghețate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Jurnalul de mai jos arată și predicții mai vechi, marcate clar ca legacy și excluse din orice cifră.',
+                whatWeTrackDesc: 'Performanța publică se măsoară doar pe angajamentele publice — semnale înghețate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Jurnalul de mai jos arată și predicții mai vechi, marcate clar ca legacy și excluse din orice cifră.',
                 why: 'De ce?',
-                whyDesc: 'Pentru că un istoric contează doar dacă nu poate fi editat ulterior. Doar pontajele publicate — înghețate înainte de start — contează pentru performanța publică.',
+                whyDesc: 'Pentru că un istoric contează doar dacă nu poate fi editat ulterior. Doar angajamentele publice — înghețate înainte de start — contează pentru performanța publică.',
                 points: {
                     timestamped: 'Marcate temporal ÎNAINTE de start',
-                    timestampedDesc: 'Un pontaj publicat își înregistrează selecția, cota, casa de pariuri și ora înainte de startul meciului, iar decontarea evaluează exact acea copie înghețată',
+                    timestampedDesc: 'Un angajament public își înregistrează selecția, cota, casa de pariuri și ora înainte de startul meciului, iar decontarea evaluează exact acea copie înghețată',
                     verified: 'Verificate de terți',
                     verifiedDesc: 'Rezultatele meciurilor provin de la un furnizor de date independent, nu sunt raportate de noi',
                     permanent: 'Niciodată șterse',
@@ -581,7 +509,7 @@ export const translations = {
                     updatesDesc: 'Apasă "Actualizează Rezultate" pentru a prelua cele mai recente rezultate ale meciurilor'
                 },
                 note: 'Notă:',
-                noteDesc: 'Doar pontajele publicate intră în istoricul verificat. Semnalele live afișate în restul produsului nu sunt contorizate, iar un pontaj publicat nu este niciodată retras sau reevaluat după încheiere.'
+                noteDesc: 'Doar angajamentele publice intră în istoricul verificat. Semnalele live afișate în restul produsului nu sunt contorizate, iar un angajament public nu este niciodată retras sau reevaluat după încheiere.'
             }
         },
         monitoring: {
@@ -723,7 +651,7 @@ export const translations = {
         },
         explore: {
             title: 'Explorează semnale live pentru fotbal',
-            subtitle: 'Caută meciuri viitoare, inspectează semnalul curent, analizează prețurile și contextul și decide singur ce înseamnă dovezile. Semnalele live se pot modifica înainte de start și nu fac parte din istoricul verificat decât dacă BetGlitch publică o revendicare imuabilă.',
+            subtitle: 'Caută meciuri viitoare, inspectează semnalul curent, analizează prețurile și contextul și decide singur ce înseamnă dovezile. Semnalele live se pot modifica înainte de start și intră în registrul public de evaluare doar dacă BetGlitch le angajează formal.',
             results: 'Rezultatele căutării',
             howTo: {
                 title: 'Cum folosești Exploratorul',

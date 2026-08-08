@@ -7,13 +7,13 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 // record, and the record restarted at the pricing-integrity cutoff. Metadata
 // must not claim a history the verified record does not contain.
 export const metadata: Metadata = {
-  title: 'Verified record — settled published picks',
+  title: 'Verified record — public commitments and settled results',
   description:
-    'BetGlitch freezes selected picks before kickoff with their recorded odds and bookmaker, then publishes the result—win or lose. Only settled published picks count towards this record.',
+    'BetGlitch commits selected signals to the public record before kickoff with their recorded odds and bookmaker, then publishes the result—win or lose. Only eligible settled commitments count towards this record.',
   openGraph: {
-    title: 'Verified record — settled published picks | BetGlitch',
+    title: 'Verified record — public commitments and settled results | BetGlitch',
     description:
-      'Picks frozen before kickoff, results published after full-time. Wins and losses both stay public.',
+      'Signals committed before kickoff, results published after full-time. Wins and losses both stay public.',
     url: 'https://betglitch.com/track-record',
   },
 }

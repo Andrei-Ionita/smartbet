@@ -377,13 +377,17 @@ export default function TrackRecordContent() {
             send someone to the thing it just described, rather than to the top
             of a long page. Deliberately separate from the verified record
             below: a pending pick belongs here and belongs in no total. */}
+        {/* Legacy anchor alias. Onboarding, proof pages and external links
+            shipped with #published-picks for weeks; the concept is now a
+            PUBLIC COMMITMENT, but old links must keep landing here. */}
+        <span id="published-picks" className="scroll-mt-24" aria-hidden="true" />
         <section
-          id="published-picks"
-          aria-labelledby="published-picks-heading"
+          id="public-commitments"
+          aria-labelledby="public-commitments-heading"
           className="mb-8 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
         >
           <h2
-            id="published-picks-heading"
+            id="public-commitments-heading"
             className="text-lg font-bold text-gray-900"
           >
             {rec.publishedHeading}
@@ -391,9 +395,26 @@ export default function TrackRecordContent() {
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.publishedBody}
           </p>
+          {/* Why is one fixture here while the homepage shows many? Because
+              commitment is a deliberate act, not a ranking of the signals. */}
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            {rec.publishedDistinction}
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.publishedStates}
           </p>
+
+          {/* Honest publication policy. Manual during beta, hard-gated by
+              machine-checked eligibility — and never a value claim. Kept in a
+              disclosure so the ledger stays a ledger. */}
+          <details className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+            <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+              {rec.policyLink}
+            </summary>
+            <p className="mt-2 text-sm leading-relaxed text-gray-700">
+              {rec.policyBody}
+            </p>
+          </details>
 
           {claimsError ? (
             <div
@@ -496,6 +517,9 @@ export default function TrackRecordContent() {
           >
             {rec.verifiedHeading}
           </h2>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">
+            {rec.verifiedFromCommitments}
+          </p>
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.verifiedBody}
           </p>

@@ -8,7 +8,7 @@
  *
  *   1. LIVE SIGNAL        — BetGlitch's current ranked output for an upcoming
  *                           fixture. MUTABLE. Not part of public performance.
- *   2. PUBLISHED PICK     — an immutable PublishedClaim, frozen before kickoff
+ *   2. PUBLIC COMMITMENT  — an immutable PublishedClaim, frozen before kickoff
  *                           with its selection, score, odds, bookmaker and
  *                           provenance.
  *   3. VERIFIED RECORD    — resolved, integrity-valid published claims ONLY.
@@ -35,14 +35,22 @@ const EN = {
       mutability:
         'Live signals update when the pipeline runs again, odds move, new provider data arrives or a newer snapshot is generated.',
       notInRecord:
-        'Live signals are not part of the verified record unless BetGlitch publishes them as an immutable claim.',
+        'A live signal is not a betting recommendation, and it enters the public evaluation record only if BetGlitch formally commits it before kickoff.',
     },
-    publishedPick: {
-      label: 'Published pick',
-      plural: 'Published picks',
-      short: 'Published',
+    // Publicly a PUBLIC COMMITMENT. "Published pick" made the one committed
+    // fixture read as a featured betting recommendation — a visitor seeing
+    // many live signals and one "pick" reasonably asked why that one was
+    // special. It is not special: it is simply a signal formally frozen into
+    // the permanent evaluation record. The backend model stays PublishedClaim;
+    // this is public vocabulary, not a schema change.
+    publicCommitment: {
+      label: 'Public commitment',
+      plural: 'Public commitments',
+      short: 'Committed',
       definition:
-        'A pick BetGlitch froze before kickoff — selection, signal score, recorded odds, bookmaker and timestamps can no longer change.',
+        'A live signal BetGlitch deliberately froze before kickoff for public forward evaluation — selection, signal score, recorded odds, bookmaker and timestamps can no longer change.',
+      notARecommendation:
+        'A public commitment is not a claim that a signal has proven betting value. It is a promise that the selection and its price cannot be rewritten or quietly removed.',
       frozenFields: [
         'Selection', 'Signal score', 'Recorded odds', 'Bookmaker', 'Timestamps',
         'Provenance',
@@ -51,9 +59,9 @@ const EN = {
     verifiedRecord: {
       label: 'Verified record',
       definition:
-        'Every published pick that has settled, kept public with its result — win or lose.',
+        'Every eligible public commitment that has settled, kept public with its result — win or lose.',
       scope:
-        'Only settled published picks count. Pending picks are shown separately, and void or cancelled picks are excluded from the totals.',
+        'Only eligible settled commitments count. Pending commitments are not results — they are shown separately, and void or cancelled commitments are excluded from the totals.',
     },
   },
 
@@ -97,7 +105,7 @@ const EN = {
     // feature exists: decisions improve when the evidence behind them does.
     headline: 'Better football decisions start with better evidence.',
     supporting:
-      'Explore transparent football signals, verified market prices and the context behind each fixture. When BetGlitch publishes a pick, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
+      'Explore transparent football signals, verified market prices and the context behind each fixture. When BetGlitch commits a signal to the public record, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
     primaryCta: 'Explore live signals',
     secondaryCta: 'View the verified record',
     // Three commitments in one quiet line — a rule, not a badge.
@@ -128,7 +136,7 @@ const EN = {
     differenceOthersLabel: 'Most prediction products',
     differenceOthersFlow: ['Prediction', 'Result'],
     differenceUsLabel: 'BetGlitch',
-    differenceUsFlow: ['Signal', 'Evidence', 'Publication', 'Result', 'Evaluation', 'Improvement'],
+    differenceUsFlow: ['Signal', 'Evidence', 'Commitment', 'Result', 'Evaluation', 'Improvement'],
 
     // ── Product rules. Presented as constraints the system obeys, not as
     // marketing badges — each one is enforced by architecture, not policy.
@@ -146,9 +154,9 @@ const EN = {
       'BetGlitch is continuously testing whether its filtering, pricing evidence and fixture context genuinely improve decision quality. We do not claim they already do — the public record exists to find out. What does not improve the evidence does not earn a place in the product.',
 
     howHeading: 'How BetGlitch works',
-    differenceHeading: 'Not every signal becomes a published pick',
+    differenceHeading: 'Not every signal becomes a public commitment',
     differenceBody:
-      'BetGlitch shows far more live signals than it publishes. Only published picks count towards the verified record, and you can tell the two apart everywhere in the product.',
+      'BetGlitch shows far more live signals than it commits. A live signal is current analysis and may change; a public commitment is the subset formally frozen into the permanent evaluation record — and only eligible settled commitments count towards it.',
     notInPerformance: 'Not part of public performance.',
     frozenIntro: 'Frozen before kickoff. These can never change:',
     benefitsHeading: 'What you can do here',
@@ -159,7 +167,7 @@ const EN = {
       },
       {
         title: 'Check the receipts',
-        body: 'Published picks keep a permanent public page showing what was frozen, when, and at which bookmaker. Odds are never rewritten and losses are never deleted.',
+        body: 'Public commitments keep a permanent public page showing what was frozen, when, and at which bookmaker. Odds are never rewritten and losses are never deleted.',
       },
       {
         title: 'Decide for yourself',
@@ -169,15 +177,15 @@ const EN = {
     coverageHeading: 'Coverage',
     coverageBody: 'European competitions, up to 14 days ahead. Including:',
     viewAllLeagues: 'View all competitions',
-    settledLabel: 'Settled published picks',
+    settledLabel: 'Verified results',
     openRecord: 'Open the verified record',
     finalHeading: 'Free while we build the verified record',
     finalBody:
-      'There is nothing to buy and no payment method is required. Create an account to use the bankroll tools and follow published picks as they settle.',
+      'There is nothing to buy and no payment method is required. Create an account to use the bankroll tools and follow public commitments as they settle.',
     createAccount: 'Create a free account',
     signalsError: 'Live signals could not be loaded',
     signalsErrorBody:
-      'The request to the signal service failed. Nothing is wrong with your account and no published pick is affected.',
+      'The request to the signal service failed. Nothing is wrong with your account and no public commitment is affected.',
     tryAgain: 'Try again',
   },
 
@@ -206,15 +214,15 @@ const EN = {
       },
       {
         id: 'proof',
-        title: 'Understand published proof',
-        body: 'See how an immutable published claim differs from a changing live prediction.',
-        cta: 'See published picks',
-        href: '/track-record#published-picks',
+        title: 'View public commitments',
+        body: 'See how an immutable public commitment differs from a changing live signal.',
+        cta: 'View public commitments',
+        href: '/track-record#public-commitments',
       },
       {
         id: 'record',
-        title: 'Follow the verified record',
-        body: 'Review settled published picks as the sample develops.',
+        title: 'Check the verified record',
+        body: 'Review eligible settled commitments as the sample develops.',
         cta: 'Open verified record',
         href: '/track-record#verified-record',
       },
@@ -230,7 +238,7 @@ const EN = {
     title: 'Your dashboard',
     manageBankroll: 'Manage bankroll',
     recordBuilding:
-      'The verified record is being built. Settled published picks will appear here, including both wins and losses.',
+      'The verified record is being built. Eligible settled commitments will appear here, including both wins and losses.',
   },
 
   auth: {
@@ -269,42 +277,58 @@ const EN = {
     scopeCutoff:
       'The verified public record begins at a clean pricing-integrity cutoff. Predictions made before it are preserved internally as legacy and excluded from every figure on this page.',
     scopeImmutable:
-      'Only immutable published picks enter the record — picks frozen before kickoff with their selection, signal score, recorded odds and bookmaker.',
+      'Only immutable public commitments enter the record — signals frozen before kickoff with their selection, signal score, recorded odds and bookmaker.',
     scopePending:
-      'Pending picks are not counted in settled performance, and void or cancelled picks are excluded from the relevant denominators.',
+      'Pending commitments are not counted as results, and void or cancelled commitments are excluded from the relevant denominators.',
     scopeLive:
-      'Live signals shown elsewhere in the product never enter this record unless they are published.',
+      'Live signals shown elsewhere in the product never enter this record unless BetGlitch formally commits them.',
 
-    publishedHeading: 'Published picks',
+    publishedHeading: 'Public commitments',
     publishedBody:
-      'Published before kickoff. Preserved afterwards. A published pick keeps its selection, signal score, recorded odds and bookmaker exactly as they were at publication — it is never edited or withdrawn, whatever happened next.',
+      'Signals BetGlitch has deliberately frozen before kickoff for public forward evaluation. Once committed, the selection, recorded price and publication time cannot be rewritten or quietly removed.',
+    // The sentence a confused visitor needs most: why is one fixture here
+    // while the homepage shows many? Because commitment is a separate,
+    // deliberate act — not a quality ranking of the live signals.
+    publishedDistinction:
+      'A public commitment is not the same thing as every live signal. Live signals may change before kickoff. Public commitments are the subset BetGlitch has formally placed into the permanent evaluation record.',
     publishedStates:
-      'A pick stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
+      'A commitment stays pending until the match finishes. Pending is not a result: it is counted nowhere in the verified record below. Once the match ends it settles as won or lost, or is marked void or cancelled and excluded from the relevant totals.',
     publishedEmpty:
-      'No published pick has settled yet, so nothing is listed here. Published picks appear as soon as one does — win or lose.',
-    publishedCount: 'Published picks on record',
-    publishedLoading: 'Loading published picks…',
+      'No public commitment has settled yet, so nothing is listed here. Settled commitments appear as soon as one does — win or lose.',
+    publishedCount: 'Public commitments on record',
+    publishedLoading: 'Loading public commitments…',
     publishedError:
-      'Published picks could not be loaded. Nothing is wrong with the record itself — this is a display problem and no claim has changed. Reload in a moment.',
+      'Public commitments could not be loaded. Nothing is wrong with the record itself — this is a display problem and no commitment has changed. Reload in a moment.',
     publishedRetry: 'Try again',
     publishedProofLink: 'View proof',
-    publishedOddsLabel: 'Recorded odds',
-    publishedAtLabel: 'Published',
-    publishedNotCounted: 'Not counted in verified performance until it settles',
+    publishedOddsLabel: 'Recorded price',
+    publishedAtLabel: 'Committed',
+    publishedNotCounted: 'Awaiting settlement — not included in verified performance',
     publishedCountedIn: 'Counted in the verified record',
+
+    // Honest publication policy. There is NO automatic selection rule in the
+    // code: publication is a deliberate manual act during beta, hard-gated by
+    // machine-checked eligibility (pre-kickoff, verified pricing integrity,
+    // complete provenance, coherent timestamps, not superseded). Do not claim
+    // "strongest signal" or "best value" here — no such rule exists.
+    policyLink: 'How commitments are selected',
+    policyBody:
+      'During public beta, BetGlitch commits selected live signals to the public record for forward evaluation. Each commitment is a deliberate manual step, allowed only when hard eligibility checks pass: the fixture has not kicked off, the price is verified with complete bookmaker and market provenance, and the timestamps are coherent. Publication itself is not a claim that a signal has proven betting value.',
 
     verifiedHeading: 'Verified record',
     verifiedBody:
-      'This is the record we cannot rewrite. These aggregate figures are calculated from settled published picks only. Pending picks, void and cancelled picks, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of predictions BetGlitch has made, and that is deliberate.',
+      'This is the record we cannot rewrite. These aggregate figures are calculated from eligible settled commitments only. Pending commitments, void and cancelled commitments, and every legacy prediction from before the pricing-integrity cutoff are excluded — so this record is smaller than the number of signals BetGlitch has produced, and that is deliberate.',
+    verifiedFromCommitments:
+      'Public commitments may include pending entries. The verified record below contains only eligible settled commitments.',
 
     noAccuracy: 'No verified results yet',
-    accuracyAppears: 'Accuracy appears once the first published pick settles.',
-    noSettled: 'No settled picks yet',
+    accuracyAppears: 'Accuracy appears once the first public commitment settles.',
+    noSettled: 'No settled commitments yet',
     winsLosses: 'Wins and losses are both published here as they settle.',
     roiRestarted:
       'Our verified pricing record restarted and fills in as matches settle.',
     noBreakdown:
-      'No breakdown yet. Once published picks settle, accuracy is split by predicted outcome here.',
+      'No breakdown yet. Once public commitments settle, accuracy is split by predicted outcome here.',
 
     legacyHeading: 'Prediction log — not the verified record',
     legacyAll: (n: number) => `All ${n} rows below were`,
@@ -322,21 +346,21 @@ const EN = {
 
     capturePanelTitle: 'Check the receipts, then follow along by email.',
     capturePanelBody:
-      'Verify every result here, then join the free list for updates on published picks as the verified record develops.',
+      'Verify every result here, then join the free list for updates on public commitments as the verified record develops.',
     capturePanelEyebrow: 'Proof-led funnel',
-    capturePanelSeePublished: 'See the published picks',
+    capturePanelSeePublished: 'See the public commitments',
     capturePanelSeeVerified: 'See the verified record',
     captureTitle: 'Get the weekly summary',
     captureBody:
-      'A free weekly email covering the picks BetGlitch published and how they settled.',
-    captureDefaultTitle: 'Follow the published picks by email',
+      'A free weekly email covering the signals BetGlitch committed and how they settled.',
+    captureDefaultTitle: 'Follow the public commitments by email',
     captureDefaultBody:
-      'A free weekly email covering which picks BetGlitch published and how they settled — wins and losses both.',
+      'A free weekly email covering which signals BetGlitch committed and how they settled — wins and losses both.',
   },
 
   footer: {
     tagline:
-      'Football market signals across European competitions. Selected picks are frozen before kickoff with their recorded odds and stay public after settlement — win or lose.',
+      'Football market signals across European competitions. Selected signals are committed before kickoff with their recorded odds and stay public after settlement — win or lose.',
     emailSupport: 'Email BetGlitch support',
     platform: 'Platform',
     explore: 'Explore signals',
@@ -390,14 +414,16 @@ const RO: typeof EN = {
       mutability:
         'Semnalele live se actualizează când pipeline-ul rulează din nou, când cotele se mișcă, când apar date noi de la furnizor sau când se generează un snapshot mai recent.',
       notInRecord:
-        'Semnalele live nu fac parte din istoricul verificat decât dacă BetGlitch le publică drept revendicare imutabilă.',
+        'Un semnal live nu este o recomandare de pariere și intră în registrul public de evaluare doar dacă BetGlitch îl angajează formal înainte de start.',
     },
-    publishedPick: {
-      label: 'Pontaj publicat',
-      plural: 'Pontaje publicate',
-      short: 'Publicat',
+    publicCommitment: {
+      label: 'Angajament public',
+      plural: 'Angajamente publice',
+      short: 'Angajat',
       definition:
-        'Un pontaj înghețat de BetGlitch înainte de start — selecția, scorul de semnal, cota înregistrată, casa de pariuri și marcajele de timp nu se mai pot schimba.',
+        'Un semnal live pe care BetGlitch l-a înghețat deliberat înainte de start pentru evaluare publică prospectivă — selecția, scorul de semnal, cota înregistrată, casa de pariuri și marcajele de timp nu se mai pot schimba.',
+      notARecommendation:
+        'Un angajament public nu este o afirmație că semnalul are valoare de pariere dovedită. Este o promisiune că selecția și prețul ei nu pot fi rescrise sau șterse discret.',
       frozenFields: [
         'Selecție', 'Scor semnal', 'Cota înregistrată', 'Casa de pariuri',
         'Marcaje de timp', 'Proveniență',
@@ -406,9 +432,9 @@ const RO: typeof EN = {
     verifiedRecord: {
       label: 'Istoric verificat',
       definition:
-        'Fiecare pontaj publicat care s-a încheiat, păstrat public împreună cu rezultatul — câștigat sau pierdut.',
+        'Fiecare angajament public eligibil care s-a încheiat, păstrat public împreună cu rezultatul — câștigat sau pierdut.',
       scope:
-        'Contează doar pontajele publicate încheiate. Cele în așteptare sunt afișate separat, iar cele anulate sunt excluse din totaluri.',
+        'Contează doar angajamentele eligibile încheiate. Cele în așteptare nu sunt rezultate — sunt afișate separat, iar cele anulate sunt excluse din totaluri.',
     },
   },
 
@@ -444,7 +470,7 @@ const RO: typeof EN = {
     eyebrow: 'BETA PUBLIC GRATUIT',
     headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.',
     supporting:
-      'Explorează semnale transparente de fotbal, prețuri de piață verificate și contextul din spatele fiecărui meci. Când BetGlitch publică un pontaj, decizia este înghețată înainte de start și fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
+      'Explorează semnale transparente de fotbal, prețuri de piață verificate și contextul din spatele fiecărui meci. Când BetGlitch angajează un semnal în registrul public, decizia este înghețată înainte de start și fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi istoricul verificat',
     trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse',
@@ -468,7 +494,7 @@ const RO: typeof EN = {
     differenceOthersLabel: 'Majoritatea produselor de predicții',
     differenceOthersFlow: ['Predicție', 'Rezultat'],
     differenceUsLabel: 'BetGlitch',
-    differenceUsFlow: ['Semnal', 'Dovezi', 'Publicare', 'Rezultat', 'Evaluare', 'Îmbunătățire'],
+    differenceUsFlow: ['Semnal', 'Dovezi', 'Angajament', 'Rezultat', 'Evaluare', 'Îmbunătățire'],
 
     rulesHeading: 'Reguli pe care produsul nu le poate încălca',
     rules: [
@@ -483,9 +509,9 @@ const RO: typeof EN = {
       'BetGlitch testează continuu dacă filtrarea, dovezile de preț și contextul de meci îmbunătățesc cu adevărat calitatea deciziilor. Nu susținem că o fac deja — istoricul public există exact ca să aflăm. Ce nu îmbunătățește dovezile nu își câștigă locul în produs.',
 
     howHeading: 'Cum funcționează BetGlitch',
-    differenceHeading: 'Nu orice semnal devine pontaj publicat',
+    differenceHeading: 'Nu orice semnal devine angajament public',
     differenceBody:
-      'BetGlitch afișează mult mai multe semnale live decât publică. Doar pontajele publicate contează pentru istoricul verificat, iar diferența se vede peste tot în produs.',
+      'BetGlitch afișează mult mai multe semnale live decât angajează. Un semnal live este analiză curentă și se poate schimba; un angajament public este subsetul înghețat formal în registrul permanent de evaluare — și doar angajamentele eligibile încheiate contează pentru el.',
     notInPerformance: 'Nu face parte din performanța publică.',
     frozenIntro: 'Înghețate înainte de start. Acestea nu se mai pot schimba:',
     benefitsHeading: 'Ce poți face aici',
@@ -496,7 +522,7 @@ const RO: typeof EN = {
       },
       {
         title: 'Verifică dovezile',
-        body: 'Pontajele publicate păstrează o pagină publică permanentă cu ce a fost înghețat, când și la ce casă de pariuri. Cotele nu sunt rescrise, iar pierderile nu sunt șterse.',
+        body: 'Angajamentele publice păstrează o pagină publică permanentă cu ce a fost înghețat, când și la ce casă de pariuri. Cotele nu sunt rescrise, iar pierderile nu sunt șterse.',
       },
       {
         title: 'Decizi singur',
@@ -506,15 +532,15 @@ const RO: typeof EN = {
     coverageHeading: 'Acoperire',
     coverageBody: 'competiții europene, cu până la 14 zile în avans. Inclusiv:',
     viewAllLeagues: 'Vezi toate competițiile',
-    settledLabel: 'Pontaje publicate încheiate',
+    settledLabel: 'Rezultate verificate',
     openRecord: 'Deschide istoricul verificat',
     finalHeading: 'Gratuit cât timp construim istoricul verificat',
     finalBody:
-      'Nu ai ce cumpăra și nu este necesară o metodă de plată. Creează un cont pentru a folosi instrumentele de bankroll și pentru a urmări pontajele publicate până se încheie.',
+      'Nu ai ce cumpăra și nu este necesară o metodă de plată. Creează un cont pentru a folosi instrumentele de bankroll și pentru a urmări angajamentele publice până se încheie.',
     createAccount: 'Creează un cont gratuit',
     signalsError: 'Semnalele live nu au putut fi încărcate',
     signalsErrorBody:
-      'Cererea către serviciul de semnale a eșuat. Contul tău nu are nicio problemă și niciun pontaj publicat nu este afectat.',
+      'Cererea către serviciul de semnale a eșuat. Contul tău nu are nicio problemă și niciun angajament public nu este afectat.',
     tryAgain: 'Încearcă din nou',
   },
 
@@ -543,15 +569,15 @@ const RO: typeof EN = {
       },
       {
         id: 'proof',
-        title: 'Înțelege dovada publicată',
-        body: 'Vezi cum diferă o revendicare publicată imutabilă de o predicție live care se schimbă.',
-        cta: 'Vezi pontajele publicate',
-        href: '/track-record#published-picks',
+        title: 'Vezi angajamentele publice',
+        body: 'Vezi cum diferă un angajament public imutabil de un semnal live care se schimbă.',
+        cta: 'Vezi angajamentele publice',
+        href: '/track-record#public-commitments',
       },
       {
         id: 'record',
-        title: 'Urmărește istoricul verificat',
-        body: 'Analizează pontajele publicate încheiate pe măsură ce eșantionul crește.',
+        title: 'Verifică istoricul verificat',
+        body: 'Analizează angajamentele eligibile încheiate pe măsură ce eșantionul crește.',
         cta: 'Deschide istoricul verificat',
         href: '/track-record#verified-record',
       },
@@ -567,7 +593,7 @@ const RO: typeof EN = {
     title: 'Panoul tău',
     manageBankroll: 'Gestionează bugetul',
     recordBuilding:
-      'Istoricul verificat este în construcție. Pontajele publicate și încheiate vor apărea aici, inclusiv câștigurile și pierderile.',
+      'Istoricul verificat este în construcție. Angajamentele eligibile încheiate vor apărea aici, inclusiv câștigurile și pierderile.',
   },
 
   auth: {
@@ -606,45 +632,53 @@ const RO: typeof EN = {
     scopeCutoff:
       'Istoricul public verificat începe de la un prag curat de integritate a prețului. Predicțiile făcute înainte de acesta sunt păstrate intern ca moștenire și excluse din fiecare cifră de pe această pagină.',
     scopeImmutable:
-      'Doar pontajele publicate imutabile intră în istoric — pontaje înghețate înainte de start, cu selecția, scorul de semnal, cota înregistrată și casa de pariuri.',
+      'Doar angajamentele publice imutabile intră în istoric — semnale înghețate înainte de start, cu selecția, scorul de semnal, cota înregistrată și casa de pariuri.',
     scopePending:
-      'Pontajele în așteptare nu sunt numărate în performanța încheiată, iar cele anulate sau nule sunt excluse din numitorii relevanți.',
+      'Angajamentele în așteptare nu sunt numărate ca rezultate, iar cele anulate sau nule sunt excluse din numitorii relevanți.',
     scopeLive:
-      'Semnalele live afișate în altă parte a produsului nu intră niciodată în acest istoric decât dacă sunt publicate.',
+      'Semnalele live afișate în altă parte a produsului nu intră niciodată în acest istoric decât dacă BetGlitch le angajează formal.',
 
-    publishedHeading: 'Pontaje publicate',
+    publishedHeading: 'Angajamente publice',
     publishedBody:
-      'Publicate înainte de start. Păstrate după aceea. Un pontaj publicat își păstrează selecția, scorul de semnal, cota înregistrată și casa de pariuri exact cum erau la publicare — nu este niciodată editat sau retras, indiferent ce a urmat.',
+      'Semnale pe care BetGlitch le-a înghețat deliberat înainte de start pentru evaluare publică prospectivă. Odată angajate, selecția, prețul înregistrat și momentul publicării nu mai pot fi rescrise sau șterse discret.',
+    publishedDistinction:
+      'Un angajament public nu este același lucru cu fiecare semnal live. Semnalele live se pot schimba înainte de start. Angajamentele publice sunt subsetul pe care BetGlitch l-a plasat formal în registrul permanent de evaluare.',
     publishedStates:
-      'Un pontaj rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
+      'Un angajament rămâne în așteptare până se termină meciul. Așteptarea nu este un rezultat: nu este numărată nicăieri în istoricul verificat de mai jos. După încheierea meciului se soluționează ca fiind câștigat sau pierdut, ori este marcat nul sau anulat și exclus din totalurile relevante.',
     publishedEmpty:
-      'Niciun pontaj publicat nu s-a încheiat încă, așa că aici nu este listat nimic. Pontajele publicate apar imediat ce se încheie unul — câștig sau pierdere.',
-    publishedCount: 'Pontaje publicate înregistrate',
-    publishedLoading: 'Se încarcă pontajele publicate…',
+      'Niciun angajament public nu s-a încheiat încă, așa că aici nu este listat nimic. Angajamentele încheiate apar imediat ce se încheie unul — câștig sau pierdere.',
+    publishedCount: 'Angajamente publice înregistrate',
+    publishedLoading: 'Se încarcă angajamentele publice…',
     publishedError:
-      'Pontajele publicate nu au putut fi încărcate. Istoricul în sine este intact — este o problemă de afișare și niciun pontaj nu s-a modificat. Reîncarcă peste puțin timp.',
+      'Angajamentele publice nu au putut fi încărcate. Istoricul în sine este intact — este o problemă de afișare și niciun angajament nu s-a modificat. Reîncarcă peste puțin timp.',
     publishedRetry: 'Încearcă din nou',
     publishedProofLink: 'Vezi dovada',
-    publishedOddsLabel: 'Cotă înregistrată',
-    publishedAtLabel: 'Publicat',
+    publishedOddsLabel: 'Preț înregistrat',
+    publishedAtLabel: 'Angajat',
     publishedNotCounted:
-      'Nu este numărat în performanța verificată până la încheiere',
+      'În așteptarea încheierii — nu este inclus în performanța verificată',
     publishedCountedIn: 'Numărat în istoricul verificat',
+
+    policyLink: 'Cum sunt selectate angajamentele',
+    policyBody:
+      'În perioada de beta public, BetGlitch angajează semnale live selectate în registrul public pentru evaluare prospectivă. Fiecare angajament este un pas manual deliberat, permis doar când trec verificările stricte de eligibilitate: meciul nu a început, prețul este verificat cu proveniență completă de casă de pariuri și piață, iar marcajele de timp sunt coerente. Publicarea în sine nu este o afirmație că semnalul are valoare de pariere dovedită.',
 
     verifiedHeading: 'Istoric verificat',
     verifiedBody:
-      'Acesta este istoricul pe care nu îl putem rescrie. Aceste cifre agregate sunt calculate exclusiv din pontaje publicate încheiate. Pontajele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de predicții făcute de BetGlitch, iar asta este intenționat.',
+      'Acesta este istoricul pe care nu îl putem rescrie. Aceste cifre agregate sunt calculate exclusiv din angajamente eligibile încheiate. Angajamentele în așteptare, cele nule și anulate, precum și fiecare predicție de dinaintea pragului de integritate a prețului sunt excluse — deci acest istoric este mai mic decât numărul de semnale produse de BetGlitch, iar asta este intenționat.',
+    verifiedFromCommitments:
+      'Angajamentele publice pot include intrări în așteptare. Istoricul verificat de mai jos conține doar angajamente eligibile încheiate.',
 
     noAccuracy: 'Niciun rezultat verificat încă',
     accuracyAppears:
-      'Acuratețea apare după ce se încheie primul pontaj publicat.',
-    noSettled: 'Niciun pontaj încheiat încă',
+      'Acuratețea apare după ce se încheie primul angajament public.',
+    noSettled: 'Niciun angajament încheiat încă',
     winsLosses:
       'Atât câștigurile cât și pierderile sunt publicate aici pe măsură ce se încheie.',
     roiRestarted:
       'Istoricul nostru verificat de prețuri a fost restartat și se completează pe măsură ce meciurile se încheie.',
     noBreakdown:
-      'Nicio defalcare încă. După ce pontajele publicate se încheie, acuratețea este împărțită aici pe rezultat prezis.',
+      'Nicio defalcare încă. După ce angajamentele publice se încheie, acuratețea este împărțită aici pe rezultat prezis.',
 
     legacyHeading: 'Jurnal de predicții — nu este istoricul verificat',
     legacyAll: (n: number) => `Toate cele ${n} rânduri de mai jos au fost`,
@@ -662,21 +696,21 @@ const RO: typeof EN = {
 
     capturePanelTitle: 'Verifică dovezile, apoi urmărește-ne pe email.',
     capturePanelBody:
-      'Verifică fiecare rezultat aici, apoi înscrie-te gratuit pentru actualizări despre pontajele publicate pe măsură ce istoricul verificat se dezvoltă.',
+      'Verifică fiecare rezultat aici, apoi înscrie-te gratuit pentru actualizări despre angajamentele publice pe măsură ce istoricul verificat se dezvoltă.',
     capturePanelEyebrow: 'Canal bazat pe dovezi',
-    capturePanelSeePublished: 'Vezi pontajele publicate',
+    capturePanelSeePublished: 'Vezi angajamentele publice',
     capturePanelSeeVerified: 'Vezi istoricul verificat',
     captureTitle: 'Primește rezumatul săptămânal',
     captureBody:
-      'Un email săptămânal gratuit despre pontajele publicate de BetGlitch și cum s-au încheiat.',
-    captureDefaultTitle: 'Urmărește pontajele publicate pe email',
+      'Un email săptămânal gratuit despre semnalele angajate de BetGlitch și cum s-au încheiat.',
+    captureDefaultTitle: 'Urmărește angajamentele publice pe email',
     captureDefaultBody:
-      'Un email săptămânal gratuit despre ce pontaje a publicat BetGlitch și cum s-au încheiat — și câștiguri, și pierderi.',
+      'Un email săptămânal gratuit despre ce semnale a angajat BetGlitch și cum s-au încheiat — și câștiguri, și pierderi.',
   },
 
   footer: {
     tagline:
-      'Semnale de piață pentru fotbal din competițiile europene. Pontajele selectate sunt înghețate înainte de start cu cotele înregistrate și rămân publice după încheiere — câștig sau pierdere.',
+      'Semnale de piață pentru fotbal din competițiile europene. Semnalele selectate sunt angajate înainte de start cu cotele înregistrate și rămân publice după încheiere — câștig sau pierdere.',
     emailSupport: 'Scrie echipei de suport BetGlitch',
     platform: 'Platformă',
     explore: 'Explorează semnalele',
