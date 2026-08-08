@@ -152,3 +152,29 @@ describe('Explore shows content before the visitor searches', () => {
     expect(searchRoute).toContain('!query && !league && !isBrowse')
   })
 })
+
+describe('no surface claims an AI model BetGlitch does not own', () => {
+  /**
+   * The English copy was cleaned in an earlier truth pass; the Romanian
+   * strings kept "Modelele noastre AI" and "predicțiile AI" for weeks, and a
+   * reviewer noted the site advertises AI while stating it trains no
+   * predictive model. Scanning ONE language is how that survived.
+   */
+  const translations = read('app/locales/translations.ts')
+  const service = read('src/services/fixtureService.ts')
+
+  it.each([
+    'Modelele noastre AI',
+    'predicțiile AI',
+    'analiza AI',
+    'AI analysis',
+    'Our AI models',
+    'AI-powered',
+  ])('no language contains %s', (banned) => {
+    expect(translations).not.toContain(banned)
+  })
+
+  it('the fixture payload does not label its source as AI', () => {
+    expect(service).not.toContain("source: 'AI'")
+  })
+})

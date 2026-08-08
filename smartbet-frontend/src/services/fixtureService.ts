@@ -518,7 +518,9 @@ export async function getFixtureDetails(fixtureId: string) {
             prediction_strength: signalQuality,
             market_indicators: marketIndicators,
             prediction_info: {
-                source: 'AI',
+                // Not 'AI'. BetGlitch trains no predictive model; the
+                // probabilities come from a specialist football data provider.
+                source: 'provider',
                 confidence_level: confidence >= 70 ? 'High' : confidence >= 60 ? 'Good' : confidence >= 50 ? 'Moderate' : 'Low',
                 reliability_score: confidence / 100,
                 // "Complete" now requires a canonical price, not merely the

@@ -398,7 +398,7 @@ export const translations = {
             hideAnalysis: 'Ascunde Analiza',
             analysisPending: {
                 title: 'Analiză în Curs',
-                desc: 'Modelele noastre AI analizează acest meci.'
+                desc: 'Niciun semnal clasat nu este disponibil încă pentru acest meci.'
             },
             risk: {
                 title: 'Factori de Risc',
@@ -673,7 +673,7 @@ export const translations = {
                 loading: 'Se caută meciuri...',
                 noResults: 'Nu s-au găsit meciuri',
                 tryStandard: 'Încearcă să folosești nume standard de echipe',
-                initialState: 'Caută orice meci viitor pentru a vedea predicțiile AI'
+                initialState: 'Caută orice meci viitor pentru a-i vedea semnalul live'
             },
             browse: {
                 title: 'Meciuri Viitoare',
