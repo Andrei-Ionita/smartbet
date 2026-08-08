@@ -12,50 +12,33 @@ interface RecommendedPrediction {
   predicted_outcome: string
   predicted_outcome_raw: string
   confidence: number
-  expected_value: number | null
-  odds_home: number | null
-  odds_draw: number | null
-  odds_away: number | null
-  bookmaker: string | null
   actual_outcome: string | null
   actual_outcome_raw: string | null
   actual_score_home: number | null
   actual_score_away: number | null
   match_status: string | null
   was_correct: boolean | null
-  profit_loss_10: number | null
-  roi_percent: number | null
-  probabilities: {
-    home: number
-    draw: number
-    away: number
-  }
-  model_count: number
-  consensus: number | null
-  variance: number | null
   prediction_logged_at: string
   result_logged_at: string | null
   is_completed: boolean
 }
 
+/**
+ * Operational counts ONLY.
+ *
+ * accuracy / total_profit_loss / average_roi / edge_vs_market are gone. This
+ * page covers the FULL internal universe including legacy rows whose prices
+ * could not be verified — the same rows /track-record explicitly excludes
+ * from every public figure. Publishing an accuracy percentage and a dollar
+ * P/L here while the verified record said "no settled results yet" put two
+ * contradicting performance universes on one screen (public review,
+ * 2026-08-08). Public performance has exactly one home: the verified record.
+ */
 interface Summary {
   total_recommended: number
   completed: number
   pending: number
-  correct: number
-  incorrect: number
-  accuracy: number | null
-  total_profit_loss: number
-  average_roi: number | null
-  implied_baseline: number | null
-  edge_vs_market: number | null
-  baseline_comparison?: {
-    our_accuracy: number | null
-    market_implied: number | null
-    edge: number | null
-    sample_size: number
-    explanation: string | null
-  }
+  no_usable_result: number
 }
 
 export default function RecommendedPredictionsTable() {
@@ -289,102 +272,52 @@ export default function RecommendedPredictionsTable() {
 
   return (
     <div className="space-y-6">
-      {/* Summary Cards */}
+      {/* Coverage counters — operational facts, never performance.
+          This block used to carry an Accuracy percentage and a "Total P/L
+          ($10 stakes)" figure computed across legacy rows with unverified
+          prices, directly contradicting the verified record. The counts now
+          reconcile too: total = completed + pending + no usable result. */}
       {summary && (
         <>
-          <div className="grid md:grid-cols-4 gap-4">
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Signals tracked</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.total_recommended}</p>
-                </div>
-                <Award className="h-8 w-8 text-primary-600" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Completed</p>
-                  <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
-                  {summary.pending > 0 && (
-                    <p className="text-xs text-yellow-600 mt-1">{summary.pending} pending</p>
-                  )}
-                </div>
-                <CheckCircle2 className="h-8 w-8 text-blue-600" />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Accuracy</p>
-                  {/* The old guard tested `!== null` but the API omits the
-                      field entirely at zero settled results, so `undefined`
-                      slipped through and the card rendered "undefined%" — in
-                      red, since undefined fails every threshold. A missing
-                      figure is neutral information, not a bad grade. */}
-                  {typeof summary.accuracy === 'number' ? (
-                    <>
-                      <p className={`text-2xl font-bold ${summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`}>
-                        {summary.accuracy}%
-                      </p>
-                      <p className="text-xs text-gray-500 mt-1">
-                        {summary.correct} correct, {summary.incorrect} incorrect
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-2xl font-bold text-gray-400">—</p>
-                      <p className="text-xs text-gray-500 mt-1">No settled results yet</p>
-                    </>
-                  )}
-                </div>
-                <TrendingUp className={`h-8 w-8 ${typeof summary.accuracy !== 'number' ? 'text-gray-300' : summary.accuracy >= 70 ? 'text-green-600' : summary.accuracy >= 60 ? 'text-yellow-600' : 'text-red-600'}`} />
-              </div>
-            </div>
-
-            <div className="bg-white rounded-xl p-4 shadow-lg border border-gray-200">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm text-gray-600">Total P/L ($10 stakes)</p>
-                  {/* Null-guarded: with zero settled results the API returns
-                      no P/L, and `.toFixed` on undefined crashed the whole
-                      /monitoring page (observed live 2026-08-07). An absent
-                      figure is information — say so instead of dying. */}
-                  {typeof summary.total_profit_loss === 'number' ? (
-                    <p className={`text-2xl font-bold ${summary.total_profit_loss >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                      ${summary.total_profit_loss.toFixed(2)}
-                    </p>
-                  ) : (
-                    <p className="text-2xl font-bold text-gray-400">—</p>
-                  )}
-                  {typeof summary.average_roi === 'number' ? (
-                    <p className="text-xs text-gray-500 mt-1">
-                      Avg ROI: {summary.average_roi.toFixed(1)}%
-                    </p>
-                  ) : (
-                    <p className="text-xs text-gray-500 mt-1">No settled results yet</p>
-                  )}
-                </div>
-                {typeof summary.total_profit_loss === 'number' && summary.total_profit_loss < 0 ? (
-                  <TrendingDown className="h-8 w-8 text-red-600" />
-                ) : (
-                  <TrendingUp className={`h-8 w-8 ${typeof summary.total_profit_loss === 'number' ? 'text-green-600' : 'text-gray-300'}`} />
-                )}
-              </div>
-            </div>
+          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
+            <p className="text-sm font-semibold text-blue-900">
+              Pipeline coverage — not a performance record
+            </p>
+            <p className="mt-1 text-sm leading-relaxed text-blue-900">
+              This page shows what the signal pipeline produced and whether each
+              call matched the final score. Most rows below predate BetGlitch
+              verifying its recorded prices, so no profit, ROI or accuracy
+              figure is published here — those belong to the{' '}
+              <a href="/track-record" className="font-semibold underline underline-offset-2">
+                verified record
+              </a>
+              , which counts settled public commitments only.
+            </p>
           </div>
 
-          {/* The "Edge vs. Market" hero panel is gone.
-              It rendered a green "+X%" ring with the claim "This is real,
-              verifiable edge" — the strongest unsupported assertion anywhere in
-              the product. BetGlitch has not demonstrated predictive or pricing
-              edge; the 2026-07-22 calibration study found the signal score
-              barely separable from a constant. Comparing a raw hit rate against
-              an odds-implied baseline across a mixed set of markets and prices
-              is not an edge measurement either, so nothing replaces it. */}
+          <div className="grid gap-4 md:grid-cols-4">
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              <p className="text-sm text-gray-600">Signals tracked</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.total_recommended}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              <p className="text-sm text-gray-600">Final score known</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              <p className="text-sm text-gray-600">Awaiting kickoff</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.pending}</p>
+            </div>
+
+            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
+              {/* The eight rows the old headline silently dropped. */}
+              <p className="text-sm text-gray-600">No usable result</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.no_usable_result}</p>
+              <p className="mt-1 text-xs text-gray-500">Postponed, abandoned or ungraded by the provider</p>
+            </div>
+          </div>
         </>
       )}
 
@@ -522,8 +455,12 @@ export default function RecommendedPredictionsTable() {
         )}
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-2xl shadow-lg border border-gray-200 overflow-hidden">
+      {/* Desktop table.
+          Hidden below `md` — a seven-column dataset in a horizontally
+          scrolling container reads one column at a time on a phone, which a
+          public reviewer (2026-08-08) correctly called unusable. The card
+          list below carries the identical fields for small screens. */}
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-lg md:block">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
@@ -534,14 +471,13 @@ export default function RecommendedPredictionsTable() {
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Signal score</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actual Outcome</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Result</th>
-                <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">P/L</th>
                 <th className="px-6 py-4 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Kickoff</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredPredictions.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="px-6 py-12 text-center text-gray-500">
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
                     {activeFilterCount > 0
                       ? 'No predictions match the current filters.'
                       : 'No recommended predictions found. Make sure predictions are marked as recommended.'
@@ -580,19 +516,15 @@ export default function RecommendedPredictionsTable() {
                       <span className={`inline-flex px-3 py-1 rounded-full text-xs font-medium ${getOutcomeColor(pred.predicted_outcome)}`}>
                         {pred.predicted_outcome}
                       </span>
-                      {/* Odds with bookmaker */}
-                      {(() => {
-                        const outcome = pred.predicted_outcome?.toLowerCase()
-                        const odds = outcome === 'home' ? pred.odds_home : outcome === 'draw' ? pred.odds_draw : pred.odds_away
-                        return odds ? (
-                          <div className="text-xs text-gray-500 mt-1">
-                            @ {odds.toFixed(2)} {pred.bookmaker && <span className="text-gray-400">({pred.bookmaker})</span>}
-                          </div>
-                        ) : null
-                      })()}
-                      {/* No public numeric expected value: it is derived from
-                          the uncalibrated signal score, and the leading '+' was
-                          hardcoded so a negative EV rendered as "+-12.4%". */}
+                      {/* No price here.
+                          This cell rendered "@ 11.00 (bet365)" chosen by
+                          string-matching the outcome against the 1X2 board, so
+                          an Over 2.5 or BTTS row quoted a home/draw/away price
+                          — the wrong-market defect that produced Cardiff BTTS
+                          at 1.80 in the commitment and 8.70 here. The prices on
+                          these legacy rows were never verified against the
+                          exact market and bookmaker, so none is published.
+                          Verified prices live on the public commitments. */}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div className="flex items-center">
@@ -630,20 +562,6 @@ export default function RecommendedPredictionsTable() {
                       {getCorrectnessBadge(pred.was_correct, pred.is_completed)}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      {pred.profit_loss_10 !== null ? (
-                        <span className={`text-sm font-medium ${pred.profit_loss_10 >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          ${pred.profit_loss_10 >= 0 ? '+' : ''}{pred.profit_loss_10.toFixed(2)}
-                        </span>
-                      ) : (
-                        <span className="text-sm text-gray-400">-</span>
-                      )}
-                      {pred.roi_percent !== null && (
-                        <div className={`text-xs ${pred.roi_percent >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                          {pred.roi_percent >= 0 ? '+' : ''}{pred.roi_percent.toFixed(1)}% ROI
-                        </div>
-                      )}
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap">
                       <div className="text-sm text-gray-900">{formatDate(pred.kickoff)}</div>
                     </td>
                   </tr>
@@ -652,6 +570,75 @@ export default function RecommendedPredictionsTable() {
             </tbody>
           </table>
         </div>
+      </div>
+
+      {/* Mobile cards — same fields, one fixture per block. */}
+      <div className="space-y-3 md:hidden">
+        {filteredPredictions.length === 0 ? (
+          <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-500 shadow-lg">
+            {activeFilterCount > 0
+              ? 'No predictions match the current filters.'
+              : 'No signals found.'}
+          </div>
+        ) : (
+          filteredPredictions.map((pred) => (
+            <div
+              key={pred.fixture_id}
+              className="rounded-2xl border border-gray-200 bg-white p-4 shadow-lg"
+            >
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="truncate text-sm font-semibold text-gray-900">
+                    {pred.home_team}
+                  </p>
+                  <p className="truncate text-sm text-gray-500">vs {pred.away_team}</p>
+                  <p className="mt-1 truncate text-xs text-gray-400">{pred.league}</p>
+                </div>
+                {getCorrectnessBadge(pred.was_correct, pred.is_completed)}
+              </div>
+
+              <dl className="mt-3 grid grid-cols-2 gap-3 border-t border-gray-100 pt-3 text-sm">
+                <div>
+                  <dt className="text-xs text-gray-500">Signal</dt>
+                  <dd>
+                    <span className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${getOutcomeColor(pred.predicted_outcome)}`}>
+                      {pred.predicted_outcome}
+                    </span>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Signal score</dt>
+                  <dd className="text-gray-900">
+                    {typeof pred.confidence === 'number'
+                      ? `${Math.round(pred.confidence)} / 100`
+                      : '—'}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Actual outcome</dt>
+                  <dd className="text-gray-900">
+                    {pred.actual_outcome ? (
+                      <>
+                        {pred.actual_outcome}
+                        {pred.actual_score_home !== null && pred.actual_score_away !== null && (
+                          <span className="text-gray-500">
+                            {' '}({pred.actual_score_home}-{pred.actual_score_away})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      <span className="text-gray-400">Pending</span>
+                    )}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-500">Kickoff</dt>
+                  <dd className="text-gray-900">{formatDate(pred.kickoff)}</dd>
+                </div>
+              </dl>
+            </div>
+          ))
+        )}
       </div>
     </div>
   )

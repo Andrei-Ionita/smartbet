@@ -99,9 +99,11 @@ export default function ProfilePage() {
                                     >
                                         <div className="font-semibold text-gray-900 capitalize mb-1">{profile}</div>
                                         <div className="text-xs text-gray-500">
-                                            {profile === 'conservative' ? 'Lower stakes, safer growth (1-2%)' :
-                                                profile === 'balanced' ? 'Standard Kelly sizing (2-4%)' :
-                                                    'Higher variance, max growth (4-6%)'}
+                                            {/* No growth promises and no Kelly endorsement here —
+                                                these are stake CAPS the user chooses, nothing more. */}
+                                            {profile === 'conservative' ? 'Lower stake caps (1-2% of bankroll)' :
+                                                profile === 'balanced' ? 'Moderate stake caps (2-4% of bankroll)' :
+                                                    'Higher stake caps (4-6% of bankroll) — higher variance'}
                                         </div>
                                     </button>
                                 ))}

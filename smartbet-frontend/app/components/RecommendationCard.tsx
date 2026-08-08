@@ -703,8 +703,11 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
                 {/* Per-market price, again straight from the canonical status.
                     A market without a verified quote shows the honest state
                     rather than a dash that reads as "no data". */}
+                {/* "52%" here beside "52 / 100" in the headline invited the
+                    exact reading the whole product denies — that the score is
+                    a probability. One number, one notation, everywhere. */}
                 <div className="text-xs text-gray-500 mt-0.5">
-                  {(market.probability * 100).toFixed(0)}%
+                  {(market.probability * 100).toFixed(0)} / 100
                   {canPublishPrice(market) && <> • {(market.odds as number).toFixed(2)}</>}
                 </div>
                 {!canPublishPrice(market) && (

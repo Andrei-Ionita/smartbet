@@ -109,6 +109,25 @@ export function ProofPageBody(
         SHA-256 ({data.claim_hash_version}): {data.claim_hash}
       </p>
 
+      {/* What the hash does and does not prove.
+          A skeptical reviewer (2026-08-08) pointed out that a self-hosted hash
+          over self-hosted content is not independent proof: BetGlitch could in
+          principle replace the content and recompute the hash. That is true,
+          and the page should say so rather than let "immutable proof" imply
+          more than the mechanism delivers. */}
+      <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
+        <p className="text-xs font-semibold text-gray-800">What this hash proves</p>
+        <p className="mt-1 text-xs leading-relaxed text-gray-600">
+          It fixes the exact content of this commitment: change any recorded
+          field and the hash no longer matches, so silent edits are detectable.
+          It does <strong>not</strong>, on its own, prove to a third party that
+          this record existed before kickoff — the hash and the record are both
+          served by BetGlitch. Independent, externally timestamped anchoring is
+          not live yet; until it is, treat this as tamper-evidence rather than
+          third-party proof.
+        </p>
+      </div>
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
           href={imageUrl}

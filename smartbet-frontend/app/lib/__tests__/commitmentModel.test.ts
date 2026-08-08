@@ -47,10 +47,18 @@ describe('the three concepts exist, in both languages', () => {
   })
 
   it('a commitment explicitly denies being a value verdict', () => {
+    // Sharpened after the 2026-08-08 skeptical review: the old wording denied
+    // a value claim but still let "public commitment" sound like a vetted
+    // selection. It must state what the record actually contains — an
+    // in-advance statement, with no score floor and no value threshold.
     expect(en.terms.publicCommitment.notARecommendation)
-      .toContain('not a claim that a signal has proven betting value')
+      .toContain('not that the outcome was statistically compelling')
+    expect(en.terms.publicCommitment.notARecommendation)
+      .toContain('no minimum score and no demonstrated value threshold')
     expect(ro.terms.publicCommitment.notARecommendation)
-      .toContain('nu este o afirmație că semnalul are valoare de pariere dovedită')
+      .toContain('nu că rezultatul ar fi convingător statistic')
+    expect(ro.terms.publicCommitment.notARecommendation)
+      .toContain('niciun prag de valoare demonstrată')
   })
 
   it('pending commitments are not results', () => {

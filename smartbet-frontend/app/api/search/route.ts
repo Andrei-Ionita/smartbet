@@ -248,8 +248,13 @@ export async function GET(request: NextRequest) {
     const league = searchParams.get('league') || ''
     const limit = Math.min(Math.max(parseInt(searchParams.get('limit') || '20', 10) || 20, 1), 100)
 
-    // Require either a search query OR a league selection
-    if (!query && !league) {
+    // An explicit browse needs neither a query nor a league: the index already
+    // spans every covered competition for the next 14 days, sorted by kickoff,
+    // so "what is on soonest" is a slice of it. Explore used to open on an
+    // empty panel that demanded a search before it showed anything — a public
+    // reviewer (2026-08-08) read that as a product with nothing in it.
+    const isBrowse = searchParams.get('mode') === 'browse'
+    if (!query && !league && !isBrowse) {
       return NextResponse.json({
         results: [],
         total: 0,

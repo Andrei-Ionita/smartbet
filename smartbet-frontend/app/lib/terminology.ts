@@ -50,7 +50,7 @@ const EN = {
       definition:
         'A live signal BetGlitch deliberately froze before kickoff for public forward evaluation — selection, signal score, recorded odds, bookmaker and timestamps can no longer change.',
       notARecommendation:
-        'A public commitment is not a claim that a signal has proven betting value. It is a promise that the selection and its price cannot be rewritten or quietly removed.',
+        'A public commitment records that BetGlitch stated this outcome in advance — not that the outcome was statistically compelling. It carries no minimum score and no demonstrated value threshold. What it proves is that the selection and its price cannot be rewritten or quietly removed.',
       frozenFields: [
         'Selection', 'Signal score', 'Recorded odds', 'Bookmaker', 'Timestamps',
         'Provenance',
@@ -424,7 +424,7 @@ const RO: typeof EN = {
       definition:
         'Un semnal live pe care BetGlitch l-a înghețat deliberat înainte de start pentru evaluare publică prospectivă — selecția, scorul de semnal, cota înregistrată, casa de pariuri și marcajele de timp nu se mai pot schimba.',
       notARecommendation:
-        'Un angajament public nu este o afirmație că semnalul are valoare de pariere dovedită. Este o promisiune că selecția și prețul ei nu pot fi rescrise sau șterse discret.',
+        'Un angajament public înregistrează că BetGlitch a enunțat acest rezultat în avans — nu că rezultatul ar fi convingător statistic. Nu are un scor minim și niciun prag de valoare demonstrată. Ce dovedește este că selecția și prețul ei nu pot fi rescrise sau șterse discret.',
       frozenFields: [
         'Selecție', 'Scor semnal', 'Cota înregistrată', 'Casa de pariuri',
         'Marcaje de timp', 'Proveniență',

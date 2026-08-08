@@ -1,12 +1,20 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import { TrendingUp, AlertCircle, CheckCircle2, DollarSign } from 'lucide-react';
+import { TrendingUp } from 'lucide-react';
 
 interface PersonalizedRecommendationsProps {
     sessionId: string;
 }
 
+/**
+ * Only the fields the monitoring DTO actually publishes.
+ *
+ * `odds`, `expected_value` and `stake_recommendation` are gone: the proxy
+ * stopped emitting prices and money (they were derived by string-matching the
+ * outcome against the 1X2 board), and a stake figure sized from an
+ * uncalibrated signal score is not a stake size.
+ */
 interface Recommendation {
     fixture_id: number;
     home_team: string;
@@ -15,24 +23,11 @@ interface Recommendation {
     kickoff: string;
     predicted_outcome: string;
     confidence: number;
-    expected_value: number;
-    odds: number;
-    explanation: string;
-    stake_recommendation?: {
-        recommended_stake: number;
-        stake_percentage: number;
-        currency: string;
-        strategy: string;
-        risk_level: string;
-        risk_explanation: string;
-        warnings: string[];
-    };
 }
 
 export default function PersonalizedRecommendations({ sessionId }: PersonalizedRecommendationsProps) {
     const [recommendations, setRecommendations] = useState<Recommendation[]>([]);
     const [loading, setLoading] = useState(true);
-    const [placingBetId, setPlacingBetId] = useState<number | null>(null);
 
     useEffect(() => {
         const fetchRecommendations = async () => {
@@ -53,42 +48,15 @@ export default function PersonalizedRecommendations({ sessionId }: PersonalizedR
         fetchRecommendations();
     }, [sessionId]);
 
-    const handlePlaceBet = async (rec: Recommendation) => {
-        if (!rec.stake_recommendation) return;
-
-        setPlacingBetId(rec.fixture_id);
-        try {
-            const response = await fetch('/api/bankroll/record-bet', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    session_id: sessionId,
-                    fixture_id: rec.fixture_id,
-                    selected_outcome: rec.predicted_outcome,
-                    odds: rec.odds,
-                    stake_amount: rec.stake_recommendation.recommended_stake,
-                    match_description: `${rec.home_team} vs ${rec.away_team}`,
-                    recommended_stake: rec.stake_recommendation.recommended_stake
-                })
-            });
-
-            const result = await response.json();
-
-            if (response.ok) {
-                // Show success (you might want a toast notification here)
-                alert(`Bet placed successfully! $${rec.stake_recommendation.recommended_stake} on ${rec.predicted_outcome}`);
-                // Remove from list or mark as placed
-                setRecommendations(prev => prev.filter(r => r.fixture_id !== rec.fixture_id));
-            } else {
-                alert(`Failed to place bet: ${result.error}`);
-            }
-        } catch (error) {
-            console.error('Error placing bet:', error);
-            alert('An error occurred while placing the bet');
-        } finally {
-            setPlacingBetId(null);
-        }
-    };
+    /* handlePlaceBet() is gone.
+       It POSTed a "recommended_stake" to the bankroll ledger and confirmed
+       with an alert reading "Bet placed successfully! $X on Home" — a
+       one-click staking instruction sitting directly beneath a panel that
+       says BetGlitch does not size stakes. The stake it posted was sized from
+       the signal score, which is a relative ranking rather than a calibrated
+       probability, so the figure never had a defensible basis. Recording a
+       bet you actually placed belongs on the bankroll page, where YOU enter
+       the stake and the price you got. */
 
     if (loading) {
         return (
@@ -110,9 +78,9 @@ export default function PersonalizedRecommendations({ sessionId }: PersonalizedR
                 <div className="bg-primary-50 p-4 rounded-full inline-block mb-4">
                     <TrendingUp className="h-8 w-8 text-primary-400" />
                 </div>
-                <h3 className="text-lg font-bold text-gray-900 mb-2">Ready to find your first bet?</h3>
+                <h3 className="text-lg font-bold text-gray-900 mb-2">No live signals for you right now</h3>
                 <p className="text-gray-500 mb-8 max-w-md mx-auto">
-                    We don't have any personalized "Smart Picks" for you right now, but there are plenty of matches happening!
+                    Nothing is ranked for your filters at the moment. Plenty of fixtures are still open to explore.
                 </p>
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                     <a
@@ -150,13 +118,13 @@ export default function PersonalizedRecommendations({ sessionId }: PersonalizedR
                             <div className="flex justify-between items-center mb-2">
                                 <h3 className="font-bold text-gray-900">{rec.home_team}</h3>
                                 {rec.predicted_outcome.toLowerCase() === 'home' && (
-                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">PICK</span>
+                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">TOP RANKED</span>
                                 )}
                             </div>
                             <div className="flex justify-between items-center">
                                 <h3 className="font-bold text-gray-900">{rec.away_team}</h3>
                                 {rec.predicted_outcome.toLowerCase() === 'away' && (
-                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">PICK</span>
+                                    <span className="bg-blue-100 text-blue-800 text-xs font-bold px-2 py-1 rounded">TOP RANKED</span>
                                 )}
                             </div>
                         </div>
@@ -205,24 +173,14 @@ export default function PersonalizedRecommendations({ sessionId }: PersonalizedR
                             </p>
                         </div>
 
-                        {/* Action Button */}
-                        <button
-                            onClick={() => handlePlaceBet(rec)}
-                            disabled={!rec.stake_recommendation || placingBetId === rec.fixture_id}
-                            className="w-full py-3 px-4 bg-primary-600 hover:bg-primary-700 disabled:bg-gray-300 disabled:cursor-not-allowed text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+                        {/* Reading, not transacting. The old control was
+                            "Place Bet $12.40" — a staking instruction. */}
+                        <a
+                            href={`/explore?fixture=${rec.fixture_id}`}
+                            className="flex min-h-[44px] w-full items-center justify-center gap-2 rounded-lg border border-gray-300 px-4 py-3 font-medium text-gray-700 transition-colors hover:bg-gray-50"
                         >
-                            {placingBetId === rec.fixture_id ? (
-                                <>
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                    Placing Bet...
-                                </>
-                            ) : (
-                                <>
-                                    <DollarSign className="h-4 w-4" />
-                                    Place Bet ${rec.stake_recommendation?.recommended_stake.toFixed(2) || '0.00'}
-                                </>
-                            )}
-                        </button>
+                            View signal details
+                        </a>
                     </div>
                 </div>
             ))}

@@ -577,7 +577,7 @@ export const translations = {
             strategies: {
                 kelly_fractional: {
                     label: 'Kelly Fracționat (1/4)',
-                    description: 'Recomandat: Versiune mai sigură a criteriului Kelly'
+                    description: 'Versiune mai prudentă a criteriului Kelly'
                 },
                 kelly: {
                     label: 'Criteriul Kelly Complet',

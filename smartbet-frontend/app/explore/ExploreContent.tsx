@@ -183,18 +183,13 @@ export default function ExploreContent() {
         // Search mode: user typed a query
         setBrowseMode(false)
         performSearch()
-      } else if (selectedLeague) {
-        // Browse mode: league selected, no query
+      } else {
+        // Browse mode. With no league selected this shows what is on soonest
+        // across every covered competition, rather than the empty panel that
+        // used to make the product look like it had no content until the
+        // visitor guessed a team name.
         setBrowseMode(true)
         performBrowse()
-      } else {
-        // Nothing selected
-        inFlight.current?.abort()
-        requestSeq.current += 1
-        setSearchResults([])
-        setSearchState('idle')
-        setIsSearching(false)
-        setBrowseMode(false)
       }
     }, 500)
 
@@ -254,8 +249,8 @@ export default function ExploreContent() {
   }
 
   const performBrowse = async () => {
-    if (!selectedLeague) return
-    const params = new URLSearchParams({ league: selectedLeague, limit: '30', mode: 'browse' })
+    const params = new URLSearchParams({ limit: '30', mode: 'browse' })
+    if (selectedLeague) params.append('league', selectedLeague)
     await runQuery(params, true)
   }
 
@@ -269,8 +264,11 @@ export default function ExploreContent() {
     switch (searchState) {
       case 'empty':
         return browseMode
-          ? ro ? 'Niciun meci programat în această competiție în următoarele 14 zile.'
-            : 'No fixtures scheduled in this competition in the next 14 days.'
+          ? selectedLeague
+            ? ro ? 'Niciun meci programat în această competiție în următoarele 14 zile.'
+              : 'No fixtures scheduled in this competition in the next 14 days.'
+            : ro ? 'Niciun meci programat în următoarele 14 zile.'
+              : 'No fixtures scheduled in the next 14 days.'
           : ro ? `Niciun meci găsit pentru „${searchQuery}” în următoarele 14 zile.`
             : `No fixtures found for “${searchQuery}” in the next 14 days.`
       case 'timeout':

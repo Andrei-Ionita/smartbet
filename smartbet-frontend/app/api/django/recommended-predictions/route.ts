@@ -4,6 +4,59 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+/**
+ * Public payload for /monitoring — an ALLOWLIST, same principle as
+ * app/lib/publicRecommendation.ts.
+ *
+ * This proxy used to pass the raw Django row through and even attached an
+ * `odds` field by string-matching the predicted outcome against the 1X2
+ * board — the exact wrong-market defect class behind the 2026-07-29 pricing
+ * incident. A public reviewer (2026-08-08) then found Over 2.5 rows quoting
+ * 11.00 and per-row P/L that contradicted the verified record's own "legacy
+ * prices cannot support price-dependent performance" rule.
+ *
+ * The monitoring page is OPERATIONAL coverage over the full internal
+ * universe, legacy included. Correctness against final scores is a fact that
+ * survives unverified pricing; money and prices are not. So the payload
+ * carries grading facts and counts — never odds, P/L, ROI, EV or bookmaker.
+ */
+const toMonitoringRow = (item: any) => ({
+  fixture_id: item.fixture_id,
+  home_team: item.home_team,
+  away_team: item.away_team,
+  league: item.league,
+  kickoff: item.kickoff,
+  predicted_outcome: item.predicted_outcome,
+  predicted_outcome_raw: item.predicted_outcome_raw,
+  confidence: item.confidence,
+  actual_outcome: item.actual_outcome,
+  actual_outcome_raw: item.actual_outcome_raw,
+  actual_score_home: item.actual_score_home,
+  actual_score_away: item.actual_score_away,
+  match_status: item.match_status,
+  was_correct: item.was_correct,
+  prediction_logged_at: item.prediction_logged_at,
+  result_logged_at: item.result_logged_at,
+  is_completed: item.is_completed,
+})
+
+const toMonitoringSummary = (summary: any) => {
+  if (!summary) return null
+  const total = summary.total_recommended ?? 0
+  const completed = summary.completed ?? 0
+  const pending = summary.pending ?? 0
+  return {
+    total_recommended: total,
+    completed,
+    pending,
+    // The rows the old headline silently dropped (317 tracked, 296 completed,
+    // 13 pending, 8 unexplained): fixtures with no usable result — postponed,
+    // abandoned, or the provider never returned a gradeable score. Naming
+    // them makes the counts reconcile instead of looking like bad arithmetic.
+    no_usable_result: Math.max(0, total - completed - pending),
+  }
+}
+
 export async function GET(request: NextRequest) {
   try {
     const searchParams = request.nextUrl.searchParams
@@ -13,8 +66,6 @@ export async function GET(request: NextRequest) {
     const djangoBaseUrl = process.env.NEXT_PUBLIC_API_URL || (process.env.NODE_ENV === 'development' ? 'http://localhost:8000' : 'https://smartbet-backend-production.up.railway.app')
     // Explicitly pass a large limit to ensure we get ALL records (overrides backend default)
     const djangoUrl = `${djangoBaseUrl}/api/recommended-predictions/?limit=1000&include_pending=${includePending}`
-
-    console.log(`🔍 Fetching recommended predictions from Django: ${djangoUrl}`)
 
     try {
       const response = await fetch(djangoUrl, {
@@ -38,55 +89,13 @@ export async function GET(request: NextRequest) {
       }
 
       const data = await response.json()
-      console.log(`✅ Django API returned ${data.count || 0} recommended predictions`)
 
-      // Transform Django response to match frontend expectations
-      const transformedData = {
-        ...data,
-        confidence_threshold: 55, // Default threshold used by Django
-        fixtures_analyzed: data.count || 0,
-        data: data.data.map((item: any) => {
-          // Get the odds for the predicted outcome
-          let outcomeOdds = null
-          if (item.predicted_outcome === 'Home' || item.predicted_outcome === 'home') {
-            outcomeOdds = item.odds_home
-          } else if (item.predicted_outcome === 'Draw' || item.predicted_outcome === 'draw') {
-            outcomeOdds = item.odds_draw
-          } else if (item.predicted_outcome === 'Away' || item.predicted_outcome === 'away') {
-            outcomeOdds = item.odds_away
-          }
-
-          return {
-            ...item,
-            // Map Django fields to frontend expected fields
-            // Django returns 0-100 percentages, frontend expects 0-100 for display
-            confidence: item.confidence,
-            ev: item.expected_value,
-            odds: outcomeOdds,
-            score: item.confidence,
-            explanation: item.explanation || 'No explanation available',
-            probabilities: item.probabilities ? {
-              home: item.probabilities.home,
-              draw: item.probabilities.draw,
-              away: item.probabilities.away
-            } : undefined,
-            odds_data: {
-              home: item.odds_home,
-              draw: item.odds_draw,
-              away: item.odds_away,
-              bookmaker: item.bookmaker || 'Unknown'
-            },
-            ensemble_info: {
-              model_count: item.model_count || 0,
-              consensus: item.consensus || 0,
-              variance: item.variance || 0,
-              strategy: 'ensemble'
-            }
-          }
-        })
-      }
-
-      return NextResponse.json(transformedData)
+      return NextResponse.json({
+        success: data.success !== false,
+        count: data.count || 0,
+        data: Array.isArray(data.data) ? data.data.map(toMonitoringRow) : [],
+        summary: toMonitoringSummary(data.summary),
+      })
 
     } catch (djangoError) {
       console.error('❌ Django backend error:', djangoError)
@@ -95,7 +104,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: `Django backend unavailable (Target: ${djangoUrl}): ${djangoError instanceof Error ? djangoError.message : String(djangoError)}`,
+          error: `Django backend unavailable: ${djangoError instanceof Error ? djangoError.message : String(djangoError)}`,
           data: [],
           summary: null,
           count: 0,
@@ -118,4 +127,3 @@ export async function GET(request: NextRequest) {
     )
   }
 }
-
