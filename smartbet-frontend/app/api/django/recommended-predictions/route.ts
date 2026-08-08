@@ -49,11 +49,18 @@ const toMonitoringSummary = (summary: any) => {
     total_recommended: total,
     completed,
     pending,
-    // The rows the old headline silently dropped (317 tracked, 296 completed,
-    // 13 pending, 8 unexplained): fixtures with no usable result — postponed,
-    // abandoned, or the provider never returned a gradeable score. Naming
-    // them makes the counts reconcile instead of looking like bad arithmetic.
-    no_usable_result: Math.max(0, total - completed - pending),
+    // The rows that reconcile 317 = 296 + 13 + 8.
+    //
+    // These 8 are NOT ungraded. Django's `completed` counts rows that are
+    // graded AND not audit-excluded, so the gap is exactly the quarantined
+    // set: rows graded against a final score but held out of the audit
+    // universe. Labelling them "postponed, abandoned or ungraded" — as this
+    // first attempted — was itself wrong, and a reviewer caught the table
+    // showing 178 + 126 = 304 graded rows against a summary claiming 296.
+    audit_excluded: Math.max(0, total - completed - pending),
+    // Graded rows including the quarantined ones, so the table and the
+    // headline can be read against each other without arithmetic.
+    graded: Math.max(0, total - pending),
   }
 }
 

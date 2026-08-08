@@ -411,9 +411,15 @@ def _serialize_claim(claim):
             'odds_captured_at': (
                 claim.odds_captured_at.isoformat() if claim.odds_captured_at else None
             ),
+            'price_age_hours_at_publication':
+                claim_publication.price_age_hours_at_publication(claim),
             'kickoff': claim.kickoff.isoformat(),
             'prediction_logged_at': claim.prediction_generated_at.isoformat(),
             'published_at': claim.published_at.isoformat(),
+        # How stale the recorded price was when we committed to it. A reader
+        # should never have to subtract two timestamps to find that out.
+        'price_age_hours_at_publication':
+            claim_publication.price_age_hours_at_publication(claim),
             'odds_provenance': prov,
         },
         'result': result,
@@ -676,9 +682,17 @@ def _serialize_snapshot(snapshot, newest_generated_at=None):
 # better, only which is most useful to publish now. Ranking on historical ROI is
 # deliberately absent — the historical sample is contaminated (2026-07-29 audit)
 # and the gem selector is not built.
-# A recorded price older than this is flagged: it may no longer be obtainable by
-# the time an audience sees the card. Informational only — never a hard filter.
-STALE_ODDS_WARNING_MINUTES = 12 * 60
+# A recorded price older than this may no longer be obtainable by the time an
+# audience sees the card.
+#
+# This was "informational only — never a hard filter", which was defensible
+# while a human read the warning before publishing. Auto-publication removed
+# that human, and on 2026-08-08 it committed prices up to 150 hours old. The
+# same threshold is now the hard eligibility gate, and it is DERIVED from it so
+# the warning shown to staff can never drift from the rule actually enforced.
+STALE_ODDS_WARNING_MINUTES = int(
+    claim_publication.MAX_PRICE_AGE_AT_PUBLICATION.total_seconds() / 60
+)
 
 PUBLICATION_QUEUE_BANDS = (
     (6, 24, 0, '6-24h — ideal sharing window'),

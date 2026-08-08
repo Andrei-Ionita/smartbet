@@ -13,6 +13,7 @@ from io import StringIO
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
+from rest_framework.test import APIClient
 
 from core.models import PredictionLog, PublishedClaim
 from core.services import claim_publication
@@ -157,3 +158,68 @@ class AutoPublicationTests(TestCase):
         auto = source.index("run_task('auto_publish_claims')")
         settle = source.index("run_task('settle_published_claims')")
         self.assertTrue(mark < auto < settle)
+
+
+class PriceFreshnessTests(TestCase):
+    """A price nobody could still get makes the future ROI fiction.
+
+    On 2026-08-08 five of ten live commitments carried prices older than 12
+    hours at publication; the worst was 150.7 hours — six days. Every one
+    passed the existing gate, because that gate compares the price to its own
+    PREDICTION: a six-day-old price beside a six-day-old prediction is
+    perfectly coherent, and perfectly worthless as an obtainable quote.
+    """
+
+    def test_a_price_stale_at_publication_is_refused(self):
+        pred = latest_state(982001, kickoff_in=timedelta(hours=48))
+        snap, _ = record(pred, run_id='r1',
+                         captured_at=timezone.now() - timedelta(hours=20))
+
+        problems = claim_publication.check_snapshot_publication_eligibility(snap)
+        self.assertTrue(any(p.startswith('stale_price_at_publication')
+                            for p in problems), problems)
+
+    def test_the_150_hour_case_from_production_is_refused(self):
+        pred = latest_state(982002, kickoff_in=timedelta(hours=48))
+        snap, _ = record(pred, run_id='r1',
+                         generated_at=timezone.now() - timedelta(hours=151),
+                         captured_at=timezone.now() - timedelta(hours=152))
+
+        problems = claim_publication.check_snapshot_publication_eligibility(snap)
+        self.assertTrue(any(p.startswith('stale_price_at_publication')
+                            for p in problems), problems)
+
+    def test_a_fresh_price_still_publishes(self):
+        pred = latest_state(982003, kickoff_in=timedelta(hours=48))
+        record(pred, run_id='r1',
+               captured_at=timezone.now() - timedelta(hours=1))
+
+        run_command()
+        self.assertTrue(PublishedClaim.objects.filter(fixture_id=982003).exists())
+
+    def test_auto_publication_skips_the_stale_one(self):
+        stale = latest_state(982004, kickoff_in=timedelta(hours=48))
+        record(stale, run_id='r-stale',
+               captured_at=timezone.now() - timedelta(hours=30))
+        fresh = latest_state(982005, kickoff_in=timedelta(hours=48))
+        record(fresh, run_id='r-fresh',
+               captured_at=timezone.now() - timedelta(minutes=30))
+
+        run_command()
+
+        self.assertFalse(PublishedClaim.objects.filter(fixture_id=982004).exists())
+        self.assertTrue(PublishedClaim.objects.filter(fixture_id=982005).exists())
+
+    def test_price_age_is_published_so_nobody_must_subtract_timestamps(self):
+        pred = latest_state(982006, kickoff_in=timedelta(hours=48))
+        snap, _ = record(pred, run_id='r1',
+                         captured_at=timezone.now() - timedelta(hours=3))
+        claim = claim_publication.publish_prediction_claim(snap.snapshot_id)
+
+        age = claim_publication.price_age_hours_at_publication(claim)
+        self.assertAlmostEqual(age, 3.0, delta=0.2)
+
+        response = APIClient().get(f'/api/proof/claim/{claim.claim_id}/')
+        self.assertAlmostEqual(
+            response.json()['pick']['price_age_hours_at_publication'],
+            3.0, delta=0.2)

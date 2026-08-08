@@ -7,7 +7,10 @@ export function generateMatchSlug(homeTeam: string, awayTeam: string, date: stri
     const league = sanitize(leagueName);
     const home = sanitize(homeTeam);
     const away = sanitize(awayTeam);
-    const dateStr = date.split('T')[0]; // Ensure YYYY-MM-DD
+    // The provider sends kickoff as "YYYY-MM-DD HH:MM:SS" (a SPACE, not 'T'),
+    // so splitting on 'T' alone left the raw time in the path — producing URLs
+    // containing a space and colons, e.g. ...-2026-08-08 17:00:00-19726965.
+    const dateStr = date.split(/[T ]/)[0]; // Ensure YYYY-MM-DD
 
     return `/prediction/${league}/${home}-vs-${away}-${dateStr}-${id}`;
 }

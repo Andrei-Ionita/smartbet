@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react'
 import { RefreshCw, CheckCircle2, XCircle, Clock, TrendingUp, TrendingDown, Award, Lock, ExternalLink, Filter, Calendar, ChevronDown, ChevronUp, RotateCcw } from 'lucide-react'
+import { computeDiscrimination, describeAuc } from '../lib/discrimination'
 
 interface RecommendedPrediction {
   fixture_id: number
@@ -38,7 +39,8 @@ interface Summary {
   total_recommended: number
   completed: number
   pending: number
-  no_usable_result: number
+  audit_excluded: number
+  graded: number
 }
 
 export default function RecommendedPredictionsTable() {
@@ -215,6 +217,14 @@ export default function RecommendedPredictionsTable() {
     filterOutcome !== 'all',
   ].filter(Boolean).length
 
+  // Measured separation between right and wrong calls, over EVERY graded row
+  // on this page — not the filtered view, so a visitor cannot narrow the
+  // filters until the number flatters us.
+  const discrimination = useMemo(
+    () => computeDiscrimination(predictions),
+    [predictions],
+  )
+
   const filteredPredictions = useMemo(() => {
     return predictions.filter((pred) => {
       // League filter
@@ -302,8 +312,9 @@ export default function RecommendedPredictionsTable() {
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-              <p className="text-sm text-gray-600">Final score known</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.completed}</p>
+              {/* Matches the table: every row showing Correct or Incorrect. */}
+              <p className="text-sm text-gray-600">Graded against a final score</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.graded}</p>
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
@@ -312,13 +323,117 @@ export default function RecommendedPredictionsTable() {
             </div>
 
             <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-lg">
-              {/* The eight rows the old headline silently dropped. */}
-              <p className="text-sm text-gray-600">No usable result</p>
-              <p className="text-2xl font-bold text-gray-900">{summary.no_usable_result}</p>
-              <p className="mt-1 text-xs text-gray-500">Postponed, abandoned or ungraded by the provider</p>
+              <p className="text-sm text-gray-600">Of those, audit-excluded</p>
+              <p className="text-2xl font-bold text-gray-900">{summary.audit_excluded}</p>
+              <p className="mt-1 text-xs text-gray-500">
+                Graded, but quarantined from the audit universe
+              </p>
             </div>
           </div>
         </>
+      )}
+
+      {/* Does the score actually separate right from wrong?
+          A reviewer computed this from these very rows and used it against
+          us. Publishing it ourselves is the only defensible answer: a
+          prominent 0-100 number implies discriminating power, so the measured
+          power belongs on the same page. It recomputes from live data, so it
+          cannot drift away from reality. */}
+      {discrimination && discrimination.auc !== null && (
+        <div className="rounded-xl border border-gray-300 bg-white p-5 shadow-lg">
+          <h3 className="text-base font-bold text-gray-900">
+            Does the signal score separate right calls from wrong ones?
+          </h3>
+          <p className="mt-1 text-sm leading-relaxed text-gray-700">
+            Measured on the {discrimination.sample} graded calls below. This is
+            the question a 0–100 number invites, so here is the answer from our
+            own data rather than a claim about it.
+          </p>
+
+          <div className="mt-4 grid gap-4 sm:grid-cols-3">
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Mean score when correct
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {discrimination.meanCorrect.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500">n = {discrimination.correct}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Mean score when incorrect
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {discrimination.meanIncorrect.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500">n = {discrimination.incorrect}</p>
+            </div>
+            <div>
+              <p className="text-xs uppercase tracking-wide text-gray-500">
+                Separation
+              </p>
+              <p className="text-2xl font-bold text-gray-900">
+                {discrimination.separation >= 0 ? '+' : ''}
+                {discrimination.separation.toFixed(2)}
+              </p>
+              <p className="text-xs text-gray-500">points, out of 100</p>
+            </div>
+          </div>
+
+          <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="flex flex-wrap items-baseline gap-x-3">
+              <span className="text-xs uppercase tracking-wide text-gray-500">
+                Ranking power (AUC)
+              </span>
+              <span className="text-2xl font-bold text-gray-900">
+                {discrimination.auc.toFixed(3)}
+              </span>
+            </div>
+            <p className="mt-1 text-sm font-medium text-gray-900">
+              {describeAuc(discrimination.auc)}
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-gray-600">
+              Pick one correct call and one incorrect call at random: the
+              correct one carries the higher score{' '}
+              {(discrimination.auc * 100).toFixed(1)}% of the time. A score
+              carrying no information at all would read 0.500.
+            </p>
+          </div>
+
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-200 text-left text-xs uppercase tracking-wide text-gray-500">
+                  <th className="py-2 pr-4 font-medium">Score band</th>
+                  <th className="py-2 pr-4 font-medium">Correct</th>
+                  <th className="py-2 pr-4 font-medium">Incorrect</th>
+                  <th className="py-2 font-medium">Hit rate</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {discrimination.buckets.map((b) => (
+                  <tr key={b.label}>
+                    <td className="py-2 pr-4 text-gray-700">{b.label}</td>
+                    <td className="py-2 pr-4 text-gray-900">{b.correct}</td>
+                    <td className="py-2 pr-4 text-gray-900">{b.incorrect}</td>
+                    <td className="py-2 font-medium text-gray-900">
+                      {b.hitRate === null ? '—' : `${b.hitRate.toFixed(1)}%`}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="mt-3 text-xs leading-relaxed text-gray-600">
+            Read this carefully before reading anything into a score. These are
+            legacy pipeline rows across mixed markets, graded on correctness
+            only — they are not the verified record and say nothing about
+            profitability. If the bands are not in ascending order, the score is
+            not ordering outcomes reliably in this sample.
+          </p>
+        </div>
       )}
 
       {/* Filters & Controls */}

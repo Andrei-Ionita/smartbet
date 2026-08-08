@@ -622,17 +622,26 @@ class PublicationQueueTests(TestCase):
         self._staff('qroot6').get('/api/proof/queue/')
         self.assertEqual(PublishedClaim.objects.count(), 0)
 
-    def test_queue_reports_odds_freshness_and_staleness_warning(self):
+    def test_queue_reports_odds_freshness(self):
         pred = latest_state(991001, kickoff_in=timedelta(hours=12))
         record(pred, run_id='fresh-1',
-               captured_at=timezone.now() - timedelta(hours=20))
+               captured_at=timezone.now() - timedelta(hours=2))
 
         body = json.loads(self._staff('qroot7').get('/api/proof/queue/').content)
         row = body['candidates'][0]
         self.assertIsNotNone(row['odds_age_minutes'])
-        self.assertGreater(row['odds_age_minutes'], 12 * 60)
-        self.assertTrue(any('no longer be obtainable' in w for w in row['warnings']))
+        self.assertGreater(row['odds_age_minutes'], 60)
         self.assertEqual(row['publication_window'], '6-24h — ideal sharing window')
+
+    def test_a_stale_price_is_no_longer_publishable_at_all(self):
+        """This used to be a warning a human could read and override. Auto-
+        publication has no human, and it committed a price 150 hours old."""
+        pred = latest_state(991009, kickoff_in=timedelta(hours=12))
+        record(pred, run_id='stale-1',
+               captured_at=timezone.now() - timedelta(hours=20))
+
+        body = json.loads(self._staff('qroot7b').get('/api/proof/queue/').content)
+        self.assertEqual(body['candidates'], [])
 
     def test_queue_flags_when_a_newer_snapshot_exists(self):
         pred = latest_state(991002, kickoff_in=timedelta(hours=12))

@@ -65,11 +65,18 @@ describe('the monitoring page publishes no performance figure', () => {
     expect(MONITORING_TABLE).toContain('not a performance record')
   })
 
-  it('reconciles its counters (total = completed + pending + ungradeable)', () => {
-    // 317 tracked / 296 completed / 13 pending left 8 rows unexplained.
-    expect(MONITORING_TABLE).toContain('no_usable_result')
-    expect(MONITORING_ROUTE).toContain('no_usable_result')
-    expect(MONITORING_ROUTE).toContain('total - completed - pending')
+  it('reconciles its counters against the table, not just arithmetically', () => {
+    // 317 tracked / 296 completed / 13 pending left 8 rows unexplained. The
+    // first fix invented a "no usable result" bucket for them — wrong: those
+    // 8 ARE graded, they are audit-excluded, and the table showed 178 + 126 =
+    // 304 graded rows against a headline claiming 296.
+    expect(MONITORING_ROUTE).toContain('audit_excluded')
+    expect(MONITORING_ROUTE).toContain('graded')
+    expect(MONITORING_TABLE).toContain('Graded against a final score')
+    expect(MONITORING_TABLE).toContain('Of those, audit-excluded')
+    // The retired, incorrect label must not come back.
+    expect(MONITORING_TABLE).not.toContain('no_usable_result')
+    expect(MONITORING_TABLE).not.toContain('Postponed, abandoned or ungraded')
   })
 })
 

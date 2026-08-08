@@ -88,6 +88,20 @@ export function ProofPageBody(
         <Row label="Bookmaker" value={formatBookmaker(p.bookmaker) ?? 'n/a'} />
         <Row label="Odds market" value={p.odds_market ?? 'n/a'} />
         <Row label="Odds captured" value={formatUtc(p.odds_captured_at)} />
+        {/* How stale the price was at the moment we committed to it. A price
+            captured days earlier proves where the number came from, but not
+            that a bettor could still get it — so the age is stated outright
+            rather than left as arithmetic for the reader. */}
+        {typeof p.price_age_hours_at_publication === 'number' && (
+          <Row
+            label="Price age when committed"
+            value={
+              p.price_age_hours_at_publication < 1
+                ? `${Math.round(p.price_age_hours_at_publication * 60)} minutes`
+                : `${p.price_age_hours_at_publication.toFixed(1)} hours`
+            }
+          />
+        )}
         <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
         <Row label="Claim published" value={formatUtc(p.published_at)} />
         <Row label="Signal score at commitment" value={formatModelScore(p.model_score_percent)} />

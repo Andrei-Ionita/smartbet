@@ -12,6 +12,7 @@ enforcement, or permission logic:
 Background: docs/audit/gem-selector-diagnostics-2026-07-29.md
 """
 import logging
+import os
 from datetime import timedelta
 from datetime import timezone as dt_timezone
 
@@ -26,6 +27,26 @@ logger = logging.getLogger(__name__)
 # Prices are captured in the same pipeline run that generates the prediction, so
 # a small clock/ordering skew is expected; anything beyond this is incoherent.
 _CAPTURE_SLACK = timedelta(hours=6)
+
+# ── Price freshness AT PUBLICATION ──────────────────────────────────────────
+# `snapshot_timestamp_problems` already rejects a price that is stale RELATIVE
+# TO ITS PREDICTION. That check cannot see this failure: a six-day-old price
+# paired with a six-day-old prediction is internally coherent, passes every
+# gate, and still gets published today as "verified".
+#
+# It happened. On 2026-08-08 half the live commitments carried prices older
+# than 12h at publication, one of them 150.7 hours — six days. A reviewer
+# asked the right question: does that price prove a bettor could actually have
+# taken it? No. And since the public record's whole purpose is a future ROI
+# that means something, a price nobody could get makes the eventual number
+# fiction.
+#
+# So freshness is measured against PUBLICATION TIME, which is the moment we
+# assert the price. Tunable, because the honest threshold is an empirical
+# question — but a ceiling exists, and it fails closed.
+MAX_PRICE_AGE_AT_PUBLICATION = timedelta(
+    hours=float(os.environ.get('MAX_PRICE_AGE_HOURS', '12'))
+)
 
 
 class PublicationError(Exception):
@@ -104,7 +125,27 @@ def check_snapshot_publication_eligibility(snapshot, now=None):
     if snapshot.odds_captured_at and snapshot.odds_captured_at > now:
         problems.append('odds_captured_after_publication')
 
+    # ...nor long before it. See MAX_PRICE_AGE_AT_PUBLICATION.
+    if snapshot.odds_captured_at:
+        age = now - snapshot.odds_captured_at
+        if age > MAX_PRICE_AGE_AT_PUBLICATION:
+            problems.append(
+                f'stale_price_at_publication:{age.total_seconds() / 3600:.1f}h')
+
     return problems
+
+
+def price_age_hours_at_publication(claim):
+    """How old the recorded price was when the claim was published.
+
+    Published so a reader never has to subtract two timestamps to discover
+    that a quoted price was days old — which is exactly what a reviewer had
+    to do on 2026-08-08.
+    """
+    if not claim.odds_captured_at or not claim.published_at:
+        return None
+    return round(
+        (claim.published_at - claim.odds_captured_at).total_seconds() / 3600, 1)
 
 
 @transaction.atomic

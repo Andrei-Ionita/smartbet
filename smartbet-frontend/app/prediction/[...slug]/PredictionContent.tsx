@@ -6,7 +6,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Calendar, Shield, Trophy } from 'lucide-react'
 import ProofCapturePanel from '../../components/ProofCapturePanel'
-import ShareProofButton from '../../components/ShareProofButton'
 
 interface PredictionContentProps {
     recommendation: Recommendation
@@ -135,7 +134,14 @@ export default function PredictionContent({
             </div>
 
             <div className="mb-12 flex flex-col gap-6">
-                <ShareProofButton fixtureId={recommendation.fixture_id} className="mt-2" />
+                {/* No "Share proof" here.
+                    This page shows a LIVE SIGNAL, which can change before
+                    kickoff and is explicitly not part of the verified record.
+                    Offering to share "proof" of a mutable number invites
+                    exactly the confusion the three-state model exists to
+                    prevent — and a shared card could contradict the signal
+                    minutes later. Proof belongs to public commitments, which
+                    carry their own proof page and share control. */}
                 <ProofCapturePanel
                     source="prediction_page"
                     leagueInterest={leagueName}

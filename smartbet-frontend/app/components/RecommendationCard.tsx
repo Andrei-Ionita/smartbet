@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { Recommendation } from '../../src/types/recommendation'
-import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Lock, Info, Activity } from 'lucide-react'
+import { ChevronDown, ChevronUp, ExternalLink, TrendingUp, TrendingDown, Target, AlertTriangle, CheckCircle, Calculator, ArrowRight, Info, Activity } from 'lucide-react'
 import BettingAcknowledgmentModal from './BettingAcknowledgmentModal'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
 import { canPublishPrice, priceUnavailableLabel } from '../lib/marketPricing'
@@ -338,11 +338,14 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
             <span className="text-xs bg-gray-100 text-gray-600 px-3 py-1 rounded-full font-medium">
               {formatKickoff(recommendation.kickoff)}
             </span>
-            {/* Prediction Lock Badge - Shows prediction is locked before kickoff */}
+            {/* Time to kickoff. The badge here used to read "Locked" — in
+                green, with a padlock — whenever kickoff was still ahead, i.e.
+                exactly when this signal CAN still change. It contradicted the
+                LIVE SIGNAL frame directly above it and told a visitor the
+                opposite of the truth. Only a public commitment is locked. */}
             {timeStatus.isLocked && (
-              <span className="text-xs font-medium px-2.5 py-1 rounded-full flex items-center gap-1.5 bg-emerald-100 text-emerald-700 border border-emerald-200">
-                <Lock className="h-3 w-3" />
-                {language === 'ro' ? 'Predicție blocată' : 'Locked'} • {timeStatus.timeText}
+              <span className="flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700">
+                {language === 'ro' ? 'Start' : 'Kicks off'} {timeStatus.timeText}
               </span>
             )}
             {/* Best Market Badge */}

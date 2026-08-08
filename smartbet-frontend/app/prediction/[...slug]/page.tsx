@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
     if (!data || !data.fixture) {
         return {
-            title: 'Match Prediction Not Found | BetGlitch',
+            title: 'Match prediction not found',
             description: 'The requested match prediction could not be found.'
         }
     }
@@ -54,7 +54,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     )
     const marketName = bestMarket?.display_name ?? 'Match Result'
 
-    const title = `${home_team} vs ${away_team} — signal, stats & odds | BetGlitch`
+    // No ' | BetGlitch' suffix here: the root layout's metadata template
+    // appends it, and adding our own produced "... | BetGlitch | BetGlitch".
+    const title = `${home_team} vs ${away_team} — signal, stats & odds`
     const description = `BetGlitch's live signal for ${home_team} vs ${away_team} in ${league}. ${headlineOutcome} (${marketName}) is the highest-ranked outcome, signal score ${headlineScore} / 100 — a relative ranking, not a calibrated probability.`
 
     return {

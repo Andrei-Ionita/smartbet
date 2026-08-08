@@ -54,6 +54,12 @@ export interface ProofPayload {
     odds_market: string | null
     odds_line: number | null
     odds_captured_at: string | null
+    /**
+     * Hours between capturing the price and committing to it. Published
+     * because a reviewer had to subtract two timestamps to discover a
+     * committed price was six days old.
+     */
+    price_age_hours_at_publication?: number | null
     kickoff: string
     prediction_logged_at: string
     published_at: string
