@@ -429,11 +429,22 @@ describe('consistent public positioning', () => {
     expect(copy).toContain("headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.'")
   })
 
-  it('the supporting copy names freezing, visibility of losses, and context', () => {
+  it('the supporting copy names freezing, external timestamping and losses', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain(
-      'When BetGlitch commits a signal to the public record, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
+      'the decision is frozen before kickoff, timestamped outside our control, and every eligible result stays visible — win or lose.',
     )
+  })
+
+  it('does not promise fixture context the product does not deliver', () => {
+    // The hero offered "the context behind each fixture" while the provider
+    // returns "?????" for recent form on every live fixture, and there are no
+    // lineups, injuries or matchup history. A reviewer called the analysis
+    // "extremely thin" and was right — so the promise is withdrawn rather
+    // than the shortfall papered over.
+    const copy = read('app/lib/terminology.ts')
+    expect(copy).not.toContain('the context behind each fixture')
+    expect(copy).not.toContain('contextul din spatele fiecărui meci')
   })
 
   it('the manifesto is present and promises improvement, not predictions', () => {

@@ -105,7 +105,7 @@ const EN = {
     // feature exists: decisions improve when the evidence behind them does.
     headline: 'Better football decisions start with better evidence.',
     supporting:
-      'Explore transparent football signals, verified market prices and the context behind each fixture. When BetGlitch commits a signal to the public record, the decision is frozen before kickoff and every eligible result remains visible — win or lose.',
+      'Explore transparent football signals and verified market prices. When BetGlitch commits a signal to the public record, the decision is frozen before kickoff, timestamped outside our control, and every eligible result stays visible — win or lose.',
     primaryCta: 'Explore live signals',
     secondaryCta: 'View the verified record',
     // Three commitments in one quiet line — a rule, not a badge.
@@ -471,7 +471,7 @@ const RO: typeof EN = {
     eyebrow: 'BETA PUBLIC GRATUIT',
     headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.',
     supporting:
-      'Explorează semnale transparente de fotbal, prețuri de piață verificate și contextul din spatele fiecărui meci. Când BetGlitch angajează un semnal în registrul public, decizia este înghețată înainte de start și fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
+      'Explorează semnale transparente de fotbal și prețuri de piață verificate. Când BetGlitch angajează un semnal în registrul public, decizia este înghețată înainte de start, marcată temporal în afara controlului nostru, iar fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi istoricul verificat',
     trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse',
