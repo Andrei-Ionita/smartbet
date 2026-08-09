@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { getCopy } from '../terminology'
 
 const ROOT = join(__dirname, '..', '..', '..')
-const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
 
 describe('legacy rows never publish price-dependent performance', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
@@ -265,9 +265,10 @@ describe('auth forms work with password managers and screen readers', () => {
 })
 
 describe('metadata matches the product that actually loads', () => {
-  it('explore is described as live signals, not value bets', () => {
+  it('explore is described as decision intelligence, not value bets', () => {
     const src = read('app/explore/page.tsx')
-    expect(src).toContain('Explore live football signals')
+    expect(src).toContain('Explore football odds, probabilities and fixture context')
+    expect(src).toContain('calculate your own fair odds')
     expect(src).not.toContain('value bets')
   })
 
@@ -405,42 +406,37 @@ describe('responsive layout guards', () => {
   })
 })
 
-describe('the explore signal detail is framed as a live signal', () => {
+describe('the Explore detail is framed as a decision workspace', () => {
   const src = read('app/explore/ExploreContent.tsx')
+  const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
 
-  it('labels the modal as a live model signal', () => {
-    // This modal is where a visitor actually reads a signal, and it carried no
-    // indication the numbers are mutable or outside the verified record.
-    expect(src).toContain('<StatusBadge status="live" size="sm" lang={language} />')
-    expect(src).toContain('copy.terms.liveSignal.mutability')
-    expect(src).toContain('copy.terms.liveSignal.notInRecord')
+  it('separates research from BetGlitch recommendations', () => {
+    expect(src).toContain('<FixtureDecisionWorkspace')
+    expect(src).not.toContain('RecommendationCard')
+    expect(workspace).toContain('Nothing here automatically becomes a BetGlitch recommendation.')
   })
 
-  it('states that the model score is not a calibrated probability', () => {
-    expect(src).toContain('copy.modelScoreNote')
+  it('states that model-market differences are not proof of value', () => {
+    expect(workspace).toContain('Their difference is not proof of value.')
+    expect(workspace).toContain('This is your conclusion, not a BetGlitch estimate.')
   })
 
-  it('reads that vocabulary in the visitor’s language', () => {
-    // These were the English exports, so a Romanian visitor met an English
-    // definition of the concept the badge directly above it had just named.
-    expect(src).toContain('const copy = getCopy(language)')
-    expect(src).not.toMatch(/\bTERMS\.liveSignal/)
-    expect(src).not.toMatch(/\bMODEL_SCORE_NOTE\b/)
+  it('translates data-quality limitations in the visitor language', () => {
+    expect(workspace).toContain('const limitationCopy')
+    expect(workspace).toContain('Probabilitățile furnizorului nu sunt disponibile')
+    expect(workspace).toContain('Provider probabilities are unavailable')
   })
 
   it('is an accessible dialog', () => {
     expect(src).toContain('aria-modal="true"')
-    // Renamed with the vocabulary: "live model signal" → "live signal".
-    expect(src).toContain('aria-label="Live signal detail"')
-    expect(src).toContain('aria-label="Close signal detail"')
+    expect(src).toContain('aria-label="Fixture decision workspace"')
+    expect(src).toContain("aria-label={ro ? 'Închide' : 'Close'}")
   })
 
   it('makes the fixture card reachable by keyboard', () => {
-    // It was a div with onClick: not focusable, not keyboard-operable, and
-    // announced as plain text.
-    expect(src).toContain('role="button"')
-    expect(src).toContain('tabIndex={0}')
-    expect(src).toMatch(/e\.key === 'Enter' \|\| e\.key === ' '/)
+    expect(src).toContain('<button\n                    key={fixture.fixture_id}')
+    expect(src).toContain('type="button"')
+    expect(src).toContain('focus-visible:outline')
   })
 
   it('never blocks the tab with alert()', () => {
@@ -514,12 +510,16 @@ describe('Explore and the beta page are fully bilingual', () => {
   const beta = read('app/pricing/BetaContent.tsx')
   const tr = read('app/locales/translations.ts')
 
-  it('explore renders no hardcoded English headings', () => {
-    expect(explore).toContain("{t('explore.title')}")
-    expect(explore).toContain("{t('explore.subtitle')}")
-    expect(explore).toContain("t('explore.results')")
-    expect(explore).toContain("{t('explore.howTo.title')}")
-    expect(explore).not.toContain('How to Use the Explorer<')
+  it('explore pairs every major English heading with Romanian copy', () => {
+    for (const pair of [
+      ['Explore. Evaluate. Set your own price.', 'Explorează. Evaluează. Stabilește prețul tău.'],
+      ['Upcoming fixtures', 'Meciuri următoare'],
+      ['Search results', 'Rezultatele căutării'],
+      ['Open decision workspace', 'Deschide spațiul de decizie'],
+    ]) {
+      expect(explore).toContain(pair[0])
+      expect(explore).toContain(pair[1])
+    }
   })
 
   it('the beta page reads every string from the bundle', () => {

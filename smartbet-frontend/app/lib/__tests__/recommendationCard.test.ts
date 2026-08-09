@@ -16,7 +16,7 @@ import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 const ROOT = join(__dirname, '..', '..', '..')
-const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
 const CARD = read('app/components/RecommendationCard.tsx')
 /** Rendered code only: comments legitimately name the claims they removed. */
 const CARD_CODE = CARD

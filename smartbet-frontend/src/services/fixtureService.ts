@@ -6,6 +6,11 @@ import {
     type OddsUnavailableReason,
     type ProductMarket,
 } from '@/app/lib/marketPricing'
+import {
+    buildFixtureIntelligence,
+    type IntelligenceMarketInput,
+    type IntelligenceOutcomeInput,
+} from '@/app/lib/fixtureIntelligence'
 
 // Robust apiClient implementation
 const apiClient = {
@@ -100,6 +105,7 @@ export async function getFixtureDetails(fixtureId: string) {
 
     const data = await apiClient.request(`${url}?${params_api}`)
     const fixture = data.data
+    const evaluatedAt = new Date()
 
     if (!fixture) {
         return null
@@ -398,7 +404,6 @@ export async function getFixtureDetails(fixtureId: string) {
         best_bet: null as 'home' | 'draw' | 'away' | null,
         best_ev: null as number | null
     }
-    let signalQuality: 'Strong' | 'Good' | 'Moderate' | 'Weak' = 'Weak'
 
     if (predictionData) {
         // Determine predicted outcome (predictionData is now in percentage format)
@@ -431,57 +436,6 @@ export async function getFixtureDetails(fixtureId: string) {
             evAnalysis.best_ev = bestBet.ev
         }
 
-        // Determine signal quality
-        if (confidence >= 70) signalQuality = 'Strong'
-        else if (confidence >= 60) signalQuality = 'Good'
-        else if (confidence >= 50) signalQuality = 'Moderate'
-        else signalQuality = 'Weak'
-    }
-
-    // Calculate market indicators. The bookmaker margin only means anything when
-    // all three legs of the same board are priced, so this is all-or-nothing.
-    let marketIndicators = null
-    const boardComplete =
-        oddsData !== null &&
-        oddsData.home !== null &&
-        oddsData.draw !== null &&
-        oddsData.away !== null
-
-    if (predictionData && oddsData && boardComplete) {
-        const impliedProbs = {
-            home: 100 / oddsData.home!,
-            draw: 100 / oddsData.draw!,
-            away: 100 / oddsData.away!
-        }
-        const totalImplied = impliedProbs.home + impliedProbs.draw + impliedProbs.away
-        const bookmakerMargin = totalImplied - 100
-
-        // Determine favorite based on odds
-        const favorites = [
-            { outcome: 'Home', odds: oddsData.home, implied: impliedProbs.home },
-            { outcome: 'Draw', odds: oddsData.draw, implied: impliedProbs.draw },
-            { outcome: 'Away', odds: oddsData.away, implied: impliedProbs.away }
-        ].sort((a, b) => (b.implied || 0) - (a.implied || 0))
-
-        const marketFavorite = favorites[0].outcome.toLowerCase()
-
-        // Compare AI prediction vs market
-        const aiVsMarket = predictedOutcome === marketFavorite ?
-            'Agreement' : 'Disagreement'
-
-        // Estimate volume based on odds tightness (lower margin = higher volume)
-        const volumeEstimate = bookmakerMargin < 5 ? 'High' :
-            bookmakerMargin < 8 ? 'Medium' : 'Low'
-
-        marketIndicators = {
-            market_favorite: favorites[0].outcome,
-            market_implied_prob: favorites[0].implied?.toFixed(1) + '%',
-            bookmaker_margin: bookmakerMargin.toFixed(2) + '%',
-            volume_estimate: volumeEstimate,
-            ai_vs_market: aiVsMarket,
-            value_opportunity: aiVsMarket === 'Disagreement' ? 'Potential arbitrage' : 'Market aligned',
-            odds_efficiency: bookmakerMargin < 5 ? 'Efficient' : 'Less efficient'
-        }
     }
 
     const serialiseMarket = (m: MarketPrediction) => ({
@@ -501,6 +455,77 @@ export async function getFixtureDetails(fixtureId: string) {
         odds_unavailable_reason: m.odds_unavailable_reason,
     })
 
+    const probabilityVector = (market: ProductMarket): Record<string, number> =>
+        allMarketsData.find((candidate) => candidate.market_type === market)?.raw_predictions ?? {}
+
+    const intelligenceOutcome = (
+        market: ProductMarket,
+        key: string,
+        label: string,
+        providerProbability: number | null,
+    ): IntelligenceOutcomeInput => {
+        const selected = price(market, key)
+        return {
+            key,
+            label,
+            provider_probability: providerProbability,
+            odds: selected.status === 'verified' ? selected.odds : null,
+            bookmaker: selected.status === 'verified' ? selected.bookmaker.name : null,
+            price_status: selected.status,
+            odds_provenance: selected.status === 'verified' ? selected.provenance : null,
+            odds_unavailable_reason:
+                selected.status === 'unavailable' ? selected.unavailable_reason : undefined,
+        }
+    }
+
+    const vector1x2 = probabilityVector('1x2')
+    const vectorBtts = probabilityVector('btts')
+    const vectorGoals = probabilityVector('over_under_2.5')
+    const vectorDoubleChance = probabilityVector('double_chance')
+
+    const intelligenceMarkets: IntelligenceMarketInput[] = [
+        {
+            key: '1x2',
+            label: 'Match Result',
+            probability_kind: 'distribution',
+            outcomes: [
+                intelligenceOutcome('1x2', 'home', 'Home', vector1x2.home ?? null),
+                intelligenceOutcome('1x2', 'draw', 'Draw', vector1x2.draw ?? null),
+                intelligenceOutcome('1x2', 'away', 'Away', vector1x2.away ?? null),
+            ],
+        },
+        {
+            key: 'btts',
+            label: 'Both Teams to Score',
+            probability_kind: 'distribution',
+            outcomes: [
+                intelligenceOutcome('btts', 'yes', 'Yes', vectorBtts.yes ?? null),
+                intelligenceOutcome('btts', 'no', 'No', vectorBtts.no ?? null),
+            ],
+        },
+        {
+            key: 'over_under_2.5',
+            label: 'Over/Under 2.5 Goals',
+            probability_kind: 'distribution',
+            outcomes: [
+                intelligenceOutcome('over_under_2.5', 'over', 'Over 2.5', vectorGoals.over ?? null),
+                intelligenceOutcome('over_under_2.5', 'under', 'Under 2.5', vectorGoals.under ?? null),
+            ],
+        },
+        {
+            key: 'double_chance',
+            label: 'Double Chance',
+            probability_kind: 'overlapping',
+            outcomes: [
+                intelligenceOutcome('double_chance', '1X', 'Home or Draw', vectorDoubleChance['1X'] ?? null),
+                intelligenceOutcome('double_chance', 'X2', 'Draw or Away', vectorDoubleChance.X2 ?? null),
+                intelligenceOutcome('double_chance', '12', 'Home or Away', vectorDoubleChance['12'] ?? null),
+            ],
+        },
+    ]
+
+    const intelligence = buildFixtureIntelligence(intelligenceMarkets, evaluatedAt)
+
     // Prepare response data with rich structure like recommendations API
     const responseData = {
         fixture: {
@@ -514,40 +539,7 @@ export async function getFixtureDetails(fixtureId: string) {
             predictions: predictionData || { home: 0, draw: 0, away: 0 },
             odds_data: oddsData,
             ev_analysis: evAnalysis,
-            signal_quality: signalQuality,
-            prediction_strength: signalQuality,
-            market_indicators: marketIndicators,
-            prediction_info: {
-                // Not 'AI'. BetGlitch trains no predictive model; the
-                // probabilities come from a specialist football data provider.
-                source: 'provider',
-                confidence_level: confidence >= 70 ? 'High' : confidence >= 60 ? 'Good' : confidence >= 50 ? 'Moderate' : 'Low',
-                reliability_score: confidence / 100,
-                // "Complete" now requires a canonical price, not merely the
-                // presence of an odds array.
-                data_quality: (predictionData && oddsData) ? 'Complete' : predictionData ? 'Predictions Only' : 'Limited'
-                // No interval is published here. The band this field used to
-                // carry was a fixed offset applied to the model score, not an
-                // estimate derived from any sampling distribution.
-            },
-            // Keep ensemble_info for backwards compatibility with existing code
-            ensemble_info: {
-                model_count: 1,
-                consensus: confidence / 100,
-                variance: confidence >= 70 ? 0.1 : confidence >= 50 ? 0.2 : 0.3,
-                strategy: confidence >= 70 ? 'conservative' : confidence >= 50 ? 'balanced' : 'aggressive'
-            },
-            debug_info: {
-                confidence_category: confidence > 70 ? 'High' : confidence > 50 ? 'Medium' : 'Low',
-                prediction_strength: confidence > 70 ? 'Strong' : confidence > 50 ? 'Moderate' : 'Weak',
-                confidence_score: confidence,
-                certainty_level: confidence > 70 ? 'High Certainty' : confidence > 50 ? 'Moderate Certainty' : 'Low Certainty',
-                probabilities_decimal: {
-                    home: (predictionData?.home || 0) / 100, // Convert percentage to decimal
-                    draw: (predictionData?.draw || 0) / 100,
-                    away: (predictionData?.away || 0) / 100
-                }
-            },
+            intelligence,
             has_predictions: x12Predictions.length > 0,
             has_odds: !!(fixture.odds && fixture.odds.length > 0),
             // Multi-market support for Explore section
@@ -557,7 +549,7 @@ export async function getFixtureDetails(fixtureId: string) {
                 is_recommended: marketResults.some(r => r.market_type === m.market_type)
             }))
         },
-        lastUpdated: new Date().toISOString()
+        lastUpdated: evaluatedAt.toISOString()
     }
 
     // --- ENRICHMENT: Fetch Standings for Form Data ---
