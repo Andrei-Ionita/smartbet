@@ -29,6 +29,8 @@
  * publication boundary, not a calculation change.
  */
 
+import { gemMetrics, type StrategyEvaluation } from './providerStrategy'
+
 /** Provenance for a recorded price. Auditable, and free of any value claim. */
 export interface PublicOddsProvenance {
   odds_market_id?: number | null
@@ -80,7 +82,25 @@ export interface PublicRecommendation {
     probability: number
     odds: number | null
   }>
+  gem: PublicGemSummary | null
   is_recommended?: boolean
+}
+
+/** Provider-backed evidence for why a fixture survived the Gem filter. */
+export interface PublicGemSummary {
+  rank: number | null
+  provider_implied_chance: number | null
+  provider_baseline_price: number | null
+  verified_price_advantage: number | null
+  league_predictability: string | null
+  league_hit_ratio: number | null
+  predictive_power: string | null
+  bookmakers_checked: number | null
+  relative_price_spread: number | null
+  price_age_hours: number | null
+  correct_score_agrees: boolean
+  double_chance_supports: boolean
+  selection_basis: string
 }
 
 const pickProvenance = (raw: unknown): PublicOddsProvenance | null => {
@@ -111,6 +131,9 @@ const pickProvenance = (raw: unknown): PublicOddsProvenance | null => {
  */
 export function toPublicRecommendation(rec: Record<string, any>): PublicRecommendation {
   const bm = rec.best_market as Record<string, any> | undefined
+  const evaluation = rec.strategy_evaluation as StrategyEvaluation | undefined
+  const metrics = evaluation ? gemMetrics(evaluation) : null
+  const provenance = rec.odds_provenance as Record<string, unknown> | undefined
 
   return {
     fixture_id: rec.fixture_id,
@@ -156,6 +179,28 @@ export function toPublicRecommendation(rec: Record<string, any>): PublicRecommen
         odds: m.odds ?? null,
       }))
       : [],
+    gem: evaluation?.eligible && metrics
+      ? {
+        rank: Number.isFinite(Number(rec.gem_rank)) ? Number(rec.gem_rank) : null,
+        provider_implied_chance: metrics.providerImpliedProbability,
+        provider_baseline_price: metrics.providerBaselineOdds,
+        verified_price_advantage: metrics.verifiedPriceAdvantage,
+        league_predictability: evaluation.leaguePerformance.predictability,
+        league_hit_ratio: evaluation.leaguePerformance.hitRatio,
+        predictive_power: evaluation.leaguePerformance.predictivePower,
+        bookmakers_checked: Number.isFinite(Number(provenance?.odds_bookmaker_count))
+          ? Number(provenance?.odds_bookmaker_count)
+          : null,
+        relative_price_spread: evaluation.relativePriceSpread,
+        price_age_hours: evaluation.priceAgeHours,
+        correct_score_agrees:
+          evaluation.crossMarket.correctScoreOutcome === rec.predicted_outcome?.toLowerCase(),
+        double_chance_supports:
+          evaluation.crossMarket.doubleChanceSupportsSelection === true,
+        selection_basis:
+          'Provider baseline probability balanced against the verified payout after every qualification gate passed.',
+      }
+      : null,
     // `is_recommended` is NOT published. It is true for every row the ranking
     // put in the top ten, so as a field it carries no information a reader
     // could act on — while its name asserts an endorsement the product does

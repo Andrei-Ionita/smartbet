@@ -55,17 +55,15 @@ describe('live signals carry a visible computation timestamp', () => {
    * unstable data — every card surface must pass lastUpdated.
    */
   const cardCallSites = [
-    'page.tsx', // homepage
-    'explore/ExploreContent.tsx',
-    'prediction/[...slug]/PredictionContent.tsx',
+    { file: 'page.tsx', tag: 'GemCard' },
+    { file: 'explore/ExploreContent.tsx', tag: 'RecommendationCard' },
+    { file: 'prediction/[...slug]/PredictionContent.tsx', tag: 'RecommendationCard' },
   ]
 
-  it.each(cardCallSites)('%s passes lastUpdated to RecommendationCard', (file) => {
+  it.each(cardCallSites)('$file passes lastUpdated to $tag', ({ file, tag }) => {
     const source = read(file)
-    // Exact-tag match: `<RecommendationCard ` / `<RecommendationCard\n`,
-    // never `<RecommendationCardSkeleton`.
-    const match = source.match(/<RecommendationCard[\s\n][\s\S]*?\/>/)
-    expect(match, `${file} renders <RecommendationCard>`).toBeTruthy()
+    const match = source.match(new RegExp(`<${tag}[\\s\\n][\\s\\S]*?\\/>`))
+    expect(match, `${file} renders <${tag}>`).toBeTruthy()
     expect(match![0]).toContain('lastUpdated=')
   })
 

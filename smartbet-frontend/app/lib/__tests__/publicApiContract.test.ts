@@ -46,6 +46,7 @@ const INTERNAL_RECOMMENDATION = {
     odds_market_id: 14, odds_market_name: 'Both Teams To Score',
     odds_bookmaker_id: 2, odds_bookmaker_name: '888Sport',
     odds_captured_at: '2026-08-06T07:10:00Z', odds_label: 'Yes',
+    odds_bookmaker_count: 5,
   },
   probabilities: { home: 0.44, draw: 0.28, away: 0.28 },
   odds_data: { home: 2.1, draw: 3.4, away: 3.6, bookmaker: '888Sport' },
@@ -94,6 +95,28 @@ const INTERNAL_RECOMMENDATION = {
   revenue_vs_risk_score: 0.43,
   signal_quality: 'Strong',
   is_recommended: true,
+  gem_rank: 1,
+  strategy_evaluation: {
+    eligible: true,
+    rejectionReasons: [],
+    fixturePredictable: true,
+    leaguePerformance: {
+      marketKey: 'fulltime_result', historicalLogLoss: 0.9,
+      hitRatio: 0.61, predictability: 'high', predictivePower: 'up',
+      currentLogLoss: 0.84,
+    },
+    valueBet: {
+      active: true, outcome: 'home', fairOdds: 1.7,
+      offeredOdds: 1.8, bookmaker: '888Sport', stake: null,
+    },
+    crossMarket: {
+      correctScoreOutcome: 'home', correctScoreVector: { home: 0.6, draw: 0.22, away: 0.18 },
+      doubleChanceSupportsSelection: true, leadingDoubleChance: '1x',
+    },
+    fairOddsBuffer: 1.8 / 1.7 - 1,
+    relativePriceSpread: 0.06,
+    priceAgeHours: 2,
+  },
 }
 
 const serialized = toPublicRecommendation(INTERNAL_RECOMMENDATION)
@@ -255,6 +278,19 @@ describe('public payload keeps what the interface requires', () => {
       probability: 0.66, odds: 1.8,
     })
   })
+
+  it('publishes an allowlisted, provider-backed Gem explanation', () => {
+    expect(serialized.gem).toMatchObject({
+      rank: 1,
+      provider_baseline_price: 1.7,
+      league_predictability: 'high',
+      predictive_power: 'up',
+      bookmakers_checked: 5,
+      double_chance_supports: true,
+    })
+    expect(serialized.gem?.provider_implied_chance).toBeCloseTo(1 / 1.7)
+    expect(serialized.gem?.verified_price_advantage).toBeCloseTo(1.8 / 1.7 - 1)
+  })
 })
 
 // ── The serializer is an allowlist, not a denylist ─────────────────────────
@@ -293,6 +329,7 @@ describe('unknown internal fields cannot leak by default', () => {
     expect(out.best_market).toBeNull()
     expect(out.all_markets).toEqual([])
     expect(out.odds_provenance).toBeNull()
+    expect(out.gem).toBeNull()
   })
 })
 
@@ -310,6 +347,7 @@ describe('the route serializes before responding', () => {
 
   it('passes everything it returns through the serializer', () => {
     expect(src).toContain('toPublicRecommendationList(result.recommendations)')
+    expect(src).toContain('featured_gems: publicGems')
   })
 
   /*
