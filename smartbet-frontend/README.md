@@ -137,10 +137,11 @@ npm run build
 npm start
 ```
 
-### Vercel Deployment
-1. Connect your repository to Vercel
-2. Configure environment variables
-3. Deploy automatically on push to main branch
+### Railway deployment
+The production service tracks `master` and builds with the committed Dockerfile.
+See the root `DEPLOYMENT_GUIDE.md` and
+`docs/RAILWAY_PRODUCTION_ARCHITECTURE.md` for the release procedure and
+service configuration.
 
 ### Docker Deployment
 ```dockerfile
@@ -239,4 +240,4 @@ For support and questions:
 
 ---
 
-**SmartBet Frontend MVP** - AI-powered football predictions with a modern, responsive interface. 
+**SmartBet Frontend MVP** - AI-powered football predictions with a modern, responsive interface.

@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Optimized for Vercel deployment
+  // Standalone output is copied into the Railway production image.
   images: {
     domains: ['localhost'],
   },

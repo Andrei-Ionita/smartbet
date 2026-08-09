@@ -8,18 +8,18 @@ const nextConfig: NextConfig = {
     NEXT_PUBLIC_API_URL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000',
   },
   
-  // Optimize for production on Render
+  // Optimize for production on Railway
   poweredByHeader: false,
   compress: true,
   
-  // Output standalone for better performance on Render
+  // Output standalone for the Railway production image
   output: 'standalone',
   
   // Image optimization
   images: {
     domains: [],
     formats: ['image/webp'],
-    unoptimized: true, // Disable image optimization for Render compatibility
+    unoptimized: true, // Keep image handling predictable in the container
   },
 };
 

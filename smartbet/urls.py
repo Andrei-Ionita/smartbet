@@ -20,7 +20,7 @@ from django.http import JsonResponse
 from django.conf import settings
 
 def health_check(request):
-    """Simple health check endpoint for Render"""
+    """Simple production health check endpoint."""
     print("Health check endpoint hit!")
     return JsonResponse({"status": "healthy", "service": "smartbet-backend"})
 

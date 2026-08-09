@@ -81,6 +81,7 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+*.tsbuildinfo
 
 # ML Model files (we use SportMonks predictions, not internal models)
 *.pkl

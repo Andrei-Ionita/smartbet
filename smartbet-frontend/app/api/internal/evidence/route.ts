@@ -360,10 +360,7 @@ export async function GET(request: NextRequest) {
               // it: evidence-v1 (inert parser), -v2-shadow, or -v2-live.
               pipeline_version: pipelineVersion(),
               live_activation_state: formHeuristicActivationState(),
-              calculation_version:
-                process.env.VERCEL_GIT_COMMIT_SHA ||
-                process.env.RAILWAY_GIT_COMMIT_SHA ||
-                'unknown',
+              calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
             })
           }
         }
