@@ -25,10 +25,11 @@ from core.models import PredictionLog
 logger = logging.getLogger(__name__)
 
 # ── Confidence gate ──────────────────────────────────────────────────────────
-# over_under_2.5 uses the lowered 0.55 threshold (ROI tuning E4); every other
-# market keeps the 0.60 default. Single source of truth for the gate.
-PER_MARKET_CONF_THRESHOLDS = {'over_under_2.5': 0.55}
-DEFAULT_CONF_THRESHOLD = 0.60
+# The versioned frontend strategy owns market eligibility. This backend gate
+# mirrors only its declared leading-outcome floor; it must not reintroduce the
+# retired 0.60/market-specific tuning after the snapshot has been stamped.
+PER_MARKET_CONF_THRESHOLDS = {}
+DEFAULT_CONF_THRESHOLD = 0.55
 
 # ── Pricing-integrity cutoff ────────────────────────────────────────────────
 # The instant the deterministic odds selector went live. Predictions generated

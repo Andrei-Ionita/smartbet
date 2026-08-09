@@ -51,6 +51,10 @@ yarn-error.log*
 # Exclude smartbet-frontend node_modules specifically
 smartbet-frontend/node_modules/
 
+# Machine-local npm trust-store overrides (for HTTPS-inspecting antivirus or
+# corporate proxies). Production should use its platform's normal CA policy.
+smartbet-frontend/.npmrc
+
 # Next.js
 .next/
 out/

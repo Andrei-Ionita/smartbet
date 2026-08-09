@@ -32,6 +32,12 @@ import {
   formHeuristicActivationState,
   pipelineVersion,
 } from '@/app/lib/modelActivation'
+import {
+  evaluateValueStrategy,
+  fixturePredictability,
+  leagueMarketPerformance,
+  nativeValueBet,
+} from '@/app/lib/providerStrategy'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
@@ -136,16 +142,23 @@ export async function GET(request: NextRequest) {
     for (const leagueId of leagueIds) {
       const params = new URLSearchParams({
         api_token: token,
-        include: 'participants;league;predictions;odds;odds.bookmaker',
+        include: 'participants;league;metadata;predictions.type;odds;odds.bookmaker',
         filters: `fixtureLeagues:${leagueId}`,
         per_page: '50',
         page: '1',
       })
       let data: any
+      let leaguePerformancePayload: any = { data: [] }
       try {
-        data = await api(
-          `https://api.sportmonks.com/v3/football/fixtures/between/${fmt(start)}/${fmt(end)}?${params}`,
-        )
+        const [fixturesResult, performanceResult] = await Promise.all([
+          api(`https://api.sportmonks.com/v3/football/fixtures/between/${fmt(start)}/${fmt(end)}?${params}`),
+          api(
+            `https://api.sportmonks.com/v3/football/predictions/predictability/leagues/${leagueId}` +
+            `?api_token=${token}&include=type&per_page=50`,
+          ).catch(() => ({ data: [] })),
+        ])
+        data = fixturesResult
+        leaguePerformancePayload = performanceResult
       } catch {
         continue // one league failing must not lose the whole sweep
       }
@@ -250,6 +263,26 @@ export async function GET(request: NextRequest) {
               ? calculateMarketScore(gap, Math.max(selectedEv ?? 0, 0), vector[selectedOutcome])
               : null
 
+          const fixtureQuality = fixturePredictability(fixture.metadata)
+          const leaguePerformance = leagueMarketPerformance(
+            leaguePerformancePayload,
+            market,
+          )
+          const valueBet = nativeValueBet(preds)
+          const strategyEvaluation =
+            selectedOutcome && selectedPrice?.status === 'verified'
+              ? evaluateValueStrategy({
+                  market,
+                  predictedOutcome: selectedOutcome,
+                  metadata: fixture.metadata,
+                  predictions: preds,
+                  leaguePerformancePayload,
+                  odds: selectedPrice.odds,
+                  oddsProvenance: selectedPrice.provenance,
+                  evaluatedAt: new Date(observedAt),
+                })
+              : null
+
           // One candidate per OUTCOME, including the side we would not pick.
           for (const outcome of Object.keys(vector)) {
             const price = priceMarket(fixture.odds, market, outcome)
@@ -270,6 +303,12 @@ export async function GET(request: NextRequest) {
               provider_model_version: pred.type?.code ?? '',
               raw_probability: rawVector[outcome],
               normalized_probability: vector[outcome],
+              provider_context: {
+                fixture_predictable: fixtureQuality,
+                league_market_performance: leaguePerformance,
+                native_value_bet: valueBet,
+                strategy_evaluation: isSelected ? strategyEvaluation : null,
+              },
               raw_vector: vector,
               vector_sum: vectorSum,
               vector_complete: vectorComplete,

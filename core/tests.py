@@ -866,7 +866,7 @@ class PredictionLogSaveInvariantTests(TestCase):
 
 
 class LogRecommendationsFilterTests(TestCase):
-    """Cover the Phase 2a/2b/2c reject branches in the ingest service.
+    """The ingest boundary must not substitute a second ranking policy.
 
     These target the FILTERS, not the HTTP boundary, so they call the service
     directly. Two reasons: the endpoint now requires an HMAC signature (see
@@ -914,52 +914,52 @@ class LogRecommendationsFilterTests(TestCase):
         base.update(overrides)
         return base
 
-    def test_blacklist_league_rejected(self):
+    def test_retired_blacklist_is_not_reapplied(self):
         rec = self._rec(fixture_id=200010, league='Admiral Bundesliga')
         resp = self._post([rec])
         self.assertEqual(resp.status_code, 200)
         body = resp.json()
-        self.assertEqual(body['skipped_blacklist'], 1)
-        self.assertEqual(body['logged_count'], 0)
-        self.assertFalse(PredictionLog.objects.filter(fixture_id=200010).exists())
+        self.assertEqual(body['skipped_blacklist'], 0)
+        self.assertEqual(body['logged_count'], 1)
+        self.assertTrue(PredictionLog.objects.filter(fixture_id=200010).exists())
 
-    def test_under_25_outcome_rejected(self):
+    def test_retired_outcome_filter_is_not_reapplied(self):
         rec = self._rec(fixture_id=200011, predicted_outcome='Under 2.5')
         resp = self._post([rec])
-        self.assertEqual(resp.json()['skipped_outcome'], 1)
-        self.assertFalse(PredictionLog.objects.filter(fixture_id=200011).exists())
+        self.assertEqual(resp.json()['skipped_outcome'], 0)
+        self.assertTrue(PredictionLog.objects.filter(fixture_id=200011).exists())
 
-    def test_high_ev_rejected(self):
+    def test_score_derived_high_ev_is_not_a_hidden_ingest_filter(self):
         # expected_value as decimal > 0.20
         rec = self._rec(fixture_id=200012, expected_value=0.35)
         resp = self._post([rec])
-        self.assertEqual(resp.json()['skipped_high_ev'], 1)
-        self.assertFalse(PredictionLog.objects.filter(fixture_id=200012).exists())
+        self.assertEqual(resp.json()['skipped_high_ev'], 0)
+        self.assertTrue(PredictionLog.objects.filter(fixture_id=200012).exists())
 
-    def test_high_ev_in_percent_form_rejected(self):
+    def test_percent_form_ev_is_normalized_but_not_filtered(self):
         # Same threshold, expressed as percent
         rec = self._rec(fixture_id=200013, expected_value=35.0)
         resp = self._post([rec])
-        self.assertEqual(resp.json()['skipped_high_ev'], 1)
+        self.assertEqual(resp.json()['skipped_high_ev'], 0)
 
-    def test_watchlist_premier_league_low_confidence_rejected(self):
+    def test_retired_watchlist_is_not_reapplied_for_low_confidence(self):
         # Phase 2c: PL pick that doesn't clear the stricter bar (conf>=0.65, ev>=0.12)
         rec = self._rec(
             fixture_id=200015, league='Premier League',
             confidence=0.60, expected_value=0.15,  # conf below threshold
         )
         resp = self._post([rec])
-        self.assertEqual(resp.json()['skipped_watchlist'], 1)
-        self.assertFalse(PredictionLog.objects.filter(fixture_id=200015).exists())
+        self.assertEqual(resp.json()['skipped_watchlist'], 0)
+        self.assertTrue(PredictionLog.objects.filter(fixture_id=200015).exists())
 
-    def test_watchlist_premier_league_low_ev_rejected(self):
+    def test_retired_watchlist_is_not_reapplied_for_low_ev(self):
         # Phase 2c: PL pick with high confidence but EV below the watchlist bar
         rec = self._rec(
             fixture_id=200016, league='Premier League',
             confidence=0.70, expected_value=0.08,  # ev below threshold
         )
         resp = self._post([rec])
-        self.assertEqual(resp.json()['skipped_watchlist'], 1)
+        self.assertEqual(resp.json()['skipped_watchlist'], 0)
 
     def test_watchlist_premier_league_passing_threshold_logged(self):
         # Phase 2c: PL pick that clears both stricter thresholds is allowed through
@@ -1445,10 +1445,11 @@ class SelectionConfidenceGateTests(TestCase):
         from core.services import public_universe
         self.assertEqual(public_universe.priced_qs().count(), 1)
 
-    def test_1x2_at_057_is_not_publishable(self):
-        # 1x2 is not in PER_MARKET_CONF_THRESHOLDS so it keeps the 0.60 default.
+    def test_1x2_at_057_is_publishable(self):
+        # The backend display universe mirrors the versioned feed's declared
+        # 0.55 confidence floor instead of silently applying a second policy.
         self._pred(600003, '1x2', 0.57)
-        self._pred(600004, '1x2', 0.62)   # decoy that does clear 0.60
+        self._pred(600004, '1x2', 0.50)   # decoy below the shared floor
 
         from core.services import public_universe
         self.assertEqual(public_universe.priced_qs().count(), 1)

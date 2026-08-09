@@ -1532,6 +1532,13 @@ class SignalObservation(models.Model):
     provider_type_id = models.IntegerField(null=True, blank=True)
     provider_model_version = models.CharField(max_length=64, blank=True, default='')
     provider_predicted_at = models.DateTimeField(null=True, blank=True)
+    provider_context = models.JSONField(
+        default=dict, blank=True,
+        help_text='Pre-match provider quality context observed with the signal: '
+                  'fixture predictability, league/market report card and native '
+                  'value-bet payload. Stored raw so future strategies can be '
+                  'evaluated without reconstructing data after kickoff.',
+    )
     raw_probability = models.FloatField(
         help_text='Provider value for THIS outcome, exactly as supplied.',
     )

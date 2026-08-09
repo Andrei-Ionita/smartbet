@@ -28,11 +28,11 @@ export default function MethodologyPage() {
           Ranking methodology
         </h1>
         <p className="mt-3 text-base leading-relaxed text-gray-700">
-          BetGlitch does not train a predictive model. It takes probability data
-          from a specialist football data provider, applies the parameters
-          below, and surfaces one outcome per fixture. This page states those
-          parameters exactly, and names the version that produced any given
-          commitment.
+          BetGlitch does not train a predictive model. Generation 2 combines a
+          specialist provider&apos;s fixture signal, its per-league model report
+          card, its dedicated value-bet model and a verified bookmaker price.
+          This page states the eligibility rule exactly and names the version
+          that produced any given commitment.
         </p>
         <p className="mt-3 text-sm leading-relaxed text-gray-600">
           The purpose is not to make the process look sophisticated. It is to
@@ -85,7 +85,7 @@ export default function MethodologyPage() {
             Parameters in force
           </h2>
           <dl className="mt-3">
-            <Param label="Markets considered" value={p.markets.join(', ')} />
+            <Param label="Markets eligible for value selection" value={p.markets.join(', ')} />
             <Param
               label="Confidence floor (leading outcome probability)"
               value={String(p.confidenceFloor)}
@@ -98,30 +98,17 @@ export default function MethodologyPage() {
               label="Minimum gap to next outcome — other"
               value={String(p.minimumGap.other)}
             />
-            <Param
-              label="Minimum market score"
-              value={String(p.minimumMarketScore)}
-            />
-            <Param
-              label="Market score weights (gap / EV / confidence)"
-              value={`${p.marketScore.weights.gap} / ${p.marketScore.weights.expectedValue} / ${p.marketScore.weights.confidence}`}
-            />
-            <Param
-              label="Market score caps (gap / EV)"
-              value={`${p.marketScore.caps.gap} / ${p.marketScore.caps.expectedValue}`}
-            />
-            <Param
-              label="Form momentum applied"
-              value={p.formMomentum.enabled ? 'yes' : 'no'}
-            />
-            <Param
-              label="Form recency weights"
-              value={p.formMomentum.recencyWeights.join(', ')}
-            />
-            <Param
-              label="Form-adjusted output cap"
-              value={String(p.formMomentum.outputCap)}
-            />
+            <Param label="Provider fixture must be predictable" value={p.fixturePredictableRequired ? 'yes' : 'no'} />
+            <Param label="Allowed league predictability" value={p.allowedLeaguePredictability.join(', ')} />
+            <Param label="Rejected predictive-power trend" value={p.rejectedPredictivePower.join(', ')} />
+            <Param label="Active, outcome-aligned provider value bet" value={p.activeAlignedValueBetRequired ? 'required' : 'not required'} />
+            <Param label="Correct-score distribution agrees with 1X2" value={p.correctScoreAgreementRequired ? 'required' : 'not required'} />
+            <Param label="Leading double-chance leg contains selection" value={p.doubleChanceSupportRequired ? 'required' : 'not required'} />
+            <Param label="Minimum canonical-price buffer above fair odd" value={`${p.minimumFairOddsBuffer * 100}%`} />
+            <Param label="Minimum bookmakers quoting selection" value={String(p.minimumBookmakers)} />
+            <Param label="Maximum relative price spread" value={`${p.maximumRelativePriceSpread * 100}%`} />
+            <Param label="Maximum recorded price age" value={`${p.maximumPriceAgeHours} hours`} />
+            <Param label="Maximum selections per run" value={String(p.maximumSelections)} />
             <Param label="Selection rule" value={p.selection} />
           </dl>
         </div>
@@ -132,29 +119,27 @@ export default function MethodologyPage() {
           </h2>
           <ul className="mt-2 space-y-2 text-sm leading-relaxed text-amber-900">
             <li>
-              The form step multiplies one outcome&apos;s probability without
-              renormalising the rest of the market, then caps the result. The
-              output is therefore <strong>not a probability</strong>, which is
-              why the signal score is described as a ranking everywhere.
+              Provider agreement and a quoted edge are <strong>not a guarantee</strong>.
+              A value candidate can lose, and a short run can be extremely poor.
             </li>
             <li>
-              None of these thresholds has been shown to identify profitable
-              bets. On 304 graded legacy calls the score separated correct from
-              incorrect with an AUC of 0.554 — barely better than chance. The{' '}
+              This exact generation has not yet accumulated enough settled,
+              out-of-sample decisions to establish profitability. Its results
+              must be judged separately from the earlier score-ranking method. The{' '}
               <Link href="/monitoring" className="font-semibold underline underline-offset-2">
-                measured separation
+                measured evidence
               </Link>{' '}
               is published and recomputed from live data.
             </li>
             <li>
-              A commitment is not a claim that a price is good. It records that
-              BetGlitch stated an outcome in advance, under this exact rule.
+              Other markets remain in the research evidence feed, but they are
+              not promoted into betting selections until a market-specific
+              value signal and enough forward evidence exist.
             </li>
             <li>
-              A new commitment is blocked if its recorded price is more than
-              12 hours old when published. The exact price age remains visible
-              on each proof page; older commitments keep their original age
-              rather than being silently rewritten.
+              The provider&apos;s fair odd and league report card are external model
+              outputs, not BetGlitch guarantees. The verified record is still
+              the final test of whether this filtering works in practice.
             </li>
           </ul>
         </div>

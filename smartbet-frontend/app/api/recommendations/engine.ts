@@ -31,6 +31,11 @@ import {
 import { buildFormMap, formFor } from '@/app/lib/providerForm'
 import { isFormHeuristicLive } from '@/app/lib/modelActivation'
 import { RANKING_VERSION } from '@/app/lib/rankingPolicy'
+import {
+  compareValueStrategy,
+  evaluateValueStrategy,
+  VALUE_STRATEGY_POLICY,
+} from '@/app/lib/providerStrategy'
 
 
 // Simplified inline apiClient implementation with Timeout
@@ -107,23 +112,6 @@ const MARKET_CONFIG = {
 } as const
 
 type MarketType = keyof typeof MARKET_CONFIG
-
-// Leagues blocked from recommendations based on settled-data backtest:
-//   Admiral Bundesliga (-33% yield, n=9), Liga Portugal (-29%, n=3),
-//   Super Lig (carry-over), Allsvenskan (-31%, n=6), Eliteserien (-21%, n=14).
-// Fixtures from these leagues are skipped before any prediction processing.
-// Backtest projects +5-8pp yield with this filter + the Under-2.5 block below.
-const BLACKLISTED_LEAGUE_IDS = new Set<number>([181, 462, 600, 573, 444])
-
-// Phase 2c (2026-05-25): leagues with persistent underperformance but too thin a
-// sample to blacklist. Picks from these leagues must clear a stricter bar
-// (confidence + EV) than the baseline filter — applied after value-zone adjustment,
-// so it uses the adjusted/final values the user will see. Revisit 2026-06-08.
-//   Premier League: -52% yield this weekend (n=4), -27% cumulative (n=14) since
-//   Phase 2 deploy. League ID 8.
-const WATCHLIST_LEAGUE_THRESHOLDS: Record<number, { minConfidence: number; minEv: number }> = {
-  8: { minConfidence: 0.65, minEv: 0.12 },  // Premier League
-}
 
 interface MarketPrediction {
   market_type: MarketType
@@ -252,21 +240,27 @@ export async function buildRecommendationPayload(): Promise<
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
     for (const league of keyLeagues) {
-      if (BLACKLISTED_LEAGUE_IDS.has(league.id)) {
-        continue
-      }
       try {
         const url = `https://api.sportmonks.com/v3/football/fixtures/between/${startDate}/${endDate}`
         const params = new URLSearchParams({
           api_token: token,
-          include: 'participants;league;metadata;predictions;odds;odds.bookmaker;sidelined',
+          include: 'participants;league;metadata;predictions.type;odds;odds.bookmaker;sidelined',
           filters: `fixtureLeagues:${league.id}`,
           per_page: '50',
           page: '1',
           timezone: 'Europe/Bucharest'
         })
 
-        const data = await apiClient.request(`${url}?${params}`)
+        const performanceUrl =
+          `https://api.sportmonks.com/v3/football/predictions/predictability/leagues/${league.id}` +
+          `?api_token=${token}&include=type&per_page=50`
+        const [data, leaguePerformancePayload] = await Promise.all([
+          apiClient.request(`${url}?${params}`),
+          // Missing report-card data is not silently treated as positive
+          // evidence. The strategy evaluator receives an empty payload and
+          // rejects the candidate with a diagnostic reason.
+          apiClient.request(performanceUrl).catch(() => ({ data: [] })),
+        ])
         const fixtures = data.data || []
         totalFixtures += fixtures.length
 
@@ -353,8 +347,11 @@ export async function buildRecommendationPayload(): Promise<
               // Always add to display array
               allMarketsData.push(marketData)
 
-              // Only add to results if passes filters (EV >= 5%)
-              if (gap >= minGap && clearsEV(ev, 0.05)) {
+              // Do not make our own EV the eligibility gate. BetGlitch has not
+              // calibrated this provider score, so score*odds-1 is not a
+              // defensible bet/no-bet test. The provider's dedicated value-bet
+              // model is checked after canonical price selection instead.
+              if (gap >= minGap && x12Price.status === 'verified') {
                 marketResults.push(marketData)
               }
             }
@@ -547,14 +544,19 @@ export async function buildRecommendationPayload(): Promise<
             // threshold is real. If nothing clears the floor, the fixture is
             // skipped (honest empty slot) rather than filled with a coin-flip.
             const CONFIDENCE_FLOOR = 0.55
-            const qualifiedMarkets = marketResults.filter(m => m.probability >= CONFIDENCE_FLOOR)
+            // Generation 2 promotes only the market for which the provider's
+            // native VALUEBET object supplies a direction, fair odd and active
+            // state. Other markets remain in the append-only evidence feed.
+            const qualifiedMarkets = marketResults.filter(
+              m => m.market_type === '1x2' && m.probability >= CONFIDENCE_FLOOR,
+            )
 
             // Sort by market_score descending and pick the best
             qualifiedMarkets.sort((a, b) => b.market_score - a.market_score)
             const bestMarket = qualifiedMarkets[0]
 
             // Skip if no valid market found
-            if (!bestMarket || bestMarket.market_score < 0.15) {
+            if (!bestMarket) {
               continue
             }
 
@@ -562,15 +564,30 @@ export async function buildRecommendationPayload(): Promise<
             // reachable with a canonical price — assert it rather than assume it,
             // so a future edit to the filters cannot let an unpriced market reach
             // the publication payload.
+            const bestMarketProvenance = bestMarket.odds_provenance
             if (
               bestMarket.price_status !== 'verified' ||
               bestMarket.odds === null ||
-              bestMarket.expected_value === null
+              bestMarket.expected_value === null ||
+              bestMarketProvenance === null
             ) {
               continue
             }
             const bestMarketOdds: number = bestMarket.odds
             const bestMarketEV: number = bestMarket.expected_value
+
+            const strategyEvaluation = evaluateValueStrategy({
+              market: bestMarket.market_type,
+              predictedOutcome: bestMarket.predicted_outcome,
+              metadata: fixture.metadata,
+              predictions,
+              leaguePerformancePayload,
+              odds: bestMarketOdds,
+              oddsProvenance: bestMarketProvenance,
+            })
+            if (!strategyEvaluation.eligible) {
+              continue
+            }
 
             // For backwards compatibility, also keep 1X2 specific data
             const allX12Predictions = x12Predictions.map((pred: any) => ({
@@ -695,25 +712,6 @@ export async function buildRecommendationPayload(): Promise<
             )
             const adjustedEV = valueZone.adjustedEV
 
-            // Phase 2b: hard-cap EV at 20%. Backtest on 203 settled rows shows
-            // EV >20% picks (even after evaluateValueZone's soft adjustment)
-            // underperform — they're typically bookmaker pricing errors or
-            // suspended/illiquid markets, not genuine edges. Drop the entire
-            // fixture rather than reaching for second-best market (matches
-            // backtester semantics: trim is on stored expected_value).
-            if (adjustedEV > 0.20) {
-              continue
-            }
-
-            // Phase 2c: watchlisted leagues require materially better signal than
-            // baseline. Premier League keeps underperforming (-52% yield this
-            // weekend, -27% cumulative over 14 picks); too thin to blacklist, but
-            // worth only surfacing when conviction is clearly higher than usual.
-            const watch = WATCHLIST_LEAGUE_THRESHOLDS[league.id]
-            if (watch && (adjustedProbability < watch.minConfidence || adjustedEV < watch.minEv)) {
-              continue
-            }
-
             const confidence = adjustedProbability * 100
             const probabilityGap = bestMarket.probability_gap
 
@@ -823,14 +821,17 @@ export async function buildRecommendationPayload(): Promise<
                 markets_evaluated: marketResults.length,
                 value_zone: valueZone.zone
               },
-              revenue_vs_risk_score: 0, // Will be calculated
+              revenue_vs_risk_score: 0,
               signal_quality: (() => {
                 const score = bestMarket.market_score * 100
                 if (score >= 50) return 'Strong'
                 if (score >= 35) return 'Good'
                 if (score >= 25) return 'Moderate'
                 return 'Weak'
-              })()
+              })(),
+              // Internal-only audit context. The public DTO does not expose
+              // provider internals or restate eligibility as an endorsement.
+              strategy_evaluation: strategyEvaluation,
             })
           }
         }
@@ -839,21 +840,15 @@ export async function buildRecommendationPayload(): Promise<
       }
     }
 
-    // Scoring
-    const scoredRecommendations = allRecommendations.map(rec => {
-      const revenueScore = rec.expected_value * (rec.confidence / 100)
-      const riskScore = 1 - (rec.confidence / 100)
-      const combinedScore = revenueScore - (riskScore * 0.8)
-      // Quality bonuses
-      const qualityBonus = rec.confidence >= 70 ? 0.5 : rec.confidence >= 65 ? 0.3 : 0
-      return { ...rec, revenue_vs_risk_score: combinedScore + qualityBonus }
-    })
+    // Lexicographic evidence ordering. No fabricated all-purpose quality
+    // probability is produced: provider report-card strength, trend, fair-odds
+    // buffer, hit ratio and price dispersion are compared in that order.
+    allRecommendations.sort((a, b) =>
+      compareValueStrategy(a.strategy_evaluation, b.strategy_evaluation))
 
-    scoredRecommendations.sort((a, b) => b.revenue_vs_risk_score - a.revenue_vs_risk_score)
-
-    let top10Recommendations = scoredRecommendations.slice(0, 10).map(rec => ({
-      ...rec, is_recommended: true
-    }))
+    let top10Recommendations = allRecommendations
+      .slice(0, VALUE_STRATEGY_POLICY.maximumSelections)
+      .map(rec => ({ ...rec, is_recommended: true }))
 
     // --- ENRICHMENT: Fetch Standings for Form Data ---
     try {
