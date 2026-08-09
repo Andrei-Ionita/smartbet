@@ -50,11 +50,20 @@ class ResultUpdaterService:
         cutoff_time = now - timedelta(hours=hours_after_kickoff)
         max_age_cutoff = now - timedelta(days=self.MAX_LOOKBACK_DAYS)
 
+        # `match_status__isnull=True` used to be part of this filter, which
+        # made the 'archived' flag PERMANENT. On 2026-08-09 every one of the
+        # 17 past-kickoff rows carried it — including Cardiff, which had
+        # kicked off the previous evening — so no claim could ever settle and
+        # the verified record was structurally frozen at zero.
+        #
+        # Archiving is only meaningful for fixtures the provider has genuinely
+        # aged out. Inside the lookback window a 404 is a transient failure or
+        # a bug on our side, so those rows must keep being retried. The window
+        # bound below already excludes anything truly old.
         pending = PredictionLog.objects.filter(
             actual_outcome__isnull=True,  # No result yet
             kickoff__lt=cutoff_time,      # Match should be finished
-            kickoff__gte=max_age_cutoff,  # But not so old SportMonks has archived it
-            match_status__isnull=True     # Status not updated
+            kickoff__gte=max_age_cutoff,  # But not so old SportMonks archived it
         ).order_by('kickoff')
 
         logger.info(f"Found {pending.count()} predictions awaiting results (within {self.MAX_LOOKBACK_DAYS}d window)")
@@ -78,10 +87,17 @@ class ResultUpdaterService:
             aged out of their data; we'll never get a result for it).
         """
         try:
+            # SportMonks v3 separates includes with SEMICOLONS. This request
+            # used commas, so `scores,state,participants` was read as one
+            # unknown include and the call failed for every fixture — which
+            # the caller then recorded as "archived", permanently. The proven
+            # reader in core/services/result_evidence.py has always used the
+            # correct syntax; that divergence is exactly why this project
+            # keeps two implementations of one read from now on.
             url = f"{self.base_url}/fixtures/{fixture_id}"
             params = {
                 'api_token': self.api_token,
-                'include': 'scores,state,participants'
+                'include': 'scores;state;participants'
             }
 
             response = requests.get(url, params=params, timeout=10)
@@ -213,13 +229,27 @@ class ResultUpdaterService:
             result_data = self.fetch_fixture_result(prediction.fixture_id)
 
             if result_data is self.ARCHIVED_RESULT:
-                # Permanently gone from SportMonks. Mark archived so the pending
-                # filter (match_status__isnull=True) drops it from future cycles.
-                # Use queryset .update() to bypass the model's save() invariants
-                # entirely — we have no reason to re-validate EV/odds on a row
-                # we're only flagging.
-                PredictionLog.objects.filter(pk=prediction.pk).update(match_status='archived')
-                stats['archived'] += 1
+                # A 404 inside the lookback window is NOT evidence the fixture
+                # aged out — a match that kicked off yesterday cannot have been
+                # archived by the provider. Treat it as transient and retry
+                # next cycle; only genuinely old fixtures get flagged.
+                #
+                # The opposite behaviour silently killed settlement for every
+                # published claim (2026-08-09).
+                age = timezone.now() - prediction.kickoff
+                if age <= timedelta(days=self.MAX_LOOKBACK_DAYS):
+                    logger.warning(
+                        'Fixture %s returned 404 but kicked off %s ago — '
+                        'treating as transient, NOT archiving',
+                        prediction.fixture_id, age)
+                    stats['still_pending'] += 1
+                else:
+                    # Use queryset .update() to bypass the model's save()
+                    # invariants entirely — we have no reason to re-validate
+                    # EV/odds on a row we're only flagging.
+                    PredictionLog.objects.filter(pk=prediction.pk).update(
+                        match_status='archived')
+                    stats['archived'] += 1
             elif result_data:
                 if self.update_prediction_result(prediction, result_data):
                     stats['updated'] += 1

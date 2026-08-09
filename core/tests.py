@@ -1103,21 +1103,31 @@ class ResultUpdaterArchiveTests(TestCase):
             result = self.svc.fetch_fixture_result(500001)
         self.assertIs(result, self.svc.ARCHIVED_RESULT)
 
-    def test_404_handling_in_full_pipeline(self):
-        """End-to-end: pending row -> SportMonks 404 -> row marked archived ->
-        next call no longer picks it up."""
+    def test_a_recent_404_is_transient_and_keeps_being_retried(self):
+        """This test previously asserted the OPPOSITE, and the behaviour it
+        locked in froze settlement completely.
+
+        A 404 on a RECENT fixture was recorded as permanent archival, and the
+        pending query excluded archived rows. Combined with a malformed
+        provider request (comma-separated includes, which SportMonks v3
+        rejects), every past-kickoff row got flagged on its first check. On
+        2026-08-09 all 17 were archived — Cardiff included, hours after it
+        kicked off — so no published claim could ever settle.
+
+        A fixture from yesterday cannot have aged out of the provider's data.
+        Recent 404s are transient by definition and must be retried."""
         from unittest.mock import patch, Mock
         mock_resp = Mock()
         mock_resp.status_code = 404
         with patch('core.services.result_updater.requests.get', return_value=mock_resp):
             stats = self.svc.update_all_pending_results(max_predictions=10)
-        self.assertEqual(stats.get('archived'), 1)
-        # The recent row should now be marked archived
+
+        self.assertEqual(stats.get('archived'), 0)
         self.recent.refresh_from_db()
-        self.assertEqual(self.recent.match_status, 'archived')
-        # Subsequent get_pending_predictions skips it
+        self.assertIsNone(self.recent.match_status)
+        # And it is still queued for the next cycle.
         pending_after = self.svc.get_pending_predictions()
-        self.assertNotIn(500001, {p.fixture_id for p in pending_after})
+        self.assertIn(500001, {p.fixture_id for p in pending_after})
 
 
 class BacktesterTests(TestCase):
