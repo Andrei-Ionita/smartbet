@@ -351,7 +351,8 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
     for (const key of [
       'publishedLoading', 'publishedError', 'publishedRetry', 'publishedProofLink',
       'publishedOddsLabel', 'publishedAtLabel', 'publishedNotCounted',
-      'publishedCountedIn',
+      'publishedCountedIn', 'publishedPriceAgeLabel', 'publishedVersionLabel',
+      'publishedFreshLabel', 'publishedStaleLabel', 'publishedExcludedFromRecord',
     ] as const) {
       const en = getCopy('en').record[key]
       const ro = getCopy('ro').record[key]

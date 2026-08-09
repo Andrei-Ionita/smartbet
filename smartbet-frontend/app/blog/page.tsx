@@ -6,10 +6,10 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
   title: 'Blog — signals, settlement and transparency',
-  description: 'How BetGlitch turns provider data into verifiable football market signals and immutable published picks, plus educational articles on expected value and transparent track records.',
+  description: 'How BetGlitch turns provider data into transparent football signals and versioned public commitments, plus research on pricing evidence and honest result records.',
   openGraph: {
     title: 'Blog — signals, settlement and transparency | BetGlitch',
-    description: 'Verifiable football market signals and immutable published picks, explained.',
+    description: 'Transparent football signals, public commitments and verified results, explained.',
     url: 'https://betglitch.com/blog',
   },
 }
@@ -27,7 +27,7 @@ export default function BlogPage() {
         <div className="text-center mb-12">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">BetGlitch Blog</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            How BetGlitch turns provider data into verifiable market signals and immutable published picks, plus educational articles on expected value and transparent track records.
+            How BetGlitch turns provider data into transparent market signals and versioned public commitments, plus research on pricing evidence and honest result records.
           </p>
         </div>
 

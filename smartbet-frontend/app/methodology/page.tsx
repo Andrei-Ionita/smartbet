@@ -34,6 +34,12 @@ export default function MethodologyPage() {
           parameters exactly, and names the version that produced any given
           commitment.
         </p>
+        <p className="mt-3 text-sm leading-relaxed text-gray-600">
+          The purpose is not to make the process look sophisticated. It is to
+          make every decision interpretable: what data was available, which
+          rule ranked it, what price was recorded, what was missing and what
+          the result later showed.
+        </p>
 
         <div className="mt-6 rounded-xl border border-gray-300 bg-white p-5">
           <p className="text-xs uppercase tracking-wide text-gray-500">
@@ -48,6 +54,11 @@ export default function MethodologyPage() {
             — so it cannot be altered after the fact. It is{' '}
             <strong>derived from the parameters below</strong>, not typed by
             hand: change any of them and the version changes with them.
+          </p>
+          <p className="mt-2 text-xs leading-relaxed text-gray-500">
+            Earlier commitments can carry the legacy label{' '}
+            <code>consensus_ensemble</code>. That label is preserved rather
+            than rewritten. New commitments use the derived version above.
           </p>
         </div>
 
@@ -139,7 +150,25 @@ export default function MethodologyPage() {
               A commitment is not a claim that a price is good. It records that
               BetGlitch stated an outcome in advance, under this exact rule.
             </li>
+            <li>
+              A new commitment is blocked if its recorded price is more than
+              12 hours old when published. The exact price age remains visible
+              on each proof page; older commitments keep their original age
+              rather than being silently rewritten.
+            </li>
           </ul>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-gray-200 bg-white p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-gray-700">
+            How improvement is judged
+          </h2>
+          <ol className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
+            <li><strong>1. Preserve:</strong> freeze decisions under a named version before kickoff.</li>
+            <li><strong>2. Measure:</strong> publish eligible wins and losses, score separation and pricing evidence.</li>
+            <li><strong>3. Change:</strong> alter a rule only as a new version, never inside an existing record.</li>
+            <li><strong>4. Compare:</strong> judge versions separately before claiming that one improved the evidence.</li>
+          </ol>
         </div>
 
         <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold">

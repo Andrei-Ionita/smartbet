@@ -51,6 +51,9 @@ interface PublishedClaimRow {
   bookmaker: string | null;
   odds_captured_at: string | null;
   published_at: string;
+  price_age_hours_at_publication: number | null;
+  price_fresh_at_publication: boolean;
+  ranking_version: string | null;
   claim_state: 'PENDING' | 'WON' | 'LOST' | 'VOID' | 'CANCELLED';
   pricing_integrity_status: string;
   claim_hash: string;
@@ -495,6 +498,14 @@ export default function TrackRecordContent() {
                       <span>
                         {rec.publishedAtLabel}: {formatDate(claim.published_at)}
                       </span>
+                      {claim.price_age_hours_at_publication !== null && (
+                        <span>
+                          {rec.publishedPriceAgeLabel}:{' '}
+                          {claim.price_age_hours_at_publication < 1
+                            ? `${Math.round(claim.price_age_hours_at_publication * 60)}m`
+                            : `${claim.price_age_hours_at_publication.toFixed(1)}h`}
+                        </span>
+                      )}
                       {claim.result && (
                         <span>
                           {claim.result.actual_score_home !== null &&
@@ -504,12 +515,26 @@ export default function TrackRecordContent() {
                         </span>
                       )}
                     </div>
+                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                      <span>
+                        {claim.price_fresh_at_publication
+                          ? rec.publishedFreshLabel
+                          : rec.publishedStaleLabel}
+                      </span>
+                      {claim.ranking_version && (
+                        <span className="break-all font-mono">
+                          {rec.publishedVersionLabel}: {claim.ranking_version}
+                        </span>
+                      )}
+                    </div>
                     {/* Stated per row: presence in this list is not inclusion
                         in the verified record. */}
                     <p className="mt-1 text-xs text-gray-500">
                       {claim.counts_towards_verified_record
                         ? rec.publishedCountedIn
-                        : rec.publishedNotCounted}
+                        : claim.claim_state === 'PENDING'
+                          ? rec.publishedNotCounted
+                          : rec.publishedExcludedFromRecord}
                     </p>
                   </li>
                 ))}

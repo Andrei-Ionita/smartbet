@@ -192,6 +192,21 @@ export function ProofPageBody(
         >
           How to verify this yourself →
         </a>
+        {data.integrity?.canonical_payload && (
+          <details className="mt-3 border-t border-gray-200 pt-3">
+            <summary className="cursor-pointer text-xs font-semibold text-gray-700">
+              Recompute the claim hash
+            </summary>
+            <p className="mt-2 text-xs leading-relaxed text-gray-600">
+              Serialize the exact payload below as UTF-8 JSON with sorted keys
+              and compact separators, then calculate SHA-256. The result must
+              equal the claim hash shown above.
+            </p>
+            <pre className="mt-2 max-h-72 overflow-auto rounded bg-gray-950 p-3 text-[10px] leading-relaxed text-gray-100">
+              {JSON.stringify(data.integrity.canonical_payload, null, 2)}
+            </pre>
+          </details>
+        )}
       </div>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">

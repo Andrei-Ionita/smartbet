@@ -17,7 +17,7 @@ The sports prediction landscape is crowded with tipsters who rely on gut feeling
 One distinction runs through everything below, so it is worth stating first. A <strong class="text-gray-900">live signal</strong> is our current ranked output for a fixture and it can change at any time before kickoff. A <strong class="text-gray-900">published claim</strong> is a signal we froze, and it can never change. Most live signals are never published. Only <em>settled</em> published claims count towards the verified record — pending claims count towards nothing — and every published claim stays visible afterwards, including the losing ones.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our mission is simple: replace guesswork with an auditable record. BetGlitch takes probability data from a specialist football data provider, applies its own filtering to surface a small number of candidates, and freezes each published pick before kickoff so the result can be checked afterwards. This article explains exactly how that works.
+Our mission is simple: replace guesswork with an auditable record. BetGlitch takes probability data from a specialist football data provider, applies its own filtering to surface a small number of candidates, and freezes each public commitment before kickoff so the result can be checked afterwards. This article explains exactly how that works.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Where the probabilities come from</h2>
@@ -30,7 +30,7 @@ We rank those probabilities against recorded market prices. For each fixture and
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Signal score:</strong> A relative ranking score, not a calibrated probability. It orders candidates; it does not state a chance of winning.</li>
 <li><strong class="text-gray-900">Probability gap:</strong> How far the leading outcome sits above the next one. A narrow gap means the market is close to a coin flip.</li>
-<li><strong class="text-gray-900">Recorded price:</strong> The exact odds, bookmaker, market and capture time behind every published pick.</li>
+<li><strong class="text-gray-900">Recorded price:</strong> The exact odds, bookmaker, market and capture time behind every public commitment.</li>
 </ul>
 <p class="text-gray-700 leading-relaxed mb-6">
 We are deliberately careful about what this does and does not prove. A ranking score is not a calibrated probability, and we have not yet demonstrated that our filtering beats the market price. That is precisely why the public record exists: to test it in the open rather than assert it.

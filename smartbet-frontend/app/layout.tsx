@@ -1,4 +1,4 @@
-import type { Metadata } from 'next'
+import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navigation from '@/components/Navigation'
 import { AuthProvider } from './contexts/AuthContext'
@@ -9,19 +9,19 @@ import AgeGateModal from './components/AgeGateModal'
 export const metadata: Metadata = {
   metadataBase: new URL('https://betglitch.com'),
   title: {
-    default: 'BetGlitch — better football decisions start with better evidence',
+    default: 'BetGlitch — every signal explained, every result visible',
     template: '%s | BetGlitch'
   },
-  description: 'Better football decisions start with better evidence. Transparent football signals, verified market prices and immutable published picks — every eligible settled result stays visible, win or lose.',
-  keywords: ['football signals', 'published picks', 'verified track record', 'sports analytics', 'football statistics', 'settled results'],
+  description: 'A public football-signal lab with fixture context, verified market prices, versioned methodology and a permanent record of every eligible result — win or lose.',
+  keywords: ['football signals', 'public commitments', 'verified record', 'sports analytics', 'football statistics', 'settled results'],
   authors: [{ name: 'BetGlitch Team' }],
   creator: 'BetGlitch',
   openGraph: {
     type: 'website',
     locale: 'en_US',
     url: 'https://betglitch.com',
-    title: 'BetGlitch — better football decisions start with better evidence',
-    description: 'Transparent football signals and immutable published picks. Frozen before kickoff with their recorded odds and bookmaker, kept public after settlement — win or lose.',
+    title: 'BetGlitch — every signal explained, every result visible',
+    description: 'Fixture context, verified prices and versioned public commitments. Every eligible result stays visible — win or lose.',
     siteName: 'BetGlitch',
     images: [
       {
@@ -34,15 +34,10 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'BetGlitch — better football decisions start with better evidence',
-    description: 'Transparent football signals and immutable published picks. Frozen before kickoff, settled in public after full-time.',
+    title: 'BetGlitch — every signal explained, every result visible',
+    description: 'Fixture context, verified prices and versioned public commitments, settled in public after full-time.',
     images: ['/images/og-image.jpg'],
     creator: '@BetGlitch',
-  },
-  viewport: {
-    width: 'device-width',
-    initialScale: 1,
-    maximumScale: 1,
   },
   robots: {
     index: true,
@@ -60,7 +55,7 @@ const organizationSchema = {
   "name": "BetGlitch",
   "url": "https://betglitch.com",
   "logo": "https://betglitch.com/images/logo-final-v6.png",
-  "description": "Verifiable football market signals and immutable published picks across European competitions.",
+  "description": "A public football-signal lab with fixture context, verified prices, versioned methodology and a permanent result record.",
   "sameAs": [],
 }
 
@@ -69,7 +64,7 @@ const websiteSchema = {
   "@type": "WebSite",
   "name": "BetGlitch",
   "url": "https://betglitch.com",
-  "description": "Verifiable football market signals and immutable published picks",
+  "description": "Transparent football signals, public commitments and a verified result record",
   "potentialAction": {
     "@type": "SearchAction",
     "target": "https://betglitch.com/explore?q={search_term_string}",
@@ -110,4 +105,10 @@ export default function RootLayout({
       </body>
     </html>
   )
+}
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
 }

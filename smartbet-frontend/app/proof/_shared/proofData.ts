@@ -21,6 +21,11 @@ export interface ProofPayload {
   /** Versions the OG image URL so each rendered state has its own cache identity. */
   card_cache_version?: string
   integrity_error?: string | null
+  integrity?: {
+    algorithm: 'SHA-256'
+    canonicalization: string
+    canonical_payload: Record<string, string | number | null>
+  }
   superseded?: boolean
   /**
    * External timestamp covering this claim, or null when it has not been

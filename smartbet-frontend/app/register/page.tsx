@@ -195,6 +195,16 @@ export default function RegisterPage() {
             >
               {isLoading ? copy.register.submitting : copy.register.submit}
             </button>
+            <p className="text-center text-xs leading-relaxed text-gray-500">
+              {copy.register.agreementBefore}{' '}
+              <Link href="/terms" className="font-medium text-gray-700 underline underline-offset-2">
+                {copy.register.termsLabel}
+              </Link>{' '}
+              {copy.register.agreementAnd}{' '}
+              <Link href="/privacy" className="font-medium text-gray-700 underline underline-offset-2">
+                {copy.register.privacyLabel}
+              </Link>.
+            </p>
           </form>
 
           <div className="mt-6 text-center">
@@ -216,4 +226,3 @@ export default function RegisterPage() {
     </div>
   );
 }
-

@@ -78,6 +78,10 @@ class PublicProofNeverServesMutableDataTests(TestCase):
         self.assertEqual(body['claim_id'], str(claim.claim_id))
         self.assertEqual(body['claim_hash'], claim.claim_hash)
         self.assertEqual(body['pick']['odds'], 1.78)
+        self.assertEqual(body['integrity']['algorithm'], 'SHA-256')
+        self.assertEqual(
+            body['integrity']['canonical_payload'], claim.canonical_payload()
+        )
 
     def test_changing_the_prediction_cannot_change_published_proof(self):
         pred = self._prediction(920013)

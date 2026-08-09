@@ -278,7 +278,7 @@ export default function ExploreContent() {
       case 'provider_error':
         return ro
           ? 'Căutarea meciurilor nu este disponibilă momentan. Niciun pontaj publicat nu este afectat.'
-          : 'Fixture search is unavailable right now. No published pick is affected.'
+          : 'Fixture search is unavailable right now. No public commitment is affected.'
       case 'ok':
         return ro
           ? `${searchResults.length} meciuri afișate`

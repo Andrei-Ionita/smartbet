@@ -77,6 +77,31 @@ CUTOFF_IS_CONFIGURED = bool((os.environ.get('PRICING_INTEGRITY_CUTOFF') or '').s
 # older rows are not silently treated as produced by the current logic.
 VERIFIED_ODDS_POLICIES = {'lower_median_v1'}
 
+# A recorded quote is evidence only if it was still reasonably current when
+# BetGlitch committed it. This is shared by publication and performance so a
+# price cannot pass one surface and fail another.
+MAX_PRICE_AGE_AT_PUBLICATION = timedelta(
+    hours=float(os.environ.get('MAX_PRICE_AGE_HOURS', '12'))
+)
+
+
+def claim_price_age_hours(claim):
+    """Age of the frozen price at publication, or None when unknowable."""
+    if not claim.odds_captured_at or not claim.published_at:
+        return None
+    return round(
+        (claim.published_at - claim.odds_captured_at).total_seconds() / 3600,
+        1,
+    )
+
+
+def claim_has_fresh_price(claim):
+    """True only when a claim's price existed and was at most the public cap."""
+    if not claim.odds_captured_at or not claim.published_at:
+        return False
+    age = claim.published_at - claim.odds_captured_at
+    return timedelta(0) <= age <= MAX_PRICE_AGE_AT_PUBLICATION
+
 
 def confidence_filter() -> Q:
     """Per-market confidence gate as a Q object."""
@@ -171,6 +196,12 @@ def verified_claims():
             )
             continue
         if missing_provenance_fields(claim.odds_provenance, claim.market_type):
+            continue
+        if not claim_has_fresh_price(claim):
+            logger.warning(
+                'PublishedClaim %s used a missing or stale price — visible but '
+                'excluded from public statistics.', claim.claim_id
+            )
             continue
         out.append(claim)
     return out

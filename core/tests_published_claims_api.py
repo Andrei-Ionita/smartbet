@@ -140,6 +140,15 @@ class PublishedClaimsListTests(TestCase):
         self.assertEqual(row['result']['result_source'], 'sportmonks')
         self.assertTrue(row['counts_towards_verified_record'])
 
+    def test_list_exposes_methodology_and_price_freshness(self):
+        claim = _claim(_prediction(), model_version='rank-v1-test')
+
+        row = self.client.get(LIST_URL).json()['claims'][0]
+
+        self.assertEqual(row['ranking_version'], 'rank-v1-test')
+        self.assertEqual(row['price_age_hours_at_publication'], 0.0)
+        self.assertTrue(row['price_fresh_at_publication'])
+
     def test_losses_voids_and_cancellations_are_not_filtered_out(self):
         """A record that quietly drops its losses is not a record."""
         wanted = [
@@ -155,6 +164,28 @@ class PublishedClaimsListTests(TestCase):
         body = self.client.get(LIST_URL).json()
         self.assertEqual(body['count'], 4)
         self.assertCountEqual([c['claim_state'] for c in body['claims']], wanted)
+        by_state = {c['claim_state']: c for c in body['claims']}
+        self.assertTrue(by_state[PublishedClaim.STATUS_WON]['counts_towards_verified_record'])
+        self.assertTrue(by_state[PublishedClaim.STATUS_LOST]['counts_towards_verified_record'])
+        self.assertFalse(by_state[PublishedClaim.STATUS_VOID]['counts_towards_verified_record'])
+        self.assertFalse(by_state[PublishedClaim.STATUS_CANCELLED]['counts_towards_verified_record'])
+
+    def test_stale_price_stays_visible_but_does_not_count(self):
+        now = timezone.now()
+        claim = _claim(
+            _prediction(),
+            odds_captured_at=now - timedelta(hours=13),
+            published_at=now,
+        )
+        PublishedClaimResult.objects.create(
+            claim=claim,
+            status=PublishedClaim.STATUS_WON,
+        )
+
+        row = self.client.get(LIST_URL).json()['claims'][0]
+        self.assertFalse(row['price_fresh_at_publication'])
+        self.assertEqual(row['price_age_hours_at_publication'], 13.0)
+        self.assertFalse(row['counts_towards_verified_record'])
 
     def test_superseded_and_correcting_claims_both_stay_visible(self):
         original = _claim(_prediction())

@@ -14,7 +14,7 @@ export default function PricingContent() {
     const isCheckoutConfigured = PRO_PRODUCT_ID.length > 0
 
     const features = [
-        { name: 'Daily Predictions', free: '3 best picks', pro: 'All picks (10-20+)', icon: BarChart3 },
+        { name: 'Daily Signals', free: '3 ranked signals', pro: 'All signals (10-20+)', icon: BarChart3 },
         { name: 'Prediction Access', free: '12-hour delay', pro: 'Real-time', icon: Clock },
         { name: 'Betting Calculator', free: false, pro: true, icon: Calculator },
         { name: 'Email Alerts', free: false, pro: true, icon: Bell },
@@ -34,7 +34,7 @@ export default function PricingContent() {
                         Simple, Transparent Pricing
                     </h1>
                     <p className="text-lg text-gray-600 max-w-2xl mx-auto">
-                        Start free with our best picks. Upgrade to Pro for unlimited access to all predictions and tools.
+                        Start free with a limited set of explained signals. Upgrade to review the full signal set and research tools.
                     </p>
                 </div>
 

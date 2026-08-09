@@ -103,13 +103,13 @@ const EN = {
     eyebrow: 'FREE PUBLIC BETA',
     // The brand line. Not "verifiable signals" (a feature) but the reason the
     // feature exists: decisions improve when the evidence behind them does.
-    headline: 'Better football decisions start with better evidence.',
+    headline: 'Every signal explained. Every commitment verifiable. Every result visible.',
     supporting:
-      'Explore transparent football signals and verified market prices. When BetGlitch commits a signal to the public record, the decision is frozen before kickoff, timestamped outside our control, and every eligible result stays visible — win or lose.',
+      'BetGlitch is a public football-signal lab. We combine provider data, verified market prices and available fixture context; freeze selected signals before kickoff; publish every eligible result; and use the evidence to improve each methodology version.',
     primaryCta: 'Explore live signals',
     secondaryCta: 'View the verified record',
     // Three commitments in one quiet line — a rule, not a badge.
-    trustLine: 'Free public beta · No guaranteed wins · No hidden losses',
+    trustLine: 'Free public beta · No guaranteed wins · No hidden losses · Versioned methodology',
     zeroState: 'Building the verified record from zero',
   },
 
@@ -119,11 +119,11 @@ const EN = {
    * way the vocabulary once did.
    */
   manifesto: {
-    heading: 'Betting platforms usually show certainty. BetGlitch shows evidence.',
+    heading: 'Evidence before confidence. Results before claims. Improvement by version.',
     paragraphs: [
-      'We publish the decisions we commit to before kickoff. We preserve the price, the timestamp and the proof. We keep every eligible result visible, including the losses.',
-      'We continuously test new signals, strategies and fixture context — not to manufacture more picks, but to understand what genuinely improves decision quality.',
-      'We do not promise perfect predictions. We promise transparency, accountability and measurable improvement.',
+      'We publish the decisions we commit to before kickoff. We preserve the selection, price, methodology version, timestamp and proof. We keep every eligible result visible, including the losses.',
+      'We continuously test signals, strategies and fixture context to learn what genuinely improves decision quality. Weak results and missing context are evidence too, so we publish them instead of hiding them.',
+      'We do not promise an edge or that every version will improve. We promise a transparent process: name the rule, preserve the decision, publish the result and let the record decide what deserves to change.',
     ],
   },
 
@@ -149,9 +149,9 @@ const EN = {
     ],
 
     // ── Continuous improvement, stated without claiming it has succeeded.
-    improvementHeading: 'We measure the system, not just the scoreline.',
+    improvementHeading: 'Improvement is a process we can prove, not a promise we ask you to trust.',
     improvementBody:
-      'BetGlitch is continuously testing whether its filtering, pricing evidence and fixture context genuinely improve decision quality. We do not claim they already do — the public record exists to find out. What does not improve the evidence does not earn a place in the product.',
+      'Every public commitment names the exact ranking version that produced it. When the logic changes, the version changes too, so results from different strategies can be compared instead of blended. We do not claim the current score has demonstrated an edge — the public record exists to test that claim honestly.',
 
     howHeading: 'How BetGlitch works',
     differenceHeading: 'Not every signal becomes a public commitment',
@@ -159,19 +159,19 @@ const EN = {
       'BetGlitch shows far more live signals than it commits. A live signal is current analysis and may change; a public commitment is the subset formally frozen into the permanent evaluation record — and only eligible settled commitments count towards it.',
     notInPerformance: 'Not part of public performance.',
     frozenIntro: 'Frozen before kickoff. These can never change:',
-    benefitsHeading: 'What you can do here',
+    benefitsHeading: 'What you get for every decision',
     benefits: [
       {
-        title: 'Read the evidence, not a tip',
-        body: 'Every fixture shows its signal score, the market it applies to and the recorded price with its provenance — not just a selection.',
+        title: 'Fixture context, including the gaps',
+        body: 'See the market, top-ranked outcome, signal score, verified price, recent form and every unavailable input we cannot responsibly fill in.',
       },
       {
-        title: 'Check the receipts',
-        body: 'Public commitments keep a permanent public page showing what was frozen, when, and at which bookmaker. Odds are never rewritten and losses are never deleted.',
+        title: 'A verifiable decision trail',
+        body: 'Each public commitment preserves the selection, price freshness, bookmaker, methodology version and independent timestamp before kickoff.',
       },
       {
-        title: 'Decide for yourself',
-        body: 'BetGlitch does not size stakes for you and does not tell you to bet. It shows what it ranked, at what price, and what happened next.',
+        title: 'The evidence to decide yourself',
+        body: 'Review every eligible result, the measured weaknesses of the current score and the context behind a fixture. BetGlitch never turns uncertainty into a guaranteed bet.',
       },
     ],
     coverageHeading: 'Coverage',
@@ -196,6 +196,10 @@ const EN = {
     freeDuringBeta: 'Free during public beta',
     noPayment: 'No payment method is required',
     informational: 'Informational only — BetGlitch does not place bets',
+    agreementBefore: 'By creating an account, you agree to the',
+    termsLabel: 'Terms of Service',
+    agreementAnd: 'and acknowledge the',
+    privacyLabel: 'Privacy Policy',
     submit: 'Create account',
     submitting: 'Creating account…',
   },
@@ -303,7 +307,12 @@ const EN = {
     publishedProofLink: 'View proof',
     publishedOddsLabel: 'Recorded price',
     publishedAtLabel: 'Committed',
+    publishedPriceAgeLabel: 'Price age at commitment',
+    publishedVersionLabel: 'Methodology version',
+    publishedFreshLabel: 'Within the 12-hour freshness rule',
+    publishedStaleLabel: 'Legacy price age — excluded from performance',
     publishedNotCounted: 'Awaiting settlement — not included in verified performance',
+    publishedExcludedFromRecord: 'Kept visible — excluded from verified performance',
     publishedCountedIn: 'Counted in the verified record',
 
     // Honest publication policy — AUTOMATIC since policy v1 (2026-08-08).
@@ -314,7 +323,7 @@ const EN = {
     // criterion is a machine-checked gate, not a judgment call.
     policyLink: 'How commitments are selected',
     policyBody:
-      'Commitments are published automatically by a fixed, pre-registered rule — no human picks or vetoes individual fixtures. A live signal is committed when all of the following hold: it passes the machine-checked eligibility gate (verified price with complete bookmaker and market provenance, coherent timestamps, not superseded), kickoff is at least 6 hours away, and the fixture does not already hold a commitment. The committed selection is simply the top-ranked outcome in its market. Publication itself is not a claim that a signal has proven betting value.',
+      'Commitments are published automatically by a fixed, pre-registered rule — no human picks or vetoes individual fixtures. A live signal is committed when all of the following hold: it passes the machine-checked eligibility gate (verified price no more than 12 hours old at publication, complete bookmaker and market provenance, coherent timestamps, not superseded), kickoff is at least 6 hours away, and the fixture does not already hold a commitment. The committed selection is simply the top-ranked outcome in its market. Publication itself is not a claim that a signal has proven betting value.',
 
     verifiedHeading: 'Verified record',
     verifiedBody:
@@ -469,21 +478,21 @@ const RO: typeof EN = {
 
   hero: {
     eyebrow: 'BETA PUBLIC GRATUIT',
-    headline: 'Deciziile mai bune în fotbal încep cu dovezi mai bune.',
+    headline: 'Fiecare semnal explicat. Fiecare angajament verificabil. Fiecare rezultat vizibil.',
     supporting:
-      'Explorează semnale transparente de fotbal și prețuri de piață verificate. Când BetGlitch angajează un semnal în registrul public, decizia este înghețată înainte de start, marcată temporal în afara controlului nostru, iar fiecare rezultat eligibil rămâne vizibil — câștig sau pierdere.',
+      'BetGlitch este un laborator public de semnale pentru fotbal. Combinăm datele furnizorului, prețurile verificate și contextul disponibil al meciului; înghețăm semnalele selectate înainte de start; publicăm fiecare rezultat eligibil; apoi folosim dovezile pentru a îmbunătăți fiecare versiune a metodologiei.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi istoricul verificat',
-    trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse',
+    trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse · Metodologie versionată',
     zeroState: 'Construim istoricul verificat de la zero',
   },
 
   manifesto: {
-    heading: 'Platformele de pariuri afișează de obicei certitudine. BetGlitch arată dovezi.',
+    heading: 'Dovezi înaintea încrederii. Rezultate înaintea afirmațiilor. Îmbunătățire pe versiuni.',
     paragraphs: [
-      'Publicăm deciziile la care ne angajăm înainte de start. Păstrăm prețul, marcajul de timp și dovada. Menținem vizibil fiecare rezultat eligibil, inclusiv pierderile.',
-      'Testăm continuu semnale, strategii și context de meci noi — nu ca să producem mai multe pontaje, ci ca să înțelegem ce îmbunătățește cu adevărat calitatea deciziilor.',
-      'Nu promitem predicții perfecte. Promitem transparență, responsabilitate și îmbunătățire măsurabilă.',
+      'Publicăm deciziile la care ne angajăm înainte de start. Păstrăm selecția, prețul, versiunea metodologiei, marcajul de timp și dovada. Menținem vizibil fiecare rezultat eligibil, inclusiv pierderile.',
+      'Testăm continuu semnale, strategii și context de meci ca să aflăm ce îmbunătățește cu adevărat calitatea deciziilor. Rezultatele slabe și contextul lipsă sunt tot dovezi, așa că le publicăm în loc să le ascundem.',
+      'Nu promitem un avantaj și nici că fiecare versiune va fi mai bună. Promitem un proces transparent: numim regula, păstrăm decizia, publicăm rezultatul și lăsăm istoricul să decidă ce merită schimbat.',
     ],
   },
 
@@ -505,9 +514,9 @@ const RO: typeof EN = {
       'Niciun câștig garantat',
     ],
 
-    improvementHeading: 'Măsurăm sistemul, nu doar scorul.',
+    improvementHeading: 'Îmbunătățirea este un proces demonstrabil, nu o promisiune pe care cerem să o crezi.',
     improvementBody:
-      'BetGlitch testează continuu dacă filtrarea, dovezile de preț și contextul de meci îmbunătățesc cu adevărat calitatea deciziilor. Nu susținem că o fac deja — istoricul public există exact ca să aflăm. Ce nu îmbunătățește dovezile nu își câștigă locul în produs.',
+      'Fiecare angajament public numește versiunea exactă de clasare care l-a produs. Când logica se schimbă, se schimbă și versiunea, astfel încât rezultatele strategiilor diferite să poată fi comparate, nu amestecate. Nu susținem că scorul actual a demonstrat un avantaj — istoricul public există ca să testeze asta onest.',
 
     howHeading: 'Cum funcționează BetGlitch',
     differenceHeading: 'Nu orice semnal devine angajament public',
@@ -515,19 +524,19 @@ const RO: typeof EN = {
       'BetGlitch afișează mult mai multe semnale live decât angajează. Un semnal live este analiză curentă și se poate schimba; un angajament public este subsetul înghețat formal în registrul permanent de evaluare — și doar angajamentele eligibile încheiate contează pentru el.',
     notInPerformance: 'Nu face parte din performanța publică.',
     frozenIntro: 'Înghețate înainte de start. Acestea nu se mai pot schimba:',
-    benefitsHeading: 'Ce poți face aici',
+    benefitsHeading: 'Ce primești pentru fiecare decizie',
     benefits: [
       {
-        title: 'Citește dovada, nu un pont',
-        body: 'Fiecare meci arată scorul de semnal, piața la care se aplică și prețul înregistrat cu proveniența lui — nu doar o selecție.',
+        title: 'Contextul meciului, inclusiv lipsurile',
+        body: 'Vezi piața, rezultatul clasat primul, scorul de semnal, prețul verificat, forma recentă și fiecare informație indisponibilă pe care nu o putem completa responsabil.',
       },
       {
-        title: 'Verifică dovezile',
-        body: 'Angajamentele publice păstrează o pagină publică permanentă cu ce a fost înghețat, când și la ce casă de pariuri. Cotele nu sunt rescrise, iar pierderile nu sunt șterse.',
+        title: 'Un traseu verificabil al deciziei',
+        body: 'Fiecare angajament public păstrează selecția, vechimea prețului, casa de pariuri, versiunea metodologiei și marcajul de timp independent înainte de start.',
       },
       {
-        title: 'Decizi singur',
-        body: 'BetGlitch nu îți dimensionează miza și nu îți spune să pariezi. Îți arată ce a clasat, la ce preț și ce a urmat.',
+        title: 'Dovezile pentru propria decizie',
+        body: 'Analizează fiecare rezultat eligibil, slăbiciunile măsurate ale scorului actual și contextul meciului. BetGlitch nu transformă niciodată incertitudinea într-un pariu garantat.',
       },
     ],
     coverageHeading: 'Acoperire',
@@ -552,6 +561,10 @@ const RO: typeof EN = {
     freeDuringBeta: 'Gratuit în perioada de beta public',
     noPayment: 'Nu este necesară o metodă de plată',
     informational: 'Doar informativ — BetGlitch nu plasează pariuri',
+    agreementBefore: 'Prin crearea unui cont, accepți',
+    termsLabel: 'Termenii de utilizare',
+    agreementAnd: 'și confirmi că ai citit',
+    privacyLabel: 'Politica de confidențialitate',
     submit: 'Creează cont',
     submitting: 'Se creează contul…',
   },
@@ -656,13 +669,19 @@ const RO: typeof EN = {
     publishedProofLink: 'Vezi dovada',
     publishedOddsLabel: 'Preț înregistrat',
     publishedAtLabel: 'Angajat',
+    publishedPriceAgeLabel: 'Vechimea prețului la angajament',
+    publishedVersionLabel: 'Versiunea metodologiei',
+    publishedFreshLabel: 'În limita de prospețime de 12 ore',
+    publishedStaleLabel: 'Preț istoric prea vechi — exclus din performanță',
     publishedNotCounted:
       'În așteptarea încheierii — nu este inclus în performanța verificată',
+    publishedExcludedFromRecord:
+      'Păstrat vizibil — exclus din performanța verificată',
     publishedCountedIn: 'Numărat în istoricul verificat',
 
     policyLink: 'Cum sunt selectate angajamentele',
     policyBody:
-      'Angajamentele sunt publicate automat, după o regulă fixă, pre-înregistrată — niciun om nu alege și nu respinge meciuri individuale. Un semnal live este angajat când toate condițiile sunt îndeplinite: trece de verificarea automată de eligibilitate (preț verificat cu proveniență completă de casă de pariuri și piață, marcaje de timp coerente, neînlocuit), mai sunt cel puțin 6 ore până la începerea meciului, iar meciul nu are deja un angajament. Selecția angajată este pur și simplu rezultatul clasat cel mai sus în piața sa. Publicarea în sine nu este o afirmație că semnalul are valoare de pariere dovedită.',
+      'Angajamentele sunt publicate automat, după o regulă fixă, pre-înregistrată — niciun om nu alege și nu respinge meciuri individuale. Un semnal live este angajat când toate condițiile sunt îndeplinite: trece de verificarea automată de eligibilitate (preț verificat, vechi de cel mult 12 ore la publicare, cu proveniență completă de casă de pariuri și piață, marcaje de timp coerente, neînlocuit), mai sunt cel puțin 6 ore până la începerea meciului, iar meciul nu are deja un angajament. Selecția angajată este pur și simplu rezultatul clasat cel mai sus în piața sa. Publicarea în sine nu este o afirmație că semnalul are valoare de pariere dovedită.',
 
     verifiedHeading: 'Istoric verificat',
     verifiedBody:

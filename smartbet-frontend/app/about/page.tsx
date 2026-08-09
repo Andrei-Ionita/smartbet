@@ -12,11 +12,11 @@ import {
 export const metadata: Metadata = {
   title: 'About BetGlitch — how a signal becomes a public result',
   description:
-    `Verifiable football market signals and immutable published picks. BetGlitch ranks provider probability data across ${SEARCHABLE_COMPETITION_COUNT} European competitions, freezes selected picks before kickoff with their recorded odds, and builds its verified record only from settled published picks.`,
+    `A public football-signal lab. BetGlitch adds verified prices and available fixture context to provider data, versions its ranking rules, and keeps every eligible result visible.`,
   openGraph: {
     title: 'About BetGlitch — how a signal becomes a public result',
     description:
-      'Verifiable football market signals and immutable published picks. Frozen before kickoff with their recorded odds, kept public after settlement.',
+      'Every signal explained, every public commitment verifiable and every eligible result visible.',
     url: 'https://betglitch.com/about',
   },
 }
@@ -28,7 +28,7 @@ export default function AboutPage() {
     "name": "BetGlitch",
     "url": "https://betglitch.com",
     "logo": "https://betglitch.com/images/logo-final-v6.png",
-    "description": `Verifiable football market signals and immutable published picks across ${SEARCHABLE_COMPETITION_COUNT} European competitions. Selected picks are frozen before kickoff and kept public after settlement.`,
+    "description": `A public football-signal lab with verified prices, available fixture context, versioned ranking rules and a permanent result record.`,
     "sameAs": [],
   }
 
@@ -47,9 +47,8 @@ export default function AboutPage() {
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">About BetGlitch</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            BetGlitch ranks provider-derived football probability data into live signals,
-            freezes selected picks before kickoff, and publishes every settled result —
-            win or lose.
+            Every signal explained. Every commitment verifiable. Every eligible
+            result visible — win or lose.
           </p>
         </div>
 
@@ -63,14 +62,14 @@ export default function AboutPage() {
             their losing bets and inflate their track records. We do the opposite.
           </p>
           <p className="text-gray-700 leading-relaxed">
-            BetGlitch generates far more live signals than it publishes. When a
-            pick <em>is</em> published, it is frozen before kickoff with its
+            BetGlitch generates far more live signals than it commits. When a
+            signal <em>is</em> committed, it is frozen before kickoff with its
             selection, signal score, recorded odds and bookmaker, and it stays
             public afterwards whether it wins or loses. Our{' '}
             <Link href="/track-record" className="text-primary-600 hover:underline font-medium">
               verified record
             </Link>{' '}
-            contains every published pick that has settled — never a filtered
+            contains every eligible public commitment that has settled — never a filtered
             subset of them.
           </p>
         </div>
@@ -93,16 +92,16 @@ export default function AboutPage() {
                 body: 'BetGlitch filters and ranks those provider probabilities against recorded prices, producing a signal score. Every run is written to an append-only snapshot: a newer snapshot can supersede a signal, but no snapshot is ever edited or deleted.',
               },
               {
-                title: 'Published pick (optional)',
-                body: 'BetGlitch selects some snapshots to publish. Publication freezes the market, selection, signal score, recorded odds, bookmaker and timestamps. Most snapshots are never published.',
+                title: 'Public commitment (automatic gate)',
+                body: 'A fixed rule commits eligible snapshots before kickoff. Publication freezes the market, selection, signal score, recorded odds, bookmaker, methodology version and timestamps. Most snapshots are never committed.',
               },
               {
                 title: 'Settlement (automatic)',
-                body: 'After full-time, a published pick is graded against the fields frozen at publication — not against anything that could have changed since. Results are inserted, never overwritten.',
+                body: 'After full-time, a public commitment is graded against the fields frozen at publication — not against anything that could have changed since. Results are inserted, never overwritten.',
               },
               {
                 title: 'Verified record',
-                body: 'Settled, integrity-valid published picks form the only universe behind any public accuracy, ROI or win/loss figure.',
+                body: 'Eligible settled public commitments form the only universe behind any public accuracy, ROI or win/loss figure.',
               },
             ].map((step, i) => (
               <li key={step.title} className="flex gap-4">
@@ -139,11 +138,11 @@ export default function AboutPage() {
               },
               {
                 term: 'Realized ROI',
-                def: 'Actual profit or loss across settled published picks, at the exact odds recorded at publication.',
+                def: 'Actual profit or loss across eligible settled public commitments, at the exact odds recorded at publication.',
               },
               {
                 term: 'Verified result',
-                def: 'The settled outcome of a published pick, graded on its frozen fields.',
+                def: 'The settled outcome of a public commitment, graded on its frozen fields.',
               },
             ].map(({ term, def }) => (
               <div key={term}>
@@ -166,7 +165,7 @@ export default function AboutPage() {
               <p className="text-sm text-gray-600">
                 Provider probabilities are ranked against recorded prices, and a signal is surfaced only when
                 it clears our filters. The score is a relative ranking, not a calibrated probability, and the
-                selection logic keeps changing as we learn.
+                selection logic changes only under a new public methodology version.
               </p>
             </div>
             <div className="text-center p-4">
@@ -220,22 +219,23 @@ export default function AboutPage() {
             product can afford to expose uncertainty precisely because it does. */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-gray-200 mb-8">
           <h2 className="text-2xl font-bold text-gray-900 mb-4">
-            Betting platforms usually show certainty. BetGlitch shows evidence.
+            Evidence before confidence. Results before claims. Improvement by version.
           </h2>
           <div className="space-y-4 text-gray-700 leading-relaxed">
             <p>
               We publish the decisions we commit to before kickoff. We preserve the
-              price, the timestamp and the proof. We keep every eligible result
+              selection, price, methodology version, timestamp and proof. We keep every eligible result
               visible, including the losses.
             </p>
             <p>
-              We continuously test new signals, strategies and fixture context — not
-              to manufacture more picks, but to understand what genuinely improves
-              decision quality.
+              We continuously test signals, strategies and fixture context to
+              understand what genuinely improves decision quality. Weak results and
+              missing context are evidence too, so we publish them.
             </p>
             <p>
-              We do not promise perfect predictions. We promise transparency,
-              accountability and measurable improvement.
+              We do not promise an edge or that every version will improve. We
+              promise to name the rule, preserve the decision, publish the result
+              and let the record decide what deserves to change.
             </p>
             <p className="font-semibold text-gray-900">
               We would rather show uncertainty honestly than manufacture confidence.
@@ -250,8 +250,8 @@ export default function AboutPage() {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-green-600 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="font-semibold text-gray-900">Published picks stay published</h3>
-                <p className="text-sm text-gray-600">A published pick is never withdrawn, re-priced or re-graded. Losses stay up next to the wins, at equal prominence.</p>
+                <h3 className="font-semibold text-gray-900">Public commitments stay public</h3>
+                <p className="text-sm text-gray-600">A commitment is never withdrawn, re-priced or re-graded. Losses stay up next to the wins, at equal prominence.</p>
               </div>
             </div>
             <div className="flex items-start gap-3">

@@ -12,7 +12,7 @@ export default function TermsContent() {
                     <FileText className="w-8 h-8 text-primary-600" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">Terms of Service</h1>
-                <p className="text-gray-600">Last updated: January 2026</p>
+                <p className="text-gray-600">Last updated: August 2026</p>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-8">
@@ -135,7 +135,7 @@ export default function TermsContent() {
                         <li>Use the Service if you are under 18 years old</li>
                         <li>Access the Service from a jurisdiction where gambling is prohibited</li>
                         <li>Resell or redistribute our signals without permission</li>
-                        <li>Attempt to reverse-engineer our ranking and filtering logic</li>
+                        <li>Attempt to bypass access controls, rate limits, or other security measures</li>
                         <li>Use automated systems to scrape or copy our content</li>
                         <li>Interfere with or disrupt the Service</li>
                     </ul>

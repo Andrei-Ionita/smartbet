@@ -12,7 +12,7 @@ export default function PrivacyContent() {
                     <Lock className="w-8 h-8 text-primary-600" />
                 </div>
                 <h1 className="text-3xl font-bold text-gray-900 mb-4">Privacy Policy</h1>
-                <p className="text-gray-600">Last updated: January 2026</p>
+                <p className="text-gray-600">Last updated: August 2026</p>
             </div>
 
             <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-8 space-y-8">

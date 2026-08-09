@@ -13,7 +13,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Explore live football signals | BetGlitch',
     description:
-      'Current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff; only published picks enter the verified record.',
+      'Current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff; only public commitments can enter the verified record.',
     url: 'https://betglitch.com/explore',
   },
 }

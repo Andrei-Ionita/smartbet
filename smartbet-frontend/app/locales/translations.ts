@@ -8,8 +8,8 @@ export const translations = {
             explore: 'Explore',
             // 'Model monitoring' handed visitors an internal engineering
             // concept — and a model BetGlitch does not own. The page tracks
-            // how published signals performed, so it is named for that.
-            monitoring: 'Signal monitoring',
+            // historical score evidence and measured weaknesses.
+            monitoring: 'Signal research',
             trackRecord: 'Verified record',
             bankroll: 'Bankroll',
             pricing: 'Pricing',
@@ -178,8 +178,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Historical pipeline audit',
-            subtitle: 'Every signal the pipeline produced and whether it matched the final score. This is coverage, not performance — verified performance lives on the verified record.',
+            title: 'Signal research',
+            subtitle: 'What the current score gets right, gets wrong and has not yet proved. Verified betting performance lives only on the verified record.',
             tabs: {
                 dashboard: 'Signal performance',
                 accuracy: 'Detailed Accuracy',
@@ -351,7 +351,7 @@ export const translations = {
             home: 'Acasă',
             dashboard: 'Panou Control',
             explore: 'Explorează',
-            monitoring: 'Monitorizare semnale',
+            monitoring: 'Cercetarea semnalului',
             trackRecord: 'Istoric verificat',
             bankroll: 'Buget',
             pricing: 'Prețuri',
@@ -505,8 +505,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Audit istoric al pipeline-ului',
-            subtitle: 'Fiecare semnal produs de pipeline și dacă a corespuns scorului final. Aceasta este acoperire, nu performanță — performanța verificată se află în istoricul verificat.',
+            title: 'Cercetarea semnalului',
+            subtitle: 'Ce clasifică bine scorul actual, ce clasifică greșit și ce nu a demonstrat încă. Performanța verificată de pariere există doar în istoricul verificat.',
             tabs: {
                 dashboard: 'Performanța semnalelor',
                 accuracy: 'Acuratețe Detaliată',

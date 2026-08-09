@@ -44,9 +44,7 @@ _CAPTURE_SLACK = timedelta(hours=6)
 # So freshness is measured against PUBLICATION TIME, which is the moment we
 # assert the price. Tunable, because the honest threshold is an empirical
 # question — but a ceiling exists, and it fails closed.
-MAX_PRICE_AGE_AT_PUBLICATION = timedelta(
-    hours=float(os.environ.get('MAX_PRICE_AGE_HOURS', '12'))
-)
+MAX_PRICE_AGE_AT_PUBLICATION = public_universe.MAX_PRICE_AGE_AT_PUBLICATION
 
 
 class PublicationError(Exception):
@@ -142,10 +140,7 @@ def price_age_hours_at_publication(claim):
     that a quoted price was days old — which is exactly what a reviewer had
     to do on 2026-08-08.
     """
-    if not claim.odds_captured_at or not claim.published_at:
-        return None
-    return round(
-        (claim.published_at - claim.odds_captured_at).total_seconds() / 3600, 1)
+    return public_universe.claim_price_age_hours(claim)
 
 
 @transaction.atomic

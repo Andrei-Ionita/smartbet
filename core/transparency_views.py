@@ -38,16 +38,16 @@ def public_accuracy_dashboard(request):
         # Add metadata
         stats['last_updated'] = timezone.now().isoformat()
         stats['methodology'] = {
-            'what_we_track': 'Only our recommended bets - the top picks we show to users',
-            'selection_criteria': 'Minimum 55% confidence for Over/Under 2.5 and 60% for other markets, plus positive expected value at the recorded price',
-            'frequency': 'Top 10 best value bets updated daily',
+            'what_we_track': 'Eligible settled public commitments only',
+            'selection_criteria': 'Automatic publication gate: recommended snapshot, verified fresh price with complete provenance, coherent timestamps, and at least six hours before kickoff',
+            'frequency': 'Publication runs automatically; it is not a daily top-N list',
             'data_source': 'Real match results from SportMonks API',
             'verification': "Match outcomes are settled using third-party sports data. BetGlitch does not manually alter a published claim's result to improve the record.",
             'price_audit': 'Prices are recorded with their exact market, line, bookmaker and capture time, creating a complete audit trail for every published quote.',
             'timestamp_proof': 'Every published claim is timestamped before kickoff.',
             'integrity': 'Each published claim is stored as an immutable snapshot and protected by a SHA-256 integrity hash. Corrections are recorded separately rather than rewriting the original claim.',
             'honesty': 'We show both wins and losses - complete transparency',
-            'summary': 'Every published pick is frozen before kickoff and remains visible with its verified result—win or lose.',
+            'summary': 'Every public commitment is frozen before kickoff and remains visible with its result — win or lose.',
             'pricing_standard': (
                 'Verified public record begins %s. Earlier predictions are '
                 'preserved and classified as legacy data, but are excluded from '
@@ -56,7 +56,7 @@ def public_accuracy_dashboard(request):
                 'standard.'
             ) % public_universe.PRICING_INTEGRITY_CUTOFF.date().isoformat(),
         }
-        stats['transparency_note'] = 'We track only what we recommend to you - honest accountability, not cherry-picked results'
+        stats['transparency_note'] = 'Live signals are not performance. Only eligible settled public commitments count, and losses remain visible.'
         
         return Response({
             'success': True,
@@ -86,13 +86,15 @@ def accuracy_summary(request):
         
         # Get recent performance (last 7 days)
         seven_days_ago = timezone.now() - timedelta(days=7)
-        recent = PredictionLog.objects.filter(
-            actual_outcome__isnull=False,
-            kickoff__gte=seven_days_ago
+        recent = [
+            c for c in public_universe.resolved_claims()
+            if c.kickoff >= seven_days_ago
+        ]
+
+        recent_total = len(recent)
+        recent_correct = sum(
+            1 for c in recent if c.result_status == PublishedClaim.STATUS_WON
         )
-        
-        recent_total = recent.count()
-        recent_correct = recent.filter(was_correct=True).count()
         recent_accuracy = (recent_correct / recent_total * 100) if recent_total > 0 else 0
         
         return Response({
@@ -110,9 +112,9 @@ def accuracy_summary(request):
                     'profit_loss': roi['total_profit_loss']
                 },
                 'methodology': {
-                    'what_we_track': 'Only our recommended bets (top picks shown to users)',
-                    'criteria': 'Minimum 55% confidence for Over/Under 2.5 and 60% for other markets, plus positive expected value at the recorded price',
-                    'frequency': 'Top 10 recommendations updated daily',
+                    'what_we_track': 'Eligible settled public commitments only',
+                    'criteria': 'Verified fresh price, complete provenance, coherent timestamps and publication before kickoff',
+                    'frequency': 'Automatic publication under the current policy version',
                     'verification': 'Results fetched from SportMonks API',
                     'transparency': 'Every published claim is timestamped before kickoff.'
                 }
@@ -382,6 +384,13 @@ def _serialize_claim(claim):
             'This claim failed its integrity check and is excluded from our '
             'public record.'
         ),
+        'integrity': {
+            'algorithm': 'SHA-256',
+            'canonicalization': 'UTF-8 JSON with keys sorted and compact separators',
+            # Publish the exact input to the digest. A self-hosted green tick is
+            # not independent verification if a reader cannot recompute it.
+            'canonical_payload': claim.canonical_payload(),
+        },
         'pricing_integrity_status': claim.pricing_integrity_status,
         'superseded': claim.is_superseded,
         # External timestamp, or None when not yet anchored. The proof page
@@ -494,6 +503,9 @@ def _serialize_claim_row(claim):
         }
 
     integrity_ok = claim.verify_integrity()
+    superseded = claim.is_superseded
+    price_age = claim_publication.price_age_hours_at_publication(claim)
+    price_fresh = public_universe.claim_has_fresh_price(claim)
     return {
         'claim_id': str(claim.claim_id),
         'fixture_id': claim.fixture_id,
@@ -511,6 +523,9 @@ def _serialize_claim_row(claim):
             claim.odds_captured_at.isoformat() if claim.odds_captured_at else None
         ),
         'published_at': claim.published_at.isoformat(),
+        'price_age_hours_at_publication': price_age,
+        'price_fresh_at_publication': price_fresh,
+        'ranking_version': claim.model_version,
         # PENDING until a settlement row exists. Derived from the recorded
         # result, never from the mutable prediction's outcome fields.
         'claim_state': settlement.status if settlement else PublishedClaim.STATUS_PENDING,
@@ -518,14 +533,22 @@ def _serialize_claim_row(claim):
         'claim_hash': claim.claim_hash,
         'claim_hash_version': claim.claim_hash_version,
         'integrity_ok': integrity_ok,
-        'superseded': claim.is_superseded,
+        'superseded': superseded,
         'supersedes': str(claim.supersedes_id) if claim.supersedes_id else None,
         'is_correction': claim.supersedes_id is not None,
         'proof_url': f'/proof/claim/{claim.claim_id}',
         'result': result,
         # Only a settled row counts towards public performance. Stated per row
         # so a consumer cannot infer it from presence in the list.
-        'counts_towards_verified_record': bool(settlement) and integrity_ok,
+        'counts_towards_verified_record': bool(
+            settlement
+            and settlement.status in (
+                PublishedClaim.STATUS_WON, PublishedClaim.STATUS_LOST
+            )
+            and integrity_ok
+            and price_fresh
+            and not superseded
+        ),
         # External timestamp, if this claim has been anchored. `None` means
         # not anchored — never omitted and never implied, because an absent
         # anchor is exactly the thing a reader must be able to see.

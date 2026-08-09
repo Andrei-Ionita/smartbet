@@ -741,6 +741,7 @@ def publish_claim(pred, settle=None, **overrides):
     See docs/audit/gem-selector-diagnostics-2026-07-29.md.
     """
     from core.models import PublishedClaim
+    now = timezone.now()
     fields = dict(
         prediction=pred, fixture_id=pred.fixture_id,
         home_team=pred.home_team, away_team=pred.away_team,
@@ -748,6 +749,8 @@ def publish_claim(pred, settle=None, **overrides):
         market_type=pred.market_type, predicted_outcome=pred.predicted_outcome,
         confidence=pred.confidence, odds=pred.odds,
         odds_provenance=pred.odds_provenance,
+        odds_captured_at=now,
+        published_at=now,
         prediction_generated_at=pred.prediction_logged_at,
     )
     fields.update(overrides)

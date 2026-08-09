@@ -3,11 +3,11 @@ import MonitoringContent from './MonitoringContent'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
 export const metadata: Metadata = {
-  title: 'Signal Monitoring — pipeline health',
-  description: 'Operational monitoring of the BetGlitch signal pipeline. Track ingestion, settlement and coverage across covered competitions.',
+  title: 'Signal research — what the current score gets right and wrong',
+  description: 'Public research evidence for the BetGlitch signal score, including coverage, score separation, weaknesses and every graded legacy call.',
   openGraph: {
-    title: 'Signal Monitoring — pipeline health | BetGlitch',
-    description: 'Operational monitoring of the BetGlitch signal pipeline.',
+    title: 'Signal research | BetGlitch',
+    description: 'What the current BetGlitch signal score gets right, gets wrong and has not yet proved.',
     url: 'https://betglitch.com/monitoring',
   },
 }
@@ -17,7 +17,7 @@ export default function MonitoringPage() {
     <>
       <BreadcrumbSchema items={[
         { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Signal monitoring', url: 'https://betglitch.com/monitoring' },
+        { name: 'Signal research', url: 'https://betglitch.com/monitoring' },
       ]} />
       <MonitoringContent />
     </>

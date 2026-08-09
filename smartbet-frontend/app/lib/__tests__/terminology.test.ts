@@ -69,7 +69,7 @@ describe('the homepage answers the five-second question', () => {
     // signals" named the feature; the brand line names the reason the feature
     // exists. The truth constraints are unchanged — the line promises better
     // evidence, not better outcomes.
-    expect(HERO.headline).toBe('Better football decisions start with better evidence.')
+    expect(HERO.headline).toBe('Every signal explained. Every commitment verifiable. Every result visible.')
   })
 
   it('offers one primary action and one secondary, not three peers', () => {

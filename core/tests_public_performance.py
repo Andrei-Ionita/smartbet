@@ -96,6 +96,18 @@ class LegacyNeverEntersPublicPerformanceTests(TestCase):
         self.assertEqual(len(public_universe.resolved_claims()), 2)
         self.assertEqual(AccuracyCalculator().get_roi_simulation()['total_bets'], 2)
 
+    def test_stale_price_claim_remains_public_but_not_in_performance(self):
+        now = timezone.now()
+        claim = publish_claim(
+            _pred(945007, correct=True),
+            odds_captured_at=now - timedelta(hours=13),
+            published_at=now,
+        )
+
+        self.assertTrue(PublishedClaim.objects.filter(pk=claim.pk).exists())
+        self.assertEqual(len(public_universe.resolved_claims()), 0)
+        self.assertEqual(AccuracyCalculator().get_roi_simulation()['total_bets'], 0)
+
 
 class TamperedClaimsAreExcludedTests(TestCase):
 

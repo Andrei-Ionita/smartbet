@@ -291,13 +291,13 @@ export default function RecommendedPredictionsTable() {
         <>
           <div className="rounded-xl border border-blue-200 bg-blue-50 p-4">
             <p className="text-sm font-semibold text-blue-900">
-              Pipeline coverage — not a performance record
+              Research evidence — not a performance record
             </p>
             <p className="mt-1 text-sm leading-relaxed text-blue-900">
-              This page shows what the signal pipeline produced and whether each
-              call matched the final score. Most rows below predate BetGlitch
-              verifying its recorded prices, so no profit, ROI or accuracy
-              figure is published here — those belong to the{' '}
+              This page shows what the signal pipeline produced, where its score
+              separated right calls from wrong ones, and where it failed. Most
+              rows predate verified price capture, so no profit, ROI or betting
+              accuracy claim is made here — those belong to the{' '}
               <a href="/track-record" className="font-semibold underline underline-offset-2">
                 verified record
               </a>
@@ -758,4 +758,3 @@ export default function RecommendedPredictionsTable() {
     </div>
   )
 }
-
