@@ -53,8 +53,11 @@ export async function GET() {
       })
     }
 
+    const publicGems = toPublicRecommendationList(result.recommendations)
+
     return NextResponse.json(
       {
+        featured_gems: publicGems,
         recommendations: toPublicRecommendationList(result.recommendations),
         ...result.envelope,
       },

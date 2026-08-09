@@ -118,7 +118,7 @@ describe('live surfaces never look like betting recommendations', () => {
 
   it('the homepage signal section uses the live-signal vocabulary', () => {
     const src = read('app/page.tsx')
-    expect(src).toContain('signalsHeading')
+    expect(src).toContain('gemsHeading')
     expect(src).toContain('<StatusBadge status="live"')
   })
 

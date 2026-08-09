@@ -32,7 +32,7 @@ import { buildFormMap, formFor } from '@/app/lib/providerForm'
 import { isFormHeuristicLive } from '@/app/lib/modelActivation'
 import { RANKING_VERSION } from '@/app/lib/rankingPolicy'
 import {
-  compareValueStrategy,
+  compareGemStrategy,
   evaluateValueStrategy,
   VALUE_STRATEGY_POLICY,
 } from '@/app/lib/providerStrategy'
@@ -840,20 +840,21 @@ export async function buildRecommendationPayload(): Promise<
       }
     }
 
-    // Lexicographic evidence ordering. No fabricated all-purpose quality
-    // probability is produced: provider report-card strength, trend, fair-odds
-    // buffer, hit ratio and price dispersion are compared in that order.
+    // Every row here has passed all Generation 3 gates. Rank the survivors by
+    // provider-probability/payout balance, then use the provider report card
+    // and price consensus as deterministic tie-breakers.
     allRecommendations.sort((a, b) =>
-      compareValueStrategy(a.strategy_evaluation, b.strategy_evaluation))
+      compareGemStrategy(a.strategy_evaluation, b.strategy_evaluation))
 
-    let top10Recommendations = allRecommendations
+    const qualifiedGemCount = allRecommendations.length
+    let featuredGems = allRecommendations
       .slice(0, VALUE_STRATEGY_POLICY.maximumSelections)
-      .map(rec => ({ ...rec, is_recommended: true }))
+      .map((rec, index) => ({ ...rec, is_recommended: true, gem_rank: index + 1 }))
 
     // --- ENRICHMENT: Fetch Standings for Form Data ---
     try {
-      // 1. Get unique season IDs from the top 10
-      const seasonIds = Array.from(new Set(top10Recommendations.map(rec => rec.season_id).filter(id => !!id)))
+      // 1. Get unique season IDs from the featured Gems
+      const seasonIds = Array.from(new Set(featuredGems.map(rec => rec.season_id).filter(id => !!id)))
 
       if (seasonIds.length > 0) {
         console.error(`DEBUG: Enrichment Season IDs: ${seasonIds.join(', ')}`)
@@ -892,7 +893,7 @@ export async function buildRecommendationPayload(): Promise<
 
         // 3.5 Fallback: Fetch specific team form for Cup matches (where standings failed)
         const missingFormTeamIds = new Set<string>()
-        top10Recommendations.forEach(rec => {
+        featuredGems.forEach(rec => {
           if (!formMap.has(String(rec.home_id))) missingFormTeamIds.add(String(rec.home_id))
           if (!formMap.has(String(rec.away_id))) missingFormTeamIds.add(String(rec.away_id))
         })
@@ -927,7 +928,7 @@ export async function buildRecommendationPayload(): Promise<
         }
 
         // 4. Enrich recommendations
-        top10Recommendations = top10Recommendations.map(rec => {
+        featuredGems = featuredGems.map(rec => {
           const homeIdStr = String(rec.home_id)
           const awayIdStr = String(rec.away_id)
 
@@ -981,12 +982,19 @@ export async function buildRecommendationPayload(): Promise<
     // that could serve internal fields to a public request.
     return {
       ok: true,
-      recommendations: top10Recommendations,
+      recommendations: featuredGems,
       envelope: {
-        total: top10Recommendations.length,
+        total: featuredGems.length,
         leagues_covered: keyLeagues.length,
         fixtures_analyzed: totalFixtures,
         fixtures_with_predictions: fixturesWithPredictions,
+        gem_scan: {
+          fixtures_scanned: totalFixtures,
+          fixtures_with_predictions: fixturesWithPredictions,
+          qualified_fixtures: qualifiedGemCount,
+          displayed_gems: featuredGems.length,
+          maximum_gems: VALUE_STRATEGY_POLICY.maximumSelections,
+        },
         lastUpdated: new Date().toISOString(),
         // WHICH ranking policy produced these. Ingest stamps it onto every
         // snapshot and therefore onto every published claim, so a record

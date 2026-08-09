@@ -21,6 +21,21 @@ export interface Recommendation extends CanonicalPriceFields {
   score: number
   explanation: string
   bookmaker?: string
+  gem?: {
+    rank: number | null
+    provider_implied_chance: number | null
+    provider_baseline_price: number | null
+    verified_price_advantage: number | null
+    league_predictability: string | null
+    league_hit_ratio: number | null
+    predictive_power: string | null
+    bookmakers_checked: number | null
+    relative_price_spread: number | null
+    price_age_hours: number | null
+    correct_score_agrees: boolean
+    double_chance_supports: boolean
+    selection_basis: string
+  } | null
   stake_recommendation?: {
     recommended_stake: number
     stake_percentage: number

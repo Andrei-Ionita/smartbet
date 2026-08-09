@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "deploy": "npm run build && echo '✅ Build complete! Ready for deployment to Vercel, Netlify, or Railway.'",
+    "deploy": "npm run build && echo 'Build complete. Ready for Railway deployment.'",
     "setup": "npm install && echo '✅ Dependencies installed! Ready to run npm run dev'",
     "test": "vitest run",
     "test:watch": "vitest"

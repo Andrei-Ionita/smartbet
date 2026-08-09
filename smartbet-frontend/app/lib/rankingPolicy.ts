@@ -61,9 +61,12 @@ export const RANKING_POLICY = {
   maximumPriceAgeHours: VALUE_STRATEGY_POLICY.maximumPriceAgeHours,
   maximumSelections: VALUE_STRATEGY_POLICY.maximumSelections,
 
-  /** How eligible selections are ordered; no synthetic quality probability. */
+  /** Auditable inputs and ordering for candidates that passed every gate. */
+  gemProbabilitySource: 'provider baseline price (1 / price)',
+  gemPayoutSource: 'verified canonical multi-bookmaker quote',
+  gemPrimaryRanking: 'kelly-style probability-payout balance (ranking only, not a stake)',
   selection:
-    'league predictability, predictive-power trend, fair-odds buffer, hit ratio, then price dispersion',
+    'probability-payout balance, league predictability, predictive-power trend, price advantage, provider implied probability, hit ratio, then price dispersion',
 } as const
 
 /**

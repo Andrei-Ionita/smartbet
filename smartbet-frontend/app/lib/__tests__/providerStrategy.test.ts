@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  compareGemStrategy,
   crossMarketConsensus,
   evaluateValueStrategy,
   fixturePredictability,
+  gemMetrics,
   leagueMarketPerformance,
   nativeValueBet,
 } from '../providerStrategy'
@@ -121,6 +123,36 @@ describe('value strategy', () => {
     expect(result.eligible).toBe(true)
     expect(result.rejectionReasons).toEqual([])
     expect(result.fairOddsBuffer).toBeCloseTo(1.9 / 1.8 - 1)
+    expect(gemMetrics(result).providerBaselineOdds).toBe(1.8)
+    expect(gemMetrics(result).verifiedOdds).toBeCloseTo(1.9)
+    expect(gemMetrics(result).providerImpliedProbability).toBeCloseTo(1 / 1.8)
+  })
+
+  it('balances probability and payout instead of favouring the biggest price', () => {
+    const safer = evaluateValueStrategy({
+      ...base,
+      odds: 1.68,
+      predictions: predictions.map((row) => row.type_id === 33
+        ? { ...row, predictions: { ...row.predictions, fair_odd: 1.6, odd: 1.68 } }
+        : row),
+      oddsProvenance: { ...provenance, odds: 1.68, odds_min: 1.64, odds_max: 1.72 },
+    })
+    const longer = evaluateValueStrategy({
+      ...base,
+      odds: 3.3,
+      predictions: predictions.map((row) => row.type_id === 33
+        ? { ...row, predictions: { ...row.predictions, fair_odd: 3, odd: 3.3 } }
+        : row),
+      oddsProvenance: { ...provenance, odds: 3.3, odds_min: 3.2, odds_max: 3.4 },
+    })
+
+    expect(safer.eligible).toBe(true)
+    expect(longer.eligible).toBe(true)
+    expect(gemMetrics(longer).verifiedPriceAdvantage)
+      .toBeGreaterThan(gemMetrics(safer).verifiedPriceAdvantage ?? 0)
+    expect(gemMetrics(safer).probabilityPayoutBalance)
+      .toBeGreaterThan(gemMetrics(longer).probabilityPayoutBalance ?? 0)
+    expect(compareGemStrategy(safer, longer)).toBeLessThan(0)
   })
 
   it('rejects a value bet pointing at the other team', () => {

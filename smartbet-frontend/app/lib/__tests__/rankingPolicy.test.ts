@@ -25,7 +25,7 @@ describe('the declared policy mirrors the engine', () => {
 
   it('uses the provider-native strategy at the selection boundary', () => {
     expect(ENGINE).toContain('evaluateValueStrategy')
-    expect(ENGINE).toContain('compareValueStrategy')
+    expect(ENGINE).toContain('compareGemStrategy')
     expect(ENGINE).toContain('VALUE_STRATEGY_POLICY.maximumSelections')
   })
 
@@ -69,6 +69,7 @@ describe('the version is derived, not declared', () => {
       'correctScoreAgreementRequired', 'doubleChanceSupportRequired',
       'minimumBookmakers', 'maximumRelativePriceSpread',
       'maximumPriceAgeHours', 'maximumSelections', 'markets', 'selection',
+      'gemProbabilitySource', 'gemPayoutSource', 'gemPrimaryRanking',
     ]) {
       expect(RANKING_POLICY_CANONICAL).toContain(`"${key}"`)
     }
