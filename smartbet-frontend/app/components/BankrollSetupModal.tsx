@@ -18,7 +18,10 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
     stakingStrategy: 'fixed_amount',
     dailyLossLimit: '',
     weeklyLossLimit: '',
-    maxStakePercentage: '5',
+    // Was 5%. For a journal attached to a system with no demonstrated edge,
+    // pre-filling a substantial cap reads as a suggestion. The user states
+    // their own ceiling.
+    maxStakePercentage: '',
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -105,7 +108,12 @@ export default function BankrollSetupModal({ isOpen, onClose, onSuccess }: Bankr
           staking_strategy: formData.stakingStrategy,
           daily_loss_limit: dailyLimit,
           weekly_loss_limit: weeklyLimit,
-          max_stake_percentage: parseFloat(formData.maxStakePercentage),
+          // Omitted when blank so the backend applies its own profile
+          // default. parseFloat('') is NaN, which would serialize to null and
+          // fail validation.
+          ...(formData.maxStakePercentage.trim()
+            ? { max_stake_percentage: parseFloat(formData.maxStakePercentage) }
+            : {}),
         }),
       });
 

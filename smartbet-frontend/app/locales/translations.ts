@@ -178,8 +178,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Signal performance',
-            subtitle: 'Transparent tracking of how published signals performed — wins and losses alike.',
+            title: 'Historical pipeline audit',
+            subtitle: 'Every signal the pipeline produced and whether it matched the final score. This is coverage, not performance — verified performance lives on the verified record.',
             tabs: {
                 dashboard: 'Signal performance',
                 accuracy: 'Detailed Accuracy',
@@ -228,15 +228,15 @@ export const translations = {
             riskProfiles: {
                 conservative: {
                     label: 'Conservative',
-                    description: 'Safest approach with small stakes and high confidence requirements'
+                    description: 'Lowest stake caps. Caps only — BetGlitch does not filter bets for you.'
                 },
                 balanced: {
                     label: 'Balanced',
-                    description: 'Balanced approach suitable for most bettors'
+                    description: 'Moderate stake caps. Caps only — BetGlitch does not filter bets for you.'
                 },
                 aggressive: {
                     label: 'Aggressive',
-                    description: 'Higher risk/reward for experienced bettors'
+                    description: 'Higher stake caps and higher variance. Caps only, not a recommendation.'
                 }
             },
             strategies: {
@@ -505,8 +505,8 @@ export const translations = {
             }
         },
         monitoring: {
-            title: 'Performanța semnalelor',
-            subtitle: 'Urmărire transparentă a modului în care s-au comportat semnalele publicate — și câștiguri, și pierderi.',
+            title: 'Audit istoric al pipeline-ului',
+            subtitle: 'Fiecare semnal produs de pipeline și dacă a corespuns scorului final. Aceasta este acoperire, nu performanță — performanța verificată se află în istoricul verificat.',
             tabs: {
                 dashboard: 'Performanța semnalelor',
                 accuracy: 'Acuratețe Detaliată',

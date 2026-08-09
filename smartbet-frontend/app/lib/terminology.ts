@@ -80,7 +80,7 @@ const EN = {
     {
       id: 'rank',
       title: 'Rank',
-      body: 'BetGlitch surfaces the strongest current signals while preserving what remains uncertain.',
+      body: 'BetGlitch ranks the available outcomes and surfaces the top-ranked one in each market, preserving what remains uncertain. Whether that ranking is useful is exactly what the public record measures.',
     },
     {
       id: 'publish',
@@ -448,7 +448,7 @@ const RO: typeof EN = {
     {
       id: 'rank',
       title: 'Clasăm',
-      body: 'BetGlitch scoate la suprafață cele mai puternice semnale curente, păstrând vizibil ce rămâne incert.',
+      body: 'BetGlitch clasează rezultatele disponibile și îl arată pe cel mai bine clasat din fiecare piață, păstrând vizibil ce rămâne incert. Dacă această clasare este utilă este exact ceea ce măsoară registrul public.',
     },
     {
       id: 'publish',
