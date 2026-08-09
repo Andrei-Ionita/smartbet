@@ -27,6 +27,13 @@ def _candidate(**overrides):
         'outcome': 'over',
         'provider': 'sportmonks',
         'provider_type_id': 235,
+        'provider_context': {
+            'fixture_predictable': True,
+            'league_market_performance': {
+                'predictability': 'good', 'predictivePower': 'up',
+            },
+            'native_value_bet': None,
+        },
         'raw_probability': 62.0,
         'normalized_probability': 0.62,
         'raw_vector': {'over': 0.62, 'under': 0.38},
@@ -76,6 +83,28 @@ class EvidenceCaptureTests(TestCase):
         self.assertTrue(row.vector_complete)
         # The losing side is stored, never inferred as 1 - p.
         self.assertIn('under', row.raw_vector)
+
+    def test_persists_pre_match_provider_quality_context(self):
+        evidence_capture.capture(_payload([_candidate()]))
+        row = SignalObservation.objects.get()
+
+        self.assertTrue(row.provider_context['fixture_predictable'])
+        self.assertEqual(
+            row.provider_context['league_market_performance']['predictability'],
+            'good',
+        )
+
+    def test_changed_provider_context_appends_new_evidence(self):
+        evidence_capture.capture(_payload([_candidate()]))
+        evidence_capture.capture(_payload([_candidate(provider_context={
+            'fixture_predictable': True,
+            'league_market_performance': {
+                'predictability': 'high', 'predictivePower': 'up',
+            },
+            'native_value_bet': None,
+        })]))
+
+        self.assertEqual(SignalObservation.objects.count(), 2)
 
     def test_raw_probability_is_never_overwritten_by_the_adjusted_score(self):
         evidence_capture.capture(_payload([_candidate()]))

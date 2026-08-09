@@ -64,7 +64,7 @@ def observation_hash(candidate):
     closing-line value is measured from.
     """
     return canonical_sha256({
-        'v': 1,
+        'v': 2,
         'fixture_id': candidate.get('fixture_id'),
         'market': candidate.get('market'),
         'outcome': candidate.get('outcome'),
@@ -79,6 +79,10 @@ def observation_hash(candidate):
         # a changed form multiplier is a genuinely different heuristic state.
         'adjusted_score': norm_num(candidate.get('adjusted_score')),
         'form_multiplier': norm_num(candidate.get('form_multiplier')),
+        # A changed predictability rating, active value flag or fair odd is a
+        # genuinely new pre-match state even when the raw outcome probability
+        # and bookmaker quote did not move.
+        'provider_context': candidate.get('provider_context') or {},
     })
 
 
@@ -155,6 +159,7 @@ def capture(payload, ingestion_run_id=None):
                 provider_type_id=candidate.get('provider_type_id'),
                 provider_model_version=(candidate.get('provider_model_version') or '')[:64],
                 provider_predicted_at=_as_aware(candidate.get('provider_predicted_at')),
+                provider_context=candidate.get('provider_context') or {},
                 raw_probability=candidate.get('raw_probability') or 0.0,
                 normalized_probability=candidate['normalized_probability'],
                 raw_vector=vector,

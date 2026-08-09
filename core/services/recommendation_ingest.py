@@ -223,41 +223,17 @@ def ingest_recommendations(recommendations, *, prediction_run_id=None,
     logged_count = updated_count = snapshots_created = 0
     skipped_blacklist = skipped_outcome = skipped_high_ev = skipped_watchlist = 0
 
-    from core.api_views import (
-        PHASE_2A_BLACKLISTED_LEAGUES,
-        PHASE_2A_BLOCKED_OUTCOMES,
-        PHASE_2B_MAX_EV,
-        PHASE_2C_WATCHLIST_LEAGUES,
-    )
-
     for rec in recommendations:
         fixture_id = rec.get('fixture_id')
         if not fixture_id:
             continue
 
-        # Phase 2a/2b/2c defensive filters — unchanged.
-        if rec.get('league') in PHASE_2A_BLACKLISTED_LEAGUES:
-            skipped_blacklist += 1
-            continue
-        predicted_lower = (rec.get('predicted_outcome') or '').lower()
-        if any(needle in predicted_lower for needle in PHASE_2A_BLOCKED_OUTCOMES):
-            skipped_outcome += 1
-            continue
-        incoming_ev = rec.get('expected_value') or rec.get('ev')
-        normalized_ev = None
-        if incoming_ev is not None:
-            normalized_ev = incoming_ev / 100.0 if abs(incoming_ev) > 1 else incoming_ev
-            if normalized_ev > PHASE_2B_MAX_EV:
-                skipped_high_ev += 1
-                continue
-        watch = PHASE_2C_WATCHLIST_LEAGUES.get(rec.get('league'))
-        if watch is not None:
-            incoming_conf = rec.get('confidence') or 0
-            normalized_conf = incoming_conf / 100.0 if incoming_conf > 1 else incoming_conf
-            effective_ev = normalized_ev if normalized_ev is not None else 0
-            if normalized_conf < watch['min_confidence'] or effective_ev < watch['min_ev']:
-                skipped_watchlist += 1
-                continue
+        # The authenticated internal feed already returns only rows accepted by
+        # the versioned strategy stamped onto this run. Re-applying the retired
+        # Phase-2 league, outcome and score-derived-EV filters here would create
+        # a second invisible policy and make the ranking version false. This
+        # boundary validates shape, price provenance and freshness; it does not
+        # silently substitute a different selection strategy.
 
         kickoff = _as_aware(rec.get('kickoff')) or timezone.now()
 

@@ -45,11 +45,10 @@ class Command(BaseCommand):
         self.stdout.write('Tasks:')
         self.stdout.write('  1. Fetch new recommendations (log_recommendations_from_homepage)')
         self.stdout.write('  2. Update match outcomes (update_results)')
-        self.stdout.write('  3. Refresh recommendation status (mark_recommended_predictions)')
-        self.stdout.write('  4. Auto-publish commitments per policy v1 (auto_publish_claims)')
-        self.stdout.write('  5. Settle published claims (settle_published_claims)')
-        self.stdout.write('  6. Append signal evidence (capture_signal_evidence)')
-        self.stdout.write('  7. Append fixture results (capture_fixture_results)')
+        self.stdout.write('  3. Auto-publish commitments from the versioned feed (auto_publish_claims)')
+        self.stdout.write('  4. Settle published claims (settle_published_claims)')
+        self.stdout.write('  5. Append signal evidence (capture_signal_evidence)')
+        self.stdout.write('  6. Append fixture results (capture_fixture_results)')
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:
@@ -111,16 +110,16 @@ class Command(BaseCommand):
         # Task 2: Update finished results
         self.run_task('update_results', **{'max': 100})
 
-        # Task 3: Refresh recommendation flags
-        self.run_task('mark_recommended_predictions', **{'min_confidence': 60.0, 'min_ev': 15.0})
-
-        # Task 3b: Automatic public commitment (policy v1, pre-registered).
-        # Runs ONLY here — after recommendation flags are current, before
+        # Task 3: Automatic public commitment from the versioned strategy feed.
+        # Ingestion sets is_recommended=True at the write boundary. Running the
+        # retired mark_recommended_predictions command here would apply a second,
+        # mixed-scale confidence/EV policy after the versioned decision.
+        # Runs ONLY here — after ingestion, before
         # settlement — never manually, so every commitment is attributable to
         # the published policy rather than to a human choice.
         self.run_task('auto_publish_claims')
 
-        # Task 3c: Hand the new claims to an independent timestamp,
+        # Task 3b: Hand the new claims to an independent timestamp,
         # IMMEDIATELY — while they are still hours from kickoff. Anchoring
         # later (a nightly sweep, say) would prove only that the record
         # existed after the matches were played, which is worthless as

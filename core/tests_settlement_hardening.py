@@ -99,16 +99,15 @@ class SchedulerPipelineIntactTests(TestCase):
         # The SETTLEMENT pipeline, in order. Asserted as a prefix rather than an
         # exact list so adding an isolated evidence stage cannot fail this test
         # while still catching a reordering of the stages that matter.
-        # auto_publish_claims sits between marking and settlement: commitments
-        # must be computed from CURRENT recommendation flags, and settlement
-        # must still see any claim published earlier the same cycle.
+        # Ingestion owns the versioned recommendation decision; no legacy
+        # mark-recommended pass may insert a second strategy before publication.
+        # Settlement must still see any claim published earlier the same cycle.
         # anchor_published_claims sits between publication and settlement:
         # the external timestamp has to be taken while the claims are still
         # pre-kickoff, or it proves nothing about foresight.
-        self.assertEqual(ran[:6], [
+        self.assertEqual(ran[:5], [
             'log_recommendations_from_homepage',
             'update_results',
-            'mark_recommended_predictions',
             'auto_publish_claims',
             'anchor_published_claims',
             'settle_published_claims',

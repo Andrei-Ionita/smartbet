@@ -148,16 +148,17 @@ class AutoPublicationTests(TestCase):
             PublishedClaim.objects.filter(fixture_id=980011).count(), 1)
         self.assertIn('1 fixtures already hold', out)
 
-    def test_scheduler_runs_the_stage_after_marking_recommendations(self):
-        """The stage order is part of the policy: commitments are computed
-        from CURRENT recommendation flags, and settlement still runs after."""
+    def test_scheduler_publishes_versioned_feed_before_settlement(self):
+        """The authenticated feed owns selection; the scheduler must not
+        recompute recommendation flags with a second, legacy policy."""
         from pathlib import Path
         source = Path('core/management/commands/run_scheduler.py').read_text(
             encoding='utf-8')
-        mark = source.index("run_task('mark_recommended_predictions'")
+        ingest = source.index("run_task('log_recommendations_from_homepage'")
         auto = source.index("run_task('auto_publish_claims')")
         settle = source.index("run_task('settle_published_claims')")
-        self.assertTrue(mark < auto < settle)
+        self.assertNotIn("run_task('mark_recommended_predictions'", source)
+        self.assertTrue(ingest < auto < settle)
 
 
 class PriceFreshnessTests(TestCase):

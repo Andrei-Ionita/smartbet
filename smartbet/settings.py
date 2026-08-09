@@ -15,6 +15,15 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Load environment variables from .env file
 load_dotenv(os.path.join(BASE_DIR, '.env'))
 
+# Node opts into the Windows trust store through smartbet-frontend/.npmrc.
+# Python's OpenSSL/certifi bundle cannot see local inspection roots (for
+# example Avast Web/Mail Shield), so local HTTPS calls need the equivalent
+# system-store bridge. Production Linux remains on its normal OpenSSL store.
+if os.name == 'nt':
+    import truststore
+
+    truststore.inject_into_ssl()
+
 # Quick-start development settings - unsuitable for production
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-^n-%7gq2z*i41-j(nxd93l$2y%p(fj@o%x0ugwk@-+r_75lsr4')

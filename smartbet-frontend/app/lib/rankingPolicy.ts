@@ -1,3 +1,5 @@
+import { VALUE_STRATEGY_POLICY } from './providerStrategy'
+
 /**
  * THE declared ranking policy, and a version derived from it.
  *
@@ -22,7 +24,7 @@
  * to update this file when the engine changes and the mismatch is a bug this
  * module cannot hide — which is why the values here must mirror the engine's
  * literals exactly. `rankingPolicy.test.ts` asserts that correspondence
- * against engine.ts and heuristics.ts.
+ * against engine.ts and providerStrategy.ts.
  */
 
 /**
@@ -35,10 +37,10 @@
 export const RANKING_POLICY = {
   policy: 'betglitch-ranking',
   /** Bumped by hand only for a deliberate redesign, not for tuning. */
-  generation: 1,
+  generation: VALUE_STRATEGY_POLICY.generation,
 
-  /** Markets considered, in no priority order — selection is by score. */
-  markets: ['1x2', 'btts', 'over_under_2.5', 'double_chance'],
+  /** Markets eligible for a public value selection in this generation. */
+  markets: VALUE_STRATEGY_POLICY.eligibleMarkets,
 
   /** A market qualifies only if its leading outcome clears this probability. */
   confidenceFloor: 0.55,
@@ -46,28 +48,22 @@ export const RANKING_POLICY = {
   /** Minimum probability gap to the next outcome, per market shape. */
   minimumGap: { draw: 0.15, other: 0.12 },
 
-  /** Below this composite score nothing is surfaced at all. */
-  minimumMarketScore: 0.15,
+  /** Provider quality, native value and canonical-price gates. */
+  fixturePredictableRequired: VALUE_STRATEGY_POLICY.requirePredictableFixture,
+  allowedLeaguePredictability: VALUE_STRATEGY_POLICY.leaguePredictability,
+  rejectedPredictivePower: VALUE_STRATEGY_POLICY.rejectedPredictivePower,
+  activeAlignedValueBetRequired: VALUE_STRATEGY_POLICY.requireActiveAlignedValueBet,
+  correctScoreAgreementRequired: VALUE_STRATEGY_POLICY.requireCorrectScoreAgreement,
+  doubleChanceSupportRequired: VALUE_STRATEGY_POLICY.requireDoubleChanceSupport,
+  minimumFairOddsBuffer: VALUE_STRATEGY_POLICY.minimumFairOddsBuffer,
+  minimumBookmakers: VALUE_STRATEGY_POLICY.minimumBookmakers,
+  maximumRelativePriceSpread: VALUE_STRATEGY_POLICY.maximumRelativePriceSpread,
+  maximumPriceAgeHours: VALUE_STRATEGY_POLICY.maximumPriceAgeHours,
+  maximumSelections: VALUE_STRATEGY_POLICY.maximumSelections,
 
-  /** calculateMarketScore: weights and the caps applied before weighting. */
-  marketScore: {
-    weights: { gap: 0.4, expectedValue: 0.3, confidence: 0.3 },
-    caps: { gap: 0.5, expectedValue: 0.5 },
-  },
-
-  /**
-   * The form heuristic ("Variant B"). It multiplies ONE outcome's probability
-   * without renormalising the market vector, which is exactly why the result
-   * is not a probability.
-   */
-  formMomentum: {
-    enabled: true,
-    recencyWeights: [0.3, 0.25, 0.2, 0.15, 0.1],
-    outputCap: 0.95,
-  },
-
-  /** How the surfaced selection is chosen once markets are scored. */
-  selection: 'highest market_score among markets clearing the confidence floor',
+  /** How eligible selections are ordered; no synthetic quality probability. */
+  selection:
+    'league predictability, predictive-power trend, fair-odds buffer, hit ratio, then price dispersion',
 } as const
 
 /**

@@ -1,5 +1,5 @@
 """
-Automatic public commitment — policy v1 (pre-registered 2026-08-08).
+Automatic public commitment from the versioned recommendation feed.
 
 The FULL selection rule, stated publicly on the site before activation:
 a signal becomes a public commitment when, and only when, ALL of these hold —
@@ -44,12 +44,12 @@ logger = logging.getLogger(__name__)
 
 # Recorded in the publication log line — a claim committed by this policy is
 # attributable to the policy version, never to an anonymous "system".
-AUTO_PUBLISHER = SimpleNamespace(username='auto:policy-v1')
+AUTO_PUBLISHER = SimpleNamespace(username='auto:versioned-feed')
 
 
 class Command(BaseCommand):
-    help = ('Automatically publish every eligible signal as a public '
-            'commitment, per the pre-registered policy (v1).')
+    help = ('Automatically publish every eligible signal from the versioned '
+            'strategy feed as a public commitment.')
 
     def add_arguments(self, parser):
         parser.add_argument('--dry-run', action='store_true',
