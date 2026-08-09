@@ -28,7 +28,7 @@ export default function MethodologyPage() {
           Ranking methodology
         </h1>
         <p className="mt-3 text-base leading-relaxed text-gray-700">
-          BetGlitch does not train a predictive model. Generation 2 combines a
+          BetGlitch does not train a predictive model. Generation 3 combines a
           specialist provider&apos;s fixture signal, its per-league model report
           card, its dedicated value-bet model and a verified bookmaker price.
           This page states the eligibility rule exactly and names the version
@@ -109,8 +109,31 @@ export default function MethodologyPage() {
             <Param label="Maximum relative price spread" value={`${p.maximumRelativePriceSpread * 100}%`} />
             <Param label="Maximum recorded price age" value={`${p.maximumPriceAgeHours} hours`} />
             <Param label="Maximum selections per run" value={String(p.maximumSelections)} />
+            <Param label="Gem probability source" value={p.gemProbabilitySource} />
+            <Param label="Gem payout source" value={p.gemPayoutSource} />
+            <Param label="Gem primary ranking" value={p.gemPrimaryRanking} />
             <Param label="Selection rule" value={p.selection} />
           </dl>
+        </div>
+
+        <div className="mt-6 rounded-xl border border-emerald-200 bg-emerald-50 p-5">
+          <h2 className="text-sm font-bold uppercase tracking-wide text-emerald-900">
+            How qualified Gems are ordered
+          </h2>
+          <p className="mt-2 text-sm leading-relaxed text-emerald-950">
+            Ranking happens only after every eligibility gate above has passed.
+            The provider&apos;s baseline price supplies the external implied chance
+            (<code>p = 1 / baseline price</code>), while the canonical quote
+            supplies the verified payout. The primary balance is{' '}
+            <code>(p × verified price − 1) / (verified price − 1)</code>.
+          </p>
+          <p className="mt-2 text-sm leading-relaxed text-emerald-950">
+            This prevents a large price or a large price difference from winning
+            the ranking automatically. It is a conservative ordering device,
+            not a BetGlitch-calibrated probability, a stake size or betting
+            advice. Provider quality, trend, hit ratio and price dispersion are
+            deterministic tie-breakers.
+          </p>
         </div>
 
         <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50 p-5">

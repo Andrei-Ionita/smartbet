@@ -129,6 +129,17 @@ const EN = {
 
   home: {
     signalsHeading: 'Live signals right now',
+    gemsHeading: 'Qualified Gems from the latest scan',
+    gemsSupporting:
+      'The few fixtures that passed every reliability, market-consensus and verified-price gate. Ranked by provider probability–payout balance, not by the biggest odds.',
+    scanFixtures: 'fixtures scanned',
+    scanPredictions: 'prediction-ready',
+    scanQualified: 'passed every gate',
+    scanShown: 'shown',
+    noGemsHeading: 'No fixture earned Gem status',
+    noGemsBody:
+      'None passed every reliability, consensus and price test. Showing nothing is the filter working—not a reason to lower the standard.',
+    methodologyCta: 'Read the exact methodology',
     browseAll: 'Browse all fixtures',
 
     // ── The BetGlitch difference: a conceptual contrast, not a feature list.
@@ -498,6 +509,17 @@ const RO: typeof EN = {
 
   home: {
     signalsHeading: 'Semnale live acum',
+    gemsHeading: 'Gem-uri calificate din ultima scanare',
+    gemsSupporting:
+      'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al furnizorului, nu după cea mai mare cotă.',
+    scanFixtures: 'meciuri scanate',
+    scanPredictions: 'cu predicții disponibile',
+    scanQualified: 'au trecut toate filtrele',
+    scanShown: 'afișate',
+    noGemsHeading: 'Niciun meci nu a obținut statutul Gem',
+    noGemsBody:
+      'Niciunul nu a trecut toate testele de fiabilitate, consens și preț. Faptul că nu afișăm nimic arată că filtrul funcționează—nu este un motiv să coborâm standardul.',
+    methodologyCta: 'Citește metodologia exactă',
     browseAll: 'Vezi toate meciurile',
 
     differenceContrastHeading: 'Diferența BetGlitch',

@@ -15,7 +15,7 @@ import type { OddsProvenance, ProductMarket } from './oddsSelection'
  */
 
 export const VALUE_STRATEGY_POLICY = {
-  generation: 2,
+  generation: 3,
   eligibleMarkets: ['1x2'] as const,
   requirePredictableFixture: true,
   leaguePredictability: ['good', 'high'] as const,
@@ -303,6 +303,48 @@ export interface StrategyEvaluation {
   priceAgeHours: number | null
 }
 
+/**
+ * Auditable inputs for the Gem ordering. These are deliberately derived from
+ * the provider's fair price and our verified canonical quote; the engine does
+ * not reinterpret its own ranking score as a probability.
+ */
+export interface GemMetrics {
+  providerImpliedProbability: number | null
+  providerBaselineOdds: number | null
+  verifiedOdds: number | null
+  verifiedPriceAdvantage: number | null
+  probabilityPayoutBalance: number | null
+}
+
+export function gemMetrics(evaluation: StrategyEvaluation): GemMetrics {
+  const baseline = evaluation.valueBet?.fairOdds ?? null
+  const advantage = evaluation.fairOddsBuffer
+  if (!baseline || baseline <= 1 || advantage === null || !Number.isFinite(advantage)) {
+    return {
+      providerImpliedProbability: null,
+      providerBaselineOdds: baseline,
+      verifiedOdds: null,
+      verifiedPriceAdvantage: advantage,
+      probabilityPayoutBalance: null,
+    }
+  }
+
+  const probability = 1 / baseline
+  const verifiedOdds = baseline * (1 + advantage)
+  const netPayout = verifiedOdds - 1
+  const balance = netPayout > 0
+    ? (probability * verifiedOdds - 1) / netPayout
+    : null
+
+  return {
+    providerImpliedProbability: probability,
+    providerBaselineOdds: baseline,
+    verifiedOdds,
+    verifiedPriceAdvantage: advantage,
+    probabilityPayoutBalance: balance !== null && Number.isFinite(balance) ? balance : null,
+  }
+}
+
 export interface StrategyInput {
   market: ProductMarket
   predictedOutcome: string
@@ -399,8 +441,13 @@ export function evaluateValueStrategy(input: StrategyInput): StrategyEvaluation 
   }
 }
 
-/** Lexicographic ranking: no fabricated all-purpose "quality probability". */
-export function compareValueStrategy(
+/**
+ * Rank only candidates that already passed every eligibility gate. The first
+ * term is the Kelly growth fraction without turning it into a stake: it
+ * rewards a useful price advantage while penalising payout-dependent longshot
+ * risk. Remaining provider quality and market-consensus fields break ties.
+ */
+export function compareGemStrategy(
   a: StrategyEvaluation,
   b: StrategyEvaluation,
 ): number {
@@ -413,12 +460,17 @@ export function compareValueStrategy(
   }
 
   return (
+    by(gemMetrics(a).probabilityPayoutBalance, gemMetrics(b).probabilityPayoutBalance) ||
     by(predictabilityRank[a.leaguePerformance.predictability ?? ''] ?? 0,
       predictabilityRank[b.leaguePerformance.predictability ?? ''] ?? 0) ||
     by(powerRank[a.leaguePerformance.predictivePower ?? ''] ?? 0,
       powerRank[b.leaguePerformance.predictivePower ?? ''] ?? 0) ||
     by(a.fairOddsBuffer, b.fairOddsBuffer) ||
+    by(gemMetrics(a).providerImpliedProbability, gemMetrics(b).providerImpliedProbability) ||
     by(a.leaguePerformance.hitRatio, b.leaguePerformance.hitRatio) ||
     by(a.relativePriceSpread, b.relativePriceSpread, false)
   )
 }
+
+/** Backwards-compatible name for internal callers while Generation 3 rolls out. */
+export const compareValueStrategy = compareGemStrategy

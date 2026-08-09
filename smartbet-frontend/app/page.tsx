@@ -11,7 +11,7 @@ import {
   ScrollText,
 } from 'lucide-react'
 import Image from 'next/image'
-import RecommendationCard from './components/RecommendationCard'
+import GemCard from './components/GemCard'
 import EmptyState from './components/EmptyState'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import ErrorBoundary from './components/ErrorBoundary'
@@ -113,7 +113,13 @@ export default function HomePage() {
     router.push(`/explore?fixture=${fixtureId}`)
   }
 
-  const signals: Recommendation[] = data?.recommendations ?? []
+  const gems: Recommendation[] = data?.featured_gems ?? data?.recommendations ?? []
+  const scan = {
+    fixtures: data?.gem_scan?.fixtures_scanned ?? data?.fixtures_analyzed ?? 0,
+    predictions: data?.gem_scan?.fixtures_with_predictions ?? data?.fixtures_with_predictions ?? 0,
+    qualified: data?.gem_scan?.qualified_fixtures ?? gems.length,
+    shown: data?.gem_scan?.displayed_gems ?? gems.length,
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -190,36 +196,51 @@ export default function HomePage() {
           </button>
         </header>
 
-        {/* ── 2. Current live signals ─────────────────────────────────── */}
-        <section aria-labelledby="signals-heading" className="mt-16 sm:mt-20">
+        {/* ── 2. Qualified Gems from the latest scan ─────────────────── */}
+        <section aria-labelledby="gems-heading" className="mt-16 sm:mt-20">
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="mb-2">
                 <StatusBadge status="live" size="sm" lang={language} />
               </div>
               <h2
-                id="signals-heading"
+                id="gems-heading"
                 className="text-2xl font-bold text-gray-900 sm:text-3xl"
               >
-                {copy.home.signalsHeading}
+                {copy.home.gemsHeading}
               </h2>
               <p className="mt-1 max-w-2xl text-sm text-gray-600">
-                {copy.terms.liveSignal.definition}{' '}
-                {copy.terms.liveSignal.notInRecord}
+                {copy.home.gemsSupporting}
               </p>
             </div>
             <Link
               href="/explore"
-              onClick={() => track('home_primary_cta', { surface: 'signals_section' })}
+              onClick={() => track('home_primary_cta', { surface: 'gems_section' })}
               className="shrink-0 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
             >
               {copy.home.browseAll} →
             </Link>
           </div>
 
+          {!isLoading && !error && (
+            <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-4">
+              {[
+                [scan.fixtures, copy.home.scanFixtures],
+                [scan.predictions, copy.home.scanPredictions],
+                [scan.qualified, copy.home.scanQualified],
+                [scan.shown, copy.home.scanShown],
+              ].map(([value, label]) => (
+                <div key={String(label)} className="bg-white px-4 py-4 text-center">
+                  <dt className="text-xs leading-tight text-gray-500">{label}</dt>
+                  <dd className="mt-1 text-2xl font-bold text-gray-950">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+
           {isLoading && (
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, i) => (
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+              {Array.from({ length: 3 }).map((_, i) => (
                 <RecommendationCardSkeleton key={i} />
               ))}
             </div>
@@ -251,12 +272,14 @@ export default function HomePage() {
             </ErrorBoundary>
           )}
 
-          {!isLoading && !error && signals.length > 0 && (
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {signals.map((recommendation: Recommendation) => (
-                <RecommendationCard
+          {!isLoading && !error && gems.length > 0 && (
+            <div className="grid gap-4 sm:gap-6 lg:grid-cols-3">
+              {gems.map((recommendation: Recommendation, index: number) => (
+                <GemCard
                   key={recommendation.fixture_id}
                   recommendation={recommendation}
+                  language={language}
+                  displayRank={index + 1}
                   onViewDetails={handleViewDetails}
                   lastUpdated={data?.lastUpdated ?? null}
                 />
@@ -264,8 +287,25 @@ export default function HomePage() {
             </div>
           )}
 
-          {!isLoading && !error && signals.length === 0 && (
-            <EmptyState state="no_live_signals" lang={language} />
+          {!isLoading && !error && gems.length === 0 && (
+            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center sm:p-10">
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
+                <Lock className="h-5 w-5 text-gray-500" />
+              </div>
+              <h3 className="mt-4 text-lg font-bold text-gray-950">{copy.home.noGemsHeading}</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600">
+                {scan.fixtures} {copy.home.scanFixtures}; {scan.predictions} {copy.home.scanPredictions}.{' '}
+                {copy.home.noGemsBody}
+              </p>
+              <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
+                <Link href="/explore" className="font-semibold text-blue-700 underline underline-offset-4">
+                  {copy.home.browseAll}
+                </Link>
+                <Link href="/methodology" className="font-semibold text-blue-700 underline underline-offset-4">
+                  {copy.home.methodologyCta}
+                </Link>
+              </div>
+            </div>
           )}
         </section>
 
@@ -432,7 +472,7 @@ export default function HomePage() {
                 {copy.terms.liveSignal.plural}
               </p>
               <p className="mt-1 text-2xl font-bold text-gray-900">
-                {signals.length > 0 ? signals.length : '—'}
+                {gems.length > 0 ? gems.length : '—'}
               </p>
               <p className="mt-1 text-xs text-gray-600">{copy.hero.primaryCta} →</p>
             </Link>
