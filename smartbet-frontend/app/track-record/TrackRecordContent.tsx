@@ -81,10 +81,16 @@ interface AccuracyStats {
     accuracy_percent: number;
   };
   by_outcome: {
-    home: { total: number; correct: number; accuracy: number };
-    draw: { total: number; correct: number; accuracy: number };
-    away: { total: number; correct: number; accuracy: number };
+    home: { total: number; correct: number; accuracy: number | null };
+    draw: { total: number; correct: number; accuracy: number | null };
+    away: { total: number; correct: number; accuracy: number | null };
   };
+  by_market: Array<{
+    market_type: string;
+    total: number;
+    correct: number;
+    accuracy: number | null;
+  }>;
 }
 
 interface ROIStats {
@@ -119,7 +125,9 @@ export default function TrackRecordContent() {
   const [roiStats, setROIStats] = useState<ROIStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [filterLeague, setFilterLeague] = useState('all');
-  const [filterStatus, setFilterStatus] = useState('completed');
+  // The ordinary journey is verified-price rows only. Legacy history remains
+  // available as an explicit archive instead of being mixed into the table.
+  const [filterStatus, setFilterStatus] = useState<'completed' | 'all' | 'legacy'>('completed');
   const [filterDateFrom, setFilterDateFrom] = useState('');
   const [filterDateTo, setFilterDateTo] = useState('');
   const [filterResult, setFilterResult] = useState('all');
@@ -220,7 +228,7 @@ export default function TrackRecordContent() {
       setLoading(true);
 
       // Fetch predictions
-      const showAll = filterStatus === 'all';
+      const showAll = filterStatus !== 'completed';
       const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
       const predictionsResponse = await fetch(
         `${apiUrl}/api/transparency/recent/?limit=1000&show_all=${showAll}`
@@ -230,8 +238,14 @@ export default function TrackRecordContent() {
       if (predictionsData.success) {
         setPredictions(predictionsData.predictions);
 
-        // Extract unique leagues
-        const uniqueLeagues = Array.from(new Set(predictionsData.predictions.map((p: PredictionWithResult) => p.league)));
+        // The league selector follows the selected archive. A legacy-only
+        // league must not appear in the default verified-price view.
+        const scopedRows = predictionsData.predictions.filter((p: PredictionWithResult) =>
+          filterStatus === 'legacy' ? !isVerified(p) : isVerified(p)
+        );
+        const uniqueLeagues = Array.from(new Set(
+          scopedRows.map((p: PredictionWithResult) => p.league)
+        ));
         setLeagues(uniqueLeagues as string[]);
       }
 
@@ -259,6 +273,12 @@ export default function TrackRecordContent() {
 
   const { t, language } = useLanguage()
   const rec = getCopy(language).record
+  const marketLabels: Record<string, string> = {
+    '1x2': t('trackRecord.stats.market1x2'),
+    btts: t('trackRecord.stats.marketBtts'),
+    'over_under_2.5': t('trackRecord.stats.marketTotals'),
+    double_chance: t('trackRecord.stats.marketDoubleChance'),
+  }
 
   // ... (rest of imports and logic)
 
@@ -272,6 +292,7 @@ export default function TrackRecordContent() {
 
   const clearFilters = () => {
     setFilterLeague('all');
+    setFilterStatus('completed');
     setFilterDateFrom('');
     setFilterDateTo('');
     setFilterResult('all');
@@ -280,6 +301,7 @@ export default function TrackRecordContent() {
 
   const activeFilterCount = [
     filterLeague !== 'all',
+    filterStatus !== 'completed',
     filterDateFrom !== '',
     filterDateTo !== '',
     filterResult !== 'all',
@@ -287,6 +309,11 @@ export default function TrackRecordContent() {
   ].filter(Boolean).length;
 
   const filteredPredictions = predictions.filter((pred) => {
+    // Never mix legacy and verified-price rows. The default view excludes the
+    // archive; selecting the archive shows legacy rows and nothing else.
+    if (filterStatus === 'legacy' && isVerified(pred)) return false;
+    if (filterStatus !== 'legacy' && !isVerified(pred)) return false;
+
     if (filterLeague !== 'all' && pred.league !== filterLeague) return false;
 
     // Date range filter
@@ -309,8 +336,7 @@ export default function TrackRecordContent() {
     return true;
   });
 
-  // Rows recorded before the pricing-integrity cutoff. They are preserved and
-  // shown, but they are NOT the verified record and must not read as it.
+  // This can only be non-zero in the explicit legacy archive view.
   const legacyCount = filteredPredictions.filter((p) => !isVerified(p)).length;
 
   if (loading) {
@@ -564,133 +590,128 @@ export default function TrackRecordContent() {
           </p>
         </section>
 
-        {/* Key Stats */}
+        {/* One record, one denominator. The previous layout duplicated the
+            same hit rate as both "accuracy" and "win rate", while calling the
+            denominator "predictions logged". These cards now separate counts
+            from the price-derived return and name the universe explicitly. */}
         {accuracyStats && roiStats && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            {/* Overall Accuracy — an empty record is "no results yet", never
-                "0% accurate". A zero denominator rendered as a big "0%" reads
-                as measured failure, which is a different and false claim. */}
-            {accuracyStats.overall.total_predictions === 0 ? (
-              <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
-                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.overallAccuracy')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noAccuracy}</p>
-                <p className="text-sm text-gray-600">{rec.accuracyAppears}</p>
+          <>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-4 mb-4">
+              <div className="rounded-lg bg-gradient-to-br from-blue-600 to-blue-700 p-6 text-white">
+                <p className="mb-2 text-sm opacity-90">{t('trackRecord.stats.eligibleSettled')}</p>
+                <p className="mb-2 text-4xl font-bold">{accuracyStats.overall.total_predictions}</p>
+                <p className="text-sm opacity-90">{t('trackRecord.stats.eligibleDefinition')}</p>
               </div>
-            ) : (
-              <div className="bg-gradient-to-br from-blue-600 to-blue-700 rounded-lg p-6 text-white">
-                <p className="text-sm opacity-90 mb-2">{t('trackRecord.stats.overallAccuracy')}</p>
-                <p className="text-4xl font-bold mb-2">
-                  {accuracyStats.overall.accuracy_percent}%
-                </p>
-                <p className="text-sm opacity-90">
-                  {formatString('{0}/{1} correct', accuracyStats.overall.correct_predictions, accuracyStats.overall.total_predictions)}
-                </p>
-              </div>
-            )}
 
-            {/* Win Rate — same rule: 0W-0L is not a 0% win rate. */}
-            {roiStats.total_bets === 0 ? (
-              <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
-                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.winRate')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noSettled}</p>
-                <p className="text-sm text-gray-600">
-                  {rec.winsLosses}
-                </p>
-              </div>
-            ) : (
-              <div className="bg-white rounded-lg border border-gray-200 p-6">
-                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.winRate')}</p>
-                <p className="text-4xl font-bold text-gray-900 mb-2">
-                  {roiStats.win_rate}%
+              <div className="rounded-lg border border-gray-200 bg-white p-6">
+                <p className="mb-2 text-sm text-gray-600">{t('trackRecord.stats.won')}</p>
+                <p className="mb-2 text-4xl font-bold text-gray-900">
+                  {accuracyStats.overall.correct_predictions}
                 </p>
                 <p className="text-sm text-gray-600">
-                  {roiStats.wins}W - {roiStats.losses}L
+                  {accuracyStats.overall.total_predictions > 0
+                    ? formatString(
+                        t('trackRecord.stats.resultHitRate'),
+                        accuracyStats.overall.accuracy_percent,
+                      )
+                    : <span>{rec.noSettled}</span>}
                 </p>
               </div>
-            )}
 
-            {/* ROI — a zero-sample record must never render as profitable.
-                The verified pricing record restarts at the integrity cutoff, so
-                total_bets is legitimately 0 until new picks settle. Showing
-                "+0%" in green would read as break-even performance rather than
-                "no results yet". */}
-            {roiStats.total_bets === 0 ? (
-              <div className="rounded-lg border-2 border-gray-200 bg-gray-50 p-6">
-                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
-                <p className="text-2xl font-bold text-gray-500 mb-2">{rec.noAccuracy}</p>
-                <p className="text-sm text-gray-600">{rec.roiRestarted}</p>
-              </div>
-            ) : (
-              <div className={`rounded-lg border-2 p-6 ${roiStats.roi_percent >= 0
-                ? 'bg-green-50 border-green-200'
-                : 'bg-red-50 border-red-200'
-                }`}>
-                <p className="text-sm text-gray-700 mb-2">{t('trackRecord.stats.roi')}</p>
-                <p className={`text-4xl font-bold mb-2 ${roiStats.roi_percent >= 0 ? 'text-green-700' : 'text-red-700'
-                  }`}>
-                  {roiStats.roi_percent >= 0 ? '+' : ''}{roiStats.roi_percent}%
+              <div className="rounded-lg border border-gray-200 bg-white p-6">
+                <p className="mb-2 text-sm text-gray-600">{t('trackRecord.stats.lost')}</p>
+                <p className="mb-2 text-4xl font-bold text-gray-900">
+                  {accuracyStats.overall.incorrect_predictions}
                 </p>
-                <p className="text-sm text-gray-700">
-                  {roiStats.roi_percent >= 0 ? '+' : ''}${roiStats.total_profit_loss.toFixed(2)} total
-                </p>
+                <p className="text-sm text-gray-600">{t('trackRecord.stats.lossesVisible')}</p>
               </div>
-            )}
 
-            {/* Total Predictions */}
-            <div className="bg-white rounded-lg border border-gray-200 p-6">
-              <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.totalTracked')}</p>
-              <p className="text-4xl font-bold text-gray-900 mb-2">
-                {roiStats.total_bets}
-              </p>
-              <p className="text-sm text-gray-600">
-                {t('trackRecord.stats.predictionsLogged')}
-              </p>
+              <div className="rounded-lg border border-gray-200 bg-white p-6">
+                <p className="mb-2 text-sm text-gray-600">{t('trackRecord.stats.flatStakeReturn')}</p>
+                {roiStats.total_bets > 0 ? (
+                  <>
+                    <p className="mb-2 text-4xl font-bold text-gray-900">
+                      {roiStats.total_profit_loss > 0
+                        ? '+'
+                        : roiStats.total_profit_loss < 0
+                          ? '-'
+                          : ''}${Math.abs(roiStats.total_profit_loss).toFixed(2)}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {formatString(
+                        t('trackRecord.stats.flatStakeDetail'),
+                        `${roiStats.roi_percent > 0 ? '+' : ''}${roiStats.roi_percent}`,
+                        roiStats.total_staked.toFixed(2),
+                      )}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <p className="mb-2 text-2xl font-bold text-gray-500">{rec.noAccuracy}</p>
+                    <p className="text-sm text-gray-600">{rec.roiRestarted}</p>
+                  </>
+                )}
+              </div>
             </div>
-          </div>
+
+            {accuracyStats.overall.total_predictions > 0 &&
+              accuracyStats.overall.total_predictions < 30 && (
+                <div className="mb-8 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 text-amber-950">
+                  <p className="font-semibold">
+                    {formatString(
+                      t('trackRecord.stats.smallSampleTitle'),
+                      accuracyStats.overall.total_predictions,
+                    )}
+                  </p>
+                  <p className="mt-1 text-sm leading-relaxed">
+                    {t('trackRecord.stats.smallSampleBody')}
+                  </p>
+                </div>
+              )}
+          </>
         )}
 
-        {/* Outcome Breakdown */}
-        {/* Suppressed entirely at zero. Three side-by-side "0%" tiles read as
-            "the model gets home, draw and away all wrong", not "nothing has
-            settled yet". */}
+        {/* Exhaustive market breakdown. Every eligible settled commitment maps
+            to exactly one recorded market, so these totals reconcile with the
+            headline denominator. Empty markets show absence, never 0%. */}
         {accuracyStats && accuracyStats.overall.total_predictions === 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">{t('trackRecord.stats.accuracyByType')}</h2>
+            <h2 className="text-xl font-bold text-gray-900 mb-2">{t('trackRecord.stats.resultsByMarket')}</h2>
             <p className="text-sm text-gray-600">{rec.noBreakdown}</p>
           </div>
         )}
 
         {accuracyStats && accuracyStats.overall.total_predictions > 0 && (
           <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-4">{t('trackRecord.stats.accuracyByType')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="text-center p-4 bg-blue-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.homeWins')}</p>
-                <p className="text-3xl font-bold text-blue-600 mb-1">
-                  {accuracyStats.by_outcome.home.accuracy}%
-                </p>
-                <p className="text-xs text-gray-600">
-                  {accuracyStats.by_outcome.home.correct}/{accuracyStats.by_outcome.home.total}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-gray-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.draws')}</p>
-                <p className="text-3xl font-bold text-gray-600 mb-1">
-                  {accuracyStats.by_outcome.draw.accuracy}%
-                </p>
-                <p className="text-xs text-gray-600">
-                  {accuracyStats.by_outcome.draw.correct}/{accuracyStats.by_outcome.draw.total}
-                </p>
-              </div>
-              <div className="text-center p-4 bg-purple-50 rounded-lg">
-                <p className="text-sm text-gray-600 mb-2">{t('trackRecord.stats.awayWins')}</p>
-                <p className="text-3xl font-bold text-purple-600 mb-1">
-                  {accuracyStats.by_outcome.away.accuracy}%
-                </p>
-                <p className="text-xs text-gray-600">
-                  {accuracyStats.by_outcome.away.correct}/{accuracyStats.by_outcome.away.total}
-                </p>
-              </div>
+            <h2 className="text-xl font-bold text-gray-900">{t('trackRecord.stats.resultsByMarket')}</h2>
+            <p className="mt-1 mb-4 text-sm text-gray-600">
+              {formatString(
+                t('trackRecord.stats.breakdownReconciles'),
+                (accuracyStats.by_market || []).reduce((sum, market) => sum + market.total, 0),
+                accuracyStats.overall.total_predictions,
+              )}
+            </p>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              {(accuracyStats.by_market || []).map((market) => (
+                <div key={market.market_type} className="rounded-lg bg-gray-50 p-4 text-center">
+                  <p className="mb-2 text-sm font-medium text-gray-700">
+                    {marketLabels[market.market_type] || market.market_type}
+                  </p>
+                  {market.total === 0 ? (
+                    <>
+                      <p className="mb-1 text-3xl font-bold text-gray-400">—</p>
+                      <p className="text-xs text-gray-500">{t('trackRecord.stats.noSettledForMarket')}</p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mb-1 text-3xl font-bold text-gray-900">{market.accuracy}%</p>
+                      <p className="text-xs text-gray-600">
+                        {market.correct}W · {market.total - market.correct}L · n={market.total}
+                      </p>
+                    </>
+                  )}
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -770,17 +791,21 @@ export default function TrackRecordContent() {
                   </select>
                 </div>
 
-                {/* Status */}
+                {/* Record view */}
                 <div>
-                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.completedOnly')}</label>
+                  <label className="block text-xs font-medium text-gray-500 mb-1">{t('trackRecord.filters.recordView')}</label>
                   <select
-                    aria-label={t('trackRecord.filters.completedOnly')}
+                    aria-label={t('trackRecord.filters.recordView')}
                     value={filterStatus}
-                    onChange={(e) => setFilterStatus(e.target.value)}
+                    onChange={(e) => {
+                      setFilterStatus(e.target.value as 'completed' | 'all' | 'legacy');
+                      setFilterLeague('all');
+                    }}
                     className="w-full min-h-[44px] px-3 py-1.5 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   >
-                    <option value="completed">{t('trackRecord.filters.completedOnly')}</option>
-                    <option value="all">{t('trackRecord.filters.all')}</option>
+                    <option value="completed">{t('trackRecord.filters.verifiedSettled')}</option>
+                    <option value="all">{t('trackRecord.filters.verifiedAll')}</option>
+                    <option value="legacy">{t('trackRecord.filters.legacyArchive')}</option>
                   </select>
                 </div>
               </div>
@@ -834,12 +859,21 @@ export default function TrackRecordContent() {
           )}
         </div>
 
-        {/* Predictions Table */}
+        {/* Prediction log. Verified-price and legacy rows are deliberately
+            mutually exclusive views; mixing them is what made this section
+            look like one incoherent performance record. */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          {/* Without this, the log reads as the verified record: the stats above
-              correctly say zero while the table below lists hundreds of rows
-              with profit figures. Say plainly which is which. */}
-          {legacyCount > 0 && (
+          {filterStatus !== 'legacy' && (
+            <div className="border-b border-gray-200 bg-gray-50 p-4 sm:p-5">
+              <h3 className="text-sm font-bold text-gray-900">
+                {t('trackRecord.table.currentLogTitle')}
+              </h3>
+              <p className="mt-1 max-w-3xl text-sm leading-relaxed text-gray-600">
+                {t('trackRecord.table.currentLogBody')}
+              </p>
+            </div>
+          )}
+          {filterStatus === 'legacy' && legacyCount > 0 && (
             <div className="border-b border-amber-200 bg-amber-50 p-4 sm:p-5">
               <div className="flex flex-wrap items-center gap-2">
                 <StatusBadge status="legacy" size="sm" lang={language} />
@@ -993,14 +1027,24 @@ export default function TrackRecordContent() {
                 why it is empty, that it is expected, and what to do instead. */}
             {filteredPredictions.length === 0 && (
               <div className="p-6">
-                <EmptyState state="no_verified_results" lang={language} />
+                {filterStatus === 'legacy' ? (
+                  <p className="text-center text-sm text-gray-600">
+                    {t('trackRecord.table.noLegacyRows')}
+                  </p>
+                ) : (
+                  <EmptyState state="no_verified_results" lang={language} />
+                )}
               </div>
             )}
           </div>
 
           <p className="border-t border-gray-200 bg-gray-50 px-4 py-3 text-xs leading-relaxed text-gray-600 sm:px-6">
-            {getCopy(language).modelScoreNote} <strong>{rec.notVerified}</strong>
-            {rec.notVerifiedMeaningBefore}
+            {getCopy(language).modelScoreNote}
+            {filterStatus === 'legacy' && (
+              <>
+                {' '}<strong>{rec.notVerified}</strong>{rec.notVerifiedMeaningBefore}
+              </>
+            )}
           </p>
         </div>
 

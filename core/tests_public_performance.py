@@ -231,9 +231,28 @@ class AllPublicSurfacesShareOneUniverseTests(TestCase):
             sum(l['total_predictions'] for l in calc.get_accuracy_by_league()), expected)
         self.assertEqual(
             sum(b['total'] for b in calc.get_accuracy_by_confidence()), expected)
+        self.assertEqual(
+            sum(m['total'] for m in calc.get_overall_accuracy()['by_market']),
+            expected,
+        )
 
         body = json.loads(self.client.get('/api/recommended-predictions/').content)
         self.assertEqual(body['summary']['verified_public']['total'], expected)
+
+    def test_market_breakdown_is_exhaustive_and_empty_markets_are_null(self):
+        publish_claim(_pred(949020, correct=True, market='over_under_2.5'))
+        publish_claim(_pred(949021, correct=False, market='btts'))
+        publish_claim(_pred(949022, correct=True, market='double_chance'))
+
+        stats = AccuracyCalculator().get_overall_accuracy()
+        by_market = {row['market_type']: row for row in stats['by_market']}
+
+        self.assertEqual(sum(row['total'] for row in by_market.values()), 3)
+        self.assertEqual(by_market['over_under_2.5']['total'], 1)
+        self.assertEqual(by_market['btts']['total'], 1)
+        self.assertEqual(by_market['double_chance']['total'], 1)
+        self.assertEqual(by_market['1x2']['total'], 0)
+        self.assertIsNone(by_market['1x2']['accuracy'])
 
     def test_public_roi_uses_the_published_price_not_the_mutable_row(self):
         pred = _pred(949010, correct=True, odds=2.0)

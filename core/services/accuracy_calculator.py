@@ -83,8 +83,35 @@ class AccuracyCalculator:
             return {
                 'total': len(subset),
                 'correct': hits,
-                'accuracy': round(hits / len(subset) * 100, 1) if subset else 0,
+                'accuracy': round(hits / len(subset) * 100, 1) if subset else None,
             }
+
+        # A public commitment can target several markets. The old public UI
+        # broke the record down only by Home/Draw/Away, so BTTS, totals and
+        # double-chance commitments disappeared even though they remained in
+        # the headline denominator. Aggregate by the recorded market instead;
+        # these buckets are exhaustive and therefore reconcile to `total`.
+        market_order = (
+            '1x2', 'btts', 'over_under_2.5', 'double_chance',
+        )
+        market_keys = list(market_order)
+        market_keys.extend(sorted({
+            c.market_type for c in claims
+            if c.market_type and c.market_type not in market_order
+        }))
+        by_market = []
+        for market_type in market_keys:
+            subset = [c for c in claims if c.market_type == market_type]
+            hits = sum(1 for c in subset if _claim_won(c))
+            by_market.append({
+                'market_type': market_type,
+                'total': len(subset),
+                'correct': hits,
+                # `None` distinguishes no sample from measured 0% accuracy.
+                'accuracy': (
+                    round(hits / len(subset) * 100, 1) if subset else None
+                ),
+            })
 
         return {
             'overall': {
@@ -101,6 +128,7 @@ class AccuracyCalculator:
                 'draw': outcome_block('Draw'),
                 'away': outcome_block('Away'),
             },
+            'by_market': by_market,
         }
 
     def get_accuracy_by_confidence(self) -> List[Dict]:

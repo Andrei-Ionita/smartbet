@@ -58,6 +58,24 @@ describe('legacy rows never publish price-dependent performance', () => {
   })
 })
 
+describe('legacy rows are an explicit archive, never the default table', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('defaults to settled verified-price rows', () => {
+    expect(src).toContain("useState<'completed' | 'all' | 'legacy'>('completed')")
+  })
+
+  it('keeps verified and legacy rows in mutually exclusive views', () => {
+    expect(src).toContain("filterStatus === 'legacy' && isVerified(pred)")
+    expect(src).toContain("filterStatus !== 'legacy' && !isVerified(pred)")
+  })
+
+  it('offers a named legacy archive and only explains legacy inside it', () => {
+    expect(src).toContain('<option value="legacy">')
+    expect(src).toContain("filterStatus === 'legacy' && legacyCount > 0")
+  })
+})
+
 describe('an empty verified record is not rendered as zero performance', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
   // The wording moved into terminology.ts so it could be translated; the

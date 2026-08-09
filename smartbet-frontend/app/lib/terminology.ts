@@ -338,7 +338,7 @@ const EN = {
     roiRestarted:
       'Our verified pricing record restarted and fills in as matches settle.',
     noBreakdown:
-      'No breakdown yet. Once public commitments settle, accuracy is split by predicted outcome here.',
+      'No breakdown yet. Once public commitments settle, results are grouped by their recorded market here.',
 
     legacyHeading: 'Prediction log — not the verified record',
     legacyAll: (n: number) => `All ${n} rows below were`,
@@ -698,7 +698,7 @@ const RO: typeof EN = {
     roiRestarted:
       'Istoricul nostru verificat de prețuri a fost restartat și se completează pe măsură ce meciurile se încheie.',
     noBreakdown:
-      'Nicio defalcare încă. După ce angajamentele publice se încheie, acuratețea este împărțită aici pe rezultat prezis.',
+      'Nicio defalcare încă. După ce angajamentele publice se încheie, rezultatele sunt grupate aici după piața înregistrată.',
 
     legacyHeading: 'Jurnal de predicții — nu este istoricul verificat',
     legacyAll: (n: number) => `Toate cele ${n} rânduri de mai jos au fost`,
