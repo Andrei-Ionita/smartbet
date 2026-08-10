@@ -189,6 +189,9 @@ export default function MethodologyPage() {
           <Link href="/monitoring" className="text-blue-700 underline underline-offset-2">
             Measured separation →
           </Link>
+          <Link href="/calibration" className="text-blue-700 underline underline-offset-2">
+            Probability calibration →
+          </Link>
         </p>
       </div>
     </div>

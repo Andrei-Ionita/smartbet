@@ -5,7 +5,7 @@ import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText, Gauge } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
 import { ProBadge } from '../app/components/ProGate'
@@ -26,6 +26,7 @@ export default function Navigation() {
     ...(isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     { href: '/explore', label: t('nav.explore'), icon: Search },
     { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
+    { href: '/calibration', label: t('nav.calibration'), icon: Gauge },
     { href: '/bankroll', label: t('nav.bankroll'), icon: Wallet },
     { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     // Hidden while BetGlitch is a free public beta. One flag controls every

@@ -10,6 +10,7 @@ export const translations = {
             // concept — and a model BetGlitch does not own. The page tracks
             // historical score evidence and measured weaknesses.
             monitoring: 'Signal research',
+            calibration: 'Calibration',
             trackRecord: 'Verified record',
             bankroll: 'Bankroll',
             pricing: 'Pricing',
@@ -365,6 +366,7 @@ export const translations = {
             dashboard: 'Panou Control',
             explore: 'Explorează',
             monitoring: 'Cercetarea semnalului',
+            calibration: 'Calibrare',
             trackRecord: 'Istoric verificat',
             bankroll: 'Buget',
             pricing: 'Prețuri',
