@@ -15,12 +15,12 @@ const betaMetadata: Metadata = {
   title: 'Public Beta — free access',
   description:
     'BetGlitch is currently in public beta. Access is free while we build and '
-    + 'validate the verified public record.',
+    + 'build the public results.',
   openGraph: {
     title: 'BetGlitch Public Beta — free access',
     description:
-      'Free while we build and validate the verified public record. Every '
-      + 'public commitment is frozen before kickoff and remains visible after '
+      'Free while we build the public results. Every published pick is locked '
+      + 'before kickoff and remains visible after '
       + 'settlement—win or lose.',
     url: 'https://betglitch.com/pricing',
   },
@@ -28,10 +28,10 @@ const betaMetadata: Metadata = {
 
 const pricingMetadata: Metadata = {
   title: 'Pricing Plans',
-  description: 'Choose your BetGlitch plan. Transparent football signals, versioned public commitments and verified results. Start free, upgrade when ready.',
+  description: 'Choose your BetGlitch plan. Transparent football signals, published picks and public results. Start free, upgrade when ready.',
   openGraph: {
     title: 'Pricing Plans | BetGlitch',
-    description: 'Transparent football signals, public commitments and verified results. Start free.',
+    description: 'Transparent football signals, published picks and public results. Start free.',
     url: 'https://betglitch.com/pricing',
   },
 }

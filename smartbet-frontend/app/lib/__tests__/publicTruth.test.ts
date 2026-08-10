@@ -245,7 +245,7 @@ describe('signal-score terminology and its explanation', () => {
 
   it('the proof page labels the frozen score as a signal score', () => {
     // Superseded 2026-08-08: the label names the moment the value was frozen.
-    expect(read('app/proof/_shared/ProofPageBody.tsx')).toContain('label="Signal score at commitment"')
+    expect(read('app/proof/_shared/ProofPageBody.tsx')).toContain('label="Signal score when published"')
   })
 })
 
@@ -253,12 +253,10 @@ describe('live signal versus published claim', () => {
   it('terminology keeps the two concepts separate and names the mutability of each', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain("label: 'Live signal'")
-    // Superseded 2026-08-08. 'Published pick' made the one committed fixture
-    // read as a featured betting recommendation.
-    expect(copy).toContain("label: 'Public commitment'")
-    expect(copy).toContain("label: 'Angajament public'")
+    expect(copy).toContain("label: 'Published pick'")
+    expect(copy).toContain("label: 'Selecție publicată'")
     expect(copy).toMatch(/can change before kickoff/i)
-    expect(copy).toMatch(/can no longer change/i)
+    expect(copy).toMatch(/cannot be changed or deleted/i)
   })
 
   it('every blog post states that a live signal can change and a claim cannot', () => {
@@ -292,8 +290,8 @@ describe('verified price versus assessed value', () => {
 describe('pending claims are excluded from performance', () => {
   it('the record copy says pending counts towards nothing', () => {
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toMatch(/pending commitments are not counted as results/i)
-    expect(copy).toMatch(/Pending is not a result/i)
+    expect(copy).toMatch(/Pending picks are not results/i)
+    expect(copy).toMatch(/Pending picks do not count/i)
   })
 
   it('the blog states the same exclusion', () => {
@@ -425,16 +423,15 @@ describe('consistent public positioning', () => {
     // evidence quality, never outcomes — which keeps it inside the truth
     // contract this suite enforces.
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toContain("headline: 'Every signal explained. Every commitment verifiable. Every result visible.'")
-    expect(copy).toContain("headline: 'Fiecare semnal explicat. Fiecare angajament verificabil. Fiecare rezultat vizibil.'")
+    expect(copy).toContain("headline: 'Every signal explained. Every published pick locked. Every result visible.'")
+    expect(copy).toContain("headline: 'Fiecare semnal explicat. Fiecare selecție blocată. Fiecare rezultat vizibil.'")
   })
 
-  it('the supporting copy names context, freezing, results and versioned improvement', () => {
+  it('the supporting copy names context, uncertainty, locked picks and results', () => {
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toContain('available fixture context')
-    expect(copy).toContain('freeze selected signals before kickoff')
-    expect(copy).toContain('publish every eligible result')
-    expect(copy).toContain('improve each methodology version')
+    expect(copy).toContain('probabilities, prices, context and uncertainty')
+    expect(copy).toContain('lock it before kickoff')
+    expect(copy).toContain('keep the result visible')
   })
 
   it('does not promise fixture context the product does not deliver', () => {
@@ -461,20 +458,20 @@ describe('consistent public positioning', () => {
 
   it('root metadata carries the brand line rather than an AI claim', () => {
     const src = read('app/layout.tsx')
-    expect(src).toMatch(/every signal explained, every result visible/i)
-    expect(src).toMatch(/versioned public commitments/i)
+    expect(src).toMatch(/published picks locked before kickoff/i)
+    expect(src).toMatch(/every eligible result stays visible/i)
   })
 
   it('navigation and footer use signal vocabulary in both languages', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toContain("explore: 'Explore signals'")
     expect(copy).toContain("explore: 'Explorează semnalele'")
-    expect(copy).toContain('Football market signals across European competitions.')
+    expect(copy).toContain('Football decision intelligence across European competitions.')
   })
 
   it('the newsletter promises updates, not tips', () => {
     const src = read('app/components/EmailCapture.tsx')
-    expect(src).toContain('Public-commitment and verified-record updates')
+    expect(src).toContain('Published-pick and result updates')
   })
 })
 

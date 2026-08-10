@@ -47,7 +47,7 @@ export default function ProofCapturePanel({
               {rec.capturePanelSeePublished}
             </Link>
             <Link
-              href="/track-record#verified-record"
+              href="/track-record#results"
               className="font-semibold text-emerald-700 hover:text-emerald-900"
             >
               {rec.capturePanelSeeVerified}

@@ -13,7 +13,7 @@ export const metadata: Metadata = {
     template: '%s | BetGlitch'
   },
   description: 'A public football-signal lab with fixture context, verified market prices, versioned methodology and a permanent record of every eligible result — win or lose.',
-  keywords: ['football signals', 'public commitments', 'verified record', 'sports analytics', 'football statistics', 'settled results'],
+  keywords: ['football signals', 'published picks', 'football results', 'sports analytics', 'football statistics', 'calibration'],
   authors: [{ name: 'BetGlitch Team' }],
   creator: 'BetGlitch',
   openGraph: {
@@ -21,7 +21,7 @@ export const metadata: Metadata = {
     locale: 'en_US',
     url: 'https://betglitch.com',
     title: 'BetGlitch — every signal explained, every result visible',
-    description: 'Fixture context, verified prices and versioned public commitments. Every eligible result stays visible — win or lose.',
+    description: 'Fixture context, verified prices and published picks locked before kickoff. Every eligible result stays visible — win or lose.',
     siteName: 'BetGlitch',
     images: [
       {
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'BetGlitch — every signal explained, every result visible',
-    description: 'Fixture context, verified prices and versioned public commitments, settled in public after full-time.',
+    description: 'Fixture context, verified prices and published picks locked before kickoff, with results kept public after full-time.',
     images: ['/images/og-image.jpg'],
     creator: '@BetGlitch',
   },
@@ -64,7 +64,7 @@ const websiteSchema = {
   "@type": "WebSite",
   "name": "BetGlitch",
   "url": "https://betglitch.com",
-  "description": "Transparent football signals, public commitments and a verified result record",
+  "description": "Football decision intelligence, published picks locked before kickoff and transparent results",
   "potentialAction": {
     "@type": "SearchAction",
     "target": "https://betglitch.com/explore?q={search_term_string}",

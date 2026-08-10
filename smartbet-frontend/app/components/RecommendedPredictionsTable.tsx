@@ -299,9 +299,9 @@ export default function RecommendedPredictionsTable() {
               rows predate verified price capture, so no profit, ROI or betting
               accuracy claim is made here — those belong to the{' '}
               <a href="/track-record" className="font-semibold underline underline-offset-2">
-                verified record
+                published results
               </a>
-              , which counts settled public commitments only.
+              , which counts settled published picks only.
             </p>
           </div>
 
@@ -429,7 +429,7 @@ export default function RecommendedPredictionsTable() {
           <p className="mt-3 text-xs leading-relaxed text-gray-600">
             Read this carefully before reading anything into a score. These are
             legacy pipeline rows across mixed markets, graded on correctness
-            only — they are not the verified record and say nothing about
+            only — they are not the published results and say nothing about
             profitability. If the bands are not in ascending order, the score is
             not ordering outcomes reliably in this sample.
           </p>

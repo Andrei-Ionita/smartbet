@@ -84,17 +84,6 @@ export default function HomePage() {
     refreshInterval: 120000,
   })
 
-  // Pending public commitments, from the sole authority for published claims
-  // (never derived from the prediction feed, never fallen back to it).
-  const claimsApi = `${process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'}/api/proof/claims/?limit=200`
-  const { data: claimsData } = useSWR(claimsApi, fetcher, {
-    refreshInterval: 300000,
-    shouldRetryOnError: false,
-  })
-  const pendingCommitments: number | null = Array.isArray(claimsData?.claims)
-    ? claimsData.claims.filter((c: { claim_state?: string }) => c.claim_state === 'PENDING').length
-    : null
-
   const settledCount = performanceData?.data?.overall?.total_predictions ?? 0
   const hasVerifiedResults = settledCount > 0
 
@@ -403,58 +392,27 @@ export default function HomePage() {
             section and shown with the real badges rather than described. */}
         <section
           aria-labelledby="difference-heading"
-          className="mt-16 rounded-2xl border border-gray-200 bg-white p-6 sm:mt-20 sm:p-8"
+          className="mt-16 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-6 sm:mt-20 sm:p-8"
         >
-          <h2
-            id="difference-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.home.differenceHeading}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600">
-            {copy.home.differenceBody}
-          </p>
-
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-xl border-2 border-dashed border-sky-300 bg-sky-50/50 p-5">
-              <StatusBadge status="live" size="sm" lang={language} />
-              <h3 className="mt-3 font-bold text-gray-900">
-                {copy.terms.liveSignal.label}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                {copy.terms.liveSignal.mutability}
-              </p>
-              <p className="mt-3 text-sm font-medium text-sky-900">
-                {copy.home.notInPerformance}
+          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-2xl">
+              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
+                <Lock className="h-5 w-5" aria-hidden="true" />
+              </div>
+              <h2 id="difference-heading" className="mt-4 text-2xl font-bold text-gray-900 sm:text-3xl">
+                {copy.home.differenceHeading}
+              </h2>
+              <p className="mt-3 text-base leading-relaxed text-gray-700">
+                {copy.home.differenceBody}
               </p>
             </div>
-
-            <div className="rounded-xl border-2 border-indigo-400 bg-indigo-50/50 p-5">
-              <StatusBadge status="published_pending" size="sm" lang={language} />
-              <h3 className="mt-3 font-bold text-gray-900">
-                {copy.terms.publicCommitment.label}
-              </h3>
-              <p className="mt-2 text-sm leading-relaxed text-gray-700">
-                {copy.home.frozenIntro}
-              </p>
-              <ul className="mt-2 flex flex-wrap gap-1.5">
-                {copy.terms.publicCommitment.frozenFields.map((f) => (
-                  <li
-                    key={f}
-                    className="inline-flex items-center gap-1 rounded border border-indigo-200 bg-white px-2 py-0.5 text-xs font-medium text-indigo-900"
-                  >
-                    <Lock className="h-3 w-3" aria-hidden="true" />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-              {/* The sentence that stops a commitment reading as an endorsed
-                  bet. Commitment is an accountability act, not a quality
-                  verdict on the signal. */}
-              <p className="mt-3 text-sm font-medium text-indigo-900">
-                {copy.terms.publicCommitment.notARecommendation}
-              </p>
-            </div>
+            <Link
+              href="/track-record#published-picks"
+              className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
+            >
+              {copy.home.openRecord}
+              <ArrowRight className="h-4 w-4" aria-hidden="true" />
+            </Link>
           </div>
         </section>
 
@@ -462,45 +420,6 @@ export default function HomePage() {
             This strip exists to make "many live signals, 1 commitment,
             0 verified results" read as the NORMAL shape of the funnel rather
             than a contradiction. Each stage links to where it lives. */}
-        <section aria-label={copy.terms.publicCommitment.plural} className="mt-10">
-          <div className="grid gap-3 sm:grid-cols-3">
-            <Link
-              href="/explore"
-              className="rounded-xl border border-sky-200 bg-sky-50/50 p-4 transition-colors hover:bg-sky-50"
-            >
-              <p className="text-xs font-bold uppercase tracking-widest text-sky-700">
-                {copy.terms.liveSignal.plural}
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {gems.length > 0 ? gems.length : '—'}
-              </p>
-              <p className="mt-1 text-xs text-gray-600">{copy.hero.primaryCta} →</p>
-            </Link>
-            <Link
-              href="/track-record#public-commitments"
-              className="rounded-xl border border-indigo-200 bg-indigo-50/50 p-4 transition-colors hover:bg-indigo-50"
-            >
-              <p className="text-xs font-bold uppercase tracking-widest text-indigo-700">
-                {copy.terms.publicCommitment.plural}
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">
-                {pendingCommitments === null ? '—' : pendingCommitments}
-              </p>
-              <p className="mt-1 text-xs text-gray-600">{copy.record.publishedProofLink} →</p>
-            </Link>
-            <Link
-              href="/track-record#verified-record"
-              className="rounded-xl border border-gray-200 bg-white p-4 transition-colors hover:bg-gray-50"
-            >
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-600">
-                {copy.terms.verifiedRecord.label}
-              </p>
-              <p className="mt-1 text-2xl font-bold text-gray-900">{settledCount}</p>
-              <p className="mt-1 text-xs text-gray-600">{copy.home.openRecord} →</p>
-            </Link>
-          </div>
-        </section>
-
         {/* ── 5. Verified record ──────────────────────────────────────── */}
         <section aria-labelledby="record-heading" className="mt-16 sm:mt-20">
           <h2

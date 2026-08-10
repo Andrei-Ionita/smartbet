@@ -62,10 +62,10 @@ export const BETA_COPY = {
     'BetGlitch is currently in public beta. Access is free while we build and '
     + 'validate the verified public record.',
   supporting:
-    'Every public commitment is frozen before kickoff and remains visible after '
+    'Every published pick is locked before kickoff and remains visible after '
     + 'settlement—win or lose.',
   account:
-    'Create a free account to explore the beta and follow the verified record '
+    'Create a free account to explore the beta and follow the public results '
     + 'as it develops.',
   badge: 'Public Beta — free',
 } as const

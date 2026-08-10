@@ -69,7 +69,7 @@ describe('the homepage answers the five-second question', () => {
     // signals" named the feature; the brand line names the reason the feature
     // exists. The truth constraints are unchanged — the line promises better
     // evidence, not better outcomes.
-    expect(HERO.headline).toBe('Every signal explained. Every commitment verifiable. Every result visible.')
+    expect(HERO.headline).toBe('Every signal explained. Every published pick locked. Every result visible.')
   })
 
   it('offers one primary action and one secondary, not three peers', () => {
@@ -110,7 +110,7 @@ describe('terminology is defined once and used everywhere', () => {
   })
 
   it('scopes the verified record to eligible settled commitments only', () => {
-    expect(TERMS.verifiedRecord.scope).toContain('Only eligible settled commitments')
+    expect(TERMS.verifiedRecord.scope).toContain('Pending picks are shown separately')
     expect(TERMS.verifiedRecord.scope).toMatch(/void or cancelled/i)
   })
 
@@ -254,7 +254,7 @@ describe('live signals are visually distinct from published claims', () => {
 
   it('carries the status in text as well as colour', () => {
     const src = read('app/components/StatusBadge.tsx')
-    for (const label of ['LIVE SIGNAL', 'COMMITMENT — PENDING', 'RESULT — WON',
+    for (const label of ['LIVE SIGNAL', 'LOCKED PICK — PENDING', 'RESULT — WON',
                          'RESULT — LOST', 'VOID', 'CANCELLED']) {
       expect(src).toContain(label)
     }
@@ -280,8 +280,8 @@ describe('empty states are intentional', () => {
     expect(src).toContain("role={problem ? 'alert' : undefined}")
   })
 
-  it('says the verified record is being built, not that it is empty', () => {
-    expect(src).toContain('The verified record is being built')
+  it('says the public results are being built, not that they are empty', () => {
+    expect(src).toContain('The public results are being built')
     expect(src).toMatch(/win or lose/i)
   })
 
@@ -299,7 +299,7 @@ describe('the verified record page does not promise a proven history', () => {
   })
 
   it('describes the published-pick universe in its metadata', () => {
-    expect(src).toContain('eligible settled commitments')
+    expect(src).toContain('published picks locked before kickoff')
   })
 })
 

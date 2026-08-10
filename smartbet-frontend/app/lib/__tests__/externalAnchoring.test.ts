@@ -60,7 +60,7 @@ describe('the anchors page tells the reader how to check without us', () => {
     // Collapse JSX line wrapping before matching prose.
     const prose = ANCHORS_PAGE.replace(/\s+/g, ' ')
     expect(prose).toContain('never whether we were right')
-    expect(prose).toContain('prove: that a commitment was a good bet')
+    expect(prose).toContain('prove: that a published pick was a good bet')
   })
 
   it('offers the raw proof and the exact manifest for download', () => {
@@ -78,7 +78,7 @@ describe('the verified record links to the independent proof', () => {
   it('offers the anchors page in both languages', () => {
     const src = read('app/track-record/TrackRecordContent.tsx')
     expect(src).toContain('/proof/anchors')
-    expect(src).toContain('Independent timestamps — verify them yourself')
-    expect(src).toContain('Marcaje de timp independente')
+    expect(src).toContain('Technical verification details')
+    expect(src).toContain('Detalii tehnice de verificare')
   })
 })

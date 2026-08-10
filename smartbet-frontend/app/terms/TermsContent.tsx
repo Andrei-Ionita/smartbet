@@ -53,7 +53,7 @@ export default function TermsContent() {
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
                         <li>Live signals ranking provider-derived probabilities for upcoming fixtures</li>
                         <li>Published claims, frozen before kickoff with their recorded odds and provenance</li>
-                        <li>A verified record built only from settled published claims</li>
+                        <li>Public results built only from settled picks published before kickoff</li>
                         <li>Historical data and educational content about sports analytics</li>
                     </ul>
                     <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-4">

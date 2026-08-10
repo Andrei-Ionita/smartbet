@@ -11,7 +11,7 @@ export const translations = {
             // historical score evidence and measured weaknesses.
             monitoring: 'Signal research',
             calibration: 'Calibration',
-            trackRecord: 'Verified record',
+            trackRecord: 'Results',
             bankroll: 'Bankroll',
             pricing: 'Pricing',
             upgradeToPro: 'Upgrade to Pro',
@@ -29,7 +29,7 @@ export const translations = {
         },
         dashboard: {
             title: 'My Dashboard',
-            subtitle: 'Your live signals, public commitments and verified record in one place',
+            subtitle: 'Your live signals, published picks and public results in one place',
             manageBankroll: 'Manage Bankroll',
             smartPicks: 'Live signals',
             modelPerformance: {
@@ -112,25 +112,25 @@ export const translations = {
             }
         },
         trackRecord: {
-            title: 'Verified record',
-            subtitle: 'Public commitments and their settled results — signals BetGlitch froze before kickoff. Wins and losses both.',
-            disclaimer: 'Only eligible settled commitments count towards these figures.',
+            title: 'Published picks & results',
+            subtitle: 'Picks locked before kickoff, with every settled result left visible — win or lose.',
+            disclaimer: 'Pending, void, cancelled and legacy rows do not count in the performance totals.',
             updateResults: 'Update Results',
             updating: 'Updating...',
             stats: {
-                eligibleSettled: 'Eligible settled commitments',
+                eligibleSettled: 'Settled picks counted',
                 eligibleDefinition: 'The complete denominator for every figure here',
                 won: 'Won',
-                resultHitRate: '{0}% of eligible settled commitments',
+                resultHitRate: '{0}% of settled picks counted',
                 lost: 'Lost',
                 lossesVisible: 'Losses remain permanently visible',
                 flatStakeReturn: 'Flat-stake return',
                 flatStakeDetail: '{0}% ROI · ${1} staked at $10 each',
-                smallSampleTitle: 'Early record — only {0} settled commitments',
+                smallSampleTitle: 'Early results — only {0} settled picks',
                 smallSampleBody: 'This is too little evidence to assess whether the methodology has an edge. Treat the figures as a transparent record, not a performance claim.',
-                resultsByMarket: 'Results by committed market',
-                breakdownReconciles: 'These market totals account for {0} of {1} eligible settled commitments.',
-                noSettledForMarket: 'No settled commitments',
+                resultsByMarket: 'Results by published market',
+                breakdownReconciles: 'These market totals account for {0} of {1} settled picks counted.',
+                noSettledForMarket: 'No settled picks',
                 market1x2: 'Match result (1X2)',
                 marketBtts: 'Both teams to score',
                 marketTotals: 'Over/Under 2.5',
@@ -154,8 +154,8 @@ export const translations = {
                 activeFilters: '{0} active'
             },
             table: {
-                currentLogTitle: 'Current prediction log — not the verified record',
-                currentLogBody: 'Only rows with verified price provenance are shown by default. A row appears in the verified record above only when BetGlitch formally committed it before kickoff.',
+                currentLogTitle: 'Fixture analysis log — separate from published results',
+                currentLogBody: 'Only rows with verified price details are shown by default. A row counts above only when BetGlitch published and locked it before kickoff.',
                 noLegacyRows: 'No legacy rows match these filters.',
                 match: 'Match',
                 predicted: 'Predicted',
@@ -170,30 +170,30 @@ export const translations = {
                 noPredictions: 'No predictions found'
             },
             transparency: {
-                title: '🔒 Our Transparency Commitment',
+                title: '🔒 How published picks stay honest',
                 whatWeTrack: '📋 What We Track',
-                whatWeTrackDesc: 'Public performance is measured only on public commitments — signals BetGlitch froze before kickoff with their recorded odds and bookmaker. The log below also shows earlier predictions, clearly marked as legacy and excluded from every figure.',
+                whatWeTrackDesc: 'Public performance uses only picks BetGlitch published and locked before kickoff with their recorded odds and bookmaker. Earlier predictions are available only through the Legacy filter and excluded from every figure.',
                 why: 'Why?',
-                whyDesc: 'Because a record is only meaningful if it cannot be edited afterwards. Only public commitments — frozen before kickoff — count towards public performance.',
+                whyDesc: 'Because results are meaningful only when picks cannot be added, edited or deleted after the match.',
                 points: {
                     timestamped: 'Timestamped BEFORE kickoff',
-                    timestampedDesc: 'A public commitment records its selection, odds, bookmaker and time before the match starts, and settlement grades that frozen copy',
+                    timestampedDesc: 'A published pick records its selection, odds, bookmaker and time before the match starts, and settlement grades that locked copy',
                     verified: 'Third-party verified',
                     verifiedDesc: 'Match outcomes come from an independent data provider rather than being self-reported',
                     permanent: 'Never deleted',
                     permanentDesc: 'Historical data is permanent - we show both wins and losses',
                     history: 'Nothing is deleted',
-                    historyDesc: 'Earlier predictions stay visible as legacy even though they cannot count towards the verified record',
+                    historyDesc: 'Earlier predictions stay available through the Legacy filter even though they do not count in public results',
                     updates: 'Real-time updates',
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
                 note: 'Note:',
-                noteDesc: 'Only public commitments enter the verified record. Live signals shown elsewhere in the product are not counted, and a commitment is never withdrawn or re-graded once it settles.'
+                noteDesc: 'Only picks published and locked before kickoff enter public results. Live signals are not counted, and a settled pick is never withdrawn or re-graded.'
             }
         },
         monitoring: {
             title: 'Signal research',
-            subtitle: 'What the current score gets right, gets wrong and has not yet proved. Verified betting performance lives only on the verified record.',
+            subtitle: 'What the current score gets right, gets wrong and has not yet proved. Betting performance lives only on the Results page.',
             tabs: {
                 dashboard: 'Signal performance',
                 accuracy: 'Detailed Accuracy',
@@ -311,14 +311,14 @@ export const translations = {
             heading: 'BetGlitch Public Beta — free while we build the verified public record',
             badge: 'Free public beta',
             account: 'An account is free and needs no payment method.',
-            supporting: 'You can use every public surface without paying: live signals, the verified record and every published proof page.',
+            supporting: 'You can use every public surface without paying: live signals, published results and every verification page.',
             meansTitle: 'What this means today',
             m1: 'Access is currently free — there is nothing to buy.',
             m2: 'No payment method is required, and none is collected.',
             m3: 'Commercial plans may be introduced after we have validated the record.',
             m4: 'If that changes, beta users will be told before it does.',
             createAccount: 'Create a free account',
-            seeRecord: 'See the verified record'
+            seeRecord: 'See the results'
         },
         explore: {
             title: 'Explore live football signals',
@@ -367,7 +367,7 @@ export const translations = {
             explore: 'Explorează',
             monitoring: 'Cercetarea semnalului',
             calibration: 'Calibrare',
-            trackRecord: 'Istoric verificat',
+            trackRecord: 'Rezultate',
             bankroll: 'Buget',
             pricing: 'Prețuri',
             upgradeToPro: 'Treci la Pro',
@@ -453,25 +453,25 @@ export const translations = {
             }
         },
         trackRecord: {
-            title: 'Istoric verificat',
-            subtitle: 'Pontaje publicate încheiate — cele înghețate de BetGlitch înainte de start. Și câștiguri, și pierderi.',
-            disclaimer: 'Doar angajamentele eligibile încheiate contează pentru aceste cifre.',
+            title: 'Selecții publicate și rezultate',
+            subtitle: 'Selecții blocate înainte de start, cu fiecare rezultat păstrat vizibil — câștig sau pierdere.',
+            disclaimer: 'Selecțiile în așteptare, nule, anulate și legacy nu intră în totalurile de performanță.',
             updateResults: 'Actualizează Rezultate',
             updating: 'Se actualizează...',
             stats: {
-                eligibleSettled: 'Angajamente eligibile încheiate',
+                eligibleSettled: 'Selecții încheiate numărate',
                 eligibleDefinition: 'Numitorul complet pentru toate cifrele de aici',
                 won: 'Câștigate',
-                resultHitRate: '{0}% din angajamentele eligibile încheiate',
+                resultHitRate: '{0}% din selecțiile încheiate numărate',
                 lost: 'Pierdute',
                 lossesVisible: 'Pierderile rămân permanent vizibile',
                 flatStakeReturn: 'Rezultat cu miză fixă',
                 flatStakeDetail: 'ROI {0}% · ${1} mizate, câte $10',
-                smallSampleTitle: 'Istoric timpuriu — doar {0} angajamente încheiate',
+                smallSampleTitle: 'Rezultate timpurii — doar {0} selecții încheiate',
                 smallSampleBody: 'Sunt prea puține date pentru a evalua dacă metodologia are un avantaj. Privește cifrele ca pe un istoric transparent, nu ca pe o afirmație de performanță.',
-                resultsByMarket: 'Rezultate după piața angajată',
-                breakdownReconciles: 'Totalurile pe piețe acoperă {0} din {1} angajamente eligibile încheiate.',
-                noSettledForMarket: 'Niciun angajament încheiat',
+                resultsByMarket: 'Rezultate după piața publicată',
+                breakdownReconciles: 'Totalurile pe piețe acoperă {0} din {1} selecții încheiate numărate.',
+                noSettledForMarket: 'Nicio selecție încheiată',
                 market1x2: 'Rezultatul meciului (1X2)',
                 marketBtts: 'Ambele echipe marchează',
                 marketTotals: 'Peste/Sub 2,5',
@@ -495,8 +495,8 @@ export const translations = {
                 activeFilters: '{0} active'
             },
             table: {
-                currentLogTitle: 'Jurnal curent de predicții — nu este istoricul verificat',
-                currentLogBody: 'În mod implicit sunt afișate doar rândurile cu proveniență de preț verificată. Un rând apare în istoricul verificat de mai sus numai dacă BetGlitch l-a angajat formal înainte de start.',
+                currentLogTitle: 'Jurnal de analiză — separat de rezultatele publicate',
+                currentLogBody: 'În mod implicit sunt afișate doar rândurile cu detalii de cotă verificate. Un rând contează mai sus numai dacă BetGlitch l-a publicat și blocat înainte de start.',
                 noLegacyRows: 'Niciun rând moștenit nu corespunde acestor filtre.',
                 match: 'Meci',
                 predicted: 'Predicție',
@@ -511,14 +511,14 @@ export const translations = {
                 noPredictions: 'Nu s-au găsit predicții'
             },
             transparency: {
-                title: '🔒 Angajamentul Nostru de Transparență',
+                title: '🔒 Cum rămân oneste selecțiile publicate',
                 whatWeTrack: '📋 Ce Urmărim',
-                whatWeTrackDesc: 'Performanța publică se măsoară doar pe angajamentele publice — semnale înghețate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Jurnalul de mai jos arată și predicții mai vechi, marcate clar ca legacy și excluse din orice cifră.',
+                whatWeTrackDesc: 'Performanța publică folosește doar selecțiile publicate și blocate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Predicțiile mai vechi sunt disponibile doar prin filtrul Legacy și excluse din orice cifră.',
                 why: 'De ce?',
-                whyDesc: 'Pentru că un istoric contează doar dacă nu poate fi editat ulterior. Doar angajamentele publice — înghețate înainte de start — contează pentru performanța publică.',
+                whyDesc: 'Pentru că rezultatele contează doar dacă selecțiile nu pot fi adăugate, modificate sau șterse după meci.',
                 points: {
                     timestamped: 'Marcate temporal ÎNAINTE de start',
-                    timestampedDesc: 'Un angajament public își înregistrează selecția, cota, casa de pariuri și ora înainte de startul meciului, iar decontarea evaluează exact acea copie înghețată',
+                    timestampedDesc: 'O selecție publicată își înregistrează alegerea, cota, casa de pariuri și ora înainte de startul meciului, iar decontarea evaluează exact acea copie blocată',
                     verified: 'Verificate de terți',
                     verifiedDesc: 'Rezultatele meciurilor provin de la un furnizor de date independent, nu sunt raportate de noi',
                     permanent: 'Niciodată șterse',
@@ -529,7 +529,7 @@ export const translations = {
                     updatesDesc: 'Apasă "Actualizează Rezultate" pentru a prelua cele mai recente rezultate ale meciurilor'
                 },
                 note: 'Notă:',
-                noteDesc: 'Doar angajamentele publice intră în istoricul verificat. Semnalele live afișate în restul produsului nu sunt contorizate, iar un angajament public nu este niciodată retras sau reevaluat după încheiere.'
+                noteDesc: 'Doar selecțiile publicate și blocate înainte de start intră în rezultate. Semnalele live nu sunt numărate, iar o selecție încheiată nu este retrasă sau reevaluată.'
             }
         },
         monitoring: {

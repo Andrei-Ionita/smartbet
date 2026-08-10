@@ -42,16 +42,16 @@ const RO: Record<SignalStatus, { label: string; hint: string }> = {
     hint: 'Semnal live — se poate modifica înainte de start și nu face parte din istoricul verificat.',
   },
   published_pending: {
-    label: 'ANGAJAMENT — ÎN AȘTEPTARE',
-    hint: 'Angajament public — înghețat înainte de start, în așteptarea încheierii. Nu este inclus în performanța verificată.',
+    label: 'SELECȚIE BLOCATĂ — ÎN AȘTEPTARE',
+    hint: 'Selecție publicată și blocată înainte de start, în așteptarea rezultatului.',
   },
   won: {
     label: 'REZULTAT — CÂȘTIGAT',
-    hint: 'Angajament public încheiat — câștigat.',
+    hint: 'Selecție publicată încheiată — câștigată.',
   },
   lost: {
     label: 'REZULTAT — PIERDUT',
-    hint: 'Angajament public încheiat — pierdut.',
+    hint: 'Selecție publicată încheiată — pierdută.',
   },
   void: {
     label: 'ANULAT',
@@ -82,38 +82,38 @@ const SPECS: Record<SignalStatus, Spec> = {
     Icon: Activity,
     // Dashed = mutable. Deliberately the only dashed badge in the product.
     className: 'border-dashed border-sky-400 bg-sky-50 text-sky-800',
-    hint: 'Live signal — can change before kickoff and is not part of the verified record.',
+    hint: 'Live signal — can change before kickoff and is not part of published results.',
   },
   published_pending: {
-    label: 'COMMITMENT — PENDING',
+    label: 'LOCKED PICK — PENDING',
     Icon: Lock,
     className: 'border-solid border-indigo-500 bg-indigo-50 text-indigo-900',
-    hint: 'Public commitment — frozen before kickoff, awaiting settlement. Not included in verified performance.',
+    hint: 'Published pick — locked before kickoff and awaiting the result.',
   },
   won: {
     label: 'RESULT — WON',
     Icon: CheckCircle2,
     className: 'border-solid border-emerald-600 bg-emerald-600 text-white',
-    hint: 'Settled public commitment — won.',
+    hint: 'Settled published pick — won.',
   },
   lost: {
     label: 'RESULT — LOST',
     Icon: XCircle,
     // Same weight as WON. Losses are not hidden or softened.
     className: 'border-solid border-rose-600 bg-rose-600 text-white',
-    hint: 'Settled public commitment — lost.',
+    hint: 'Settled published pick — lost.',
   },
   void: {
     label: 'VOID',
     Icon: MinusCircle,
     className: 'border-solid border-slate-400 bg-slate-100 text-slate-700',
-    hint: 'Void — excluded from the verified record totals.',
+    hint: 'Void — excluded from the results totals.',
   },
   cancelled: {
     label: 'CANCELLED',
     Icon: Ban,
     className: 'border-solid border-slate-400 bg-slate-100 text-slate-700',
-    hint: 'Cancelled — excluded from the verified record totals.',
+    hint: 'Cancelled — excluded from the results totals.',
   },
   legacy: {
     label: 'LEGACY — NOT IN VERIFIED RECORD',

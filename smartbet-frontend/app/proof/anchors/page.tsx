@@ -4,9 +4,9 @@ import type { Metadata } from 'next'
 export const dynamic = 'force-dynamic'
 
 export const metadata: Metadata = {
-  title: 'External timestamps | BetGlitch',
+  title: 'Verification details | BetGlitch',
   description:
-    'Every BetGlitch public commitment is hashed into a digest and timestamped by independent OpenTimestamps calendars, anchored in the Bitcoin chain. Verify it yourself.',
+    'Technical verification details for BetGlitch published picks, including integrity hashes and independent OpenTimestamps proofs.',
 }
 
 interface Anchor {
@@ -57,10 +57,10 @@ export default async function AnchorsPage() {
     <div className="min-h-screen bg-gray-50 px-4 py-10">
       <div className="mx-auto max-w-4xl">
         <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-          External timestamps
+          Verification details
         </h1>
         <p className="mt-3 text-base leading-relaxed text-gray-700">
-          BetGlitch hashes every public commitment. On its own that only proves
+          BetGlitch hashes every published pick. On its own that only proves
           the record has not been edited — we compute the hash, we serve the
           record, so nothing stops us replacing both. This page closes that
           gap by handing the timestamp to parties who are not us.
@@ -96,11 +96,11 @@ export default async function AnchorsPage() {
             </li>
           </ul>
           <p className="mt-3 text-sm leading-relaxed text-gray-600">
-            What it does <strong>not</strong> prove: that a commitment was a
+            What it does <strong>not</strong> prove: that a published pick was a
             good bet. Timestamping fixes <em>when</em> we said something, never
             whether we were right. That is what the{' '}
             <Link href="/track-record" className="font-semibold text-blue-700 underline underline-offset-2">
-              verified record
+              results page
             </Link>{' '}
             is for.
           </p>
@@ -224,7 +224,7 @@ export default async function AnchorsPage() {
 
         <p className="mt-8 text-sm text-gray-600">
           <Link href="/track-record" className="font-semibold text-blue-700 underline underline-offset-2">
-            ← Back to the verified record
+            ← Back to the results
           </Link>
         </p>
       </div>
