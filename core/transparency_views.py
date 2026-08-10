@@ -20,6 +20,78 @@ from core.services import claim_publication, public_universe
 logger = logging.getLogger(__name__)
 
 
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def calibration_evidence(request):
+    """Public probability-quality report from append-only pre-match evidence."""
+    from core.services import calibration_evidence as evidence
+
+    report = evidence.build_report()
+    report['generated_at'] = timezone.now().isoformat()
+    return Response({'success': True, 'data': report})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def prediction_evidence_archive(request):
+    """Paginated public archive behind the calibration report.
+
+    This includes pending and provisional decisions as well as evaluated ones,
+    so an unsettled fixture cannot disappear merely because it is inconvenient.
+    """
+    from core.services import calibration_evidence as evidence
+
+    try:
+        page = max(1, int(request.query_params.get('page', 1)))
+        page_size = min(100, max(1, int(request.query_params.get('page_size', 25))))
+    except (TypeError, ValueError):
+        return Response({
+            'success': False,
+            'error': 'page and page_size must be positive integers',
+        }, status=400)
+
+    market = request.query_params.get('market', '').strip()
+    state = request.query_params.get('state', '').strip()
+    league = request.query_params.get('league', '').strip().casefold()
+    if market and market not in evidence.SUPPORTED_MARKETS:
+        return Response({'success': False, 'error': 'unsupported market'}, status=400)
+    allowed_states = {
+        'pending_result', 'awaiting_confirmation', 'unscoreable_result', 'evaluated',
+    }
+    if state and state not in allowed_states:
+        return Response({'success': False, 'error': 'unsupported state'}, status=400)
+
+    decisions, coverage = evidence.collect_decisions()
+    if market:
+        decisions = [row for row in decisions if row['market'] == market]
+    if state:
+        decisions = [row for row in decisions if row['state'] == state]
+    if league:
+        decisions = [row for row in decisions if league in row['league'].casefold()]
+
+    total = len(decisions)
+    start = (page - 1) * page_size
+    rows = decisions[start:start + page_size]
+    return Response({
+        'success': True,
+        'methodology_version': 'calibration-evidence-v1',
+        'evaluation_horizon_hours': evidence.EVALUATION_HORIZON_HOURS,
+        'coverage': coverage,
+        'filters': {
+            'market': market or None,
+            'state': state or None,
+            'league': request.query_params.get('league') or None,
+        },
+        'pagination': {
+            'page': page,
+            'page_size': page_size,
+            'total': total,
+            'pages': (total + page_size - 1) // page_size,
+        },
+        'decisions': [evidence.serialize_decision(row) for row in rows],
+    })
+
+
 @csrf_exempt
 @api_view(['GET'])
 @permission_classes([AllowAny])

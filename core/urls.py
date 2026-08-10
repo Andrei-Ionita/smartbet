@@ -54,6 +54,8 @@ urlpatterns = [
     path('api/transparency/leagues/', transparency_views.league_accuracy, name='league_accuracy'),
     path('api/transparency/recent/', transparency_views.recent_predictions_with_results, name='recent_predictions'),
     path('api/transparency/quick-stats/', transparency_views.quick_stats, name='quick_stats'),
+    path('api/transparency/calibration/', transparency_views.calibration_evidence, name='calibration_evidence'),
+    path('api/transparency/prediction-archive/', transparency_views.prediction_evidence_archive, name='prediction_evidence_archive'),
     # REMOVED 2026-08-03: 'api/transparency/update-results/'. Same class of
     # problem — AllowAny + csrf_exempt, ran ResultUpdaterService against
     # production and returned str(e) to the caller. Its only caller (a button
