@@ -2,18 +2,14 @@ import { Metadata } from 'next'
 import ExploreContent from './ExploreContent'
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
-// Terminology-aligned. The page heading became "Explore live football signals"
-// during the first-impression phase, but the metadata still used the old
-// marketing vocabulary, so search results and link previews described a
-// different product from the one that actually loads.
 export const metadata: Metadata = {
-  title: 'Explore live football signals',
+  title: 'Explore football odds, probabilities and fixture context',
   description:
-    'Browse current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff and are not part of the verified record unless BetGlitch publishes them as an immutable pick.',
+    'Search any covered football fixture, compare provider probabilities with margin-removed market prices, inspect uncertainty and calculate your own fair odds.',
   openGraph: {
-    title: 'Explore live football signals | BetGlitch',
+    title: 'Explore football decision intelligence | BetGlitch',
     description:
-      'Current live signals across the European competitions BetGlitch covers. Live signals can change before kickoff; only public commitments can enter the verified record.',
+      'A decision workspace for any covered fixture: probabilities, verified odds, market context, uncertainty and your own fair price.',
     url: 'https://betglitch.com/explore',
   },
 }
@@ -23,7 +19,7 @@ export default function ExplorePage() {
     <>
       <BreadcrumbSchema items={[
         { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Explore signals', url: 'https://betglitch.com/explore' },
+        { name: 'Explore fixtures', url: 'https://betglitch.com/explore' },
       ]} />
       <ExploreContent />
     </>

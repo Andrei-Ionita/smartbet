@@ -17,7 +17,7 @@ import { describe, expect, it } from 'vitest'
 import { getCopy } from '../terminology'
 
 const ROOT = join(__dirname, '..', '..', '..')
-const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8')
+const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
 
 /** Comments legitimately name what they removed; scan rendered code only. */
 const rendered = (rel: string) =>
@@ -277,7 +277,7 @@ describe('the frozen score and the Explore commitment marker', () => {
     const src = read('app/explore/ExploreContent.tsx')
     // One list lookup, joined client-side. Never per-card, never hardcoded.
     expect(src).toContain("/api/proof/claims/?limit=200")
-    expect(src).toContain('map.set(claim.fixture_id')
+    expect(src).toContain('next.set(claim.fixture_id')
     expect(src).not.toMatch(/Cardiff/i)
     expect(rendered('app/explore/ExploreContent.tsx')).not.toMatch(
       /['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i,
@@ -286,31 +286,32 @@ describe('the frozen score and the Explore commitment marker', () => {
 
   it('the marker renders ONLY for committed fixtures, in both languages', () => {
     const src = read('app/explore/ExploreContent.tsx')
+    const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
     expect(src).toContain('commitments.has(fixture.fixture_id) && (')
-    expect(src).toContain("language === 'ro' ? 'ANGAJAMENT PUBLIC' : 'PUBLIC COMMITMENT'")
-    expect(src).toContain("language === 'ro' ? 'Vezi dovada' : 'View proof'")
+    expect(src).toContain("ro ? 'Angajament public' : 'Public commitment'")
+    expect(workspace).toContain("ro ? 'VEZI ANGAJAMENTUL' : 'VIEW COMMITMENT'")
   })
 
   it('states the dual-state distinction without a quality claim', () => {
-    const src = read('app/explore/ExploreContent.tsx')
-    expect(src).toContain(
-      'The live signal may continue to change. The public commitment preserves the state BetGlitch committed to before kickoff.',
+    const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
+    expect(workspace).toContain(
+      'Live analysis may change. The public commitment preserves the state BetGlitch froze before kickoff.',
     )
-    expect(src).toContain(
-      'Semnalul live poate continua să se schimbe. Angajamentul public păstrează starea la care BetGlitch s-a angajat înainte de start.',
+    expect(workspace).toContain(
+      'Analiza live se poate schimba. Angajamentul public păstrează starea pe care BetGlitch a înghețat-o înainte de start.',
     )
     // No better/stronger/value wording around the marker.
-    const scan = rendered('app/explore/ExploreContent.tsx').toLowerCase()
+    const scan = rendered('app/components/FixtureDecisionWorkspace.tsx').toLowerCase()
     for (const banned of ['stronger signal', 'best commitment', 'top commitment', 'recommended commitment']) {
       expect(scan).not.toContain(banned)
     }
   })
 
   it('live and committed remain visually distinct treatments', () => {
-    const src = read('app/explore/ExploreContent.tsx')
-    // Dashed sky = mutable live signal; solid indigo = frozen commitment.
-    expect(src).toContain('border-sky-200 bg-sky-50')
-    expect(src).toContain('border-solid border-indigo-500')
+    const src = read('app/components/FixtureDecisionWorkspace.tsx')
+    // Sky = live analysis; indigo = frozen commitment.
+    expect(src).toContain('border-sky-400/40 bg-sky-400/10')
+    expect(src).toContain('border-indigo-300/40 bg-indigo-300/10')
   })
 })
 
