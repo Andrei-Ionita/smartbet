@@ -41,8 +41,8 @@ describe('onboarding actions have three distinct destinations', () => {
       expect(hrefs).toContain('/explore')
       // Superseded 2026-08-08: the concept is PUBLIC COMMITMENT; the old anchor
       // survives as an alias for links already in the wild.
-      expect(hrefs).toContain('/track-record#public-commitments')
-      expect(hrefs).toContain('/track-record#verified-record')
+      expect(hrefs).toContain('/track-record#published-picks')
+      expect(hrefs).toContain('/track-record#results')
     })
 
     it(`carries no hardcoded claim identifier in ${lang}`, () => {
@@ -68,17 +68,18 @@ describe('track-record carries both anchor targets', () => {
     // The legacy anchor must survive as an alias — external links depend on it.
     expect(src).toContain('id="published-picks"')
     expect(src).toContain('id="verified-record"')
+    expect(src).toContain('id="results"')
   })
 
   it('offsets both anchors so a sticky header cannot cover them', () => {
-    const sections = src.match(/id="(?:public-commitments|verified-record)"[\s\S]{0,240}?>/g) ?? []
+    const sections = src.match(/id="(?:published-picks|results)"[\s\S]{0,240}?>/g) ?? []
     expect(sections).toHaveLength(2)
     for (const section of sections) expect(section).toContain('scroll-mt-')
   })
 
   it('labels each section for assistive technology', () => {
-    expect(src).toContain('aria-labelledby="public-commitments-heading"')
-    expect(src).toContain('aria-labelledby="verified-record-heading"')
+    expect(src).toContain('aria-labelledby="published-picks-heading"')
+    expect(src).toContain('aria-labelledby="results-heading"')
   })
 
   it('never counts a pending pick as a settled result', () => {
@@ -87,18 +88,18 @@ describe('track-record carries both anchor targets', () => {
     // which marks each row's own eligibility.
     expect(src).not.toContain('const publishedPicks = predictions.filter(isVerified)')
     expect(src).toContain('claim.counts_towards_verified_record')
-    expect(getCopy('en').record.publishedStates).toMatch(/pending is not a result/i)
-    expect(getCopy('ro').record.publishedStates).toMatch(/nu este un rezultat/i)
+    expect(getCopy('en').record.publishedStates).toMatch(/pending picks do not count/i)
+    expect(getCopy('ro').record.publishedStates).toMatch(/nu intră în totaluri/i)
   })
 
   it('says the verified aggregate counts settled picks only', () => {
-    expect(getCopy('en').record.verifiedBody).toMatch(/eligible settled commitments only/i)
+    expect(getCopy('en').record.verifiedBody).toMatch(/eligible settled picks only/i)
     expect(src).toContain('{rec.verifiedBody}')
   })
 
   it('keeps the zero state honest', () => {
     expect(src).toContain('{rec.publishedEmpty}')
-    expect(getCopy('en').record.publishedEmpty).toMatch(/no public commitment has settled yet/i)
+    expect(getCopy('en').record.publishedEmpty).toMatch(/no pick has been published/i)
   })
 
   it('jumps to the anchor after the client-side data has loaded', () => {
@@ -233,7 +234,7 @@ describe('English remains available and unchanged in meaning', () => {
     expect(en.auth.login.usernameLabel).toBe('Username or email')
     expect(en.footer.ageNotice).toContain('18 years or older')
     expect(en.footer.noticeOperatorStrong).toContain('NOT a betting operator')
-    expect(en.record.scopeHeading).toBe('What counts towards this record')
+    expect(en.record.scopeHeading).toBe('How these results work')
     expect(en.record.noAccuracy).toBe('No verified results yet')
   })
 
@@ -343,7 +344,7 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
     // The aggregate still comes from the transparency dashboard, which counts
     // settled results only — pending claims cannot reach it.
     expect(src).toContain('/api/transparency/dashboard/')
-    const verified = src.slice(src.indexOf('id="verified-record"'))
+    const verified = src.slice(src.indexOf('id="results"'))
     expect(verified).not.toContain('claims.length')
   })
 

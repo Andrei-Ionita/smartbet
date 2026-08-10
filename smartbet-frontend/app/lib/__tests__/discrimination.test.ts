@@ -110,7 +110,7 @@ describe('the monitoring page publishes the measurement', () => {
     expect(table).not.toContain('computeDiscrimination(filteredPredictions)')
   })
 
-  it('warns that these rows are not the verified record', () => {
-    expect(table).toContain('they are not the verified record')
+  it('warns that these rows are not the published results', () => {
+    expect(table).toContain('they are not the published results')
   })
 })

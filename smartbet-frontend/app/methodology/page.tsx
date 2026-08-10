@@ -6,7 +6,7 @@ import { RANKING_POLICY, RANKING_VERSION } from '../lib/rankingPolicy'
 export const metadata: Metadata = {
   title: 'Ranking methodology',
   description:
-    'The exact parameters BetGlitch uses to rank outcomes, and the version stamped onto every public commitment so the record stays interpretable as the logic changes.',
+    'The exact parameters BetGlitch uses to rank outcomes, and the version stored with every published pick so results stay interpretable as the logic changes.',
 }
 
 function Param({ label, value }: { label: string; value: string }) {
@@ -161,7 +161,7 @@ export default function MethodologyPage() {
             </li>
             <li>
               The provider&apos;s fair odd and league report card are external model
-              outputs, not BetGlitch guarantees. The verified record is still
+              outputs, not BetGlitch guarantees. The public results are still
               the final test of whether this filtering works in practice.
             </li>
           </ul>
@@ -181,7 +181,7 @@ export default function MethodologyPage() {
 
         <p className="mt-8 flex flex-wrap gap-x-6 gap-y-2 text-sm font-semibold">
           <Link href="/track-record" className="text-blue-700 underline underline-offset-2">
-            Verified record →
+            Results →
           </Link>
           <Link href="/proof/anchors" className="text-blue-700 underline underline-offset-2">
             External timestamps →

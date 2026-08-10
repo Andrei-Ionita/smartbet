@@ -93,7 +93,7 @@ describe('an empty verified record is not rendered as zero performance', () => {
 
   it('shows "no settled picks" instead of a 0% win rate', () => {
     expect(src).toContain('{rec.noSettled}')
-    expect(en.noSettled).toBe('No settled commitments yet')
+    expect(en.noSettled).toBe('No settled picks yet')
     expect(ro.noSettled.length).toBeGreaterThan(0)
   })
 
@@ -218,10 +218,8 @@ describe('footer', () => {
     // The tagline moved into terminology.ts to be translatable. The vocabulary
     // contract now applies to both languages, not just the English literal.
     expect(src).toContain('{f.tagline}')
-    // Superseded 2026-08-08: the tagline says signals are COMMITTED, which is
-    // the stronger public concept (frozen is what commitment does).
-    expect(getCopy('en').footer.tagline).toContain('committed before kickoff')
-    expect(getCopy('ro').footer.tagline).toContain('angajate înainte de start')
+    expect(getCopy('en').footer.tagline).toContain('locked before kickoff')
+    expect(getCopy('ro').footer.tagline).toContain('blocate înainte de start')
     expect(src).not.toContain('betting insights')
   })
 })
@@ -541,7 +539,7 @@ describe('signal card states what it is before any number', () => {
 
   it('labels the object a live signal in both languages', () => {
     expect(src).toContain("'SEMNAL LIVE' : 'LIVE SIGNAL'")
-    expect(src).toContain('is not part of the verified record unless')
+    expect(src).toContain('is not part of public results unless')
   })
 
   it('does not present a fabricated statistical interval', () => {
@@ -567,7 +565,7 @@ describe('proof page presentation', () => {
   })
 
   it('uses the canonical status vocabulary', () => {
-    expect(src).toContain("PENDING: 'COMMITMENT — PENDING'")
+    expect(src).toContain("PENDING: 'PUBLISHED PICK — AWAITING RESULT'")
     expect(src).toContain("WON: 'RESULT — WON'")
     expect(src).not.toContain("'Pick — pending'")
   })

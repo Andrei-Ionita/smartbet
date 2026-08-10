@@ -11,25 +11,23 @@ import {
 export function UnpublishedState() {
   return (
     <div className="mx-auto max-w-xl px-4 py-16 text-center">
-      <h1 className="text-2xl font-bold text-gray-900">Not a public commitment</h1>
+      <h1 className="text-2xl font-bold text-gray-900">No locked pick for this fixture</h1>
       <p className="mt-3 text-gray-600">
-        This signal has not been committed to the public record as an immutable BetGlitch claim.
+        BetGlitch has not published and locked a pick for this fixture.
       </p>
       <p className="mt-2 text-sm text-gray-500">
-        We only publish proof for signals we have snapshotted and hashed before kickoff.
+        Live fixture analysis may still be available, but it can change before kickoff.
       </p>
       <Link href="/track-record" className="mt-6 inline-block font-semibold text-blue-700 hover:text-blue-900">
-        Review the full public track record →
+        See published picks and results →
       </Link>
     </div>
   )
 }
 
 // Must match the canonical states in app/components/StatusBadge.tsx. The page
-// previously said "Pick — pending", which is a fourth spelling of a state the
-// rest of the product now calls COMMITMENT — PENDING.
 const STATUS_LABEL: Record<string, string> = {
-  PENDING: 'COMMITMENT — PENDING',
+  PENDING: 'PUBLISHED PICK — AWAITING RESULT',
   WON: 'RESULT — WON',
   LOST: 'RESULT — LOST',
   VOID: 'VOID',
@@ -48,7 +46,7 @@ export function ProofPageBody(
       <TrackOnMount event="published_proof_opened" surface="proof" />
       <img
         src={imageUrl}
-        alt="BetGlitch public commitment"
+        alt="BetGlitch published pick"
         width={1200}
         height={630}
         className="w-full rounded-2xl border border-gray-200 shadow-sm"
@@ -59,22 +57,17 @@ export function ProofPageBody(
       </h1>
 
       <p className="mt-3 text-sm font-semibold text-gray-800">{STATUS_LABEL[status]}</p>
-      {/* What this page IS: an accountability artifact, not an endorsement.
-          "BetGlitch recommended this bet" is exactly the reading to prevent. */}
       <p className="mt-1 text-sm text-gray-600">
-        This signal was committed to the public record before kickoff. Its
-        selection, recorded price and publication timestamp are preserved so
-        the eventual result can be evaluated without hindsight. A public
-        commitment is not a claim of proven betting value.
+        This pick was published and locked before kickoff. BetGlitch cannot add
+        it after the match, edit it later or remove it when it loses.
       </p>
       {status === 'PENDING' ? (
         <p className="mt-1 text-sm text-gray-600">
-          Awaiting settlement — not yet counted as a verified result.
+          Awaiting the result — not counted in performance totals yet.
         </p>
       ) : (
         <p className="mt-1 text-sm text-gray-600">
-          This commitment has settled and is included in the verified record
-          when eligible.
+          This pick has settled and is included in the results when eligible.
         </p>
       )}
 
@@ -86,6 +79,19 @@ export function ProofPageBody(
         <Row label="Market" value={formatSelection(p.market_type, p.predicted_outcome, { long: true })} />
         <Row label="Recorded odds" value={formatOdds(p.odds)} />
         <Row label="Bookmaker" value={formatBookmaker(p.bookmaker) ?? 'n/a'} />
+        <Row label="Published" value={formatUtc(p.published_at)} />
+        <Row label="Signal score when published" value={formatModelScore(p.model_score_percent)} />
+      </dl>
+
+      <details className="mt-6 rounded-xl border border-gray-200 bg-gray-50 p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-gray-800">
+          Verification details
+        </summary>
+        <p className="mt-2 text-xs leading-relaxed text-gray-600">
+          These technical fields let anyone check the stored price, methodology
+          version, integrity hash and independent timestamp.
+        </p>
+        <dl className="mt-4 grid grid-cols-1 gap-x-6 gap-y-2 text-sm sm:grid-cols-2">
         <Row label="Odds market" value={p.odds_market ?? 'n/a'} />
         <Row label="Odds captured" value={formatUtc(p.odds_captured_at)} />
         {/* How stale the price was at the moment we committed to it. A price
@@ -94,7 +100,7 @@ export function ProofPageBody(
             rather than left as arithmetic for the reader. */}
         {typeof p.price_age_hours_at_publication === 'number' && (
           <Row
-            label="Price age when committed"
+            label="Price age when published"
             value={
               p.price_age_hours_at_publication < 1
                 ? `${Math.round(p.price_age_hours_at_publication * 60)} minutes`
@@ -103,8 +109,6 @@ export function ProofPageBody(
           />
         )}
         <Row label="Prediction generated" value={formatUtc(p.prediction_logged_at)} />
-        <Row label="Claim published" value={formatUtc(p.published_at)} />
-        <Row label="Signal score at commitment" value={formatModelScore(p.model_score_percent)} />
         {/* Which rule produced this. Without it a record spanning changes
             to the ranking logic is several systems averaged together. */}
         {p.ranking_version && (
@@ -113,14 +117,12 @@ export function ProofPageBody(
         <Row label="Claim ID" value={data.claim_id ?? 'n/a'} />
       </dl>
 
-      {/* The frozen score, explained. This page is a server-rendered shareable
-          artifact with no language context, so both languages are stated. */}
       <p className="mt-3 text-xs leading-relaxed text-gray-600">
-        This is the signal score recorded when the commitment was published. It
+        This is the signal score recorded when the pick was published. It
         is a relative ranking, not a calibrated probability.
       </p>
       <p className="mt-1 text-xs leading-relaxed text-gray-500">
-        Acesta este scorul de semnal înregistrat la publicarea angajamentului.
+        Acesta este scorul de semnal înregistrat la publicarea selecției.
         Este o clasare relativă, nu o probabilitate calibrată.
       </p>
 
@@ -139,7 +141,7 @@ export function ProofPageBody(
           What this hash proves
         </p>
         <p className="mt-1 text-xs leading-relaxed text-gray-600">
-          It fixes the exact content of this commitment: change any recorded
+          It fixes the exact content of this published pick: change any recorded
           field and the hash stops matching, so silent edits are detectable.
           On its own it does <strong>not</strong> prove to a third party
           <em> when</em> the record existed — BetGlitch serves both the record
@@ -151,7 +153,7 @@ export function ProofPageBody(
             <p className="mt-2 text-xs leading-relaxed text-gray-600">
               {data.anchor.status === 'CONFIRMED' ? (
                 <>
-                  This commitment&apos;s digest is anchored in the Bitcoin
+                  This pick&apos;s digest is anchored in the Bitcoin
                   chain at block{' '}
                   <strong>{data.anchor.bitcoin_block_height}</strong>, via
                   independent OpenTimestamps calendars. That timestamp cannot
@@ -159,7 +161,7 @@ export function ProofPageBody(
                 </>
               ) : (
                 <>
-                  This commitment&apos;s digest has been submitted to
+                  This pick&apos;s digest has been submitted to
                   independent OpenTimestamps calendars and is awaiting its
                   Bitcoin block — calendars batch submissions, so confirmation
                   takes a few hours. The operators already hold the digest.
@@ -181,7 +183,7 @@ export function ProofPageBody(
           </>
         ) : (
           <p className="mt-2 text-xs leading-relaxed text-gray-600">
-            This commitment has not been externally timestamped yet. Anchoring
+            This pick has not been externally timestamped yet. Anchoring
             runs on the next publication cycle, before kickoff.
           </p>
         )}
@@ -207,7 +209,8 @@ export function ProofPageBody(
             </pre>
           </details>
         )}
-      </div>
+        </div>
+      </details>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <a
@@ -218,7 +221,7 @@ export function ProofPageBody(
           Download PNG
         </a>
         <Link href="/track-record" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-          See full track record →
+          See all published results →
         </Link>
       </div>
       <p className="mt-6 break-all text-xs text-gray-500">Share link: {shareUrl}</p>

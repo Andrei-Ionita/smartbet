@@ -541,7 +541,7 @@ describe('the card reads status, not magnitude', () => {
 
   it('keeps the live-signal framing intact', () => {
     expect(src).toContain("'SEMNAL LIVE' : 'LIVE SIGNAL'")
-    expect(src).toContain('is not part of the verified record unless')
+    expect(src).toContain('is not part of public results unless')
     expect(src).toContain("'Scor semnal' : 'Signal score'")
   })
 })

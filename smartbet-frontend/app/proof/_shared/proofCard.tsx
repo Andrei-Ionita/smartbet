@@ -68,7 +68,7 @@ function RecordFooter({ record }: { record: ProofPayload['record'] }) {
   if (!record || record.total_bets === 0) {
     return (
       <div style={{ display: 'flex', fontSize: 21, color: MUTED }}>
-        Building our verified record from pick #1
+        Building our public results from pick #1
       </div>
     )
   }

@@ -164,7 +164,7 @@ export default function FixtureDecisionWorkspace({
               </span>
               {proofUrl && (
                 <a href={proofUrl} className="inline-flex items-center gap-1.5 rounded-full border border-indigo-300/40 bg-indigo-300/10 px-3 py-1.5 text-xs font-semibold text-indigo-100 hover:bg-indigo-300/20">
-                  <CheckCircle2 className="h-3.5 w-3.5" /> {ro ? 'VEZI ANGAJAMENTUL' : 'VIEW COMMITMENT'}
+                  <CheckCircle2 className="h-3.5 w-3.5" /> {ro ? 'VEZI SELECȚIA BLOCATĂ' : 'VIEW LOCKED PICK'}
                 </a>
               )}
             </div>
@@ -173,8 +173,8 @@ export default function FixtureDecisionWorkspace({
           {proofUrl && (
             <p className="mt-4 max-w-3xl rounded-xl border border-indigo-300/30 bg-indigo-300/10 p-3 text-xs leading-relaxed text-indigo-100">
               {ro
-                ? 'Analiza live se poate schimba. Angajamentul public păstrează starea pe care BetGlitch a înghețat-o înainte de start.'
-                : 'Live analysis may change. The public commitment preserves the state BetGlitch froze before kickoff.'}
+                ? 'Analiza live se poate schimba. Această selecție a fost publicată și blocată înainte de start; nu poate fi modificată sau ștearsă.'
+                : 'Live analysis may change. This published pick was locked before kickoff and cannot be edited or removed.'}
             </p>
           )}
 

@@ -1,14 +1,9 @@
 /**
- * The three-state product model: LIVE SIGNAL → PUBLIC COMMITMENT → VERIFIED
- * RESULT.
+ * Public-language contract for the evidence system.
  *
- * The confusion this contract exists to prevent, observed on the real product:
- * the homepage showed many analysed fixtures while /track-record showed exactly
- * one "published pick" — so Cardiff read as a hand-picked flagship
- * recommendation, when it is simply record entry #1: the first signal formally
- * frozen into the permanent evaluation record. A live signal must never read
- * as "BetGlitch recommends this bet", and a commitment must never read as a
- * quality verdict.
+ * PublishedClaim remains the backend object. Visitors only need three plain
+ * ideas: live analysis can change; a published pick is locked before kickoff;
+ * results keep wins and losses visible. Technical proof stays optional.
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -18,315 +13,106 @@ import { getCopy } from '../terminology'
 
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (rel: string) => readFileSync(join(ROOT, rel), 'utf8').replace(/\r\n/g, '\n')
-
-/** Comments legitimately name what they removed; scan rendered code only. */
-const rendered = (rel: string) =>
-  read(rel)
-    .replace(/\r\n/g, '\n')
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .split('\n')
-    .map((l) => l.replace(/\/\/.*$/, ''))
-    .join('\n')
-
 const en = getCopy('en')
 const ro = getCopy('ro')
 
-describe('the three concepts exist, in both languages', () => {
-  it('names live signal / public commitment / verified record', () => {
+describe('plain public vocabulary', () => {
+  it('names live signals, published picks and results in both languages', () => {
     expect(en.terms.liveSignal.label).toBe('Live signal')
-    expect(en.terms.publicCommitment.label).toBe('Public commitment')
-    expect(en.terms.verifiedRecord.label).toBe('Verified record')
+    expect(en.terms.publicCommitment.label).toBe('Published pick')
+    expect(en.terms.verifiedRecord.label).toBe('Results')
     expect(ro.terms.liveSignal.label).toBe('Semnal live')
-    expect(ro.terms.publicCommitment.label).toBe('Angajament public')
-    expect(ro.terms.verifiedRecord.label).toBe('Istoric verificat')
+    expect(ro.terms.publicCommitment.label).toBe('Selecție publicată')
+    expect(ro.terms.verifiedRecord.label).toBe('Rezultate')
   })
 
-  it('a live signal explicitly denies being a recommendation', () => {
-    expect(en.terms.liveSignal.notInRecord).toContain('not a betting recommendation')
-    expect(ro.terms.liveSignal.notInRecord).toContain('nu este o recomandare de pariere')
+  it('states both the lock and its limit', () => {
+    expect(en.terms.publicCommitment.definition).toContain('locked before kickoff')
+    expect(en.terms.publicCommitment.notARecommendation).toContain('does not mean')
+    expect(en.terms.publicCommitment.notARecommendation).toContain('guaranteed')
+    expect(ro.terms.publicCommitment.notARecommendation).toContain('Nu înseamnă')
   })
 
-  it('a commitment explicitly denies being a value verdict', () => {
-    // Sharpened after the 2026-08-08 skeptical review: the old wording denied
-    // a value claim but still let "public commitment" sound like a vetted
-    // selection. It must state what the record actually contains — an
-    // in-advance statement, with no score floor and no value threshold.
-    expect(en.terms.publicCommitment.notARecommendation)
-      .toContain('not that the outcome was statistically compelling')
-    expect(en.terms.publicCommitment.notARecommendation)
-      .toContain('no minimum score and no demonstrated value threshold')
-    expect(ro.terms.publicCommitment.notARecommendation)
-      .toContain('nu că rezultatul ar fi convingător statistic')
-    expect(ro.terms.publicCommitment.notARecommendation)
-      .toContain('niciun prag de valoare demonstrată')
-  })
-
-  it('pending commitments are not results', () => {
-    expect(en.record.publishedNotCounted)
-      .toBe('Awaiting settlement — not included in verified performance')
-    expect(ro.record.publishedNotCounted)
-      .toContain('În așteptarea încheierii')
-    expect(en.record.publishedStates).toContain('Pending is not a result')
-  })
-
-  it('the verified record is scoped to eligible settled commitments', () => {
-    expect(en.record.verifiedFromCommitments).toContain(
-      'The verified record below contains only eligible settled commitments',
-    )
-    expect(en.terms.verifiedRecord.scope).toContain('Only eligible settled commitments count')
+  it('does not count pending picks as results', () => {
+    expect(en.record.publishedNotCounted).toContain('not counted yet')
+    expect(en.record.publishedStates).toContain('Pending picks do not count')
+    expect(en.record.verifiedFromCommitments).toContain('settled picks only')
   })
 })
 
-describe('"published picks" is no longer the public concept', () => {
-  it.each([
-    'app/lib/terminology.ts',
-    'app/locales/translations.ts',
-    'app/components/StatusBadge.tsx',
-    'app/components/EmptyState.tsx',
-    'app/components/EmailCapture.tsx',
-    'app/proof/_shared/ProofPageBody.tsx',
-    'app/track-record/page.tsx',
-  ])('%s carries no published-pick vocabulary in rendered code', (rel) => {
-    const src = rendered(rel).toLowerCase()
-    expect(src).not.toContain('published pick')
-    expect(src).not.toContain('pontaj publicat')
-    expect(src).not.toContain('pontajele publicate')
-  })
-
-  it('the record section heading is Public commitments, both languages', () => {
-    expect(en.record.publishedHeading).toBe('Public commitments')
-    expect(ro.record.publishedHeading).toBe('Angajamente publice')
-  })
-})
-
-describe('live surfaces never look like betting recommendations', () => {
-  /**
-   * RECOMMENDED / PICK / BET as a card badge is the reading the model forbids.
-   * Word-boundary uppercase forms only — "Explore" contains no violation, and
-   * lowercase prose is covered by the vocabulary scans above.
-   */
-  it.each([
-    'app/page.tsx',
-    'app/explore/ExploreContent.tsx',
-    'app/components/RecommendationCard.tsx',
-  ])('%s renders no RECOMMENDED / PICK / BEST BET badge', (rel) => {
-    const src = rendered(rel)
-    expect(src).not.toMatch(/['">]RECOMMENDED['"<]/)
-    expect(src).not.toMatch(/['">](?:BEST |TOP )?PICK['"<]/)
-    expect(src).not.toMatch(/['">]BEST BET['"<]/)
-  })
-
-  it('the homepage signal section uses the live-signal vocabulary', () => {
-    const src = read('app/page.tsx')
-    expect(src).toContain('gemsHeading')
-    expect(src).toContain('<StatusBadge status="live"')
-  })
-
-  it('Explore stays entirely in the live-signal domain', () => {
-    const translations = read('app/locales/translations.ts')
-    expect(translations).toContain(
-      'enter the public evaluation record only if BetGlitch formally commits them',
-    )
-  })
-})
-
-describe('the ledger, not a featured match', () => {
-  const src = read('app/track-record/TrackRecordContent.tsx')
-
-  it('renders every commitment through the same map — identical treatment', () => {
-    // One template for all rows; a special-cased Cardiff would need a branch.
-    expect(src).toContain('{claims.map((claim) => (')
-    expect(src).not.toMatch(/Cardiff/i)
-  })
-
-  it('hardcodes no claim UUID anywhere in the frontend', () => {
-    for (const rel of [
-      'app/track-record/TrackRecordContent.tsx',
-      'app/page.tsx',
-      'app/lib/terminology.ts',
-    ]) {
-      expect(rendered(rel)).not.toMatch(
-        /['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i,
-      )
-    }
-  })
-
-  it('each row states its evaluation status', () => {
-    expect(src).toContain('rec.publishedCountedIn')
-    expect(src).toContain('rec.publishedNotCounted')
-  })
-
-  it('uses ledger labels: recorded price and committed date', () => {
-    expect(en.record.publishedOddsLabel).toBe('Recorded price')
-    expect(en.record.publishedAtLabel).toBe('Committed')
-  })
-})
-
-describe('anchors: new concept, unbroken links', () => {
-  const src = read('app/track-record/TrackRecordContent.tsx')
-
-  it('introduces #public-commitments and keeps #published-picks as an alias', () => {
-    expect(src).toContain('id="public-commitments"')
-    expect(src).toContain('id="published-picks"')
-  })
-
-  it('onboarding points at the new anchor in both languages', () => {
-    const hrefsEn = en.onboarding.actions.map((a) => a.href)
-    const hrefsRo = ro.onboarding.actions.map((a) => a.href)
-    expect(hrefsEn).toContain('/track-record#public-commitments')
-    expect(hrefsRo).toContain('/track-record#public-commitments')
-  })
-
-  it('onboarding teaches the three-stage journey', () => {
-    expect(en.onboarding.actions.map((a) => a.cta)).toEqual([
-      'Explore live signals',
-      'View public commitments',
-      'Open verified record',
-    ])
-  })
-})
-
-describe('publication policy is honest', () => {
-  it('describes the automatic pre-registered rule, incl. no human veto', () => {
-    // Policy v1 (2026-08-08): publication is automatic. The copy must state
-    // the rule exactly as auto_publish_claims implements it.
-    expect(en.record.policyBody).toContain('published automatically')
-    expect(en.record.policyBody).toContain('pre-registered')
-    expect(en.record.policyBody).toContain('no human picks or vetoes')
-    expect(en.record.policyBody).toContain('eligibility gate')
-    expect(en.record.policyBody).toContain('at least 6 hours')
-    expect(en.record.policyBody).toContain('does not already hold a commitment')
-    expect(ro.record.policyBody).toContain('publicate automat')
-    expect(ro.record.policyBody).toContain('pre-înregistrată')
-    expect(ro.record.policyBody).toContain('cel puțin 6 ore')
-  })
-
-  it('never describes publication as a manual choice', () => {
-    expect(en.record.policyBody.toLowerCase()).not.toContain('manual')
-    expect(ro.record.policyBody.toLowerCase()).not.toContain('manual')
-  })
-
-  it('states top-ranked as a construction fact, not a quality judgment', () => {
-    expect(en.record.policyBody).toContain('top-ranked outcome in its market')
-    expect(ro.record.policyBody).toContain('clasat cel mai sus')
-  })
-
-  it('publication is explicitly not a value claim', () => {
-    expect(en.record.policyBody).toContain(
-      'Publication itself is not a claim that a signal has proven betting value',
-    )
-  })
-
-  it('invents no selection rule the code does not have', () => {
-    // check_snapshot_publication_eligibility gates on integrity, provenance
-    // and timing — never on signal strength or value. The copy must not claim
-    // otherwise.
-    for (const banned of [
-      'strongest signal', 'best value', 'highest confidence',
-      'profitable signals', 'price-qualified',
-    ]) {
-      expect(en.record.policyBody.toLowerCase()).not.toContain(banned)
-      expect(ro.record.policyBody.toLowerCase()).not.toContain(banned)
-    }
-  })
-
-  it('the policy is rendered as a disclosure on the ledger', () => {
-    const src = read('app/track-record/TrackRecordContent.tsx')
-    expect(src).toContain('rec.policyLink')
-    expect(src).toContain('rec.policyBody')
-    expect(src).toContain('<details')
-  })
-})
-
-describe('the proof page is an accountability artifact, not an endorsement', () => {
-  const src = read('app/proof/_shared/ProofPageBody.tsx')
-
-  it('explains commitment-before-kickoff and denies the value claim', () => {
-    expect(src).toContain('committed to the public record before kickoff')
-    expect(src).toContain('evaluated without hindsight')
-    expect(src).toContain('not a claim of proven betting value')
-  })
-
-  it('states the pending and settled positions', () => {
-    expect(src).toContain('Awaiting settlement — not yet counted as a verified result.')
-    expect(src).toContain('included in the verified record')
-  })
-
-  it('keeps the immutable audit trail', () => {
-    for (const kept of ['claim_hash', 'published_at', 'formatOdds', 'formatBookmaker']) {
-      expect(src).toContain(kept)
-    }
-  })
-})
-
-describe('the frozen score and the Explore commitment marker', () => {
-  it('the proof surfaces render the score as /100 with the bilingual note', () => {
-    const body = read('app/proof/_shared/ProofPageBody.tsx')
-    expect(body).toContain('label="Signal score at commitment"')
-    expect(body).toContain('recorded when the commitment was published')
-    expect(body).toContain('It\n        is a relative ranking, not a calibrated probability.')
-    expect(body).toContain('Este o clasare relativă, nu o probabilitate calibrată.')
-    // The PNG card follows the same convention.
-    expect(read('app/proof/_shared/proofCard.tsx')).toContain('label="SIGNAL SCORE"')
-    const fmt = read('app/proof/_shared/format.ts')
-    expect(fmt).toContain('/ 100`')
-    expect(fmt).not.toContain('}%`')
-  })
-
-  it('Explore joins commitments by fixture id from the claims authority', () => {
-    const src = read('app/explore/ExploreContent.tsx')
-    // One list lookup, joined client-side. Never per-card, never hardcoded.
-    expect(src).toContain("/api/proof/claims/?limit=200")
-    expect(src).toContain('next.set(claim.fixture_id')
-    expect(src).not.toMatch(/Cardiff/i)
-    expect(rendered('app/explore/ExploreContent.tsx')).not.toMatch(
-      /['"][0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}['"]/i,
-    )
-  })
-
-  it('the marker renders ONLY for committed fixtures, in both languages', () => {
-    const src = read('app/explore/ExploreContent.tsx')
-    const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
-    expect(src).toContain('commitments.has(fixture.fixture_id) && (')
-    expect(src).toContain("ro ? 'Angajament public' : 'Public commitment'")
-    expect(workspace).toContain("ro ? 'VEZI ANGAJAMENTUL' : 'VIEW COMMITMENT'")
-  })
-
-  it('states the dual-state distinction without a quality claim', () => {
-    const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
-    expect(workspace).toContain(
-      'Live analysis may change. The public commitment preserves the state BetGlitch froze before kickoff.',
-    )
-    expect(workspace).toContain(
-      'Analiza live se poate schimba. Angajamentul public păstrează starea pe care BetGlitch a înghețat-o înainte de start.',
-    )
-    // No better/stronger/value wording around the marker.
-    const scan = rendered('app/components/FixtureDecisionWorkspace.tsx').toLowerCase()
-    for (const banned of ['stronger signal', 'best commitment', 'top commitment', 'recommended commitment']) {
-      expect(scan).not.toContain(banned)
-    }
-  })
-
-  it('live and committed remain visually distinct treatments', () => {
-    const src = read('app/components/FixtureDecisionWorkspace.tsx')
-    // Sky = live analysis; indigo = frozen commitment.
-    expect(src).toContain('border-sky-400/40 bg-sky-400/10')
-    expect(src).toContain('border-indigo-300/40 bg-indigo-300/10')
-  })
-})
-
-describe('the homepage funnel strip makes 1 commitment look normal', () => {
+describe('homepage simplification', () => {
   const src = read('app/page.tsx')
 
-  it('shows all three counters side by side, each linking to its stage', () => {
-    expect(src).toContain('terms.liveSignal.plural')
-    expect(src).toContain('terms.publicCommitment.plural')
-    expect(src).toContain('terms.verifiedRecord.label')
-    expect(src).toContain('/track-record#public-commitments')
+  it('teaches one direct trust promise', () => {
+    expect(en.home.differenceHeading).toBe('Published before kickoff. Visible after the result.')
+    expect(en.home.differenceBody).toContain('cannot add it after the match')
+    expect(src).toContain('copy.home.differenceHeading')
+    expect(src).toContain('/track-record#published-picks')
   })
 
-  it('counts pending commitments from the claims authority, never the feed', () => {
-    expect(src).toContain("/api/proof/claims/")
-    expect(src).toContain("claim_state === 'PENDING'")
+  it('removes the three-stage counter funnel', () => {
+    expect(src).not.toContain('pendingCommitments')
+    expect(src).not.toContain('terms.publicCommitment.plural')
+    expect(src).not.toContain('/api/proof/claims/')
+  })
+})
+
+describe('results page', () => {
+  const src = read('app/track-record/TrackRecordContent.tsx')
+
+  it('keeps new and legacy anchors working', () => {
+    for (const id of ['published-picks', 'public-commitments', 'results', 'verified-record']) {
+      expect(src).toContain(`id="${id}"`)
+    }
+  })
+
+  it('renders every stored pick consistently', () => {
+    expect(src).toContain('{claims.map((claim) => (')
+    expect(src).toContain('claim.counts_towards_verified_record')
+    expect(src).not.toMatch(/Cardiff/i)
+  })
+
+  it('moves methodology and price-age fields behind verification details', () => {
+    expect(src).toContain("'Verification details'")
+    expect(src).toContain('rec.publishedPriceAgeLabel')
+    expect(src).toContain('rec.publishedVersionLabel')
+    expect(src).toContain('<details')
+  })
+
+  it('keeps the publication policy factual', () => {
+    expect(en.record.policyBody).toContain('published automatically')
+    expect(en.record.policyBody).toContain('at least six hours')
+    expect(en.record.policyBody).toContain('not that it is guaranteed')
+    for (const banned of ['strongest signal', 'best value', 'highest confidence']) {
+      expect(en.record.policyBody.toLowerCase()).not.toContain(banned)
+    }
+  })
+})
+
+describe('proof page', () => {
+  const src = read('app/proof/_shared/ProofPageBody.tsx')
+
+  it('leads with the simple customer promise', () => {
+    expect(src).toContain('published and locked before kickoff')
+    expect(src).toContain('cannot add')
+    expect(src).toContain('remove it when it loses')
+  })
+
+  it('keeps hashes, versions and timestamps under optional details', () => {
+    expect(src).toContain('Verification details')
+    expect(src.indexOf('<details')).toBeLessThan(src.indexOf('SHA-256'))
+    for (const field of ['claim_hash', 'ranking_version', 'published_at', 'formatOdds']) {
+      expect(src).toContain(field)
+    }
+  })
+})
+
+describe('fixture surfaces', () => {
+  it('marks a published fixture without the commitment jargon', () => {
+    const explore = read('app/explore/ExploreContent.tsx')
+    const workspace = read('app/components/FixtureDecisionWorkspace.tsx')
+    expect(explore).toContain("ro ? 'Selecție blocată' : 'Locked pick'")
+    expect(workspace).toContain("ro ? 'VEZI SELECȚIA BLOCATĂ' : 'VIEW LOCKED PICK'")
+    expect(workspace).toContain('This published pick was locked before kickoff')
   })
 })

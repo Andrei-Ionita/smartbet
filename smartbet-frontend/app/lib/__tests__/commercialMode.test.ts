@@ -65,6 +65,6 @@ describe('beta copy', () => {
   it('states the beta positioning', () => {
     expect(BETA_COPY.primary).toContain('public beta')
     expect(BETA_COPY.primary).toContain('free')
-    expect(BETA_COPY.supporting).toContain('frozen before kickoff')
+    expect(BETA_COPY.supporting).toContain('locked before kickoff')
   })
 })

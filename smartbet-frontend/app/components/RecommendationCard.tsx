@@ -312,8 +312,8 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
     <div className="group bg-white/95 backdrop-blur-sm rounded-xl border border-gray-200/60 p-5 hover:shadow-lg transition-all duration-300 hover:border-primary-300 hover:-translate-y-1 h-full">
       {/* What this object IS, stated before any number on the card. Everything
           below is a current model output, not a published claim: it can change
-          before kickoff and it is not part of the verified record unless
-          BetGlitch publishes it as an immutable claim. */}
+          before kickoff and is not part of public results unless BetGlitch
+          publishes and locks it before kickoff. */}
       <div className="mb-4 rounded-lg border border-dashed border-sky-400 bg-sky-50 px-3 py-2">
         <span className="inline-flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wide text-sky-800">
           <Activity className="h-3 w-3" aria-hidden="true" />
@@ -321,8 +321,8 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
         </span>
         <p className="mt-1 text-xs leading-relaxed text-gray-700">
           {language === 'ro'
-            ? 'Se poate modifica înainte de start și nu face parte din istoricul verificat decât dacă BetGlitch îl publică drept revendicare imuabilă.'
-            : 'Can change before kickoff and is not part of the verified record unless BetGlitch publishes it as an immutable claim.'}
+            ? 'Se poate modifica înainte de start și nu intră în rezultatele publice decât dacă BetGlitch publică și blochează selecția.'
+            : 'Can change before kickoff and is not part of public results unless BetGlitch publishes and locks the pick.'}
         </p>
         {lastUpdated && (
           <p className="mt-1 text-[11px] font-medium text-sky-700">

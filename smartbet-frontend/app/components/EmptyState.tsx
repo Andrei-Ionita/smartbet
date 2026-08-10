@@ -43,18 +43,18 @@ const SPECS: Record<EmptyStateKey, Spec> = {
   no_verified_results: {
     Icon: Trophy,
     tone: 'expected',
-    title: 'The verified record is being built',
+    title: 'The public results are being built',
     body:
-      'No public commitment has settled yet. Once one does, its result appears here automatically—win or lose. BetGlitch restarted its public record under a stricter pricing and publication standard, so earlier predictions are excluded.',
-    primary: { label: 'View public commitments', href: '/track-record#public-commitments' },
+      'No published pick has settled yet. Once one does, its result appears here automatically—win or lose. Earlier predictions remain available through the Legacy filter but do not count.',
+    primary: { label: 'View published picks', href: '/track-record#published-picks' },
     secondary: { label: 'Explore live signals', href: '/explore' },
   },
   no_pending_claims: {
     Icon: Hourglass,
     tone: 'expected',
-    title: 'No public commitments are awaiting settlement',
+    title: 'No published picks are awaiting a result',
     body:
-      'Nothing is currently frozen and waiting on a match. Public commitments appear here between commitment and full-time.',
+      'Nothing is currently locked and waiting on a match. Published picks appear here between publication and full-time.',
     primary: { label: 'Explore live signals', href: '/explore' },
   },
   no_live_signals: {
@@ -101,7 +101,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'expected',
     title: 'Your dashboard fills in as you use BetGlitch',
     body:
-      'Track your exposure with the bankroll tools, and follow the verified record as public commitments settle.',
+      'Track your exposure with the bankroll tools, and follow the public results as published picks settle.',
     primary: { label: 'Explore live signals', href: '/explore' },
     secondary: { label: 'Set up bankroll', href: '/bankroll' },
   },
@@ -120,16 +120,16 @@ type Words = { title: string; body: string; primary?: string; secondary?: string
 
 const RO_WORDS: Record<EmptyStateKey, Words> = {
   no_verified_results: {
-    title: 'Istoricul verificat este în construcție',
+    title: 'Rezultatele publice sunt în construcție',
     body:
-      'Niciun angajament public nu s-a încheiat încă. Când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. BetGlitch și-a restartat istoricul public sub un standard mai strict de preț și publicare, așa că predicțiile anterioare sunt excluse.',
-    primary: 'Vezi angajamentele publice',
+      'Nicio selecție publicată nu s-a încheiat încă. Atunci când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. Predicțiile anterioare rămân disponibile prin filtrul Legacy, dar nu contează.',
+    primary: 'Vezi selecțiile publicate',
     secondary: 'Explorează semnalele live',
   },
   no_pending_claims: {
-    title: 'Niciun angajament public nu așteaptă încheierea',
+    title: 'Nicio selecție publicată nu așteaptă rezultatul',
     body:
-      'Momentan nimic nu este înghețat în așteptarea unui meci. Angajamentele publice apar aici între angajare și finalul meciului.',
+      'Momentan nimic nu este blocat în așteptarea unui meci. Selecțiile publicate apar aici între publicare și finalul meciului.',
     primary: 'Explorează semnalele live',
   },
   no_live_signals: {

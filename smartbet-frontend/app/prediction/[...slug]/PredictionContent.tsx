@@ -31,7 +31,7 @@ export default function PredictionContent({ fixture, lastUpdated }: PredictionCo
         <ProofCapturePanel
           source="prediction_page"
           leagueInterest={fixture.league}
-          title="Follow the verified record by email."
+          title="Follow published picks and results by email."
           description="Occasional updates from the public record: new commitments, settled results, and methodology changes — wins and losses alike."
         />
       </div>

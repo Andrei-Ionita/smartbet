@@ -250,7 +250,7 @@ export default function ExploreContent() {
                     </div>
                     {commitments.has(fixture.fixture_id) && (
                       <span className="mt-4 inline-flex items-center gap-1 rounded-full border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-wide text-indigo-800">
-                        <Lock className="h-3 w-3" /> {ro ? 'Angajament public' : 'Public commitment'}
+                        <Lock className="h-3 w-3" /> {ro ? 'Selecție blocată' : 'Locked pick'}
                       </span>
                     )}
                     <div className="mt-5 border-t border-slate-100 pt-4 text-sm font-semibold text-blue-700 group-hover:text-blue-900">

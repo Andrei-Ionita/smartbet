@@ -6,7 +6,7 @@ import { useLanguage } from '../contexts/LanguageContext';
 import { MODEL_SCORE_NOTE, getCopy } from '../lib/terminology';
 import ProofCapturePanel from '../components/ProofCapturePanel';
 import ShareProofButton from '../components/ShareProofButton';
-import { StatusBadge, StatusLegend, statusFromClaim } from '../components/StatusBadge';
+import { StatusBadge, statusFromClaim } from '../components/StatusBadge';
 import EmptyState from '../components/EmptyState';
 
 interface PredictionWithResult {
@@ -383,40 +383,31 @@ export default function TrackRecordContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* What actually counts towards this page. Stated before any figure,
-            because "track record" previously implied every prediction ever
-            made — which is not what this measures. */}
-        <section
-          aria-labelledby="record-scope"
-          className="mb-8 rounded-2xl border border-gray-200 bg-white p-6"
-        >
-          <h2 id="record-scope" className="text-lg font-bold text-gray-900">
+        <details className="mb-8 rounded-xl border border-gray-200 bg-white p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-gray-800">
             {rec.scopeHeading}
-          </h2>
+          </summary>
           <ul className="mt-3 space-y-2 text-sm leading-relaxed text-gray-700">
             <li>{rec.scopeCutoff}</li>
             <li>{rec.scopeImmutable}</li>
             <li>{rec.scopePending}</li>
             <li>{rec.scopeLive}</li>
           </ul>
-          <StatusLegend className="mt-5 border-t border-gray-200 pt-5" lang={language} />
-        </section>
+        </details>
 
         {/* PUBLISHED PICKS — the objects. Anchored so the onboarding panel can
             send someone to the thing it just described, rather than to the top
             of a long page. Deliberately separate from the verified record
             below: a pending pick belongs here and belongs in no total. */}
-        {/* Legacy anchor alias. Onboarding, proof pages and external links
-            shipped with #published-picks for weeks; the concept is now a
-            PUBLIC COMMITMENT, but old links must keep landing here. */}
-        <span id="published-picks" className="scroll-mt-24" aria-hidden="true" />
+        {/* Keep the old anchor working for previously shared links. */}
+        <span id="public-commitments" className="scroll-mt-24" aria-hidden="true" />
         <section
-          id="public-commitments"
-          aria-labelledby="public-commitments-heading"
+          id="published-picks"
+          aria-labelledby="published-picks-heading"
           className="mb-8 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
         >
           <h2
-            id="public-commitments-heading"
+            id="published-picks-heading"
             className="text-lg font-bold text-gray-900"
           >
             {rec.publishedHeading}
@@ -430,34 +421,22 @@ export default function TrackRecordContent() {
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.publishedDistinction}
           </p>
-          <p className="mt-3 text-sm leading-relaxed text-gray-700">
-            {rec.publishedStates}
-          </p>
+          <p className="mt-3 text-sm leading-relaxed text-gray-700">{rec.publishedStates}</p>
 
-          {/* Honest publication policy. Automatic since policy v1
-              (auto_publish_claims, 2026-08-08), hard-gated by machine-checked
-              eligibility — and never a value claim. Kept in a disclosure so
-              the ledger stays a ledger. */}
           <details className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-3">
             <summary className="cursor-pointer text-sm font-semibold text-gray-800">
-              {rec.policyLink}
+              {language === 'ro' ? 'Cum funcționează publicarea și verificarea' : 'How publishing and verification work'}
             </summary>
             <p className="mt-2 text-sm leading-relaxed text-gray-700">
               {rec.policyBody}
             </p>
+            <a
+              href="/proof/anchors"
+              className="mt-2 inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-700 underline-offset-2 hover:underline"
+            >
+              {language === 'ro' ? 'Detalii tehnice de verificare' : 'Technical verification details'} →
+            </a>
           </details>
-
-          {/* The answer to "why should I believe the timestamp?" — an
-              independent, Bitcoin-anchored proof anyone can check without us. */}
-          <a
-            href="/proof/anchors"
-            className="mt-3 inline-flex min-h-[44px] items-center text-sm font-semibold text-blue-700 underline-offset-2 hover:underline"
-          >
-            {language === 'ro'
-              ? 'Marcaje de timp independente — verifică singur'
-              : 'Independent timestamps — verify them yourself'}{' '}
-            →
-          </a>
 
           {claimsError ? (
             <div
@@ -524,14 +503,6 @@ export default function TrackRecordContent() {
                       <span>
                         {rec.publishedAtLabel}: {formatDate(claim.published_at)}
                       </span>
-                      {claim.price_age_hours_at_publication !== null && (
-                        <span>
-                          {rec.publishedPriceAgeLabel}:{' '}
-                          {claim.price_age_hours_at_publication < 1
-                            ? `${Math.round(claim.price_age_hours_at_publication * 60)}m`
-                            : `${claim.price_age_hours_at_publication.toFixed(1)}h`}
-                        </span>
-                      )}
                       {claim.result && (
                         <span>
                           {claim.result.actual_score_home !== null &&
@@ -541,20 +512,6 @@ export default function TrackRecordContent() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
-                      <span>
-                        {claim.price_fresh_at_publication
-                          ? rec.publishedFreshLabel
-                          : rec.publishedStaleLabel}
-                      </span>
-                      {claim.ranking_version && (
-                        <span className="break-all font-mono">
-                          {rec.publishedVersionLabel}: {claim.ranking_version}
-                        </span>
-                      )}
-                    </div>
-                    {/* Stated per row: presence in this list is not inclusion
-                        in the verified record. */}
                     <p className="mt-1 text-xs text-gray-500">
                       {claim.counts_towards_verified_record
                         ? rec.publishedCountedIn
@@ -562,6 +519,34 @@ export default function TrackRecordContent() {
                           ? rec.publishedNotCounted
                           : rec.publishedExcludedFromRecord}
                     </p>
+                    <details className="mt-2 text-xs text-gray-600">
+                      <summary className="cursor-pointer font-semibold text-gray-700">
+                        {language === 'ro' ? 'Detalii de verificare' : 'Verification details'}
+                      </summary>
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg bg-gray-50 p-3">
+                        {claim.price_age_hours_at_publication !== null && (
+                          <span>
+                            {rec.publishedPriceAgeLabel}:{' '}
+                            {claim.price_age_hours_at_publication < 1
+                              ? `${Math.round(claim.price_age_hours_at_publication * 60)}m`
+                              : `${claim.price_age_hours_at_publication.toFixed(1)}h`}
+                          </span>
+                        )}
+                        <span>
+                          {claim.price_fresh_at_publication
+                            ? rec.publishedFreshLabel
+                            : rec.publishedStaleLabel}
+                        </span>
+                        {claim.ranking_version && (
+                          <span className="break-all font-mono">
+                            {rec.publishedVersionLabel}: {claim.ranking_version}
+                          </span>
+                        )}
+                        <a href={claim.proof_url} className="font-semibold text-blue-700 hover:text-blue-900">
+                          {language === 'ro' ? 'Deschide dovada tehnică' : 'Open technical proof'} →
+                        </a>
+                      </div>
+                    </details>
                   </li>
                 ))}
               </ul>
@@ -569,15 +554,14 @@ export default function TrackRecordContent() {
           )}
         </section>
 
-        {/* VERIFIED RECORD — the aggregate. Anchored, and explicitly scoped so
-            the figures below cannot be read as "every prediction ever made". */}
+        <span id="verified-record" className="scroll-mt-24" aria-hidden="true" />
         <section
-          id="verified-record"
-          aria-labelledby="verified-record-heading"
+          id="results"
+          aria-labelledby="results-heading"
           className="mb-8 scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
         >
           <h2
-            id="verified-record-heading"
+            id="results-heading"
             className="text-lg font-bold text-gray-900"
           >
             {rec.verifiedHeading}
@@ -1056,49 +1040,6 @@ export default function TrackRecordContent() {
           />
         </div>
 
-        {/* Transparency Notice */}
-        <div className="mt-8 bg-gradient-to-r from-blue-50 to-blue-100 border-2 border-blue-300 rounded-lg p-6">
-          <h3 className="font-semibold text-blue-900 mb-3 text-lg">{t('trackRecord.transparency.title')}</h3>
-
-          <div className="mb-4 p-4 bg-white rounded-lg border border-blue-200">
-            <h4 className="font-semibold text-blue-900 mb-2">{t('trackRecord.transparency.whatWeTrack')}</h4>
-            <p className="text-sm text-blue-800">
-              {t('trackRecord.transparency.whatWeTrackDesc')}
-            </p>
-            <p className="text-sm text-blue-800 mt-2">
-              <strong>{t('trackRecord.transparency.why')}</strong> {t('trackRecord.transparency.whyDesc')}
-            </p>
-          </div>
-
-          <ul className="space-y-2 text-sm text-blue-800">
-            <li className="flex items-start gap-2">
-              <span className="text-green-600 font-bold">✓</span>
-              <span><strong>{t('trackRecord.transparency.points.timestamped')}:</strong> {t('trackRecord.transparency.points.timestampedDesc')}</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600 font-bold">✓</span>
-              <span><strong>{t('trackRecord.transparency.points.verified')}:</strong> {t('trackRecord.transparency.points.verifiedDesc')}</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600 font-bold">✓</span>
-              <span><strong>{t('trackRecord.transparency.points.permanent')}:</strong> {t('trackRecord.transparency.points.permanentDesc')}</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600 font-bold">✓</span>
-              <span><strong>{t('trackRecord.transparency.points.history')}:</strong> {t('trackRecord.transparency.points.historyDesc')}</span>
-            </li>
-            <li className="flex items-start gap-2">
-              <span className="text-green-600 font-bold">✓</span>
-              <span><strong>{t('trackRecord.transparency.points.updates')}:</strong> {t('trackRecord.transparency.points.updatesDesc')}</span>
-            </li>
-          </ul>
-
-          <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-xs text-yellow-900">
-              <strong>{t('trackRecord.transparency.note')}</strong> {t('trackRecord.transparency.noteDesc')}
-            </p>
-          </div>
-        </div>
       </div>
     </div>
   );

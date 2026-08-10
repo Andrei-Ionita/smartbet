@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'About BetGlitch — how a signal becomes a public result',
     description:
-      'Every signal explained, every public commitment verifiable and every eligible result visible.',
+      'Every signal explained, every published pick locked before kickoff and every eligible result visible.',
     url: 'https://betglitch.com/about',
   },
 }
@@ -47,7 +47,7 @@ export default function AboutPage() {
         <div className="text-center mb-16">
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-4">About BetGlitch</h1>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto leading-relaxed">
-            Every signal explained. Every commitment verifiable. Every eligible
+            Every signal explained. Every published pick locked. Every eligible
             result visible — win or lose.
           </p>
         </div>
@@ -62,14 +62,14 @@ export default function AboutPage() {
             their losing bets and inflate their track records. We do the opposite.
           </p>
           <p className="text-gray-700 leading-relaxed">
-            BetGlitch generates far more live signals than it commits. When a
-            signal <em>is</em> committed, it is frozen before kickoff with its
-            selection, signal score, recorded odds and bookmaker, and it stays
+            BetGlitch generates far more live signals than it publishes. When a
+            pick <em>is</em> published, it is locked before kickoff with its
+            selection, signal score, recorded odds and bookmaker, and stays
             public afterwards whether it wins or loses. Our{' '}
             <Link href="/track-record" className="text-primary-600 hover:underline font-medium">
-              verified record
+              results
             </Link>{' '}
-            contains every eligible public commitment that has settled — never a filtered
+            contain every eligible published pick that has settled — never a filtered
             subset of them.
           </p>
         </div>
@@ -92,16 +92,16 @@ export default function AboutPage() {
                 body: 'BetGlitch filters and ranks those provider probabilities against recorded prices, producing a signal score. Every run is written to an append-only snapshot: a newer snapshot can supersede a signal, but no snapshot is ever edited or deleted.',
               },
               {
-                title: 'Public commitment (automatic gate)',
-                body: 'A fixed rule commits eligible snapshots before kickoff. Publication freezes the market, selection, signal score, recorded odds, bookmaker, methodology version and timestamps. Most snapshots are never committed.',
+                title: 'Published pick (automatic gate)',
+                body: 'A fixed rule publishes eligible snapshots before kickoff. Publication locks the market, selection, signal score, recorded odds, bookmaker, methodology version and timestamps. Most snapshots are never published.',
               },
               {
                 title: 'Settlement (automatic)',
-                body: 'After full-time, a public commitment is graded against the fields frozen at publication — not against anything that could have changed since. Results are inserted, never overwritten.',
+                body: 'After full-time, a published pick is graded against the fields locked at publication — not against anything that could have changed since. Results are inserted, never overwritten.',
               },
               {
-                title: 'Verified record',
-                body: 'Eligible settled public commitments form the only universe behind any public accuracy, ROI or win/loss figure.',
+                title: 'Results',
+                body: 'Eligible settled published picks form the only universe behind any public accuracy, ROI or win/loss figure.',
               },
             ].map((step, i) => (
               <li key={step.title} className="flex gap-4">
@@ -138,11 +138,11 @@ export default function AboutPage() {
               },
               {
                 term: 'Realized ROI',
-                def: 'Actual profit or loss across eligible settled public commitments, at the exact odds recorded at publication.',
+                def: 'Actual profit or loss across eligible settled published picks, at the exact odds recorded at publication.',
               },
               {
-                term: 'Verified result',
-                def: 'The settled outcome of a public commitment, graded on its frozen fields.',
+                term: 'Published result',
+                def: 'The settled outcome of a published pick, graded on its locked fields.',
               },
             ].map(({ term, def }) => (
               <div key={term}>
@@ -250,7 +250,7 @@ export default function AboutPage() {
             <div className="flex items-start gap-3">
               <Shield className="h-5 w-5 text-green-600 flex-shrink-0 mt-1" />
               <div>
-                <h3 className="font-semibold text-gray-900">Public commitments stay public</h3>
+                <h3 className="font-semibold text-gray-900">Published picks stay public</h3>
                 <p className="text-sm text-gray-600">A commitment is never withdrawn, re-priced or re-graded. Losses stay up next to the wins, at equal prominence.</p>
               </div>
             </div>
