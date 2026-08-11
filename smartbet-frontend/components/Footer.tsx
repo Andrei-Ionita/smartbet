@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
+import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { Trophy, Mail, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '@/app/contexts/LanguageContext'
@@ -60,11 +60,13 @@ export default function Footer() {
                                     {f.explore}
                                 </Link>
                             </li>
-                            <li>
-                                <Link href="/dashboard" className="text-gray-600 hover:text-primary-600 transition-colors">
-                                    {f.dashboard}
-                                </Link>
-                            </li>
+                            {ACCOUNT_FEATURES_ENABLED && (
+                              <li>
+                                  <Link href="/dashboard" className="text-gray-600 hover:text-primary-600 transition-colors">
+                                      {f.dashboard}
+                                  </Link>
+                              </li>
+                            )}
                             <li>
                                 <Link href="/track-record" className="text-gray-600 hover:text-primary-600 transition-colors">
                                     {f.trackRecord}

@@ -2,9 +2,9 @@
 Append-only capture of provider signal evidence.
 
 Reads the internal evidence feed (server-to-server, shared secret) and writes
-one SignalObservation per fixture-market-outcome candidate. It performs no
-ranking, publishes nothing, and never touches PredictionLog, PredictionSnapshot
-or PublishedClaim.
+one SignalObservation per fixture-market-outcome candidate plus one compact
+FixtureContextObservation whenever the pre-match context changes. It performs
+no ranking and publishes nothing.
 
 Idempotency is content-derived, exactly like the prediction run id: the hash
 covers the provider values and the price for that one candidate, so replaying a
@@ -18,7 +18,7 @@ import uuid
 import requests
 from django.utils import timezone
 
-from core.models import SignalObservation
+from core.models import FixtureContextObservation, SignalObservation
 from core.services.integrity import canonical_sha256, norm_dt, norm_num
 
 logger = logging.getLogger(__name__)
@@ -84,6 +84,108 @@ def observation_hash(candidate):
         # and bookmaker quote did not move.
         'provider_context': candidate.get('provider_context') or {},
     })
+
+
+def context_hash(context):
+    """Content identity for a fixture-context snapshot.
+
+    Capture time is excluded intentionally. A new row means the pre-match facts
+    changed, not merely that the scheduler ran again.
+    """
+    return canonical_sha256({
+        'v': 1,
+        'fixture_id': context.get('fixture_id'),
+        'fixture_predictable': context.get('fixture_predictable'),
+        'lineup_status': context.get('lineup_status'),
+        'home_formation': context.get('home_formation') or '',
+        'away_formation': context.get('away_formation') or '',
+        'home_form': context.get('home_form') or '',
+        'away_form': context.get('away_form') or '',
+        'sidelined': context.get('sidelined') or [],
+        'lineups': context.get('lineups') or [],
+        'referees': context.get('referees') or [],
+        'venue': context.get('venue'),
+        'neutral_venue': context.get('neutral_venue'),
+        'data_availability': context.get('data_availability') or {},
+    })
+
+
+def _capture_contexts(payload, run_id):
+    written = skipped = invalid = post_kickoff = 0
+    contexts = payload.get('fixture_contexts') or []
+
+    for context in contexts:
+        kickoff = _as_aware(context.get('kickoff'))
+        observed_at = _as_aware(context.get('observed_at')) or timezone.now()
+        if kickoff is None or not context.get('fixture_id'):
+            invalid += 1
+            continue
+
+        hours = (kickoff - observed_at).total_seconds() / 3600.0
+        if hours < 0:
+            post_kickoff += 1
+
+        digest = context_hash(context)
+        if FixtureContextObservation.objects.filter(
+            source_payload_hash=digest,
+        ).exists():
+            skipped += 1
+            continue
+
+        sidelined = context.get('sidelined') or []
+        home_id = context.get('home_team_id')
+        away_id = context.get('away_team_id')
+        try:
+            FixtureContextObservation.objects.create(
+                observation_id=uuid.uuid4(),
+                ingestion_run_id=run_id,
+                source_payload_hash=digest,
+                fixture_id=context['fixture_id'],
+                home_team=(context.get('home_team') or '')[:100],
+                away_team=(context.get('away_team') or '')[:100],
+                league=(context.get('league') or '')[:100],
+                league_id=context.get('league_id'),
+                kickoff=kickoff,
+                observed_at=observed_at,
+                hours_to_kickoff=hours,
+                fixture_predictable=context.get('fixture_predictable'),
+                lineup_status=(context.get('lineup_status') or 'unavailable')[:24],
+                home_formation=(context.get('home_formation') or '')[:32],
+                away_formation=(context.get('away_formation') or '')[:32],
+                home_form=(context.get('home_form') or '')[:20],
+                away_form=(context.get('away_form') or '')[:20],
+                home_sidelined_count=sum(
+                    1 for row in sidelined
+                    if row.get('participant_id') == home_id
+                ),
+                away_sidelined_count=sum(
+                    1 for row in sidelined
+                    if row.get('participant_id') == away_id
+                ),
+                sidelined=sidelined,
+                lineups=context.get('lineups') or [],
+                referees=context.get('referees') or [],
+                venue=context.get('venue'),
+                neutral_venue=context.get('neutral_venue'),
+                data_availability=context.get('data_availability') or {},
+                provider=(context.get('provider') or 'sportmonks')[:32],
+                calculation_version=(
+                    context.get('calculation_version') or ''
+                )[:80],
+            )
+            written += 1
+        except Exception:
+            logger.exception('failed to append context for fixture %s',
+                             context.get('fixture_id'))
+            invalid += 1
+
+    return {
+        'contexts': len(contexts),
+        'context_written': written,
+        'context_skipped_duplicate': skipped,
+        'context_invalid': invalid,
+        'context_post_kickoff': post_kickoff,
+    }
 
 
 def fetch_evidence(base_url=None, secret=None, days=5):
@@ -196,7 +298,7 @@ def capture(payload, ingestion_run_id=None):
                              candidate.get('fixture_id'))
             invalid += 1
 
-    return {
+    summary = {
         'ingestion_run_id': run_id,
         'candidates': len(candidates),
         'written': written,
@@ -205,3 +307,5 @@ def capture(payload, ingestion_run_id=None):
         'post_kickoff': post_kickoff,
         'fixtures': len({c.get('fixture_id') for c in candidates}),
     }
+    summary.update(_capture_contexts(payload, run_id))
+    return summary

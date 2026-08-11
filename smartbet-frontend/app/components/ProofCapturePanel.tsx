@@ -1,7 +1,6 @@
 'use client'
 
 import Link from 'next/link'
-import EmailCapture from './EmailCapture'
 import { useLanguage } from '../contexts/LanguageContext'
 import { getCopy } from '../lib/terminology'
 
@@ -13,10 +12,8 @@ interface ProofCapturePanelProps {
 }
 
 export default function ProofCapturePanel({
-  source,
   title,
   description,
-  leagueInterest = '',
 }: ProofCapturePanelProps) {
   const { language } = useLanguage()
   const rec = getCopy(language).record
@@ -54,14 +51,9 @@ export default function ProofCapturePanel({
             </Link>
           </div>
         </div>
-        <div className="w-full max-w-md">
-          <EmailCapture
-            source={source}
-            leagueInterest={leagueInterest}
-            interests={['weekly_picks', 'track_record', 'premium_launch']}
-            title={rec.captureTitle}
-            description={rec.captureBody}
-          />
+        <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-5 text-sm leading-6 text-gray-600">
+          <p className="font-semibold text-gray-900">{rec.captureTitle}</p>
+          <p className="mt-2">{rec.captureBody}</p>
         </div>
       </div>
     </div>

@@ -4,12 +4,17 @@ import { useState } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { User, Shield, Key, LogOut, Trash2, AlertTriangle, Save } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 
 export default function ProfilePage() {
-    const { user, logout } = useAuth()
+    const { user, logout, deleteAccount } = useAuth()
     const router = useRouter()
     const [riskProfile, setRiskProfile] = useState('balanced')
     const [isSaving, setIsSaving] = useState(false)
+    const [deleteOpen, setDeleteOpen] = useState(false)
+    const [deletePassword, setDeletePassword] = useState('')
+    const [deleteError, setDeleteError] = useState('')
+    const [isDeleting, setIsDeleting] = useState(false)
 
     if (!user) {
         if (typeof window !== 'undefined') {
@@ -28,6 +33,18 @@ export default function ProfilePage() {
     const handleLogout = () => {
         logout()
         router.push('/')
+    }
+
+    const handleDelete = async (event: React.FormEvent) => {
+        event.preventDefault()
+        setDeleteError('')
+        setIsDeleting(true)
+        try {
+            await deleteAccount(deletePassword)
+        } catch (error) {
+            setDeleteError(error instanceof Error ? error.message : 'Account deletion failed.')
+            setIsDeleting(false)
+        }
     }
 
     return (
@@ -140,9 +157,12 @@ export default function ProfilePage() {
                     </div>
 
                     <div className="p-6">
-                        <button className="text-primary-600 font-medium hover:text-primary-700 hover:underline">
+                        <Link
+                            href="/forgot-password"
+                            className="inline-flex min-h-[44px] items-center text-primary-600 font-medium hover:text-primary-700 hover:underline"
+                        >
                             Change Password
-                        </button>
+                        </Link>
                     </div>
                 </div>
 
@@ -163,11 +183,51 @@ export default function ProfilePage() {
                             <LogOut className="h-4 w-4" />
                             Log Out
                         </button>
-                        <button className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => setDeleteOpen((open) => !open)}
+                            className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium flex items-center gap-2"
+                        >
                             <Trash2 className="h-4 w-4" />
                             Delete Account
                         </button>
                     </div>
+                    {deleteOpen && (
+                        <form onSubmit={handleDelete} className="mt-5 max-w-lg rounded-xl border border-red-300 bg-white p-4">
+                            <label htmlFor="delete-password" className="block text-sm font-semibold text-red-900">
+                                Confirm your password
+                            </label>
+                            <p className="mt-1 text-xs leading-relaxed text-red-700">
+                                This permanently deletes your account and associated bankroll data. It cannot be undone.
+                            </p>
+                            <input
+                                id="delete-password"
+                                type="password"
+                                autoComplete="current-password"
+                                required
+                                value={deletePassword}
+                                onChange={(event) => setDeletePassword(event.target.value)}
+                                className="mt-3 min-h-[44px] w-full rounded-lg border border-red-300 px-3 text-gray-900 focus:border-red-500 focus:outline-none focus:ring-2 focus:ring-red-200"
+                            />
+                            {deleteError && <p role="alert" className="mt-2 text-sm text-red-700">{deleteError}</p>}
+                            <div className="mt-4 flex flex-wrap gap-3">
+                                <button
+                                    type="submit"
+                                    disabled={isDeleting}
+                                    className="min-h-[44px] rounded-lg bg-red-700 px-4 font-semibold text-white hover:bg-red-800 disabled:opacity-50"
+                                >
+                                    {isDeleting ? 'Deleting…' : 'Permanently delete my account'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => { setDeleteOpen(false); setDeletePassword(''); setDeleteError('') }}
+                                    className="min-h-[44px] rounded-lg border border-gray-300 px-4 font-semibold text-gray-700 hover:bg-gray-50"
+                                >
+                                    Cancel
+                                </button>
+                            </div>
+                        </form>
+                    )}
                 </div>
             </div>
         </div>

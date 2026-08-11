@@ -66,6 +66,40 @@ function normalize(value: unknown): number | null {
   return n > 1 ? n / 100 : n
 }
 
+function metadataValue(metadata: unknown, keys: string[]): unknown {
+  if (!Array.isArray(metadata)) return null
+  for (const row of metadata) {
+    if (!row || typeof row !== 'object') continue
+    const item = row as Record<string, any>
+    const values = item.values && typeof item.values === 'object' ? item.values : {}
+    for (const key of keys) {
+      if (Object.prototype.hasOwnProperty.call(values, key)) return values[key]
+      if (item.name === key || item.key === key) return item.value
+    }
+  }
+  return null
+}
+
+function asBoolean(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (value === 1 || value === '1' || value === 'true') return true
+  if (value === 0 || value === '0' || value === 'false') return false
+  return null
+}
+
+function compactName(row: any): string | null {
+  return row?.player_name ?? row?.display_name ?? row?.name ??
+    row?.player?.display_name ?? row?.player?.name ??
+    row?.referee?.display_name ?? row?.referee?.name ?? null
+}
+
+function formationFor(rows: unknown, participantId: number | undefined): string {
+  if (!Array.isArray(rows) || !participantId) return ''
+  const row = rows.find((item: any) => item?.participant_id === participantId)
+  const value = row?.formation ?? row?.value ?? row?.name
+  return typeof value === 'string' ? value.slice(0, 32) : ''
+}
+
 const api = async (url: string) => {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), 30000)
@@ -112,6 +146,7 @@ export async function GET(request: NextRequest) {
     const leagueIds: number[] = (leaguesData.data || []).map((l: any) => l.id).slice(0, 30)
 
     const candidates: any[] = []
+    const fixtureContexts: any[] = []
     let fixturesSeen = 0
 
     // Team form drives the Variant-B multiplier. It comes from STANDINGS, keyed
@@ -142,7 +177,9 @@ export async function GET(request: NextRequest) {
     for (const leagueId of leagueIds) {
       const params = new URLSearchParams({
         api_token: token,
-        include: 'participants;league;metadata;predictions.type;odds;odds.bookmaker',
+        // These light pre-match relations explain changing decisions. Large
+        // historical-statistic payloads remain a separate shadow experiment.
+        include: 'participants;league;metadata;predictions.type;odds;odds.bookmaker;sidelined;formations;referees;venue;lineups',
         filters: `fixtureLeagues:${leagueId}`,
         per_page: '50',
         page: '1',
@@ -176,6 +213,100 @@ export async function GET(request: NextRequest) {
 
         const home = fixture.participants?.find((p: any) => p.meta?.location === 'home')
         const away = fixture.participants?.find((p: any) => p.meta?.location === 'away')
+
+        const seasonForm = formBySeason.get(fixture.season_id) ?? new Map()
+        const homeParsed = formFor(seasonForm, home?.id)
+        const awayParsed = formFor(seasonForm, away?.id)
+        const lineups = Array.isArray(fixture.lineups) ? fixture.lineups : []
+        const sidelined = Array.isArray(fixture.sidelined) ? fixture.sidelined : []
+        const referees = Array.isArray(fixture.referees) ? fixture.referees : []
+        const confirmed = asBoolean(metadataValue(
+          fixture.metadata,
+          ['lineup_confirmed', 'lineups_confirmed', 'confirmed'],
+        ))
+        const neutralVenue = asBoolean(metadataValue(
+          fixture.metadata,
+          ['neutral', 'neutral_venue'],
+        ))
+
+        const compactLineups = lineups.map((row: any) => ({
+          participant_id: row?.participant_id ?? null,
+          player_id: row?.player_id ?? null,
+          player_name: compactName(row),
+          type_id: row?.type_id ?? null,
+          position_id: row?.position_id ?? null,
+          formation_position: row?.formation_position ?? null,
+        })).sort((a: any, b: any) =>
+          Number(a.participant_id ?? 0) - Number(b.participant_id ?? 0) ||
+          Number(a.formation_position ?? 999) - Number(b.formation_position ?? 999) ||
+          Number(a.player_id ?? 0) - Number(b.player_id ?? 0))
+
+        const compactSidelined = sidelined.map((row: any) => ({
+          participant_id: row?.participant_id ?? null,
+          player_id: row?.player_id ?? null,
+          player_name: compactName(row),
+          type_id: row?.type_id ?? null,
+          category_id: row?.category_id ?? null,
+          start_date: row?.start_date ?? null,
+          end_date: row?.end_date ?? null,
+        })).sort((a: any, b: any) =>
+          Number(a.participant_id ?? 0) - Number(b.participant_id ?? 0) ||
+          Number(a.player_id ?? 0) - Number(b.player_id ?? 0))
+
+        const compactReferees = referees.map((row: any) => ({
+          id: row?.id ?? row?.referee_id ?? null,
+          referee_id: row?.referee_id ?? null,
+          type_id: row?.type_id ?? null,
+          name: compactName(row),
+        })).sort((a: any, b: any) => Number(a.id ?? 0) - Number(b.id ?? 0))
+
+        const venue = fixture.venue ? {
+          id: fixture.venue.id ?? null,
+          name: fixture.venue.name ?? null,
+          city_name: fixture.venue.city_name ?? fixture.venue.city?.name ?? null,
+          capacity: fixture.venue.capacity ?? null,
+          latitude: fixture.venue.latitude ?? null,
+          longitude: fixture.venue.longitude ?? null,
+        } : null
+        const homeFormation = formationFor(fixture.formations, home?.id)
+        const awayFormation = formationFor(fixture.formations, away?.id)
+
+        fixtureContexts.push({
+          fixture_id: fixture.id,
+          home_team: home?.name ?? 'Home',
+          away_team: away?.name ?? 'Away',
+          home_team_id: home?.id ?? null,
+          away_team_id: away?.id ?? null,
+          league: fixture.league?.name ?? '',
+          league_id: fixture.league?.id ?? leagueId,
+          kickoff: fixture.starting_at,
+          observed_at: observedAt,
+          provider: 'sportmonks',
+          fixture_predictable: fixturePredictability(fixture.metadata),
+          lineup_status: confirmed === true
+            ? 'confirmed'
+            : compactLineups.length > 0 ? 'available_unconfirmed' : 'unavailable',
+          home_formation: homeFormation,
+          away_formation: awayFormation,
+          home_form: homeParsed.available ? homeParsed.letters : '',
+          away_form: awayParsed.available ? awayParsed.letters : '',
+          sidelined: compactSidelined,
+          lineups: compactLineups,
+          referees: compactReferees,
+          venue,
+          neutral_venue: neutralVenue,
+          data_availability: {
+            predictability: fixturePredictability(fixture.metadata) !== null,
+            lineups: compactLineups.length > 0,
+            formations: Boolean(homeFormation || awayFormation),
+            sidelined: Array.isArray(fixture.sidelined),
+            referees: compactReferees.length > 0,
+            venue: Boolean(venue),
+            home_form: homeParsed.available,
+            away_form: awayParsed.available,
+          },
+          calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
+        })
 
         for (const [market, cfg] of Object.entries(PROVIDER_MARKETS) as
           [ProductMarket, typeof PROVIDER_MARKETS[ProductMarket]][]) {
@@ -229,9 +360,6 @@ export async function GET(request: NextRequest) {
           const selectedOutcome = entries[0]?.[0]
           const gap = entries.length > 1 ? entries[0][1] - entries[1][1] : null
 
-          const seasonForm = formBySeason.get(fixture.season_id) ?? new Map()
-          const homeParsed = formFor(seasonForm, home?.id)
-          const awayParsed = formFor(seasonForm, away?.id)
           const homeForm = homeParsed.letters
           const awayForm = awayParsed.letters
           const predictingHome = selectedOutcome === 'home' || selectedOutcome === '1x'
@@ -372,11 +500,13 @@ export async function GET(request: NextRequest) {
       observed_at: observedAt,
       fixtures_seen: fixturesSeen,
       candidate_count: candidates.length,
+      fixture_context_count: fixtureContexts.length,
       // Request accounting, so cost is visible rather than inferred.
       form_requests: formRequests,
       form_ms: formMs,
       seasons_seen: formBySeason.size,
       candidates,
+      fixture_contexts: fixtureContexts,
     })
   } catch (error: any) {
     // Controlled error. No provider detail, no stack, no token.

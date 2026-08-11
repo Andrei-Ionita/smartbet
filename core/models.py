@@ -1643,6 +1643,87 @@ class SignalObservation(models.Model):
         super().save(*args, **kwargs)
 
 
+class FixtureContextObservation(models.Model):
+    """Append-only pre-match context for one fixture.
+
+    SignalObservation preserves probabilities and prices. This companion model
+    preserves the information that can explain why a view changed: lineup
+    availability, formations, absences, form, venue and referee coverage.
+
+    A row is written only when that canonical context changes. ``observed_at``
+    is deliberately not part of the content hash, so an unchanged scheduler
+    retry cannot manufacture activity in the public timeline.
+    """
+
+    LINEUP_CONFIRMED = 'confirmed'
+    LINEUP_AVAILABLE = 'available_unconfirmed'
+    LINEUP_UNAVAILABLE = 'unavailable'
+    LINEUP_STATUS_CHOICES = [
+        (LINEUP_CONFIRMED, 'Confirmed'),
+        (LINEUP_AVAILABLE, 'Available, not confirmed'),
+        (LINEUP_UNAVAILABLE, 'Unavailable'),
+    ]
+
+    observation_id = models.UUIDField(primary_key=True, editable=False)
+    ingestion_run_id = models.CharField(max_length=64, db_index=True)
+    source_payload_hash = models.CharField(max_length=64, unique=True)
+
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100, blank=True, default='')
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField(db_index=True)
+    observed_at = models.DateTimeField(db_index=True)
+    hours_to_kickoff = models.FloatField()
+
+    fixture_predictable = models.BooleanField(null=True, blank=True)
+    lineup_status = models.CharField(
+        max_length=24,
+        choices=LINEUP_STATUS_CHOICES,
+        default=LINEUP_UNAVAILABLE,
+    )
+    home_formation = models.CharField(max_length=32, blank=True, default='')
+    away_formation = models.CharField(max_length=32, blank=True, default='')
+    home_form = models.CharField(max_length=20, blank=True, default='')
+    away_form = models.CharField(max_length=20, blank=True, default='')
+    home_sidelined_count = models.PositiveSmallIntegerField(default=0)
+    away_sidelined_count = models.PositiveSmallIntegerField(default=0)
+
+    # Raw-but-compact provider facts. They remain separate so future feature
+    # work does not have to reconstruct a historical payload after kickoff.
+    sidelined = models.JSONField(default=list, blank=True)
+    lineups = models.JSONField(default=list, blank=True)
+    referees = models.JSONField(default=list, blank=True)
+    venue = models.JSONField(null=True, blank=True)
+    neutral_venue = models.BooleanField(null=True, blank=True)
+    data_availability = models.JSONField(default=dict, blank=True)
+
+    provider = models.CharField(max_length=32, default='sportmonks')
+    calculation_version = models.CharField(max_length=80, blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Fixture Context Observation'
+        ordering = ['-observed_at']
+        indexes = [
+            models.Index(fields=['fixture_id', 'observed_at']),
+            models.Index(fields=['kickoff']),
+            models.Index(fields=['ingestion_run_id']),
+        ]
+
+    def __str__(self):
+        return f'{self.fixture_id} context @ {self.hours_to_kickoff:.1f}h'
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError(
+                'FixtureContextObservation is append-only — record a new '
+                'observation instead of changing history.'
+            )
+        super().save(*args, **kwargs)
+
+
 class FixtureResultObservation(models.Model):
     """An APPEND-ONLY provider result for one fixture, at one point in time.
 

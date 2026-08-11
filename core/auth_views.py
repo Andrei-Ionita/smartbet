@@ -4,7 +4,10 @@ Handles user registration, login, and token management
 """
 
 import hmac
+import hashlib
+import logging
 import os
+import uuid
 
 from rest_framework import status
 from rest_framework.decorators import api_view, permission_classes
@@ -13,9 +16,22 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from django.contrib.auth import authenticate
+from django.contrib.auth.password_validation import validate_password
+from django.contrib.auth.tokens import default_token_generator
+from django.core.cache import cache
+from django.core.exceptions import ValidationError
+from django.core.validators import validate_email
+from django.db import transaction
+from django.utils.encoding import force_bytes, force_str
+from django.utils.http import urlsafe_base64_decode, urlsafe_base64_encode
 from django.views.decorators.csrf import csrf_exempt
 
-from .models import UserProfile
+from .models import EmailSubscriber, UserProfile
+from .services import account_email
+from .services.marketing import MarketingSyncError, sync_marketing_profile
+
+
+logger = logging.getLogger(__name__)
 
 
 def _serialize_user(user: User) -> dict:
@@ -54,7 +70,7 @@ def register(request):
     """
     try:
         username = request.data.get('username')
-        email = request.data.get('email')
+        email = (request.data.get('email') or '').strip().lower()
         password = request.data.get('password')
         first_name = request.data.get('first_name', '')
         last_name = request.data.get('last_name', '')
@@ -71,15 +87,17 @@ def register(request):
                 'error': 'Username already exists'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        if User.objects.filter(email=email).exists():
+        if User.objects.filter(email__iexact=email).exists():
             return Response({
                 'error': 'Email already registered'
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        # Password validation
-        if len(password) < 8:
+        try:
+            validate_email(email)
+            validate_password(password, user=User(username=username, email=email))
+        except ValidationError as exc:
             return Response({
-                'error': 'Password must be at least 8 characters long'
+                'error': ' '.join(exc.messages)
             }, status=status.HTTP_400_BAD_REQUEST)
         
         # Create user
@@ -104,9 +122,10 @@ def register(request):
             }
         }, status=status.HTTP_201_CREATED)
         
-    except Exception as e:
+    except Exception:
+        logger.exception('Registration failed')
         return Response({
-            'error': f'Registration failed: {str(e)}'
+            'error': 'Registration failed. Please try again.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -140,7 +159,7 @@ def login(request):
                 username = email_user.username
             except User.DoesNotExist:
                 return Response({
-                    'error': 'No account found with that email address'
+                    'error': 'Invalid credentials'
                 }, status=status.HTTP_401_UNAUTHORIZED)
         
         # Authenticate user
@@ -169,9 +188,10 @@ def login(request):
             }
         }, status=status.HTTP_200_OK)
         
-    except Exception as e:
+    except Exception:
+        logger.exception('Login failed')
         return Response({
-            'error': f'Login failed: {str(e)}'
+            'error': 'Login failed. Please try again.'
         }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -262,6 +282,132 @@ def refresh_token(request):
         return Response({
             'error': 'Invalid or expired refresh token'
         }, status=status.HTTP_401_UNAUTHORIZED)
+
+
+def _password_reset_rate_limited(request, email):
+    ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip()
+    ip = ip or request.META.get('REMOTE_ADDR', '')
+    digest = hashlib.sha256(f'{ip}|{email.lower()}'.encode()).hexdigest()
+    key = f'password-reset:{digest}'
+    count = cache.get(key, 0)
+    if count >= 5:
+        return True
+    if count:
+        cache.incr(key)
+    else:
+        cache.set(key, 1, timeout=15 * 60)
+    return False
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def request_password_reset(request):
+    """Send a non-enumerating, rate-limited password-reset email."""
+    email = (request.data.get('email') or '').strip().lower()
+    if not email:
+        return Response({'error': 'Email is required'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not account_email.configured():
+        return Response(
+            {'error': 'Password recovery is temporarily unavailable.'},
+            status=status.HTTP_503_SERVICE_UNAVAILABLE,
+        )
+    if _password_reset_rate_limited(request, email):
+        return Response(
+            {'error': 'Too many reset requests. Please try again later.'},
+            status=status.HTTP_429_TOO_MANY_REQUESTS,
+        )
+
+    user = User.objects.filter(email__iexact=email, is_active=True).first()
+    if user:
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        frontend = os.getenv('FRONTEND_URL', 'https://www.betglitch.com').rstrip('/')
+        reset_url = f'{frontend}/reset-password?uid={uid}&token={token}'
+        try:
+            account_email.send_password_reset(user.email, reset_url)
+        except Exception:
+            # Never reveal account existence or provider details to the caller.
+            logger.exception('Password-reset delivery failed')
+
+    return Response({
+        'success': True,
+        'message': 'If an active account exists for that email, a reset link has been sent.',
+    }, status=status.HTTP_202_ACCEPTED)
+
+
+@csrf_exempt
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def confirm_password_reset(request):
+    uid = request.data.get('uid') or ''
+    token = request.data.get('token') or ''
+    password = request.data.get('password') or ''
+    try:
+        user_id = force_str(urlsafe_base64_decode(uid))
+        user = User.objects.get(pk=user_id, is_active=True)
+    except (TypeError, ValueError, OverflowError, User.DoesNotExist):
+        user = None
+
+    if not user or not default_token_generator.check_token(user, token):
+        return Response(
+            {'error': 'This reset link is invalid or has expired.'},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+    try:
+        validate_password(password, user=user)
+    except ValidationError as exc:
+        return Response({'error': ' '.join(exc.messages)},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(password)
+    user.save(update_fields=['password'])
+    return Response({
+        'success': True,
+        'message': 'Password updated. You can now sign in.',
+    })
+
+
+@csrf_exempt
+@api_view(['DELETE'])
+@permission_classes([IsAuthenticated])
+def delete_account(request):
+    """Permanently delete an account after password reconfirmation."""
+    password = request.data.get('password') or ''
+    confirmation = request.data.get('confirmation') or ''
+    if confirmation != 'DELETE':
+        return Response({'error': 'Type DELETE to confirm account deletion.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+    if not request.user.check_password(password):
+        return Response({'error': 'Password is incorrect.'},
+                        status=status.HTTP_400_BAD_REQUEST)
+
+    email = request.user.email
+    subscriber = EmailSubscriber.objects.filter(email__iexact=email).first()
+    if subscriber and subscriber.is_active:
+        try:
+            sync_marketing_profile(subscriber, 'unsubscribe')
+        except MarketingSyncError:
+            # Account deletion is a user right; a marketing-provider outage
+            # cannot hold the local account hostage.
+            logger.warning('Marketing unsubscribe failed during account deletion')
+
+    with transaction.atomic():
+        if subscriber:
+            subscriber.email = f'deleted-{uuid.uuid4().hex}@deleted.invalid'
+            subscriber.is_active = False
+            subscriber.email_platform_status = 'deleted'
+            subscriber.landing_page = ''
+            subscriber.utm_source = ''
+            subscriber.utm_medium = ''
+            subscriber.utm_campaign = ''
+            subscriber.league_interest = ''
+            subscriber.interests = []
+            subscriber.save()
+        request.user.delete()
+
+    return Response({'success': True, 'message': 'Account permanently deleted.'})
 
 
 @csrf_exempt

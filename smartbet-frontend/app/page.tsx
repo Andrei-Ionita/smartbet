@@ -16,7 +16,6 @@ import EmptyState from './components/EmptyState'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
-import EmailCapture from './components/EmailCapture'
 import { StatusBadge } from './components/StatusBadge'
 import { getCopy } from './lib/terminology'
 import { SEARCHABLE_COMPETITION_COUNT } from './lib/coverage'
@@ -568,11 +567,11 @@ export default function HomePage() {
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             <Link
-              href="/register"
-              onClick={() => track('registration_started', { surface: 'homepage' })}
+              href="/track-record"
+              onClick={() => track('home_verified_record_cta', { surface: 'homepage_final' })}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-7 py-3 font-semibold text-gray-900 transition-colors hover:bg-gray-100"
             >
-              {copy.home.createAccount}
+              {copy.home.openRecord}
             </Link>
             <button
               onClick={goExplore}
@@ -583,10 +582,6 @@ export default function HomePage() {
             </button>
           </div>
         </section>
-
-        <div className="mt-12">
-          <EmailCapture variant="hero" source="homepage" />
-        </div>
 
         {/* ── 9. Responsible use ──────────────────────────────────────── */}
         <p className="mt-12 border-t border-gray-200 pt-8 text-center text-xs leading-relaxed text-gray-500">

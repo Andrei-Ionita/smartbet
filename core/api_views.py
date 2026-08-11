@@ -471,6 +471,21 @@ def get_fixture_details(request, fixture_id):
         }, status=500)
 
 
+@require_http_methods(["GET"])
+def get_fixture_context_timeline(request, fixture_id):
+    """Public read-only pre-match context history for one fixture.
+
+    The response is derived exclusively from append-only observations. It does
+    not call the provider, mutate evidence or infer missing facts.
+    """
+    from core.services.fixture_context_timeline import build_timeline
+
+    return JsonResponse({
+        'success': True,
+        'data': build_timeline(fixture_id),
+    })
+
+
 @csrf_exempt
 @require_http_methods(["GET"])
 def get_recommended_predictions_with_outcomes(request):

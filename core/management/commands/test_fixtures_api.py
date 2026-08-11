@@ -7,8 +7,6 @@ from django.utils import timezone
 from dotenv import load_dotenv
 from pathlib import Path
 import time
-from rich.console import Console
-from rich.table import Table
 
 # Set up environment for API key
 BASE_DIR = Path(__file__).resolve().parent.parent.parent.parent
@@ -146,6 +144,12 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.WARNING("This might be normal if there are genuinely no matches scheduled for this date."))
                 return
             
+            # Rich is optional and belongs only to this interactive diagnostic.
+            # Keeping it local prevents an undeclared presentation dependency
+            # from breaking Django startup and test discovery.
+            from rich.console import Console
+            from rich.table import Table
+
             # Create a rich table for the fixtures
             console = Console()
             table = Table(show_header=True, header_style="bold")
@@ -190,4 +194,4 @@ class Command(BaseCommand):
         except requests.exceptions.RequestException as e:
             self.stderr.write(self.style.ERROR(f"❌ Error connecting to API: {str(e)}"))
         except Exception as e:
-            self.stderr.write(self.style.ERROR(f"❌ Unexpected error: {str(e)}")) 
+            self.stderr.write(self.style.ERROR(f"❌ Unexpected error: {str(e)}"))

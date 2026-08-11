@@ -7,13 +7,6 @@ from datetime import timedelta
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 
-from core.models import Match, League
-from suggestions.suggestion_engine import (
-    get_top_recommendations,
-    get_recommendation_by_match,
-    format_recommendations_for_display
-)
-
 logger = logging.getLogger(__name__)
 
 class Command(BaseCommand):
@@ -46,6 +39,16 @@ class Command(BaseCommand):
         )
         
     def handle(self, *args, **options):
+        # The Match/League suggestion subsystem is legacy. Keep its imports
+        # local so this diagnostic cannot break Django startup or test discovery
+        # for the current fixture architecture.
+        from core.models import League
+        from suggestions.suggestion_engine import (
+            get_top_recommendations,
+            get_recommendation_by_match,
+            format_recommendations_for_display,
+        )
+
         count = options['count']
         days_ahead = options['days']
         min_confidence = options['confidence']
@@ -123,4 +126,4 @@ class Command(BaseCommand):
         self.stdout.write('   from datetime import timedelta')
         self.stdout.write('   today = timezone.now()')
         self.stdout.write('   in_3_days = today + timedelta(days=3)')
-        self.stdout.write('   recommendations = get_top_recommendations(date_from=today, date_to=in_3_days)') 
+        self.stdout.write('   recommendations = get_top_recommendations(date_from=today, date_to=in_3_days)')

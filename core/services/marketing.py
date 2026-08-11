@@ -225,7 +225,7 @@ def sync_marketing_profile(subscriber, action, metadata=None):
         else:
             _sync_generic_webhook(subscriber, action, metadata)
     except requests.RequestException as exc:
-        logger.warning('Marketing sync failed for subscriber %s: %s', subscriber.email, exc)
+        logger.warning('Marketing sync failed for subscriber id=%s: %s', subscriber.id, exc)
         raise MarketingSyncError(str(exc)) from exc
 
     subscriber.last_synced_at = timezone.now()

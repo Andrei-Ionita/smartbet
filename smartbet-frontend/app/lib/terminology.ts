@@ -189,8 +189,8 @@ const EN = {
     openRecord: 'See all results',
     finalHeading: 'Free while we build the public results',
     finalBody:
-      'There is nothing to buy and no payment method is required. Create an account to use the bankroll tools and follow published picks as they settle.',
-    createAccount: 'Create a free account',
+      'There is nothing to buy and no account or payment method is required. Explore any fixture and inspect every published pick as it settles.',
+    createAccount: 'Open the public record',
     signalsError: 'Live signals could not be loaded',
     signalsErrorBody:
       'The request to the signal service failed. Nothing is wrong with your account and no published pick is affected.',
@@ -362,18 +362,18 @@ const EN = {
       'This prediction predates BetGlitch’s verified pricing standard. Its original price snapshot is not used in public performance reporting.',
     notVerifiedMeaningBefore: ' means the row’s recorded price predates the verified pricing standard, so no price-dependent figure is published for it.',
 
-    capturePanelTitle: 'Follow the published results.',
+    capturePanelTitle: 'Inspect the published results.',
     capturePanelBody:
-      'Review every result here, then join the free list for updates as published picks settle.',
-    capturePanelEyebrow: 'Weekly results',
+      'Review every eligible result and every pre-kickoff published pick directly. Nothing is hidden behind an account or email form.',
+    capturePanelEyebrow: 'Public evidence',
     capturePanelSeePublished: 'See published picks',
     capturePanelSeeVerified: 'See all results',
-    captureTitle: 'Get the weekly summary',
+    captureTitle: 'Accountless public beta',
     captureBody:
-      'A free weekly email covering the picks BetGlitch published and how they settled.',
-    captureDefaultTitle: 'Follow published picks by email',
+      'No email, login or payment is required. The complete public record remains available for anyone to inspect.',
+    captureDefaultTitle: 'Follow every published pick publicly',
     captureDefaultBody:
-      'A free weekly email covering which picks BetGlitch published and how they settled — wins and losses both.',
+      'Inspect which picks BetGlitch published and how they settled — wins and losses both — without creating an account.',
   },
 
   footer: {
@@ -565,8 +565,8 @@ const RO: typeof EN = {
     openRecord: 'Vezi toate rezultatele',
     finalHeading: 'Gratuit cât timp construim rezultatele publice',
     finalBody:
-      'Nu ai ce cumpăra și nu este necesară o metodă de plată. Creează un cont pentru a folosi instrumentele de bankroll și pentru a urmări selecțiile publicate până se încheie.',
-    createAccount: 'Creează un cont gratuit',
+      'Nu ai ce cumpăra și nu este necesar niciun cont sau o metodă de plată. Explorează orice meci și verifică fiecare selecție publicată până la decontare.',
+    createAccount: 'Deschide istoricul public',
     signalsError: 'Semnalele live nu au putut fi încărcate',
     signalsErrorBody:
       'Cererea către serviciul de semnale a eșuat. Contul tău nu are nicio problemă și nicio selecție publicată nu este afectată.',
@@ -733,18 +733,18 @@ const RO: typeof EN = {
       'Această predicție este anterioară standardului verificat de preț al BetGlitch. Captura originală de preț nu este folosită în raportarea publică de performanță.',
     notVerifiedMeaningBefore: ' înseamnă că prețul înregistrat al rândului este anterior standardului verificat de preț, așa că pentru el nu se publică nicio cifră dependentă de preț.',
 
-    capturePanelTitle: 'Urmărește rezultatele publicate.',
+    capturePanelTitle: 'Verifică rezultatele publicate.',
     capturePanelBody:
-      'Analizează fiecare rezultat aici, apoi înscrie-te gratuit pentru actualizări pe măsură ce selecțiile publicate se încheie.',
-    capturePanelEyebrow: 'Rezultate săptămânale',
+      'Analizează direct fiecare rezultat eligibil și fiecare selecție publicată înainte de start. Nimic nu este ascuns în spatele unui cont sau formular de email.',
+    capturePanelEyebrow: 'Dovezi publice',
     capturePanelSeePublished: 'Vezi selecțiile publicate',
     capturePanelSeeVerified: 'Vezi toate rezultatele',
-    captureTitle: 'Primește rezumatul săptămânal',
+    captureTitle: 'Beta public fără cont',
     captureBody:
-      'Un email săptămânal gratuit despre selecțiile publicate de BetGlitch și cum s-au încheiat.',
-    captureDefaultTitle: 'Urmărește selecțiile publicate pe email',
+      'Nu este necesar niciun email, cont sau plată. Istoricul public complet rămâne disponibil oricui pentru verificare.',
+    captureDefaultTitle: 'Urmărește public fiecare selecție',
     captureDefaultBody:
-      'Un email săptămânal gratuit despre selecțiile publicate de BetGlitch și cum s-au încheiat — și câștiguri, și pierderi.',
+      'Verifică selecțiile publicate de BetGlitch și cum s-au încheiat — și câștiguri, și pierderi — fără să creezi un cont.',
   },
 
   footer: {

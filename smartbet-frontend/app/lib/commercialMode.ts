@@ -18,13 +18,27 @@
  */
 export type CommercialMode = 'public_beta' | 'commercial'
 
+/**
+ * The single switch for personal product features.
+ *
+ * BetGlitch launches as an accountless research product. Registration,
+ * authentication, bankroll tools, newsletters and payments stay in the
+ * codebase for a later product phase, but are unreachable unless this exact
+ * opt-in value is supplied to both Railway application services.
+ */
+export const ACCOUNT_FEATURES_ENABLED =
+  process.env.NEXT_PUBLIC_ACCOUNT_FEATURES_ENABLED === 'enabled'
+
+export const IS_ACCOUNTLESS_BETA = !ACCOUNT_FEATURES_ENABLED
+
 export const COMMERCIAL_MODE: CommercialMode =
   process.env.NEXT_PUBLIC_COMMERCIAL_MODE === 'commercial'
     ? 'commercial'
     : 'public_beta'
 
 /** True only when payments are deliberately enabled. */
-export const PAYMENTS_ENABLED = COMMERCIAL_MODE === 'commercial'
+export const PAYMENTS_ENABLED =
+  ACCOUNT_FEATURES_ENABLED && COMMERCIAL_MODE === 'commercial'
 
 /** True while BetGlitch is a free public beta. */
 export const IS_PUBLIC_BETA = !PAYMENTS_ENABLED
@@ -37,7 +51,7 @@ export const IS_PUBLIC_BETA = !PAYMENTS_ENABLED
  * simply do not apply paid entitlement checks.
  */
 export function hasBetaAccess(isAuthenticated: boolean): boolean {
-  return IS_PUBLIC_BETA ? isAuthenticated : false
+  return IS_PUBLIC_BETA && ACCOUNT_FEATURES_ENABLED ? isAuthenticated : false
 }
 
 /**
@@ -65,7 +79,7 @@ export const BETA_COPY = {
     'Every published pick is locked before kickoff and remains visible after '
     + 'settlement—win or lose.',
   account:
-    'Create a free account to explore the beta and follow the public results '
-    + 'as it develops.',
+    'No account or payment is required. Explore every public fixture, method '
+    + 'and verified result directly.',
   badge: 'Public Beta — free',
 } as const

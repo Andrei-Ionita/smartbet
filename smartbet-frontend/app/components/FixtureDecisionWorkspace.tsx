@@ -23,6 +23,8 @@ import {
   type IntelligenceOutcome,
 } from '../lib/fixtureIntelligence'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
+import FixtureContextTimelinePanel from './FixtureContextTimelinePanel'
+import type { FixtureContextTimeline } from '../lib/fixtureTimeline'
 
 export interface FixtureDecisionFixture {
   fixture_id: number
@@ -35,6 +37,7 @@ export interface FixtureDecisionFixture {
     home?: { form?: unknown }
     away?: { form?: unknown }
   }
+  context_timeline?: FixtureContextTimeline | null
 }
 
 interface FixtureDecisionWorkspaceProps {
@@ -280,6 +283,13 @@ export default function FixtureDecisionWorkspace({
         )}
       </section>
 
+      <FixtureContextTimelinePanel
+        timeline={fixture.context_timeline}
+        homeTeam={fixture.home_team}
+        awayTeam={fixture.away_team}
+        ro={ro}
+      />
+
       <section className="grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
         <div className="rounded-2xl border border-blue-200 bg-blue-50/60 p-5 md:p-7">
           <div className="flex items-start gap-3">
@@ -367,7 +377,7 @@ export default function FixtureDecisionWorkspace({
             ))}
             <li className="flex gap-2">
               <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-amber-500" />
-              <span>{ro ? 'Contextul despre echipe și loturi nu este încă arhivat complet înainte de start.' : 'Team and squad context is not yet completely archived before kickoff.'}</span>
+              <span>{ro ? 'Acoperirea contextului diferă între competiții; valorile lipsă rămân marcate ca indisponibile.' : 'Context coverage varies by competition; missing values remain explicitly unavailable.'}</span>
             </li>
           </ul>
 

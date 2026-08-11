@@ -31,6 +31,14 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-^n-%7gq2z*i41-j(nxd
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
+# Accountless by default. Personal product features are dormant until the same
+# explicit opt-in used by the Next.js build is configured on Railway. Tests keep
+# the mature account code exercised even while production leaves it unreachable.
+ACCOUNT_FEATURES_ENABLED = (
+    os.getenv('NEXT_PUBLIC_ACCOUNT_FEATURES_ENABLED') == 'enabled'
+    or 'test' in sys.argv
+)
+
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 # Application definition
@@ -229,6 +237,12 @@ SIMPLE_JWT = {
     'BLACKLIST_AFTER_ROTATION': True,
 }
 
+# Password-reset URLs contain a signed token and user id. The token is derived
+# from account state rather than stored separately and becomes invalid after a
+# successful reset. One hour limits exposure if an email is forwarded or read
+# on a shared device.
+PASSWORD_RESET_TIMEOUT = 60 * 60
+
 # CORS settings
 if DEBUG:
     CORS_ALLOW_ALL_ORIGINS = True
@@ -278,15 +292,23 @@ CORS_ALLOW_METHODS = [
 # Security settings for production
 if not DEBUG:
     SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
-    SECURE_SSL_REDIRECT = False # Disabled to prevent health check redirect loops on Railway
+    # The Django test client is intentionally plain HTTP; production and
+    # `check --deploy` still exercise the real redirect policy.
+    SECURE_SSL_REDIRECT = 'test' not in sys.argv
+    # Railway's deployment probe must receive 200 even when it reaches the
+    # origin without a forwarded HTTPS scheme.
+    SECURE_REDIRECT_EXEMPT = [r'^api/health/$']
     SESSION_COOKIE_SECURE = True
     CSRF_COOKIE_SECURE = True
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
     X_FRAME_OPTIONS = 'DENY'
-    # SECURE_HSTS_SECONDS = 31536000
-    # SECURE_HSTS_INCLUDE_SUBDOMAINS = True
-    # SECURE_HSTS_PRELOAD = True
+    # Railway terminates TLS and forwards the original scheme. Start with a
+    # recoverable one-hour policy; extend only after every subdomain has been
+    # audited for HTTPS. Do not preload during the public beta.
+    SECURE_HSTS_SECONDS = 60 * 60
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = False
+    SECURE_HSTS_PRELOAD = False
 
     # CSRF Settings for Production
     CSRF_TRUSTED_ORIGINS = [

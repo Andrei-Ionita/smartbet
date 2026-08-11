@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
+import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
@@ -23,11 +23,11 @@ export default function Navigation() {
   // product rests on.
   const navItems = [
     { href: '/', label: t('nav.home'), icon: Trophy },
-    ...(isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
+    ...(ACCOUNT_FEATURES_ENABLED && isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     { href: '/explore', label: t('nav.explore'), icon: Search },
     { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
     { href: '/calibration', label: t('nav.calibration'), icon: Gauge },
-    { href: '/bankroll', label: t('nav.bankroll'), icon: Wallet },
+    ...(ACCOUNT_FEATURES_ENABLED ? [{ href: '/bankroll', label: t('nav.bankroll'), icon: Wallet }] : []),
     { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     // Hidden while BetGlitch is a free public beta. One flag controls every
     // commercial surface — see app/lib/commercialMode.ts.
@@ -122,7 +122,7 @@ export default function Navigation() {
               </button>
             </div>
 
-            {isAuthenticated && user ? (
+            {ACCOUNT_FEATURES_ENABLED && (isAuthenticated && user ? (
               <>
                 {PAYMENTS_ENABLED && !isPro && (
                   <Link
@@ -162,13 +162,13 @@ export default function Navigation() {
                   <span>{t('nav.signup')}</span>
                 </Link>
               </>
-            )}
+            ))}
           </div>
 
           {/* Mobile menu button */}
           <div className="xl:hidden flex items-center gap-4">
             {/* Show user avatar on mobile if logged in, but not the whole auth block */}
-            {isAuthenticated && user && (
+            {ACCOUNT_FEATURES_ENABLED && isAuthenticated && user && (
               <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-blue-700 font-bold">
                 {user.username.charAt(0).toUpperCase()}
               </div>
@@ -231,9 +231,9 @@ export default function Navigation() {
               </div>
             </div>
 
-            <hr className="my-2 border-gray-200" />
+            {ACCOUNT_FEATURES_ENABLED && <hr className="my-2 border-gray-200" />}
 
-            {isAuthenticated ? (
+            {ACCOUNT_FEATURES_ENABLED && (isAuthenticated ? (
               <>
                 {PAYMENTS_ENABLED && !isPro && (
                   <Link
@@ -273,7 +273,7 @@ export default function Navigation() {
                   {t('nav.signup')}
                 </Link>
               </div>
-            )}
+            ))}
           </div>
         </div>
       )}

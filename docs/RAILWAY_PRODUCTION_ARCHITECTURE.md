@@ -72,8 +72,31 @@ work** — check the per-stage log lines.
 | `MISE_PYTHON_GITHUB_ATTESTATIONS` | ✓ | ✓ | |
 | `FRONTEND_URL` | | ✓ | |
 | `INTERNAL_API_SECRET` | | ✓ | |
+| `NEXT_PUBLIC_ACCOUNT_FEATURES_ENABLED=disabled` | | ✓ | ✓ |
+
+| `BREVO_API_KEY` | | required | |
+| `BREVO_SENDER_EMAIL` | | required | |
+| `BREVO_SENDER_NAME` | | recommended | |
+| `BREVO_SANDBOX_MODE` | | required | |
 
 Neither database service carries the SportMonks token, by design.
+
+`NEXT_PUBLIC_ACCOUNT_FEATURES_ENABLED` defaults closed. Keep it `disabled` on
+both the backend and frontend during the accountless public beta. Only the exact
+value `enabled` restores registration, authentication, bankroll, newsletter and
+pricing routes; reactivation also requires the Brevo and legal checks below.
+
+`BREVO_API_KEY` and `BREVO_SENDER_EMAIL` are required only when account
+registration is re-enabled: the password-recovery endpoint fails closed with
+503 when transactional email is not configured. `BREVO_SANDBOX_MODE` must be
+`False` in that phase or Brevo will accept and deliberately drop reset emails.
+
+Railway terminates public TLS and forwards the original scheme. Django trusts
+that forwarded scheme, enforces HTTPS again at the application boundary, marks
+cookies secure and emits a one-hour HSTS header. `/api/health/` is the only
+redirect exemption so Railway's internal deployment probe still receives the
+required 200. Extend HSTS only after every subdomain has been audited; do not
+enable preload during the public beta.
 
 ### `MISE_PYTHON_GITHUB_ATTESTATIONS=false` — required, not optional
 

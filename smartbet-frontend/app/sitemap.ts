@@ -1,5 +1,5 @@
 import { MetadataRoute } from 'next'
-import { PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
+import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import { getAllPosts } from './blog/posts'
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://betglitch.com'
@@ -12,7 +12,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         '/track-record',
         '/calibration',
         '/about',
-        '/bankroll',
+        ...(ACCOUNT_FEATURES_ENABLED ? ['/bankroll'] : []),
         '/monitoring',
         // /pricing is listed only when it is a real pricing page. While
         // payments are disabled the route serves the public-beta page, which we

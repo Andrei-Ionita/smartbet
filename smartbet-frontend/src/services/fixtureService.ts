@@ -11,6 +11,7 @@ import {
     type IntelligenceMarketInput,
     type IntelligenceOutcomeInput,
 } from '@/app/lib/fixtureIntelligence'
+import type { FixtureContextTimeline } from '@/app/lib/fixtureTimeline'
 
 // Robust apiClient implementation
 const apiClient = {
@@ -37,6 +38,25 @@ function getApiToken(): string {
         throw new Error('SPORTMONKS_API_TOKEN environment variable is not set')
     }
     return token
+}
+
+async function getContextTimeline(fixtureId: string): Promise<FixtureContextTimeline | null> {
+    const backend = process.env.NEXT_PUBLIC_API_URL ||
+        (process.env.NODE_ENV === 'development'
+            ? 'http://localhost:8000'
+            : 'https://smartbet-backend-production.up.railway.app')
+    try {
+        const response = await fetch(
+            `${backend}/api/fixture/${encodeURIComponent(fixtureId)}/context-timeline/`,
+            { cache: 'no-store' },
+        )
+        if (!response.ok) return null
+        const payload = await response.json()
+        return payload?.success ? payload.data as FixtureContextTimeline : null
+    } catch (error) {
+        console.error('Context timeline unavailable:', error)
+        return null
+    }
 }
 
 // Multi-market support types
@@ -103,7 +123,10 @@ export async function getFixtureDetails(fixtureId: string) {
         timezone: 'Europe/Bucharest'
     })
 
-    const data = await apiClient.request(`${url}?${params_api}`)
+    const [data, contextTimeline] = await Promise.all([
+        apiClient.request(`${url}?${params_api}`),
+        getContextTimeline(fixtureId),
+    ])
     const fixture = data.data
     const evaluatedAt = new Date()
 
@@ -540,6 +563,7 @@ export async function getFixtureDetails(fixtureId: string) {
             odds_data: oddsData,
             ev_analysis: evAnalysis,
             intelligence,
+            context_timeline: contextTimeline,
             has_predictions: x12Predictions.length > 0,
             has_odds: !!(fixture.odds && fixture.odds.length > 0),
             // Multi-market support for Explore section

@@ -45,6 +45,7 @@ VIEW_MODULES = (
 NON_DRF_VIEWS = {
     'get_recommendations': 'read_only',
     'get_fixture_details': 'read_only',
+    'get_fixture_context_timeline': 'read_only',
     'get_recommended_predictions_with_outcomes': 'read_only',
     'search_fixtures': 'read_only',
     'log_recommendations': 'hmac',

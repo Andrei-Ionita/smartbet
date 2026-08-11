@@ -5,8 +5,9 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  BETA_COPY, COMMERCIAL_MODE, IS_PUBLIC_BETA, PAYMENTS_DISABLED_ERROR,
-  PAYMENTS_ENABLED, hasBetaAccess, shouldGateOnSubscription,
+  ACCOUNT_FEATURES_ENABLED, BETA_COPY, COMMERCIAL_MODE, IS_ACCOUNTLESS_BETA,
+  IS_PUBLIC_BETA, PAYMENTS_DISABLED_ERROR, PAYMENTS_ENABLED, hasBetaAccess,
+  shouldGateOnSubscription,
 } from '../commercialMode'
 
 describe('fail-closed behaviour', () => {
@@ -15,6 +16,8 @@ describe('fail-closed behaviour', () => {
     expect(COMMERCIAL_MODE).toBe('public_beta')
     expect(PAYMENTS_ENABLED).toBe(false)
     expect(IS_PUBLIC_BETA).toBe(true)
+    expect(ACCOUNT_FEATURES_ENABLED).toBe(false)
+    expect(IS_ACCOUNTLESS_BETA).toBe(true)
   })
 
   it('only the exact string "commercial" enables payments', () => {
@@ -34,8 +37,8 @@ describe('entitlement during the beta', () => {
     expect(shouldGateOnSubscription()).toBe(false)
   })
 
-  it('grants beta access to signed-in users, not to anonymous ones', () => {
-    expect(hasBetaAccess(true)).toBe(true)
+  it('does not create a phantom entitlement while accounts are dormant', () => {
+    expect(hasBetaAccess(true)).toBe(false)
     expect(hasBetaAccess(false)).toBe(false)
   })
 
@@ -66,5 +69,6 @@ describe('beta copy', () => {
     expect(BETA_COPY.primary).toContain('public beta')
     expect(BETA_COPY.primary).toContain('free')
     expect(BETA_COPY.supporting).toContain('locked before kickoff')
+    expect(BETA_COPY.account).toContain('No account or payment is required')
   })
 })

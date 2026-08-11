@@ -4,6 +4,7 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { track } from '../lib/analytics';
 import { markOnboardingPending } from '../components/OnboardingPanel';
+import { ACCOUNT_FEATURES_ENABLED } from '../lib/commercialMode';
 
 // Subscription tier type
 export type UserTier = 'free' | 'pro';
@@ -23,6 +24,7 @@ interface AuthContextType {
   login: (username: string, password: string) => Promise<void>;
   register: (username: string, email: string, password: string) => Promise<void>;
   logout: () => void;
+  deleteAccount: (password: string) => Promise<void>;
   isAuthenticated: boolean;
   isLoading: boolean;
   // New tier-related helpers
@@ -41,6 +43,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   // Load user from localStorage on mount
   useEffect(() => {
+    if (!ACCOUNT_FEATURES_ENABLED) {
+      // Do not preserve a phantom signed-in state from an earlier beta phase.
+      // Server-side records are untouched and can be restored with the flag.
+      localStorage.removeItem('smartbet_access_token');
+      localStorage.removeItem('smartbet_refresh_token');
+      localStorage.removeItem('smartbet_user');
+      localStorage.removeItem('smartbet_bankroll');
+      localStorage.removeItem('smartbet_session_id');
+      setIsLoading(false);
+      return;
+    }
+
     const storedToken = localStorage.getItem('smartbet_access_token');
     const storedUser = localStorage.getItem('smartbet_user');
 
@@ -144,6 +158,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login');
   };
 
+  const deleteAccount = async (password: string) => {
+    if (!accessToken) throw new Error('You must be signed in to delete your account.');
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+    const response = await fetch(`${apiUrl}/api/auth/account/`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ password, confirmation: 'DELETE' }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || 'Account deletion failed.');
+
+    localStorage.removeItem('smartbet_access_token');
+    localStorage.removeItem('smartbet_refresh_token');
+    localStorage.removeItem('smartbet_user');
+    localStorage.removeItem('smartbet_bankroll');
+    setAccessToken(null);
+    setUser(null);
+    router.push('/');
+  };
+
   // Upgrade user to Pro tier (called after successful payment)
   const upgradeToPro = async () => {
     if (!user) return;
@@ -165,6 +202,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     login,
     register,
     logout,
+    deleteAccount,
     isAuthenticated: !!user,
     isLoading,
     // Tier-related properties
