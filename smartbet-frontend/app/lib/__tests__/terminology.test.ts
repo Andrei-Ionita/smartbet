@@ -299,7 +299,8 @@ describe('the verified record page does not promise a proven history', () => {
   })
 
   it('describes the published-pick universe in its metadata', () => {
-    expect(src).toContain('published picks locked before kickoff')
+    expect(src).toContain('Current Gem strategy results')
+    expect(src).toContain('every Gem published by the current BetGlitch strategy')
   })
 })
 

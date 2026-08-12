@@ -92,42 +92,29 @@ describe('track-record carries both anchor targets', () => {
     expect(getCopy('ro').record.publishedStates).toMatch(/nu intră în totaluri/i)
   })
 
-  it('says the verified aggregate counts settled picks only', () => {
-    expect(getCopy('en').record.verifiedBody).toMatch(/eligible settled picks only/i)
-    expect(src).toContain('{rec.verifiedBody}')
+  it('says the aggregate measures only the current Gem strategy', () => {
+    expect(getCopy('en').recordRedesign.currentBody).toMatch(/today's exact strategy version/i)
+    expect(src).toContain('{redesign.currentBody}')
+    expect(src).toContain('summarizeStrategyRecord(partitioned.current)')
   })
 
   it('keeps the zero state honest', () => {
-    expect(src).toContain('{rec.publishedEmpty}')
-    expect(getCopy('en').record.publishedEmpty).toMatch(/no pick has been published/i)
+    expect(src).toContain('{redesign.zeroHeading}')
+    expect(src).toContain('{redesign.currentPicksEmpty}')
+    expect(getCopy('en').recordRedesign.zeroBody).toMatch(/no current-generation gem/i)
   })
 
   it('jumps to the anchor after the client-side data has loaded', () => {
     // The page fetches its content client-side, so at the moment the browser
     // resolves the hash the target does not exist yet and the jump is lost.
-    expect(src).toContain("window.addEventListener('hashchange', onHashChange)")
-    expect(src).toContain('target.scrollIntoView')
-    // The browser restores its own scroll position after our first attempt on
-    // a cold load, so a single try is not enough.
-    expect(src).toContain('const timers = [0, 100, 300, 600]')
-  })
-
-  it('stops retrying once it lands and never fights a scrolling user', () => {
-    expect(src).toContain('if (settled) return')
-    expect(src).toContain("window.addEventListener('wheel', onUserScroll")
-    expect(src).toContain("window.addEventListener('touchstart', onUserScroll")
-    expect(src).toContain('Math.abs(target.getBoundingClientRect().top - 96) < 8')
-  })
-
-  it('moves focus to the section, not just the scroll position', () => {
-    expect(src).toContain("target.setAttribute('tabindex', '-1')")
-    expect(src).toContain('target.focus({ preventScroll: true })')
+    expect(src).toContain("window.addEventListener('hashchange', jumpToHash)")
+    expect(src).toContain("document.getElementById(id)?.scrollIntoView")
+    expect(src).toContain('window.setTimeout(jumpToHash, 100)')
   })
 
   it('cleans up every listener and timer it registered', () => {
-    expect(src).toContain("window.removeEventListener('hashchange', onHashChange)")
-    expect(src).toContain("window.removeEventListener('wheel', onUserScroll)")
-    expect(src).toContain('timers.forEach(clearTimeout)')
+    expect(src).toContain("window.removeEventListener('hashchange', jumpToHash)")
+    expect(src).toContain('window.clearTimeout(timer)')
   })
 
   it('leaves no dangling anchor reference elsewhere in the app', () => {
@@ -290,7 +277,8 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
   const src = read('app/track-record/TrackRecordContent.tsx')
 
   it('fetches the published-claims endpoint', () => {
-    expect(src).toContain('/api/proof/claims/')
+    expect(src).toContain("fetch('/api/published-claims'")
+    expect(read('app/api/published-claims/route.ts')).toContain('/api/proof/claims/')
     expect(src).toContain('setClaims(data.claims as PublishedClaimRow[])')
   })
 
@@ -299,7 +287,8 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
     // `predictions.filter(isVerified)`, which could show a prediction that was
     // never published and omit a claim that was.
     expect(src).not.toContain('predictions.filter(isVerified)')
-    expect(src).toContain('{claims.map((claim) => (')
+    expect(src).toContain('partitioned.current.map((claim) => (')
+    expect(src).toContain('partitioned.historical.map((claim) => (')
     expect(src).toContain('key={claim.claim_id}')
   })
 
@@ -316,8 +305,8 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
   })
 
   it('distinguishes loading, empty and error as three separate states', () => {
-    expect(src).toContain('{rec.publishedLoading}')
-    expect(src).toContain('{rec.publishedEmpty}')
+    expect(src).toContain('claims === null')
+    expect(src).toContain('{redesign.currentPicksEmpty}')
     expect(src).toContain('{rec.publishedError}')
     expect(src).toContain("role=\"alert\"")
     expect(src).toContain("role=\"status\"")
@@ -343,9 +332,9 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
   it('keeps the verified-record aggregate on the settled-only stats source', () => {
     // The aggregate still comes from the transparency dashboard, which counts
     // settled results only — pending claims cannot reach it.
-    expect(src).toContain('/api/transparency/dashboard/')
-    const verified = src.slice(src.indexOf('id="results"'))
-    expect(verified).not.toContain('claims.length')
+    expect(src).not.toContain('/api/transparency/dashboard/')
+    expect(src).toContain('partitionStrategyClaims(claims ?? [])')
+    expect(src).toContain('summarizeStrategyRecord(partitioned.current)')
   })
 
   it('translates every published-claims state in both languages', () => {

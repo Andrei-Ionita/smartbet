@@ -200,6 +200,9 @@ export default function HomePage() {
               <p className="mt-1 max-w-2xl text-sm text-gray-600">
                 {copy.home.gemsSupporting}
               </p>
+              <p className="mt-2 max-w-2xl text-sm font-semibold text-gray-800">
+                {copy.home.gemsLimit}
+              </p>
             </div>
             <Link
               href="/explore"

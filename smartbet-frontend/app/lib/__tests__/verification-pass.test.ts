@@ -19,7 +19,9 @@ describe('legacy rows never publish price-dependent performance', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
 
   it('defines verification off pricing_integrity_status', () => {
-    expect(src).toContain("(p.pricing_integrity_status || '') === 'verified'")
+    const record = read('app/lib/currentStrategyRecord.ts')
+    expect(record).toContain('claim.ranking_version === CURRENT_STRATEGY_VERSION')
+    expect(src).toContain('partitionStrategyClaims(claims ?? [])')
   })
 
   it('gates value status behind isVerified, and publishes no EV figure', () => {
@@ -29,32 +31,28 @@ describe('legacy rows never publish price-dependent performance', () => {
     // ranking rather than a calibrated probability, so the figure is unsound
     // even on a verified price. The column now reports value STATUS, and the
     // isVerified gate is retained for the legacy/verified distinction.
-    const cell = src.slice(src.indexOf('{isVerified(pred) ? ('))
-    expect(cell).not.toContain('expected_value')
-    expect(cell).toContain('Not yet assessed')
-    expect(cell.indexOf('<NotVerified lang={language} />')).toBeGreaterThan(-1)
+    expect(src).not.toContain('expected_value')
+    expect(src).not.toContain('isVerified(pred)')
+    expect(src).toContain('redesign.historicalBody')
   })
 
   it('gates profit/loss behind isVerified', () => {
     // Line-ending agnostic: the working tree is CRLF on Windows, LF in CI.
-    const flat = src.replace(/\r\n/g, '\n')
-    expect(flat).toMatch(/\{!isVerified\(pred\) \? \(\s*<NotVerified lang=\{language\} \/>/)
+    expect(src).toContain('summarizeStrategyRecord(partitioned.current)')
+    expect(src).not.toContain('pred.profit_loss')
   })
 
-  it('offers the exact unverified wording', () => {
-    // The wording moved into terminology.ts so it could be translated. The
-    // contract is the wording itself, so assert it there — in both languages.
-    const en = getCopy('en').record
-    expect(src).toContain('{rec.notVerified}')
-    expect(en.notVerified).toBe('Not verified')
-    expect(en.notVerifiedTitle).toContain('predates BetGlitch’s verified pricing standard')
-    expect(en.notVerifiedTitle).toContain('not used in public performance reporting')
-    expect(getCopy('ro').record.notVerified).toBe('Neverificat')
+  it('offers exact current-versus-historical wording in both languages', () => {
+    const en = getCopy('en').recordRedesign
+    expect(src).toContain('{redesign.historicalBody}')
+    expect(en.historicalBody).toContain('not evidence for the current Gem strategy')
+    expect(en.historicalBody).toContain('excluded from every figure above')
+    expect(getCopy('ro').recordRedesign.historicalBody.length).toBeGreaterThan(0)
   })
 
   it('badges every non-verified row', () => {
-    expect(src).toContain('{!isVerified(pred) && (')
-    expect(src).toContain('<StatusBadge status="legacy" size="sm" lang={language} />')
+    expect(src).toContain('{historical && (')
+    expect(src).toContain('{redesign.historicalVersionLabel}')
   })
 })
 
@@ -62,17 +60,18 @@ describe('legacy rows are an explicit archive, never the default table', () => {
   const src = read('app/track-record/TrackRecordContent.tsx')
 
   it('defaults to settled verified-price rows', () => {
-    expect(src).toContain("useState<'completed' | 'all' | 'legacy'>('completed')")
+    expect(src).toContain('summarizeStrategyRecord(partitioned.current)')
   })
 
   it('keeps verified and legacy rows in mutually exclusive views', () => {
-    expect(src).toContain("filterStatus === 'legacy' && isVerified(pred)")
-    expect(src).toContain("filterStatus !== 'legacy' && !isVerified(pred)")
+    expect(src).toContain('partitionStrategyClaims(claims ?? [])')
+    expect(src).toContain('partitioned.current.map((claim) => (')
+    expect(src).toContain('partitioned.historical.map((claim) => (')
   })
 
   it('offers a named legacy archive and only explains legacy inside it', () => {
-    expect(src).toContain('<option value="legacy">')
-    expect(src).toContain("filterStatus === 'legacy' && legacyCount > 0")
+    expect(src).toContain('{redesign.historicalHeading}')
+    expect(src).toContain('<details className="mt-5')
   })
 })
 
@@ -81,30 +80,27 @@ describe('an empty verified record is not rendered as zero performance', () => {
   // The wording moved into terminology.ts so it could be translated; the
   // contract is unchanged, so assert the rendered copy AND that both
   // languages actually carry it.
-  const en = getCopy('en').record
-  const ro = getCopy('ro').record
-
   it('shows "no results yet" instead of 0% accuracy', () => {
-    expect(src).toContain('accuracyStats.overall.total_predictions === 0')
-    expect(src).toContain('{rec.noAccuracy}')
-    expect(en.noAccuracy).toBe('No verified results yet')
-    expect(ro.noAccuracy.length).toBeGreaterThan(0)
+    expect(src).toContain('partitioned.current.length === 0')
+    expect(src).toContain('{redesign.zeroHeading}')
+    expect(getCopy('en').recordRedesign.zeroHeading).toContain('starts at zero')
+    expect(getCopy('ro').recordRedesign.zeroHeading.length).toBeGreaterThan(0)
   })
 
   it('shows "no settled picks" instead of a 0% win rate', () => {
-    expect(src).toContain('{rec.noSettled}')
-    expect(en.noSettled).toBe('No settled picks yet')
-    expect(ro.noSettled.length).toBeGreaterThan(0)
+    expect(src).toContain('redesign.summaryReturnEmpty')
+    expect(getCopy('en').recordRedesign.summaryReturnEmpty).toContain('first settled pick')
+    expect(getCopy('ro').recordRedesign.summaryReturnEmpty.length).toBeGreaterThan(0)
   })
 
   it('suppresses the per-outcome breakdown at zero', () => {
-    expect(src).toContain('accuracyStats.overall.total_predictions > 0')
+    expect(src).not.toContain('accuracyStats')
   })
 
   it('never renders a bare percentage straight off a zero denominator', () => {
     // Each of the three percentage renders must sit inside a guarded branch.
-    const guards = src.match(/total_predictions [=><]/g) ?? []
-    expect(guards.length).toBeGreaterThanOrEqual(2)
+    expect(src).toContain('summary.roiPercent === null')
+    expect(src).toContain('summary.counted > 0 && roiLabel')
   })
 })
 
@@ -113,8 +109,8 @@ describe('model score is not presented as a calibrated probability', () => {
 
   it('labels the column "Signal score"', () => {
     // Superseded 2026-08-06: "Model score" implied a model BetGlitch owns.
-    expect(src).toContain("'Scor semnal' : 'Signal score'")
-    expect(src).not.toContain('>\n                    Model score')
+    expect(src).not.toContain('model_score_percent.toFixed')
+    expect(src).not.toContain('Signal score')
   })
 
   it('does not suffix the score with a percent sign', () => {
@@ -122,7 +118,8 @@ describe('model score is not presented as a calibrated probability', () => {
   })
 
   it('carries the not-a-probability note', () => {
-    expect(src).toContain('MODEL_SCORE_NOTE')
+    expect(src).toContain('{redesign.boundary}')
+    expect(getCopy('en').recordRedesign.boundary).toContain('never counted automatically')
   })
 })
 

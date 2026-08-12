@@ -1,19 +1,16 @@
 import { Metadata } from 'next'
-import TrackRecordContent from './TrackRecordContent'
-import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 
-// The previous metadata promised a complete history of all predictions and a
-// realized return figure. Neither is true: only published picks enter the
-// record, and the record restarted at the pricing-integrity cutoff. Metadata
-// must not claim a history the verified record does not contain.
+import BreadcrumbSchema from '@/components/BreadcrumbSchema'
+import TrackRecordContent from './TrackRecordContent'
+
 export const metadata: Metadata = {
-  title: 'Results — published picks locked before kickoff',
+  title: 'Current Gem strategy results',
   description:
-    'BetGlitch publishes and locks selected picks before kickoff, then keeps every settled result visible—win or lose.',
+    'See every Gem published by the current BetGlitch strategy and how each locked selection settled, win or lose.',
   openGraph: {
-    title: 'Results — published picks locked before kickoff | BetGlitch',
+    title: 'Current Gem strategy results | BetGlitch',
     description:
-      'Picks locked before kickoff, results published after full-time. Wins and losses both stay public.',
+      'One current strategy, one complete published record, with earlier methodologies kept separately.',
     url: 'https://betglitch.com/track-record',
   },
 }

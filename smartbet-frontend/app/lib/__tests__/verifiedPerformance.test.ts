@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, afterEach } from 'vitest'
 import { readFileSync } from 'fs'
 import { join } from 'path'
+import { CURRENT_STRATEGY_VERSION } from '../currentStrategyRecord'
 
 /**
  * The homepage must never announce zero settled results when results exist.
@@ -24,7 +25,11 @@ const SOURCE = readFileSync(join(root, 'app/api/performance/route.ts'), 'utf-8')
   .replace(/(^|[^:])\/\/.*$/gm, '$1')
 
 const claim = (state: string, extra: Record<string, unknown> = {}) => ({
-  claim_state: state, integrity_ok: true, ...extra,
+  claim_state: state,
+  integrity_ok: true,
+  ranking_version: CURRENT_STRATEGY_VERSION,
+  counts_towards_verified_record: state === 'WON' || state === 'LOST',
+  ...extra,
 })
 
 function mockClaims(claims: unknown[], ok = true) {
@@ -51,6 +56,19 @@ describe('it never shells out from the web container', () => {
 })
 
 describe('settled counts come from real claim states', () => {
+  it('excludes every earlier strategy version from the homepage record', async () => {
+    mockClaims([
+      claim('WON'),
+      claim('WON', { ranking_version: 'retired-strategy' }),
+    ])
+    const { GET } = await import('../../api/performance/route')
+    const body = await (await GET()).json()
+
+    expect(body.data.overall.total_predictions).toBe(1)
+    expect(body.source).toBe('current_strategy_published_claims')
+    expect(body.ranking_version).toBe(CURRENT_STRATEGY_VERSION)
+  })
+
   it('counts wins and losses, excluding pending', async () => {
     mockClaims([
       claim('WON'), claim('WON'), claim('LOST'),

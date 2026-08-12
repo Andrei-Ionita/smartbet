@@ -26,6 +26,49 @@
 export type Lang = 'en' | 'ro'
 
 const EN = {
+  recordRedesign: {
+    eyebrow: 'Current strategy record',
+    title: 'How the current Gems perform',
+    intro:
+      'This page measures one thing: picks produced by the Gem strategy running today, published before kickoff and settled against the final result.',
+    boundary:
+      'Fixture analysis in Explore is never counted automatically. Earlier strategy versions are kept separately below and never change the current record.',
+    flowExploreTitle: 'Explore',
+    flowExploreBody: 'Search any fixture and inspect its probabilities, price and context.',
+    flowGemTitle: 'Gem qualifies',
+    flowGemBody: 'Up to three fixtures survive every current reliability and price gate.',
+    flowPublishTitle: 'Published',
+    flowPublishBody: 'The selection and recorded price are locked before kickoff.',
+    flowResultTitle: 'Measured here',
+    flowResultBody: 'After full-time, the locked pick becomes a win or a loss in this record.',
+    currentHeading: 'Current Gem strategy',
+    currentBody: 'Only picks carrying today\'s exact strategy version appear in these figures.',
+    currentVersionLabel: 'Active methodology',
+    zeroHeading: 'The current strategy starts at zero',
+    zeroBody:
+      'No current-generation Gem has been published yet. That is expected while no fixture passes every gate. The first qualifying pick will appear here before kickoff; its result will remain visible afterwards.',
+    zeroAction: 'Explore today\'s fixtures',
+    summaryPublished: 'Published Gems',
+    summaryPending: 'Awaiting results',
+    summarySettled: 'Settled and counted',
+    summaryRecord: 'Win–loss record',
+    summaryReturn: 'Flat-stake return',
+    summaryReturnEmpty: 'Starts after the first settled pick',
+    summaryReturnDetail: (stake: number, roi: string) =>
+      `$${stake.toFixed(2)} staked · ${roi}% ROI`,
+    currentPicksHeading: 'Published Gems from the current strategy',
+    currentPicksBody:
+      'This is the complete list for the active strategy. A published Gem cannot be edited, removed or re-priced after publication.',
+    currentPicksEmpty: 'No current-strategy Gem has been published yet.',
+    historicalHeading: 'Earlier strategy archive',
+    historicalBody:
+      'These picks were published under retired selection rules. They remain available for transparency, but they are not evidence for the current Gem strategy and are excluded from every figure above.',
+    historicalSummary: (count: number) =>
+      `${count} earlier published ${count === 1 ? 'pick' : 'picks'}`,
+    historicalOpen: 'View earlier published picks',
+    historicalVersionLabel: 'Retired methodology',
+  },
+
   terms: {
     liveSignal: {
       label: 'Live signal',
@@ -107,7 +150,7 @@ const EN = {
     secondaryCta: 'See published results',
     // Three commitments in one quiet line — a rule, not a badge.
     trustLine: 'Free public beta · No guaranteed wins · No hidden losses · Versioned methodology',
-    zeroState: 'Building the public results from zero',
+    zeroState: 'Current Gem strategy: no settled picks yet',
   },
 
   /**
@@ -126,7 +169,8 @@ const EN = {
 
   home: {
     signalsHeading: 'Live signals right now',
-    gemsHeading: 'Qualified Gems from the latest scan',
+    gemsHeading: 'Today\'s qualified Gems',
+    gemsLimit: 'Up to three can appear. If none pass every gate, we publish none.',
     gemsSupporting:
       'The few fixtures that passed every reliability, market-consensus and verified-price gate. Ranked by provider probability–payout balance, not by the biggest odds.',
     scanFixtures: 'fixtures scanned',
@@ -185,7 +229,7 @@ const EN = {
     coverageHeading: 'Coverage',
     coverageBody: 'European competitions, up to 14 days ahead. Including:',
     viewAllLeagues: 'View all competitions',
-    settledLabel: 'Published results',
+    settledLabel: 'current-strategy results',
     openRecord: 'See all results',
     finalHeading: 'Free while we build the public results',
     finalBody:
@@ -446,6 +490,49 @@ const EN = {
 }
 
 const RO: typeof EN = {
+  recordRedesign: {
+    eyebrow: 'Istoricul strategiei actuale',
+    title: 'Cum performează Gem-urile actuale',
+    intro:
+      'Această pagină măsoară un singur lucru: selecțiile produse de strategia Gem activă astăzi, publicate înainte de start și evaluate după rezultatul final.',
+    boundary:
+      'Analiza meciurilor din Explore nu este numărată automat. Versiunile anterioare ale strategiei sunt păstrate separat mai jos și nu modifică istoricul actual.',
+    flowExploreTitle: 'Explorează',
+    flowExploreBody: 'Caută orice meci și verifică probabilitățile, prețul și contextul.',
+    flowGemTitle: 'Gem calificat',
+    flowGemBody: 'Cel mult trei meciuri trec toate filtrele actuale de fiabilitate și preț.',
+    flowPublishTitle: 'Publicat',
+    flowPublishBody: 'Selecția și prețul înregistrat sunt blocate înainte de start.',
+    flowResultTitle: 'Măsurat aici',
+    flowResultBody: 'După meci, selecția blocată devine câștig sau pierdere în acest istoric.',
+    currentHeading: 'Strategia Gem actuală',
+    currentBody: 'Doar selecțiile care poartă versiunea exactă a strategiei de astăzi intră în aceste cifre.',
+    currentVersionLabel: 'Metodologie activă',
+    zeroHeading: 'Strategia actuală începe de la zero',
+    zeroBody:
+      'Niciun Gem din generația actuală nu a fost publicat încă. Este normal cât timp niciun meci nu trece toate filtrele. Prima selecție calificată va apărea aici înainte de start, iar rezultatul ei va rămâne vizibil după meci.',
+    zeroAction: 'Explorează meciurile de astăzi',
+    summaryPublished: 'Gem-uri publicate',
+    summaryPending: 'În așteptarea rezultatului',
+    summarySettled: 'Încheiate și numărate',
+    summaryRecord: 'Bilanț câștig–pierdere',
+    summaryReturn: 'Rezultat cu miză fixă',
+    summaryReturnEmpty: 'Începe după prima selecție încheiată',
+    summaryReturnDetail: (stake: number, roi: string) =>
+      `$${stake.toFixed(2)} mizate · ROI ${roi}%`,
+    currentPicksHeading: 'Gem-uri publicate de strategia actuală',
+    currentPicksBody:
+      'Aceasta este lista completă pentru strategia activă. Un Gem publicat nu poate fi modificat, șters sau repriced după publicare.',
+    currentPicksEmpty: 'Niciun Gem al strategiei actuale nu a fost publicat încă.',
+    historicalHeading: 'Arhiva strategiilor anterioare',
+    historicalBody:
+      'Aceste selecții au fost publicate sub reguli retrase. Rămân disponibile pentru transparență, dar nu sunt dovezi pentru strategia Gem actuală și sunt excluse din toate cifrele de mai sus.',
+    historicalSummary: (count: number) =>
+      `${count} ${count === 1 ? 'selecție publicată anterior' : 'selecții publicate anterior'}`,
+    historicalOpen: 'Vezi selecțiile publicate anterior',
+    historicalVersionLabel: 'Metodologie retrasă',
+  },
+
   terms: {
     liveSignal: {
       label: 'Semnal live',
@@ -530,6 +617,7 @@ const RO: typeof EN = {
 
   home: {
     signalsHeading: 'Semnale live acum',
+    gemsLimit: 'Pot apărea cel mult trei. Dacă niciunul nu trece toate filtrele, nu publicăm nimic.',
     gemsHeading: 'Gem-uri calificate din ultima scanare',
     gemsSupporting:
       'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al furnizorului, nu după cea mai mare cotă.',

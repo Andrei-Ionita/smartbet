@@ -68,16 +68,19 @@ describe('results page', () => {
   })
 
   it('renders every stored pick consistently', () => {
-    expect(src).toContain('{claims.map((claim) => (')
+    expect(src).toContain('partitioned.current.map((claim) => (')
+    expect(src).toContain('partitioned.historical.map((claim) => (')
     expect(src).toContain('claim.counts_towards_verified_record')
     expect(src).not.toMatch(/Cardiff/i)
   })
 
   it('reconciles published, pending, finished, counted and excluded picks', () => {
+    const record = read('app/lib/currentStrategyRecord.ts')
     for (const field of ['published', 'pending', 'finished', 'counted', 'excluded']) {
-      expect(src).toContain(`${field}:`)
+      expect(record).toContain(`${field}:`)
     }
-    expect(src).toContain('rec.reconciliationEquation(')
+    expect(src).toContain('summarizeStrategyRecord(partitioned.current)')
+    expect(src).toContain('redesign.historicalBody')
     expect(en.record.reconciliationEquation(8, 5, 3)).toBe(
       '8 finished = 5 counted + 3 excluded',
     )
@@ -87,7 +90,7 @@ describe('results page', () => {
   })
 
   it('puts the exact exclusion reason on the affected pick', () => {
-    expect(src).toContain('claimExclusionReason(claim, language)')
+    expect(src).toContain('exclusionReason(claim, language)')
     expect(src).toContain('claim.price_age_hours_at_publication')
     expect(en.record.publishedExcludedStalePrice('23.0')).toContain(
       'price was 23.0h old',
