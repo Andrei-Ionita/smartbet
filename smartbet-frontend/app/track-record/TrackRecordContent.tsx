@@ -119,6 +119,24 @@ function NotVerified({ lang }: { lang?: string }) {
   );
 }
 
+/** Explain a settled exclusion where the visitor sees it, not only inside
+ * technical details. The API supplies every fact used here. */
+function claimExclusionReason(claim: PublishedClaimRow, lang?: string) {
+  const copy = getCopy(lang).record;
+
+  if (claim.superseded) return copy.publishedExcludedSuperseded;
+  if (!claim.integrity_ok) return copy.publishedExcludedIntegrity;
+  if (claim.claim_state === 'VOID') return copy.publishedExcludedVoid;
+  if (claim.claim_state === 'CANCELLED') return copy.publishedExcludedCancelled;
+  if (!claim.price_fresh_at_publication) {
+    const age = claim.price_age_hours_at_publication;
+    return age === null
+      ? copy.publishedExcludedMissingPrice
+      : copy.publishedExcludedStalePrice(age.toFixed(1));
+  }
+  return copy.publishedExcludedGeneric;
+}
+
 export default function TrackRecordContent() {
   const [predictions, setPredictions] = useState<PredictionWithResult[]>([]);
   const [accuracyStats, setAccuracyStats] = useState<AccuracyStats | null>(null);
@@ -339,6 +357,20 @@ export default function TrackRecordContent() {
   // This can only be non-zero in the explicit legacy archive view.
   const legacyCount = filteredPredictions.filter((p) => !isVerified(p)).length;
 
+  // One exhaustive reconciliation for the immutable published-claim list.
+  // "Finished" is intentionally broader than "counted": stale-price, void,
+  // cancelled, corrected or integrity-failed picks stay visible but cannot
+  // enter performance figures.
+  const claimTotals = claims === null ? null : {
+    published: claims.length,
+    pending: claims.filter((claim) => claim.claim_state === 'PENDING').length,
+    finished: claims.filter((claim) => claim.claim_state !== 'PENDING').length,
+    counted: claims.filter((claim) => claim.counts_towards_verified_record).length,
+    excluded: claims.filter(
+      (claim) => claim.claim_state !== 'PENDING' && !claim.counts_towards_verified_record,
+    ).length,
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 p-4">
@@ -517,7 +549,7 @@ export default function TrackRecordContent() {
                         ? rec.publishedCountedIn
                         : claim.claim_state === 'PENDING'
                           ? rec.publishedNotCounted
-                          : rec.publishedExcludedFromRecord}
+                          : claimExclusionReason(claim, language)}
                     </p>
                     <details className="mt-2 text-xs text-gray-600">
                       <summary className="cursor-pointer font-semibold text-gray-700">
@@ -572,6 +604,49 @@ export default function TrackRecordContent() {
           <p className="mt-3 text-sm leading-relaxed text-gray-700">
             {rec.verifiedBody}
           </p>
+
+          {claimTotals && (
+            <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/70 p-4 sm:p-5">
+              <p className="text-sm font-bold text-gray-900">{rec.reconciliationHeading}</p>
+              <p className="mt-1 text-sm leading-relaxed text-gray-700">
+                {rec.reconciliationBody}
+              </p>
+
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {rec.reconciliationPublished}
+                  </p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{claimTotals.published}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {rec.reconciliationPending}
+                  </p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{claimTotals.pending}</p>
+                </div>
+                <div className="rounded-lg border border-gray-200 bg-white p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    {rec.reconciliationFinished}
+                  </p>
+                  <p className="mt-1 text-3xl font-bold text-gray-900">{claimTotals.finished}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 rounded-lg border border-blue-200 bg-white px-4 py-3">
+                <p className="text-base font-bold text-gray-900">
+                  {rec.reconciliationEquation(
+                    claimTotals.finished,
+                    claimTotals.counted,
+                    claimTotals.excluded,
+                  )}
+                </p>
+                <p className="mt-1 text-sm leading-relaxed text-gray-600">
+                  {rec.reconciliationExcludedNote}
+                </p>
+              </div>
+            </div>
+          )}
         </section>
 
         {/* One record, one denominator. The previous layout duplicated the

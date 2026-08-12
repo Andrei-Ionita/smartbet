@@ -322,6 +322,20 @@ const EN = {
     publishedNotCounted: 'Awaiting the result — not counted yet',
     publishedExcludedFromRecord: 'Kept visible — excluded from performance totals',
     publishedCountedIn: 'Included in the results',
+    publishedExcludedStalePrice: (hours: string) =>
+      `Excluded from performance: the recorded price was ${hours}h old when published; the limit is 12h.`,
+    publishedExcludedMissingPrice:
+      'Excluded from performance: no verifiably fresh recorded price was available.',
+    publishedExcludedIntegrity:
+      'Excluded from performance: the stored integrity check did not pass.',
+    publishedExcludedSuperseded:
+      'Excluded from performance: this pick was replaced by a published correction.',
+    publishedExcludedVoid:
+      'Excluded from performance: the match was void, so no stake is scored.',
+    publishedExcludedCancelled:
+      'Excluded from performance: the match was cancelled, so no stake is scored.',
+    publishedExcludedGeneric:
+      'Kept visible, but excluded because it does not meet every performance-record rule.',
 
     // Honest publication policy — AUTOMATIC since policy v1 (2026-08-08).
     // This copy must state exactly what core/management/commands/
@@ -337,7 +351,17 @@ const EN = {
     verifiedBody:
       'Wins and losses have equal visibility. The totals use eligible settled picks only; pending, void, cancelled and legacy rows are excluded so the denominator remains honest.',
     verifiedFromCommitments:
-      'Published picks may include pending entries. The figures below contain settled picks only.',
+      'The list above contains every published pick. This summary shows exactly how completed matches become the performance total.',
+    reconciliationHeading: 'How every published pick is accounted for',
+    reconciliationBody:
+      'Published picks split into two groups: awaiting a result or finished. Finished picks then split into counted and excluded.',
+    reconciliationPublished: 'Published in total',
+    reconciliationPending: 'Awaiting result',
+    reconciliationFinished: 'Matches finished',
+    reconciliationEquation: (finished: number, counted: number, excluded: number) =>
+      `${finished} finished = ${counted} counted + ${excluded} excluded`,
+    reconciliationExcludedNote:
+      'Excluded matches remain visible above, but they do not change accuracy or ROI. Their exact reason appears directly on each pick.',
 
     noAccuracy: 'No verified results yet',
     accuracyAppears: 'Accuracy appears once the first published pick settles.',
@@ -697,6 +721,20 @@ const RO: typeof EN = {
     publishedExcludedFromRecord:
       'Păstrată vizibilă — exclusă din totalurile de performanță',
     publishedCountedIn: 'Inclusă în rezultate',
+    publishedExcludedStalePrice: (hours: string) =>
+      `Exclusă din performanță: prețul înregistrat avea ${hours}h la publicare; limita este 12h.`,
+    publishedExcludedMissingPrice:
+      'Exclusă din performanță: nu era disponibil un preț înregistrat recent și verificabil.',
+    publishedExcludedIntegrity:
+      'Exclusă din performanță: verificarea integrității datelor stocate nu a trecut.',
+    publishedExcludedSuperseded:
+      'Exclusă din performanță: selecția a fost înlocuită de o corecție publicată.',
+    publishedExcludedVoid:
+      'Exclusă din performanță: meciul a fost declarat nul, deci nu se calculează nicio miză.',
+    publishedExcludedCancelled:
+      'Exclusă din performanță: meciul a fost anulat, deci nu se calculează nicio miză.',
+    publishedExcludedGeneric:
+      'Rămâne vizibilă, dar este exclusă deoarece nu îndeplinește toate regulile istoricului de performanță.',
 
     policyLink: 'Cum sunt publicate selecțiile',
     policyBody:
@@ -706,7 +744,17 @@ const RO: typeof EN = {
     verifiedBody:
       'Câștigurile și pierderile au aceeași vizibilitate. Totalurile folosesc doar selecții eligibile încheiate; cele în așteptare, nule, anulate și legacy sunt excluse pentru ca numitorul să rămână onest.',
     verifiedFromCommitments:
-      'Selecțiile publicate pot include intrări în așteptare. Cifrele de mai jos conțin doar selecțiile încheiate.',
+      'Lista de mai sus conține fiecare selecție publicată. Acest rezumat arată exact cum meciurile încheiate formează totalul de performanță.',
+    reconciliationHeading: 'Cum este contabilizată fiecare selecție publicată',
+    reconciliationBody:
+      'Selecțiile publicate se împart în două grupuri: în așteptarea rezultatului sau încheiate. Cele încheiate se împart apoi în numărate și excluse.',
+    reconciliationPublished: 'Publicate în total',
+    reconciliationPending: 'În așteptarea rezultatului',
+    reconciliationFinished: 'Meciuri încheiate',
+    reconciliationEquation: (finished: number, counted: number, excluded: number) =>
+      `${finished} încheiate = ${counted} numărate + ${excluded} excluse`,
+    reconciliationExcludedNote:
+      'Meciurile excluse rămân vizibile mai sus, dar nu modifică acuratețea sau ROI. Motivul exact apare direct pe fiecare selecție.',
 
     noAccuracy: 'Niciun rezultat verificat încă',
     accuracyAppears:

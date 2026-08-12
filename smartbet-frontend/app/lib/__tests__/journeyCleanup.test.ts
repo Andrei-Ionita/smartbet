@@ -354,6 +354,12 @@ describe('#published-picks reads immutable claims, never the prediction feed', (
       'publishedOddsLabel', 'publishedAtLabel', 'publishedNotCounted',
       'publishedCountedIn', 'publishedPriceAgeLabel', 'publishedVersionLabel',
       'publishedFreshLabel', 'publishedStaleLabel', 'publishedExcludedFromRecord',
+      'publishedExcludedMissingPrice', 'publishedExcludedIntegrity',
+      'publishedExcludedSuperseded', 'publishedExcludedVoid',
+      'publishedExcludedCancelled', 'publishedExcludedGeneric',
+      'reconciliationHeading', 'reconciliationBody',
+      'reconciliationPublished', 'reconciliationPending',
+      'reconciliationFinished', 'reconciliationExcludedNote',
     ] as const) {
       const en = getCopy('en').record[key]
       const ro = getCopy('ro').record[key]

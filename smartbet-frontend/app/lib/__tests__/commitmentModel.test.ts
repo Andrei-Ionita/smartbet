@@ -36,7 +36,8 @@ describe('plain public vocabulary', () => {
   it('does not count pending picks as results', () => {
     expect(en.record.publishedNotCounted).toContain('not counted yet')
     expect(en.record.publishedStates).toContain('Pending picks do not count')
-    expect(en.record.verifiedFromCommitments).toContain('settled picks only')
+    expect(en.record.verifiedFromCommitments).toContain('every published pick')
+    expect(en.record.reconciliationBody).toContain('awaiting a result or finished')
   })
 })
 
@@ -70,6 +71,28 @@ describe('results page', () => {
     expect(src).toContain('{claims.map((claim) => (')
     expect(src).toContain('claim.counts_towards_verified_record')
     expect(src).not.toMatch(/Cardiff/i)
+  })
+
+  it('reconciles published, pending, finished, counted and excluded picks', () => {
+    for (const field of ['published', 'pending', 'finished', 'counted', 'excluded']) {
+      expect(src).toContain(`${field}:`)
+    }
+    expect(src).toContain('rec.reconciliationEquation(')
+    expect(en.record.reconciliationEquation(8, 5, 3)).toBe(
+      '8 finished = 5 counted + 3 excluded',
+    )
+    expect(ro.record.reconciliationEquation(8, 5, 3)).toBe(
+      '8 încheiate = 5 numărate + 3 excluse',
+    )
+  })
+
+  it('puts the exact exclusion reason on the affected pick', () => {
+    expect(src).toContain('claimExclusionReason(claim, language)')
+    expect(src).toContain('claim.price_age_hours_at_publication')
+    expect(en.record.publishedExcludedStalePrice('23.0')).toContain(
+      'price was 23.0h old',
+    )
+    expect(en.record.publishedExcludedStalePrice('23.0')).toContain('limit is 12h')
   })
 
   it('moves methodology and price-age fields behind verification details', () => {
