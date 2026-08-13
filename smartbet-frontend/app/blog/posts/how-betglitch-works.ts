@@ -2,7 +2,7 @@ import { BlogPost } from '../types'
 
 export const howBetglitchWorks: BlogPost = {
   slug: 'how-betglitch-works',
-  title: 'How BetGlitch Works: From Provider Data to a Verified Record',
+  title: 'How BetGlitch Works: From Fixture Data to Published Results',
   description: 'How BetGlitch takes probability data from a specialist football data provider, ranks it with its own filters, and freezes selected picks before kickoff so every settled result can be checked.',
   author: 'BetGlitch Team',
   date: '2026-03-15',
@@ -14,10 +14,10 @@ export const howBetglitchWorks: BlogPost = {
 The sports prediction landscape is crowded with tipsters who rely on gut feelings, outdated heuristics, and selective memory. BetGlitch takes a different approach. We take probability data from a specialist football data provider, apply our own ranking filters, and freeze selected picks before kickoff — wins and losses alike — across European competitions. We do not claim a predictive edge of our own; whether our filtering adds value is something we are still measuring in public.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-One distinction runs through everything below, so it is worth stating first. A <strong class="text-gray-900">live signal</strong> is our current ranked output for a fixture and it can change at any time before kickoff. A <strong class="text-gray-900">published claim</strong> is a signal we froze, and it can never change. Most live signals are never published. Only <em>settled</em> published claims count towards the verified record — pending claims count towards nothing — and every published claim stays visible afterwards, including the losing ones.
+One distinction runs through everything below, so it is worth stating first. A <strong class="text-gray-900">live fixture analysis</strong> can change before kickoff. A <strong class="text-gray-900">published Gem</strong> is a selection locked before kickoff, and it cannot be edited later. Most fixture analyses never become Gems. Only settled Gems from the current strategy count in the current results; earlier strategies remain in a separate archive.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our mission is simple: replace guesswork with an auditable record. BetGlitch takes probability data from a specialist football data provider, applies its own filtering to surface a small number of candidates, and freezes each public commitment before kickoff so the result can be checked afterwards. This article explains exactly how that works.
+Our mission is simple: make football decisions easier to inspect. BetGlitch compares provider probability data, verified market prices and available fixture context, applies a fixed Gem filter, and locks every qualifying selection before kickoff so its result can be checked afterwards. This article explains exactly how that works.
 </p>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Where the probabilities come from</h2>
@@ -30,7 +30,7 @@ We rank those probabilities against recorded market prices. For each fixture and
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Signal score:</strong> A relative ranking score, not a calibrated probability. It orders candidates; it does not state a chance of winning.</li>
 <li><strong class="text-gray-900">Probability gap:</strong> How far the leading outcome sits above the next one. A narrow gap means the market is close to a coin flip.</li>
-<li><strong class="text-gray-900">Recorded price:</strong> The exact odds, bookmaker, market and capture time behind every public commitment.</li>
+<li><strong class="text-gray-900">Recorded price:</strong> The exact odds, bookmaker, market and capture time behind every published Gem.</li>
 </ul>
 <p class="text-gray-700 leading-relaxed mb-6">
 We are deliberately careful about what this does and does not prove. A ranking score is not a calibrated probability, and we have not yet demonstrated that our filtering beats the market price. That is precisely why the public record exists: to test it in the open rather than assert it.
@@ -64,8 +64,8 @@ BetGlitch sources its probability and fixture data from a specialist third-party
 <li><strong class="text-gray-900">Data ingestion:</strong> Fixture data, team information and recorded odds are pulled continuously for every covered competition.</li>
 <li><strong class="text-gray-900">Probability ingestion:</strong> Provider probabilities are collected for each fixture and market type, with every outcome retained rather than only the favoured side.</li>
 <li><strong class="text-gray-900">Filtering and ranking:</strong> The filters above narrow the candidates, and the survivors are ranked to produce a signal score.</li>
-<li><strong class="text-gray-900">Publication:</strong> Some selections — not all — are frozen before kickoff with their signal score, recorded price, bookmaker, provenance and immutable timestamps. A published claim is never edited or withdrawn.</li>
-<li><strong class="text-gray-900">Settlement:</strong> After full-time a published claim is graded against the fields frozen at publication. Results are inserted, never overwritten.</li>
+<li><strong class="text-gray-900">Publication:</strong> Up to three qualifying Gems are frozen before kickoff with their signal score, recorded price, bookmaker, provenance and immutable timestamps. A published Gem is never edited or withdrawn.</li>
+<li><strong class="text-gray-900">Settlement:</strong> After full-time a published Gem is graded against the fields frozen at publication. Results are inserted, never overwritten.</li>
 </ul>
 
 <h2 class="text-2xl font-semibold text-gray-900 mb-4">Coverage</h2>
@@ -79,7 +79,7 @@ Several qualities set BetGlitch apart from traditional tipsters and other predic
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Ranking, not tipping:</strong> We rank provider probabilities against recorded prices and only surface a candidate when it clears our filters.</li>
-<li><strong class="text-gray-900">Immutability:</strong> A published claim freezes its selection, signal score, price, bookmaker and provenance. It cannot be edited, re-priced, re-graded or withdrawn.</li>
+<li><strong class="text-gray-900">Immutability:</strong> A published Gem freezes its selection, signal score, price, bookmaker and provenance. It cannot be edited, re-priced, re-graded or withdrawn.</li>
 <li><strong class="text-gray-900">Consistency:</strong> The same rules run on every fixture. There are no favourite teams and no retrospective reinterpretation of a result.</li>
 <li><strong class="text-gray-900">Breadth:</strong> Sweeping every covered competition across four markets at once is beyond the capacity of an individual tipster.</li>
 <li><strong class="text-gray-900">Published losses:</strong> Losing claims stay up at the same prominence as winning ones. Odds are never rewritten.</li>
@@ -91,8 +91,8 @@ It would be easy to claim that we publish everything we produce. It would also b
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li>Live signals can change until kickoff, and count towards nothing.</li>
-<li>Every published claim is immutable and stays permanently visible, win or lose.</li>
-<li>Only <em>settled</em> published claims count in the verified record.</li>
+<li>Every published Gem is immutable and stays permanently visible, win or lose.</li>
+<li>Only settled Gems produced by the current strategy count in the current results.</li>
 <li>Pending claims count towards nothing until the match finishes.</li>
 <li>Void and cancelled claims stay visible but are excluded from the relevant totals.</li>
 </ul>

@@ -46,9 +46,9 @@ First, the thing we are careful <em>not</em> to say. We do not publish every pre
 </p>
 <ul class="list-disc list-inside space-y-2 mb-6 text-gray-700">
 <li><strong class="text-gray-900">Live signals are mutable and count towards nothing.</strong> A live signal is our current ranked output for a fixture. It can change until kickoff. It is not part of any performance figure unless we publish it.</li>
-<li><strong class="text-gray-900">A published claim is frozen before kickoff and never changes.</strong> Publication records the selection, signal score, exact price, bookmaker, provenance and timestamps. There is no code path that edits or withdraws a claim after the fact.</li>
-<li><strong class="text-gray-900">Every published claim stays visible.</strong> Including the losing ones, at the same prominence as the winners. Odds are never rewritten and nothing is deleted.</li>
-<li><strong class="text-gray-900">Only settled published claims count.</strong> Pending claims count towards nothing until the match finishes; void and cancelled claims stay visible but are excluded from the relevant totals. This makes our record smaller than our output, deliberately.</li>
+<li><strong class="text-gray-900">A published Gem is frozen before kickoff and never changes.</strong> Publication records the selection, signal score, exact price, bookmaker, provenance and timestamps. There is no code path that edits or withdraws it after the fact.</li>
+<li><strong class="text-gray-900">Every published Gem stays visible.</strong> Including the losing ones, at the same prominence as the winners. Odds are never rewritten and nothing is deleted.</li>
+<li><strong class="text-gray-900">Only settled current-strategy Gems count.</strong> Pending Gems count towards nothing until the match finishes; void and cancelled entries stay visible but are excluded from the relevant totals. Earlier strategy versions remain in a separate archive.</li>
 <li><strong class="text-gray-900">Results are verified against third-party data.</strong> After full-time the result is pulled from an independent data source and graded against the fields frozen at publication. Results are inserted, never overwritten.</li>
 </ul>
 
@@ -70,16 +70,16 @@ Whether you use BetGlitch or any other prediction service, here are the critical
 We believe the prediction industry needs to grow up. The era of unverifiable claims and cherry-picked screenshots should be over. BetGlitch's accountability model is designed to set a new standard:
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Our signals are ranked from provider probability data rather than opinion. The picks we publish are frozen with timestamps before matches begin. Results are verified against third-party data feeds and graded on the frozen fields. Every published claim stays public permanently, and we show our losses just as prominently as our wins.
+Our fixture analyses use provider probability data rather than opinion. Gems that pass every current gate are frozen with timestamps before matches begin. Results are graded against third-party match data and the frozen fields. Every published Gem stays public permanently, and losses receive the same visibility as wins.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-Two limits belong in the same breath, because a transparency article that omits them is doing the thing it criticises. First, the verified record covers settled published claims only — it is not a log of everything we have ever ranked, and it is smaller than our output by design. Second, transparency is not accuracy: publishing our losses honestly does not mean we have demonstrated a predictive or pricing edge. We have not. The signal score is a relative ranking, not a calibrated probability, and whether our filtering adds value is the open question this record exists to settle.
+Two limits belong in the same breath. First, current results cover settled Gems from one exact strategy version; Explore analyses and earlier strategies do not enter those figures. Second, transparency is not accuracy: publishing losses honestly does not mean BetGlitch has demonstrated a predictive or pricing edge. It has not. The signal score is a relative ranking, not a calibrated probability, and whether the Gem filter adds value is the question these results exist to test.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
 This approach means our numbers will never look as flashy as a tipster who only shares their best days. But they will be real. And over time, real, verifiable performance is far more valuable than inflated claims that crumble under scrutiny.
 </p>
 <p class="text-gray-700 leading-relaxed mb-6">
-We invite you to examine the published claims on the <a href="/track-record" class="text-blue-600 hover:underline font-medium">track record page</a>. Filter by any criteria you like. Look at the losses alongside the wins. Run the numbers yourself, and hold the result against what we claim rather than against what we would like to claim. BetGlitch is a free public beta, is not a bookmaker and does not accept bets; nothing here is advice, no output guarantees profit, and you can lose all the money you wager.
+Examine every current Gem and the separate earlier-strategy archive on the <a href="/track-record" class="text-blue-600 hover:underline font-medium">Results page</a>. Look at losses alongside wins and judge one strategy version on its own evidence. BetGlitch is a free public beta, is not a bookmaker and does not accept bets; nothing here is advice, no output guarantees profit, and you can lose all the money you wager.
 </p>
 `,
 }

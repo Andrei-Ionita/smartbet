@@ -108,6 +108,17 @@ export default function HomePage() {
     qualified: data?.gem_scan?.qualified_fixtures ?? gems.length,
     shown: data?.gem_scan?.displayed_gems ?? gems.length,
   }
+  const rejectionLabels: Record<string, string> = {
+    signal_or_verified_price: copy.home.diagnosticsSignalPrice,
+    reliability: copy.home.diagnosticsReliability,
+    provider_value: copy.home.diagnosticsProviderValue,
+    cross_market_consensus: copy.home.diagnosticsConsensus,
+    price_quality: copy.home.diagnosticsPriceQuality,
+  }
+  const rejectionBreakdown: Array<{ code: string; fixtures_affected: number }> =
+    Array.isArray(data?.gem_scan?.rejection_breakdown)
+      ? data.gem_scan.rejection_breakdown
+      : []
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -214,19 +225,47 @@ export default function HomePage() {
           </div>
 
           {!isLoading && !error && (
-            <dl className="mb-6 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-4">
-              {[
-                [scan.fixtures, copy.home.scanFixtures],
-                [scan.predictions, copy.home.scanPredictions],
-                [scan.qualified, copy.home.scanQualified],
-                [scan.shown, copy.home.scanShown],
-              ].map(([value, label]) => (
-                <div key={String(label)} className="bg-white px-4 py-4 text-center">
-                  <dt className="text-xs leading-tight text-gray-500">{label}</dt>
-                  <dd className="mt-1 text-2xl font-bold text-gray-950">{value}</dd>
-                </div>
-              ))}
-            </dl>
+            <>
+              <dl className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-4">
+                {[
+                  [scan.fixtures, copy.home.scanFixtures],
+                  [scan.predictions, copy.home.scanPredictions],
+                  [scan.qualified, copy.home.scanQualified],
+                  [scan.shown, copy.home.scanShown],
+                ].map(([value, label]) => (
+                  <div key={String(label)} className="bg-white px-4 py-4 text-center">
+                    <dt className="text-xs leading-tight text-gray-500">{label}</dt>
+                    <dd className="mt-1 text-2xl font-bold text-gray-950">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+
+              {rejectionBreakdown.length > 0 && scan.predictions > 0 && (
+                <details className="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">
+                    {copy.home.diagnosticsHeading}
+                  </summary>
+                  <p className="mt-3 text-xs leading-relaxed text-slate-500">
+                    {copy.home.diagnosticsBody}
+                  </p>
+                  <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                    {rejectionBreakdown.map((item) => (
+                      <div key={item.code} className="rounded-lg bg-slate-50 px-3 py-3">
+                        <dt className="text-xs leading-snug text-slate-600">
+                          {rejectionLabels[item.code] ?? item.code}
+                        </dt>
+                        <dd className="mt-1 text-lg font-bold text-slate-950">
+                          {item.fixtures_affected}{' '}
+                          <span className="text-xs font-normal text-slate-500">
+                            {copy.home.diagnosticsAffected}
+                          </span>
+                        </dd>
+                      </div>
+                    ))}
+                  </dl>
+                </details>
+              )}
+            </>
           )}
 
           {isLoading && (

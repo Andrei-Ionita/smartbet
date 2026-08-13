@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ProofPageBody, UnpublishedState } from '../../_shared/ProofPageBody'
 import { fetchProofByClaim } from '../../_shared/proofData'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.betglitch.com'
 
 /**
  * The STABLE public proof identity: /proof/claim/<claim_uuid>.
@@ -41,6 +41,7 @@ export async function generateMetadata(
   return {
     title,
     description,
+    alternates: { canonical: `/proof/claim/${params.claimId}` },
     openGraph: {
       title, description, type: 'website',
       url: `${APP_URL}/proof/claim/${params.claimId}`,

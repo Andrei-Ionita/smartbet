@@ -7,10 +7,11 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 export const metadata: Metadata = {
   title: 'Blog — signals, settlement and transparency',
   description: 'How BetGlitch turns provider data into transparent football signals and published picks, plus research on pricing evidence and honest results.',
+  alternates: { canonical: '/blog' },
   openGraph: {
     title: 'Blog — signals, settlement and transparency | BetGlitch',
     description: 'Transparent football signals, published picks and public results, explained.',
-    url: 'https://betglitch.com/blog',
+    url: 'https://www.betglitch.com/blog',
   },
 }
 
@@ -20,8 +21,8 @@ export default function BlogPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <BreadcrumbSchema items={[
-        { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Blog', url: 'https://betglitch.com/blog' },
+        { name: 'Home', url: 'https://www.betglitch.com' },
+        { name: 'Blog', url: 'https://www.betglitch.com/blog' },
       ]} />
       <div className="max-w-4xl mx-auto px-4 py-12">
         <div className="text-center mb-12">

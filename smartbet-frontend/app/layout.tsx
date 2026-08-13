@@ -7,7 +7,8 @@ import Footer from '@/components/Footer'
 import AgeGateModal from './components/AgeGateModal'
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://betglitch.com'),
+  metadataBase: new URL('https://www.betglitch.com'),
+  alternates: { canonical: '/' },
   title: {
     default: 'BetGlitch — every signal explained, every result visible',
     template: '%s | BetGlitch'
@@ -19,7 +20,7 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     locale: 'en_US',
-    url: 'https://betglitch.com',
+    url: 'https://www.betglitch.com',
     title: 'BetGlitch — every signal explained, every result visible',
     description: 'Fixture context, verified prices and published picks locked before kickoff. Every eligible result stays visible — win or lose.',
     siteName: 'BetGlitch',
@@ -53,8 +54,8 @@ const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
   "name": "BetGlitch",
-  "url": "https://betglitch.com",
-  "logo": "https://betglitch.com/images/logo-final-v6.png",
+  "url": "https://www.betglitch.com",
+  "logo": "https://www.betglitch.com/images/logo-final-v6.png",
   "description": "A public football-signal lab with fixture context, verified prices, versioned methodology and a permanent result record.",
   "sameAs": [],
 }
@@ -63,11 +64,11 @@ const websiteSchema = {
   "@context": "https://schema.org",
   "@type": "WebSite",
   "name": "BetGlitch",
-  "url": "https://betglitch.com",
+  "url": "https://www.betglitch.com",
   "description": "Football decision intelligence, published picks locked before kickoff and transparent results",
   "potentialAction": {
     "@type": "SearchAction",
-    "target": "https://betglitch.com/explore?q={search_term_string}",
+    "target": "https://www.betglitch.com/explore?q={search_term_string}",
     "query-input": "required name=search_term_string",
   },
 }

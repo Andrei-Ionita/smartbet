@@ -8,7 +8,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Bankroll Management Calculator | BetGlitch',
     description: 'Track your own betting balance against a bankroll you set. BetGlitch does not size stakes for you.',
-    url: 'https://betglitch.com/bankroll',
+    url: 'https://www.betglitch.com/bankroll',
   },
 }
 
@@ -16,8 +16,8 @@ export default function BankrollPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Bankroll Management', url: 'https://betglitch.com/bankroll' },
+        { name: 'Home', url: 'https://www.betglitch.com' },
+        { name: 'Bankroll Management', url: 'https://www.betglitch.com/bankroll' },
       ]} />
       <BankrollContent />
     </>

@@ -2,6 +2,7 @@
 
 import { Cookie, Database, Lock, Mail, Shield, Trash2 } from 'lucide-react'
 import Link from 'next/link'
+import { PUBLIC_LEGAL_IDENTITY_COMPLETE, publicLegalIdentity } from '@/app/lib/publicLegalIdentity'
 
 
 export default function PrivacyContent() {
@@ -18,13 +19,31 @@ export default function PrivacyContent() {
       <div className="space-y-8 rounded-xl border border-gray-200 bg-white p-8 shadow-sm">
         <section>
           <h2 className="mb-4 text-xl font-bold text-gray-900">1. Who controls your data</h2>
-          <p className="text-gray-600">
-            BetGlitch determines why and how personal data submitted through the Service is processed.
-            The operator&apos;s legal name, service address and jurisdiction must be added here before the
-            public launch; until then, this page is a beta-stage privacy notice rather than a final legal
-            identification. Privacy requests can be sent to{' '}
-            <a href="mailto:privacy@betglitch.com" className="text-primary-600 hover:underline">privacy@betglitch.com</a>.
-          </p>
+          {PUBLIC_LEGAL_IDENTITY_COMPLETE ? (
+            <p className="text-gray-600">
+              <strong>{publicLegalIdentity.operatorName}</strong>, of {publicLegalIdentity.operatorAddress},{' '}
+              {publicLegalIdentity.operatorCountry}, operates BetGlitch and determines why and how personal
+              data submitted through the Service is processed. Privacy requests can be sent to{' '}
+              <a href="mailto:privacy@betglitch.com" className="text-primary-600 hover:underline">privacy@betglitch.com</a>.
+            </p>
+          ) : (
+            <div className="space-y-3 text-gray-600">
+              <p>
+                BetGlitch determines why and how personal data submitted through the Service is processed.
+                The current free, accountless beta does not accept payments, registrations or newsletter
+                sign-ups.
+              </p>
+              <p className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+                The operator&apos;s legal name, service address and jurisdiction are not yet published. They must
+                be completed before BetGlitch moves beyond a limited public beta or enables accounts, email
+                collection or payments.
+              </p>
+              <p>
+                Privacy requests can be sent to{' '}
+                <a href="mailto:privacy@betglitch.com" className="text-primary-600 hover:underline">privacy@betglitch.com</a>.
+              </p>
+            </div>
+          )}
         </section>
 
         <section>

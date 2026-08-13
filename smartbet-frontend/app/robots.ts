@@ -1,6 +1,6 @@
 import { MetadataRoute } from 'next'
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://betglitch.com'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.betglitch.com'
 
 export default function robots(): MetadataRoute.Robots {
     return {
@@ -11,7 +11,7 @@ export default function robots(): MetadataRoute.Robots {
                 disallow: [
                     '/private/', '/dashboard/', '/profile/', '/login/',
                     '/register/', '/forgot-password/', '/reset-password/',
-                    '/bankroll/', '/pricing/',
+                    '/bankroll/', '/pricing/', '/monitoring/',
                 ],
             },
         ],

@@ -180,6 +180,15 @@ const EN = {
     noGemsHeading: 'No fixture earned Gem status',
     noGemsBody:
       'None passed every reliability, consensus and price test. Showing nothing is the filter working—not a reason to lower the standard.',
+    diagnosticsHeading: 'Why fixtures were filtered out',
+    diagnosticsBody:
+      'This scan reports where candidates stopped. One fixture can fail more than one strategy check, so the reason counts may overlap.',
+    diagnosticsSignalPrice: 'Signal or verified-price readiness',
+    diagnosticsReliability: 'League and fixture reliability',
+    diagnosticsProviderValue: 'Provider value evidence',
+    diagnosticsConsensus: 'Cross-market agreement',
+    diagnosticsPriceQuality: 'Price quality and coverage',
+    diagnosticsAffected: 'fixtures affected',
     methodologyCta: 'Read the exact methodology',
     browseAll: 'Browse all fixtures',
 
@@ -331,7 +340,7 @@ const EN = {
   record: {
     scopeHeading: 'How these results work',
     scopeCutoff:
-      'These results begin on the date BetGlitch started verifying every recorded price. Earlier predictions remain available in the Legacy filter but do not count in any figure on this page.',
+      'Current results contain only Gems published by the active strategy version. Earlier strategies remain available in the separate archive and never change these figures.',
     scopeImmutable:
       'Only picks published and locked before kickoff can enter these results.',
     scopePending:
@@ -603,7 +612,7 @@ const RO: typeof EN = {
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi rezultatele publicate',
     trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse · Metodologie versionată',
-    zeroState: 'Construim rezultatele publice de la zero',
+    zeroState: 'Strategia Gem actuală: niciun rezultat încheiat încă',
   },
 
   manifesto: {
@@ -618,7 +627,7 @@ const RO: typeof EN = {
   home: {
     signalsHeading: 'Semnale live acum',
     gemsLimit: 'Pot apărea cel mult trei. Dacă niciunul nu trece toate filtrele, nu publicăm nimic.',
-    gemsHeading: 'Gem-uri calificate din ultima scanare',
+    gemsHeading: 'Gem-urile calificate astăzi',
     gemsSupporting:
       'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al furnizorului, nu după cea mai mare cotă.',
     scanFixtures: 'meciuri scanate',
@@ -628,6 +637,15 @@ const RO: typeof EN = {
     noGemsHeading: 'Niciun meci nu a obținut statutul Gem',
     noGemsBody:
       'Niciunul nu a trecut toate testele de fiabilitate, consens și preț. Faptul că nu afișăm nimic arată că filtrul funcționează—nu este un motiv să coborâm standardul.',
+    diagnosticsHeading: 'De ce au fost filtrate meciurile',
+    diagnosticsBody:
+      'Scanarea arată unde s-au oprit candidații. Un meci poate eșua mai multe verificări ale strategiei, deci numerele motivelor se pot suprapune.',
+    diagnosticsSignalPrice: 'Semnal sau preț verificat insuficient',
+    diagnosticsReliability: 'Fiabilitatea ligii și a meciului',
+    diagnosticsProviderValue: 'Dovezi de valoare ale furnizorului',
+    diagnosticsConsensus: 'Acord între piețe',
+    diagnosticsPriceQuality: 'Calitatea și acoperirea prețului',
+    diagnosticsAffected: 'meciuri afectate',
     methodologyCta: 'Citește metodologia exactă',
     browseAll: 'Vezi toate meciurile',
 
@@ -673,7 +691,7 @@ const RO: typeof EN = {
     coverageHeading: 'Acoperire',
     coverageBody: 'competiții europene, cu până la 14 zile în avans. Inclusiv:',
     viewAllLeagues: 'Vezi toate competițiile',
-    settledLabel: 'Rezultate publicate',
+    settledLabel: 'rezultate ale strategiei actuale',
     openRecord: 'Vezi toate rezultatele',
     finalHeading: 'Gratuit cât timp construim rezultatele publice',
     finalBody:
@@ -775,7 +793,7 @@ const RO: typeof EN = {
   record: {
     scopeHeading: 'Cum funcționează aceste rezultate',
     scopeCutoff:
-      'Aceste rezultate încep de la data la care BetGlitch a început să verifice fiecare cotă înregistrată. Predicțiile anterioare rămân disponibile prin filtrul Legacy, dar nu intră în cifrele de pe această pagină.',
+      'Rezultatele actuale conțin doar Gem-urile publicate de versiunea activă a strategiei. Strategiile anterioare rămân în arhiva separată și nu modifică aceste cifre.',
     scopeImmutable:
       'Doar selecțiile publicate și blocate înainte de start pot intra în aceste rezultate.',
     scopePending:

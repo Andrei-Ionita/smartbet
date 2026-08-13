@@ -62,8 +62,8 @@ const RO: Record<SignalStatus, { label: string; hint: string }> = {
     hint: 'Contramandat — exclus din totalurile istoricului verificat.',
   },
   legacy: {
-    label: 'ISTORIC — NU E ÎN ISTORICUL VERIFICAT',
-    hint: 'Înregistrat înainte de începerea verificării prețurilor. Păstrat, dar exclus din performanța publică.',
+    label: 'STRATEGIE ANTERIOARĂ — ARHIVĂ',
+    hint: 'Publicat de o strategie retrasă. Păstrat pentru transparență, dar exclus din rezultatele strategiei actuale.',
   },
 }
 
@@ -116,10 +116,10 @@ const SPECS: Record<SignalStatus, Spec> = {
     hint: 'Cancelled — excluded from the results totals.',
   },
   legacy: {
-    label: 'LEGACY — NOT IN VERIFIED RECORD',
+    label: 'EARLIER STRATEGY — ARCHIVE',
     Icon: Archive,
     className: 'border-solid border-amber-400 bg-amber-50 text-amber-900',
-    hint: 'Recorded before price verification began. Preserved, but excluded from public performance.',
+    hint: 'Published by a retired strategy. Preserved for transparency, but excluded from current-strategy results.',
   },
 }
 

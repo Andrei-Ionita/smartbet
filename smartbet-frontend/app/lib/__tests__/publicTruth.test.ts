@@ -287,7 +287,7 @@ describe('verified price versus assessed value', () => {
   })
 })
 
-describe('pending claims are excluded from performance', () => {
+describe('pending Gems are excluded from performance', () => {
   it('the record copy says pending counts towards nothing', () => {
     const copy = read('app/lib/terminology.ts')
     expect(copy).toMatch(/Pending picks are not results/i)
@@ -296,8 +296,8 @@ describe('pending claims are excluded from performance', () => {
 
   it('the blog states the same exclusion', () => {
     const src = read('app/blog/posts/transparent-track-records.ts')
-    expect(src).toMatch(/pending claims count towards nothing/i)
-    expect(src).toMatch(/only settled published claims count/i)
+    expect(src).toMatch(/pending Gems count towards nothing/i)
+    expect(src).toMatch(/only settled current-strategy Gems count/i)
   })
 })
 

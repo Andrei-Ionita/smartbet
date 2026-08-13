@@ -35,11 +35,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   return {
     title,
     description,
+    alternates: { canonical: `/prediction/${params.slug.join('/')}` },
     openGraph: {
       title,
       description,
       type: 'article',
-      url: `https://betglitch.com/prediction/${params.slug.join('/')}`,
+      url: `https://www.betglitch.com/prediction/${params.slug.join('/')}`,
       section: 'Sports',
       tags: ['Football Analysis', 'Football Odds', home_team, away_team, league],
     },

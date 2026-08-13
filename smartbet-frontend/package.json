@@ -10,7 +10,8 @@
     "deploy": "npm run build && echo 'Build complete. Ready for Railway deployment.'",
     "setup": "npm install && echo '✅ Dependencies installed! Ready to run npm run dev'",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "launch:check": "node scripts/check-public-launch.mjs"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

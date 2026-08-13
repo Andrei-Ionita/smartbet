@@ -22,10 +22,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   return {
     title: post.title,
     description: post.description,
+    alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
       title: `${post.title} | BetGlitch`,
       description: post.description,
-      url: `https://betglitch.com/blog/${post.slug}`,
+      url: `https://www.betglitch.com/blog/${post.slug}`,
       type: 'article',
       publishedTime: post.date,
       authors: [post.author],
@@ -50,19 +51,19 @@ export default async function BlogPostPage({ params }: Props) {
     "publisher": {
       "@type": "Organization",
       "name": "BetGlitch",
-      "logo": { "@type": "ImageObject", "url": "https://betglitch.com/images/logo-final-v6.png" }
+      "logo": { "@type": "ImageObject", "url": "https://www.betglitch.com/images/logo-final-v6.png" }
     },
     "datePublished": post.date,
     "dateModified": post.date,
-    "mainEntityOfPage": `https://betglitch.com/blog/${post.slug}`,
+    "mainEntityOfPage": `https://www.betglitch.com/blog/${post.slug}`,
   }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <BreadcrumbSchema items={[
-        { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'Blog', url: 'https://betglitch.com/blog' },
-        { name: post.title, url: `https://betglitch.com/blog/${post.slug}` },
+        { name: 'Home', url: 'https://www.betglitch.com' },
+        { name: 'Blog', url: 'https://www.betglitch.com/blog' },
+        { name: post.title, url: `https://www.betglitch.com/blog/${post.slug}` },
       ]} />
       <script
         type="application/ld+json"

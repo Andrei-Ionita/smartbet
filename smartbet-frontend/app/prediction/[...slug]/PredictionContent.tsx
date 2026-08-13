@@ -31,8 +31,8 @@ export default function PredictionContent({ fixture, lastUpdated }: PredictionCo
         <ProofCapturePanel
           source="prediction_page"
           leagueInterest={fixture.league}
-          title="Follow published picks and results by email."
-          description="Occasional updates from the public record: new commitments, settled results, and methodology changes — wins and losses alike."
+          title="Inspect the published evidence."
+          description="See every current-strategy Gem BetGlitch published before kickoff and how it settled — wins and losses alike. No email or account is required."
         />
       </div>
 

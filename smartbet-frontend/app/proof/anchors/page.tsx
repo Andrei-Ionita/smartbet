@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: 'Verification details | BetGlitch',
   description:
     'Technical verification details for BetGlitch published picks, including integrity hashes and independent OpenTimestamps proofs.',
+  alternates: { canonical: '/proof/anchors' },
 }
 
 interface Anchor {

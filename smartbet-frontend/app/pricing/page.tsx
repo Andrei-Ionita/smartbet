@@ -22,7 +22,7 @@ const betaMetadata: Metadata = {
       'Free while we build the public results. Every published pick is locked '
       + 'before kickoff and remains visible after '
       + 'settlement—win or lose.',
-    url: 'https://betglitch.com/pricing',
+    url: 'https://www.betglitch.com/pricing',
   },
 }
 
@@ -32,7 +32,7 @@ const pricingMetadata: Metadata = {
   openGraph: {
     title: 'Pricing Plans | BetGlitch',
     description: 'Transparent football signals, published picks and public results. Start free.',
-    url: 'https://betglitch.com/pricing',
+    url: 'https://www.betglitch.com/pricing',
   },
 }
 
@@ -44,8 +44,8 @@ export default function PricingPage() {
   return (
     <>
       <BreadcrumbSchema items={[
-        { name: 'Home', url: 'https://betglitch.com' },
-        { name: label, url: 'https://betglitch.com/pricing' },
+        { name: 'Home', url: 'https://www.betglitch.com' },
+        { name: label, url: 'https://www.betglitch.com/pricing' },
       ]} />
       {PAYMENTS_ENABLED ? <PricingContent /> : <BetaContent />}
     </>

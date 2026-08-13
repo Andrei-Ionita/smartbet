@@ -45,7 +45,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'expected',
     title: 'The public results are being built',
     body:
-      'No published pick has settled yet. Once one does, its result appears here automatically—win or lose. Earlier predictions remain available through the Legacy filter but do not count.',
+      'No current-strategy Gem has settled yet. Once one does, its result appears here automatically—win or lose. Earlier strategies remain available in the separate archive and never change the current figures.',
     primary: { label: 'View published picks', href: '/track-record#published-picks' },
     secondary: { label: 'Explore live signals', href: '/explore' },
   },
@@ -122,7 +122,7 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   no_verified_results: {
     title: 'Rezultatele publice sunt în construcție',
     body:
-      'Nicio selecție publicată nu s-a încheiat încă. Atunci când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. Predicțiile anterioare rămân disponibile prin filtrul Legacy, dar nu contează.',
+      'Niciun Gem al strategiei actuale nu s-a încheiat încă. Atunci când se întâmplă, rezultatul apare aici automat — câștig sau pierdere. Strategiile anterioare rămân în arhiva separată și nu modifică cifrele actuale.',
     primary: 'Vezi selecțiile publicate',
     secondary: 'Explorează semnalele live',
   },
@@ -164,7 +164,7 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   first_dashboard: {
     title: 'Panoul tău se completează pe măsură ce folosești BetGlitch',
     body:
-      'Urmărește-ți expunerea cu instrumentele de buget și istoricul verificat pe măsură ce angajamentele publice se încheie.',
+      'Explorează analizele meciurilor și urmărește rezultatele strategiei Gem actuale pe măsură ce selecțiile publicate se încheie.',
     primary: 'Explorează semnalele live',
     secondary: 'Configurează bugetul',
   },

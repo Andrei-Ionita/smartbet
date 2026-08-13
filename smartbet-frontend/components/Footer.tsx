@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { Trophy, Mail, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '@/app/contexts/LanguageContext'
 import { getCopy } from '@/app/lib/terminology'
+import { PUBLIC_LEGAL_IDENTITY_COMPLETE, publicLegalIdentity } from '@/app/lib/publicLegalIdentity'
 
 export default function Footer() {
     const currentYear = new Date().getFullYear()
@@ -178,7 +179,15 @@ export default function Footer() {
 
                 {/* Bottom Bar */}
                 <div className="flex flex-col md:flex-row justify-between items-center pt-8 border-t border-gray-200 text-sm text-gray-500">
-                    <p>&copy; {currentYear} {f.rights}</p>
+                    <div className="text-center md:text-left">
+                        <p>&copy; {currentYear} {f.rights}</p>
+                        {PUBLIC_LEGAL_IDENTITY_COMPLETE && (
+                            <p className="mt-1 text-xs">
+                                {publicLegalIdentity.operatorName} · {publicLegalIdentity.operatorAddress} ·{' '}
+                                {publicLegalIdentity.operatorCountry}
+                            </p>
+                        )}
+                    </div>
                     <div className="flex items-center gap-4 mt-4 md:mt-0">
                         <span className="flex items-center gap-2">
                             <span className="w-2 h-2 bg-green-500 rounded-full"></span>

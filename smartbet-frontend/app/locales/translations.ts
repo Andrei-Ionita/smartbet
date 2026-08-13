@@ -172,7 +172,7 @@ export const translations = {
             transparency: {
                 title: '🔒 How published picks stay honest',
                 whatWeTrack: '📋 What We Track',
-                whatWeTrackDesc: 'Public performance uses only picks BetGlitch published and locked before kickoff with their recorded odds and bookmaker. Earlier predictions are available only through the Legacy filter and excluded from every figure.',
+                whatWeTrackDesc: 'Current results use only Gems produced by the active strategy and locked before kickoff with their recorded odds and bookmaker. Earlier strategies remain in a separate archive and are excluded from every current figure.',
                 why: 'Why?',
                 whyDesc: 'Because results are meaningful only when picks cannot be added, edited or deleted after the match.',
                 points: {
@@ -183,7 +183,7 @@ export const translations = {
                     permanent: 'Never deleted',
                     permanentDesc: 'Historical data is permanent - we show both wins and losses',
                     history: 'Nothing is deleted',
-                    historyDesc: 'Earlier predictions stay available through the Legacy filter even though they do not count in public results',
+                    historyDesc: 'Earlier strategies stay available in a separate archive even though they do not count in current results',
                     updates: 'Real-time updates',
                     updatesDesc: 'Click "Update Results" to fetch the latest match outcomes'
                 },
@@ -513,7 +513,7 @@ export const translations = {
             transparency: {
                 title: '🔒 Cum rămân oneste selecțiile publicate',
                 whatWeTrack: '📋 Ce Urmărim',
-                whatWeTrackDesc: 'Performanța publică folosește doar selecțiile publicate și blocate de BetGlitch înainte de start, cu cota și casa de pariuri înregistrate. Predicțiile mai vechi sunt disponibile doar prin filtrul Legacy și excluse din orice cifră.',
+                whatWeTrackDesc: 'Rezultatele actuale folosesc doar Gem-urile strategiei active, publicate și blocate înainte de start cu cota și casa de pariuri înregistrate. Strategiile anterioare rămân într-o arhivă separată și sunt excluse din cifrele actuale.',
                 why: 'De ce?',
                 whyDesc: 'Pentru că rezultatele contează doar dacă selecțiile nu pot fi adăugate, modificate sau șterse după meci.',
                 points: {
@@ -524,7 +524,7 @@ export const translations = {
                     permanent: 'Niciodată șterse',
                     permanentDesc: 'Datele istorice sunt permanente - arătăm atât câștigurile cât și pierderile',
                     history: 'Nimic nu se șterge',
-                    historyDesc: 'Predicțiile mai vechi rămân vizibile ca legacy, chiar dacă nu pot conta în istoricul verificat',
+                    historyDesc: 'Strategiile anterioare rămân vizibile într-o arhivă separată, fără să intre în rezultatele strategiei actuale',
                     updates: 'Actualizări în timp real',
                     updatesDesc: 'Apasă "Actualizează Rezultate" pentru a prelua cele mai recente rezultate ale meciurilor'
                 },

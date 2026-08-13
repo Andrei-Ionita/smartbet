@@ -13,11 +13,12 @@ export const metadata: Metadata = {
   title: 'About BetGlitch — how a signal becomes a public result',
   description:
     `A public football-signal lab. BetGlitch adds verified prices and available fixture context to provider data, versions its ranking rules, and keeps every eligible result visible.`,
+  alternates: { canonical: '/about' },
   openGraph: {
     title: 'About BetGlitch — how a signal becomes a public result',
     description:
       'Every signal explained, every published pick locked before kickoff and every eligible result visible.',
-    url: 'https://betglitch.com/about',
+    url: 'https://www.betglitch.com/about',
   },
 }
 
@@ -26,8 +27,8 @@ export default function AboutPage() {
     "@context": "https://schema.org",
     "@type": "Organization",
     "name": "BetGlitch",
-    "url": "https://betglitch.com",
-    "logo": "https://betglitch.com/images/logo-final-v6.png",
+    "url": "https://www.betglitch.com",
+    "logo": "https://www.betglitch.com/images/logo-final-v6.png",
     "description": `A public football-signal lab with verified prices, available fixture context, versioned ranking rules and a permanent result record.`,
     "sameAs": [],
   }
@@ -35,8 +36,8 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       <BreadcrumbSchema items={[
-        { name: 'Home', url: 'https://betglitch.com' },
-        { name: 'About', url: 'https://betglitch.com/about' },
+        { name: 'Home', url: 'https://www.betglitch.com' },
+        { name: 'About', url: 'https://www.betglitch.com/about' },
       ]} />
       <script
         type="application/ld+json"

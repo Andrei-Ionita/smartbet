@@ -2,6 +2,7 @@
 
 import { FileText, AlertTriangle, Scale, Shield, Ban } from 'lucide-react'
 import Link from 'next/link'
+import { PUBLIC_LEGAL_IDENTITY_COMPLETE, publicLegalIdentity } from '@/app/lib/publicLegalIdentity'
 
 export default function TermsContent() {
     return (
@@ -31,6 +32,18 @@ export default function TermsContent() {
                         We reserve the right to modify these terms at any time. Your continued use of the Service
                         following any changes constitutes acceptance of those changes.
                     </p>
+                    {PUBLIC_LEGAL_IDENTITY_COMPLETE ? (
+                        <p className="text-gray-600 mt-4">
+                            BetGlitch is operated by <strong>{publicLegalIdentity.operatorName}</strong>, of{' '}
+                            {publicLegalIdentity.operatorAddress}, {publicLegalIdentity.operatorCountry}.
+                        </p>
+                    ) : (
+                        <p className="text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-4 mt-4 text-sm">
+                            BetGlitch is currently a limited, free, accountless beta. The operator&apos;s legal
+                            identity and service address must be published before accounts, email collection,
+                            payments or a broader commercial launch are enabled.
+                        </p>
+                    )}
                 </section>
 
                 {/* Service Description */}
@@ -52,7 +65,7 @@ export default function TermsContent() {
                     </p>
                     <ul className="list-disc list-inside text-gray-600 space-y-1 ml-4">
                         <li>Live signals ranking provider-derived probabilities for upcoming fixtures</li>
-                        <li>Published claims, frozen before kickoff with their recorded odds and provenance</li>
+                        <li>Published Gems, frozen before kickoff with their recorded odds and provenance</li>
                         <li>Public results built only from settled picks published before kickoff</li>
                         <li>Historical data and educational content about sports analytics</li>
                     </ul>
@@ -156,11 +169,20 @@ export default function TermsContent() {
                 {/* Governing Law */}
                 <section>
                     <h2 className="text-xl font-bold text-gray-900 mb-4">8. Governing Law</h2>
-                    <p className="text-gray-600">
-                        These Terms shall be governed by and construed in accordance with applicable laws.
-                        Any disputes arising from these Terms or your use of the Service shall be subject
-                        to the exclusive jurisdiction of the appropriate courts.
-                    </p>
+                    {PUBLIC_LEGAL_IDENTITY_COMPLETE ? (
+                        <p className="text-gray-600">
+                            These Terms shall be governed by and construed in accordance with{' '}
+                            {publicLegalIdentity.governingLaw}. Any disputes arising from these Terms or your use
+                            of the Service shall be subject to the jurisdiction of{' '}
+                            {publicLegalIdentity.competentCourts}, except where mandatory consumer law provides otherwise.
+                        </p>
+                    ) : (
+                        <p className="text-gray-600">
+                            Governing law and competent courts will be stated together with the operator&apos;s legal
+                            identity before BetGlitch moves beyond its limited public beta. Mandatory consumer
+                            protections that apply in your country are not excluded.
+                        </p>
+                    )}
                 </section>
 
                 {/* Contact */}

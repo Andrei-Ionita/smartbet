@@ -7,6 +7,7 @@ export const metadata: Metadata = {
   title: 'Ranking methodology',
   description:
     'The exact parameters BetGlitch uses to rank outcomes, and the version stored with every published pick so results stay interpretable as the logic changes.',
+  alternates: { canonical: '/methodology' },
 }
 
 function Param({ label, value }: { label: string; value: string }) {

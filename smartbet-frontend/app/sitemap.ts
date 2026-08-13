@@ -2,7 +2,7 @@ import { MetadataRoute } from 'next'
 import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import { getAllPosts } from './blog/posts'
 
-const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://betglitch.com'
+const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.betglitch.com'
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Static routes
@@ -13,7 +13,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         '/calibration',
         '/about',
         ...(ACCOUNT_FEATURES_ENABLED ? ['/bankroll'] : []),
-        '/monitoring',
+        // Signal Research remains directly accessible as beta methodology
+        // evidence, but its 300+ row research table is deliberately not a
+        // search landing page.
         // /pricing is listed only when it is a real pricing page. While
         // payments are disabled the route serves the public-beta page, which we
         // do not advertise to search engines as a commercial surface.
@@ -42,7 +44,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     // Dynamic prediction routes - try to fetch from API
     let predictionRoutes: MetadataRoute.Sitemap = []
     try {
-        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://betglitch.com/api'
+        const API_URL = process.env.NEXT_PUBLIC_API_URL || 'https://www.betglitch.com/api'
         const res = await fetch(`${API_URL}/recommendations/`, { next: { revalidate: 3600 } })
         if (res.ok) {
             const data = await res.json()

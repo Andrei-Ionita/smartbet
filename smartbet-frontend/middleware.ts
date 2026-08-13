@@ -1,22 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { ACCOUNT_FEATURES_ENABLED } from '@/app/lib/commercialMode'
 
-/** Keep dormant personal-product pages out of the accountless public journey. */
-export function middleware(request: NextRequest) {
-  if (ACCOUNT_FEATURES_ENABLED) return NextResponse.next()
+const DORMANT_ACCOUNT_PATHS = [
+  '/login',
+  '/register',
+  '/forgot-password',
+  '/reset-password',
+  '/profile',
+  '/dashboard',
+  '/bankroll',
+  '/pricing',
+]
 
-  return NextResponse.redirect(new URL('/explore', request.url), 307)
+/** Canonicalize the domain and keep dormant personal-product pages private. */
+export function middleware(request: NextRequest) {
+  const host = request.headers.get('host')?.split(':')[0].toLowerCase()
+  if (host === 'betglitch.com') {
+    const canonical = request.nextUrl.clone()
+    canonical.protocol = 'https:'
+    canonical.host = 'www.betglitch.com'
+    return NextResponse.redirect(canonical, 308)
+  }
+
+  const isDormantAccountPath = DORMANT_ACCOUNT_PATHS.some(
+    (path) =>
+      request.nextUrl.pathname === path ||
+      request.nextUrl.pathname.startsWith(`${path}/`),
+  )
+  if (!ACCOUNT_FEATURES_ENABLED && isDormantAccountPath) {
+    return NextResponse.redirect(new URL('/explore', request.url), 307)
+  }
+
+  return NextResponse.next()
 }
 
 export const config = {
-  matcher: [
-    '/login/:path*',
-    '/register/:path*',
-    '/forgot-password/:path*',
-    '/reset-password/:path*',
-    '/profile/:path*',
-    '/dashboard/:path*',
-    '/bankroll/:path*',
-    '/pricing/:path*',
-  ],
+  matcher: ['/((?!_next/static|_next/image|images/|favicon.ico).*)'],
 }

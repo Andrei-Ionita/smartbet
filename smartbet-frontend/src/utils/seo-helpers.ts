@@ -48,7 +48,7 @@ export function generateSchemaLD(fixture: any) {
         "endDate": endTime,
         "eventStatus": "https://schema.org/EventScheduled",
         "eventAttendanceMode": "https://schema.org/OfflineEventAttendanceMode",
-        "url": `https://betglitch.com${slug}`,
+        "url": `https://www.betglitch.com${slug}`,
         "organizer": {
             "@type": "SportsOrganization",
             "name": fixture.league || "Football League"

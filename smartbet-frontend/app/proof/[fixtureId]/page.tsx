@@ -3,7 +3,7 @@ import type { Metadata } from 'next'
 import { ProofPageBody, UnpublishedState } from '../_shared/ProofPageBody'
 import { fetchProof } from '../_shared/proofData'
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL || 'https://www.betglitch.com'
 
 /**
  * Compatibility path: /proof/<fixtureId> resolves the fixture's current

@@ -32,6 +32,11 @@ import { buildFormMap, formFor } from '@/app/lib/providerForm'
 import { isFormHeuristicLive } from '@/app/lib/modelActivation'
 import { RANKING_VERSION } from '@/app/lib/rankingPolicy'
 import {
+  emptyGemRejectionCounts,
+  publicGemRejectionBreakdown,
+  recordGemRejection,
+} from '@/app/lib/gemDiagnostics'
+import {
   compareGemStrategy,
   evaluateValueStrategy,
   VALUE_STRATEGY_POLICY,
@@ -237,6 +242,8 @@ export async function buildRecommendationPayload(): Promise<
     const allRecommendations: any[] = []
     let totalFixtures = 0
     let fixturesWithPredictions = 0
+    let strategyEvaluatedFixtures = 0
+    const strategyRejectionCounts = emptyGemRejectionCounts()
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
     for (const league of keyLeagues) {
@@ -585,7 +592,12 @@ export async function buildRecommendationPayload(): Promise<
               odds: bestMarketOdds,
               oddsProvenance: bestMarketProvenance,
             })
+            strategyEvaluatedFixtures++
             if (!strategyEvaluation.eligible) {
+              recordGemRejection(
+                strategyRejectionCounts,
+                strategyEvaluation.rejectionReasons,
+              )
               continue
             }
 
@@ -994,6 +1006,18 @@ export async function buildRecommendationPayload(): Promise<
           qualified_fixtures: qualifiedGemCount,
           displayed_gems: featuredGems.length,
           maximum_gems: VALUE_STRATEGY_POLICY.maximumSelections,
+          gate_funnel: {
+            fixtures_scanned: totalFixtures,
+            prediction_ready: fixturesWithPredictions,
+            signal_and_price_ready: strategyEvaluatedFixtures,
+            strategy_qualified: qualifiedGemCount,
+            displayed: featuredGems.length,
+          },
+          rejection_breakdown: publicGemRejectionBreakdown(
+            fixturesWithPredictions - strategyEvaluatedFixtures,
+            strategyRejectionCounts,
+          ),
+          rejection_counts_overlap: true,
         },
         lastUpdated: new Date().toISOString(),
         // WHICH ranking policy produced these. Ingest stamps it onto every

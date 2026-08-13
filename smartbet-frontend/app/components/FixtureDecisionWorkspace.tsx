@@ -403,7 +403,7 @@ export default function FixtureDecisionWorkspace({
           {ro ? 'Date informative, nu instrucțiuni de pariere.' : 'Informational evidence, not an instruction to bet.'}
         </p>
         {showFullPageLink && (
-          <Link href={`/prediction/${matchSlug}`} className="inline-flex min-h-[40px] items-center gap-1.5 font-semibold text-blue-700 hover:text-blue-900">
+          <Link href={matchSlug} className="inline-flex min-h-[40px] items-center gap-1.5 font-semibold text-blue-700 hover:text-blue-900">
             {ro ? 'Deschide spațiul complet' : 'Open full workspace'} <ArrowRight className="h-4 w-4" />
           </Link>
         )}

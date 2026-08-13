@@ -9,12 +9,13 @@ describe('accountless public journey', () => {
   it('redirects every dormant personal page to Explore', () => {
     const middleware = read('middleware.ts')
     for (const route of [
-      '/login/:path*', '/register/:path*', '/forgot-password/:path*',
-      '/reset-password/:path*', '/profile/:path*', '/dashboard/:path*',
-      '/bankroll/:path*', '/pricing/:path*',
+      '/login', '/register', '/forgot-password',
+      '/reset-password', '/profile', '/dashboard',
+      '/bankroll', '/pricing',
     ]) {
       expect(middleware).toContain(`'${route}'`)
     }
+    expect(middleware).toContain('request.nextUrl.pathname.startsWith(`${path}/`)')
     expect(middleware).toContain("new URL('/explore', request.url)")
     expect(middleware).toContain('ACCOUNT_FEATURES_ENABLED')
   })
