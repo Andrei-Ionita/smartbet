@@ -25,7 +25,8 @@ describe('launch hardening', () => {
     expect(robots).toContain("'/monitoring/'")
     expect(monitoring).toContain('index: false')
     expect(middleware).toContain("host === 'betglitch.com'")
-    expect(middleware).toContain("canonical.host = 'www.betglitch.com'")
+    expect(middleware).toContain("canonical.hostname = 'www.betglitch.com'")
+    expect(middleware).toContain("canonical.port = ''")
     expect(middleware).toContain('NextResponse.redirect(canonical, 308)')
   })
 

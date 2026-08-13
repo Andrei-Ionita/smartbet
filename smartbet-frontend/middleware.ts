@@ -18,7 +18,10 @@ export function middleware(request: NextRequest) {
   if (host === 'betglitch.com') {
     const canonical = request.nextUrl.clone()
     canonical.protocol = 'https:'
-    canonical.host = 'www.betglitch.com'
+    // Railway's internal request URL includes :8080. Setting only the host on
+    // NextURL can retain that internal port in the public Location header.
+    canonical.hostname = 'www.betglitch.com'
+    canonical.port = ''
     return NextResponse.redirect(canonical, 308)
   }
 
