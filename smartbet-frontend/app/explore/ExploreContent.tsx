@@ -10,12 +10,18 @@ import RetryButton from '../components/RetryButton'
 import ErrorBoundary from '../components/ErrorBoundary'
 import { useLanguage } from '../contexts/LanguageContext'
 import { track } from '../lib/analytics'
-import { EXPLORE_LEAGUE_OPTIONS, SEARCHABLE_COMPETITION_COUNT } from '../lib/coverage'
+import {
+  competitionOptionLabel,
+  EXPLORE_LEAGUE_OPTIONS,
+  publicCompetitionLabel,
+  SEARCHABLE_COMPETITION_COUNT,
+} from '../lib/coverage'
 
 interface SearchResult {
   fixture_id: number
   home_team: string
   away_team: string
+  league_id: number | null
   league: string
   kickoff: string
 }
@@ -202,7 +208,9 @@ export default function ExploreContent() {
                   className="min-h-[52px] w-full rounded-xl border border-slate-300 bg-white px-4 text-slate-950 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
                 >
                   {EXPLORE_LEAGUE_OPTIONS.map((league) => (
-                    <option key={league.id} value={league.id}>{league.name}</option>
+                    <option key={league.id} value={league.id}>
+                      {competitionOptionLabel(league, language)}
+                    </option>
                   ))}
                 </select>
               </label>
@@ -241,7 +249,9 @@ export default function ExploreContent() {
                     className="group rounded-2xl border border-slate-200 bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600"
                   >
                     <div className="flex items-start justify-between gap-3 text-xs">
-                      <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">{fixture.league}</span>
+                      <span className="rounded-full bg-blue-50 px-2.5 py-1 font-semibold text-blue-700">
+                        {publicCompetitionLabel(fixture.league_id, fixture.league, language)}
+                      </span>
                       <span className="flex items-center gap-1 text-right text-slate-500"><Calendar className="h-3.5 w-3.5" />{formatKickoff(fixture.kickoff)}</span>
                     </div>
                     <div className="mt-6 space-y-2 text-lg font-bold text-slate-950">

@@ -33,11 +33,11 @@ SPORTMONKS_RETRY_DELAY = 5  # seconds
 # Global list for tracking skipped fixtures
 skipped_fixtures = []
 
-# Romanian League IDs (update with actual SportMonks IDs)
+# Romanian competition IDs from SportMonks' public coverage catalog (2026-08-13)
 ROMANIAN_LEAGUE_IDS = {
-    "Liga 1": 274,  # Liga 1
-    "Liga 2": 332,  # Liga 2
-    "Romanian Cup": 333,  # Romanian Cup
+    "Liga 1": 474,
+    "Liga 2": 1636,
+    "Romanian Cup": 483,
 }
 
 def get_api_token() -> str:
@@ -886,4 +886,4 @@ def fetch_and_store_fixtures(days_range: int = 7, league_ids: List[int] = None) 
         # Reset for next run
         skipped_fixtures = []
     
-    return created_count, updated_count, failed_count 
+    return created_count, updated_count, failed_count

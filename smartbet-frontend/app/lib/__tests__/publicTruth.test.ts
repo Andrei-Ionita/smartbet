@@ -19,6 +19,7 @@ import { describe, expect, it } from 'vitest'
 import {
   EXPLORE_LEAGUE_OPTIONS,
   SEARCHABLE_COMPETITION_COUNT,
+  SIGNAL_COMPETITIONS,
   SIGNAL_COMPETITION_IDS,
   SIGNAL_COMPETITION_COUNT,
 } from '../coverage'
@@ -392,18 +393,11 @@ describe('one maintained source of truth for coverage counts', () => {
     expect(SIGNAL_COMPETITION_COUNT).toBeLessThan(SEARCHABLE_COMPETITION_COUNT)
   })
 
-  it('SIGNAL_COMPETITION_IDS still matches the pipeline it mirrors', () => {
-    // If keyLeagues changes, this fails and the public copy gets updated with
-    // it — which is the entire point of holding the numbers in one module.
+  it('the pipeline consumes the maintained signal competition objects', () => {
     const route = read('app/api/recommendations/engine.ts')
-    const block = route.slice(
-      route.indexOf('const keyLeagues = ['),
-      route.indexOf('const allRecommendations'),
-    )
-    const ids = (block.match(/\{\s*id:\s*\d+/g) ?? [])
-      .map((m) => Number(m.replace(/\D/g, '')))
-    expect(ids.sort((a, b) => a - b))
-      .toEqual([...SIGNAL_COMPETITION_IDS].sort((a, b) => a - b))
+    expect(route).toContain("import { SIGNAL_COMPETITIONS } from '@/app/lib/coverage'")
+    expect(route).toContain('const keyLeagues = SIGNAL_COMPETITIONS')
+    expect(SIGNAL_COMPETITIONS.map(({ id }) => id)).toEqual([...SIGNAL_COMPETITION_IDS])
   })
 
   it('every signal competition is also searchable', () => {

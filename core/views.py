@@ -68,10 +68,10 @@ MAJOR_LEAGUES = {
     "UECL": 2286,
     
     # Romanian Football
-    "Romanian Liga I": 274,
-    "Liga I": 274,
-    "Liga 1": 274,
-    "Superliga": 274,
+    "Romanian Liga I": 474,
+    "Liga I": 474,
+    "Liga 1": 474,
+    "Romanian SuperLiga": 474,
     
     # Portuguese Football
     "Primeira Liga": 12,

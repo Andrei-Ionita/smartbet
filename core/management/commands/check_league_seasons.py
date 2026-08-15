@@ -16,11 +16,11 @@ load_dotenv(dotenv_path=dotenv_path)
 API_KEY = os.getenv('API_FOOTBALL_KEY')
 
 class Command(BaseCommand):
-    help = 'Checks available seasons for Romania Liga 1 (league ID 283) to identify which covers May 2025'
+    help = 'Checks available seasons for Romania Liga 1 (API-Football league ID 283)'
 
     API_HOST = 'v3.football.api-sports.io'
     API_ENDPOINT_LEAGUES = f'https://{API_HOST}/leagues'
-    TARGET_LEAGUE_ID = 283  # Romanian Liga 1
+    TARGET_LEAGUE_ID = 283  # API-Football Romanian Liga 1
     TARGET_DATE = "2025-05-15"  # Date we're trying to find fixtures for
     
     def add_arguments(self, parser):
@@ -217,4 +217,4 @@ class Command(BaseCommand):
         except requests.exceptions.RequestException as e:
             self.stderr.write(self.style.ERROR(f"Error connecting to API: {str(e)}"))
         except Exception as e:
-            self.stderr.write(self.style.ERROR(f"Unexpected error: {str(e)}")) 
+            self.stderr.write(self.style.ERROR(f"Unexpected error: {str(e)}"))

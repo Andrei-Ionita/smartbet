@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 
 import { foldForSearch } from '@/app/lib/textSearch'
+import {
+  publicCompetitionLabel,
+  SEARCHABLE_COMPETITIONS,
+} from '@/app/lib/coverage'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -53,40 +57,7 @@ function getApiToken(): string | null {
 }
 
 // All leagues covered by subscription (domestic + European Club Tournaments addon)
-const SUPPORTED_LEAGUE_IDS = [
-  // European Club Tournaments
-  2,     // UEFA Champions League
-  5,     // UEFA Europa League
-  2286,  // UEFA Europa Conference League
-  // Domestic Leagues
-  8,     // Premier League
-  9,     // Championship
-  24,    // FA Cup
-  27,    // Carabao Cup
-  72,    // Eredivisie
-  82,    // Bundesliga
-  181,   // Admiral Bundesliga
-  208,   // Pro League
-  244,   // 1. HNL
-  271,   // Superliga
-  301,   // Ligue 1
-  384,   // Serie A
-  387,   // Serie B
-  390,   // Coppa Italia
-  444,   // Eliteserien
-  453,   // Ekstraklasa
-  462,   // Liga Portugal
-  486,   // Russian Premier League
-  501,   // Premiership
-  564,   // La Liga
-  567,   // La Liga 2
-  570,   // Copa Del Rey
-  573,   // Allsvenskan
-  591,   // Super League
-  600,   // Super Lig
-  609,   // Premier League (additional)
-  1371,  // UEFA Europa League Play-offs
-]
+const SUPPORTED_LEAGUE_IDS = SEARCHABLE_COMPETITIONS.map(({ id }) => Number(id))
 
 const SEARCH_WINDOW_DAYS = 14
 /** SportMonks caps this endpoint's page size at 50 regardless of what we ask. */
@@ -151,14 +122,15 @@ function toEntries(rows: any[]): IndexEntry[] {
   return rows.map((fixture: any) => {
     const home = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
     const away = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+    const leagueId = fixture.league?.id ?? fixture.league_id ?? null
     return {
       fixture_id: fixture.id,
       home_team: home,
       away_team: away,
       home_lower: foldForSearch(home),
       away_lower: foldForSearch(away),
-      league_id: fixture.league?.id ?? fixture.league_id ?? null,
-      league: fixture.league?.name || 'Unknown',
+      league_id: leagueId,
+      league: publicCompetitionLabel(leagueId, fixture.league?.name || 'Unknown competition'),
       kickoff: fixture.starting_at,
     }
   })
@@ -235,6 +207,7 @@ interface SearchResult {
   fixture_id: number
   home_team: string
   away_team: string
+  league_id: number | null
   league: string
   kickoff: string
 }
@@ -291,6 +264,7 @@ export async function GET(request: NextRequest) {
       fixture_id: entry.fixture_id,
       home_team: entry.home_team,
       away_team: entry.away_team,
+      league_id: entry.league_id,
       league: entry.league,
       kickoff: entry.kickoff,
     }))

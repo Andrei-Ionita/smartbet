@@ -43,7 +43,7 @@ EUROPEAN_LEAGUE_IDS = {
     "Serie A": 82,
     "Bundesliga": 78,
     "Ligue 1": 301,
-    "Liga 1": 486,  # Romanian Liga 1
+    "Liga 1": 474,  # Romanian Liga 1 / SuperLiga
 }
 
 def get_api_token() -> str:

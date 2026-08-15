@@ -20,7 +20,7 @@ class Command(BaseCommand):
 
     API_HOST = 'v3.football.api-sports.io'
     API_ENDPOINT_FIXTURES = f'https://{API_HOST}/fixtures'
-    LEAGUE_ID = 283  # Romanian Liga I
+    LEAGUE_ID = 283  # API-Football Romanian Liga I
     SEASON = 2022    # Target season for historical data
 
     def handle(self, *args, **options):
@@ -131,4 +131,4 @@ class Command(BaseCommand):
                 else:
                     updated_count += 1
             
-        self.stdout.write(self.style.SUCCESS(f"Successfully processed fixtures. Inserted: {inserted_count}, Updated: {updated_count} matches.")) 
+        self.stdout.write(self.style.SUCCESS(f"Successfully processed fixtures. Inserted: {inserted_count}, Updated: {updated_count} matches."))

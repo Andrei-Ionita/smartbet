@@ -28,13 +28,13 @@ Instead of limiting recommendations to only 5 target leagues, we now use **all 2
 - **Admiral Bundesliga** (ID: 181) - Austrian Bundesliga
 - **Pro League** (ID: 208) - Belgian Pro League
 - **1. HNL** (ID: 244) - Croatian First League
-- **Superliga** (ID: 271) - Danish Superliga
+- **Danish Superliga** (ID: 271) - Denmark
 - **Serie B** (ID: 387) - Italian Serie B
 - **Coppa Italia** (ID: 390) - Italian Cup
 - **Eliteserien** (ID: 444) - Norwegian Eliteserien
 - **Ekstraklasa** (ID: 453) - Polish Ekstraklasa
 - **Liga Portugal** (ID: 462) - Portuguese Liga
-- **Premier League** (ID: 486) - Romanian Liga I
+- **Romanian SuperLiga** (ID: 474) - Romania; selected, payload verification pending
 - **Premiership** (ID: 501) - Scottish Premiership
 - **La Liga 2** (ID: 567) - Spanish Second Division
 - **Copa Del Rey** (ID: 570) - Spanish Cup
@@ -90,11 +90,11 @@ https://api.sportmonks.com/v3/football/fixtures/upcoming/markets/1
 ### **🏆 Leagues Currently Available:**
 - **FA Cup** (24) - 32 fixtures
 - **1. HNL** (244) - Croatian First League
-- **Superliga** (271) - Danish Superliga  
+- **Danish Superliga** (271) - Denmark
 - **Ekstraklasa** (453) - Polish Ekstraklasa
-- **Premier League** (486) - Romanian Liga I
+- **Romanian SuperLiga** (474) - Romania; selected, payload verification pending
 - **La Liga 2** (567) - Spanish Second Division
-- **Premier League** (609) - Additional Premier League
+- **Ukrainian Premier League** (609) - Ukraine
 
 ### **System Optimization:**
 - **All 27 leagues configured** for maximum coverage

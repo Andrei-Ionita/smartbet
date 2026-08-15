@@ -41,6 +41,7 @@ import {
   evaluateValueStrategy,
   VALUE_STRATEGY_POLICY,
 } from '@/app/lib/providerStrategy'
+import { SIGNAL_COMPETITIONS } from '@/app/lib/coverage'
 
 
 // Simplified inline apiClient implementation with Timeout
@@ -209,35 +210,7 @@ export async function buildRecommendationPayload(): Promise<
     // truth for every coverage number the product displays. Changing this list
     // changes pipeline behaviour, so change it deliberately and let the
     // coverage test tell you which public copy needs to follow.
-    const keyLeagues = [
-      { id: 8, name: 'Premier League' },
-      { id: 9, name: 'Championship' },
-      { id: 24, name: 'FA Cup' },
-      { id: 27, name: 'Carabao Cup' },
-      { id: 72, name: 'Eredivisie' },
-      { id: 82, name: 'Bundesliga' },
-      { id: 181, name: 'Admiral Bundesliga' },
-      { id: 208, name: 'Pro League' },
-      { id: 244, name: '1. HNL' },
-      { id: 271, name: 'Superliga' },
-      { id: 301, name: 'Ligue 1' },
-      { id: 384, name: 'Serie A' },
-      { id: 387, name: 'Serie B' },
-      { id: 390, name: 'Coppa Italia' },
-      { id: 444, name: 'Eliteserien' },
-      { id: 453, name: 'Ekstraklasa' },
-      { id: 462, name: 'Liga Portugal' },
-      { id: 486, name: 'Russian Premier League' },
-      { id: 501, name: 'Premiership' },
-      { id: 564, name: 'La Liga' },
-      { id: 567, name: 'La Liga 2' },
-      { id: 570, name: 'Copa Del Rey' },
-      { id: 573, name: 'Allsvenskan' },
-      { id: 591, name: 'Super League' },
-      { id: 600, name: 'Super Lig' },
-      { id: 609, name: 'Premier League (additional)' },
-      { id: 1371, name: 'UEFA Europa League Play-offs' }
-    ]
+    const keyLeagues = SIGNAL_COMPETITIONS
 
     const allRecommendations: any[] = []
     let totalFixtures = 0

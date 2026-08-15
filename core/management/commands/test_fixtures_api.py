@@ -19,7 +19,7 @@ class Command(BaseCommand):
 
     API_HOST = 'v3.football.api-sports.io'
     API_ENDPOINT_FIXTURES = f'https://{API_HOST}/fixtures'
-    DEFAULT_LEAGUE_ID = 283  # Romanian Liga 1
+    DEFAULT_LEAGUE_ID = 283  # API-Football Romanian Liga 1
     DEFAULT_SEASON = 2023  # Known good season to test with
     
     def add_arguments(self, parser):

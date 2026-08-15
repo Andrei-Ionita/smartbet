@@ -14,7 +14,7 @@ LEAGUE_CONFIG = {
     'Serie A': {'country': 'Italy', 'id': 384},
     'Bundesliga': {'country': 'Germany', 'id': 82},
     'Ligue 1': {'country': 'France', 'id': 301},
-    'Liga I': {'country': 'Romania', 'id': 271}
+    'Liga I': {'country': 'Romania', 'id': 474}
 }
 
 def load_env_vars():
@@ -156,4 +156,4 @@ class Command(BaseCommand):
                 writer.writerows(all_fixtures_data)
             console.print("[bold blue]Data collection complete.[/bold blue]")
         else:
-            console.print("[bold red]No fixtures were collected.[/bold red]") 
+            console.print("[bold red]No fixtures were collected.[/bold red]")

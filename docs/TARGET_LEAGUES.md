@@ -26,7 +26,7 @@ Extended coverage for additional betting opportunities:
 
 | League | Country | SportMonks ID | Status |
 |--------|---------|---------------|--------|
-| **Liga I** | 🇷🇴 Romania | `486` | ✅ Active |
+| **Romanian SuperLiga (provider: Liga 1)** | 🇷🇴 Romania | `474` | Selected; payload verification pending |
 | **Danish Superliga** | 🇩🇰 Denmark | `271` | 📋 Configured |
 | **Eredivisie** | 🇳🇱 Netherlands | `72` | 📋 Configured |
 | **Belgian Pro League** | 🇧🇪 Belgium | `208` | 📋 Configured |
@@ -71,7 +71,7 @@ International club competitions:
 - ✅ Most betting opportunities
 
 ### Tier 2: Extended Coverage
-- Liga I (486)
+- Romanian SuperLiga (474) — selected and configured; payload verification pending
 - UEFA Champions League (5)
 - UEFA Europa League (6)
 
@@ -143,7 +143,7 @@ const url = `${SPORTMONKS_BASE_URL}/fixtures/upcoming?leagues=${TARGET_LEAGUE_ID
 | Serie A | 3-5 models | 60% | ⭐⭐⭐⭐⭐ |
 | Bundesliga | 3-5 models | 61% | ⭐⭐⭐⭐⭐ |
 | Ligue 1 | 3-5 models | 59% | ⭐⭐⭐⭐⭐ |
-| Liga I | 2-4 models | 57% | ⭐⭐⭐⭐ |
+| Romanian SuperLiga | Not yet measured | Not yet measured | Entitled; payload verification pending |
 | Champions League | 3-5 models | 58% | ⭐⭐⭐⭐⭐ |
 | Europa League | 3-4 models | 57% | ⭐⭐⭐⭐ |
 
@@ -226,16 +226,18 @@ To add a new league to the system:
 
 ## 📊 Historical Notes
 
-### Verified League IDs
-All SportMonks IDs listed in this document have been verified through:
-- ✅ Direct API testing
-- ✅ Historical data collection
-- ✅ Prediction addon compatibility
-- ✅ Production usage
+### Verified Romanian League ID
+SportMonks' public coverage catalog listed the Romanian top division as
+`Liga 1 #474` on 2026-08-13. BetGlitch selected it in the production account on
+that date as a no-cost replacement for Russian Premier League #486. Predictions
+and odds payload verification remains required before claiming verified data
+coverage.
 
 ### Common Pitfalls
 - ⚠️ Some SportMonks IDs changed between API versions
-- ⚠️ League ID 486 previously returned Russian Premier League (now corrected to Romanian Liga I)
+- ⚠️ League ID 486 is the Russian Premier League, not Romania
+- ⚠️ League ID 271 is the Danish Superliga, not Romania
+- ⚠️ League ID 609 is the Ukrainian Premier League
 - ⚠️ Always verify new IDs with actual API responses
 
 ---

@@ -17,7 +17,7 @@ class Command(BaseCommand):
 
     API_HOST = 'v3.football.api-sports.io'
     API_ENDPOINT_ODDS = f'https://{API_HOST}/odds'
-    LEAGUE_ID = 283  # Romanian Liga 1
+    LEAGUE_ID = 283  # API-Football Romanian Liga 1
     TARGET_BOOKMAKER = "Bet365"
     TARGET_MARKET = "Match Winner"
     
@@ -217,4 +217,4 @@ class Command(BaseCommand):
         self.stdout.write(f"Fixtures with complete H/D/A odds: {fixtures_with_complete_odds} ({self._percentage(fixtures_with_complete_odds, total_fixtures)}%)")
     
     def _percentage(self, part, whole):
-        return round((part / whole * 100) if whole else 0, 1) 
+        return round((part / whole * 100) if whole else 0, 1)

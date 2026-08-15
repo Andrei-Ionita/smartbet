@@ -25,12 +25,12 @@ load_dotenv(dotenv_path=dotenv_path)
 API_KEY = os.getenv('API_FOOTBALL_KEY')
 
 class Command(BaseCommand):
-    help = 'Fetches fixtures for Romania Liga 1 (league ID 283) for today (free API plan limitation)'
+    help = 'Fetches fixtures for Romania Liga 1 (API-Football league ID 283) for today'
 
     API_HOST = 'v3.football.api-sports.io'
     API_ENDPOINT_FIXTURES = f'https://{API_HOST}/fixtures'
     API_ENDPOINT_LEAGUES = f'https://{API_HOST}/leagues'
-    LEAGUE_ID = 283  # Romanian Liga 1
+    LEAGUE_ID = 283  # API-Football Romanian Liga 1
     SEASON = None  # Will be auto-detected based on current date if not explicitly provided
     FALLBACK_SEASON = 2023  # Fallback if auto-detection fails
     LEAGUE_NAME = "Superliga"  # Hardcoded league name
@@ -573,9 +573,9 @@ class Command(BaseCommand):
             self.stdout.write("1. Try different season values (use --check-seasons to see available seasons)")
             self.stdout.write(f"   Example: python manage.py fetch_liga1_fixtures --season=2022")
             self.stdout.write("2. Use --auto-season to automatically try to find the correct season")
-            self.stdout.write("3. Verify league ID is correct (currently using 283 for Romanian Liga 1)")
+            self.stdout.write("3. Verify API-Football league ID is correct (currently 283)")
             self.stdout.write("4. Check API key permissions and subscription status")
             self.stdout.write("5. There might genuinely be no fixtures scheduled for today")
         else:
             self.stdout.write(self.style.SUCCESS(f"\n✅ Successfully fetched fixtures for today with League ID {self.LEAGUE_ID}, Season {self.SEASON}"))
-            self.stdout.write(self.style.SUCCESS("API access is working correctly within free plan constraints.")) 
+            self.stdout.write(self.style.SUCCESS("API access is working correctly within free plan constraints."))
