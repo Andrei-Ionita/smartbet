@@ -30,6 +30,7 @@ export interface FixtureDecisionFixture {
   fixture_id: number
   home_team: string
   away_team: string
+  league_id?: number | null
   league: string
   kickoff: string
   intelligence: FixtureIntelligence

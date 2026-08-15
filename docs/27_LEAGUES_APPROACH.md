@@ -34,7 +34,7 @@ Instead of limiting recommendations to only 5 target leagues, we now use **all 2
 - **Eliteserien** (ID: 444) - Norwegian Eliteserien
 - **Ekstraklasa** (ID: 453) - Polish Ekstraklasa
 - **Liga Portugal** (ID: 462) - Portuguese Liga
-- **Romanian SuperLiga** (ID: 474) - Romania; selected, payload verification pending
+- **Romanian SuperLiga** (ID: 474) - Romania; active and payload-verified
 - **Premiership** (ID: 501) - Scottish Premiership
 - **La Liga 2** (ID: 567) - Spanish Second Division
 - **Copa Del Rey** (ID: 570) - Spanish Cup
@@ -92,7 +92,7 @@ https://api.sportmonks.com/v3/football/fixtures/upcoming/markets/1
 - **1. HNL** (244) - Croatian First League
 - **Danish Superliga** (271) - Denmark
 - **Ekstraklasa** (453) - Polish Ekstraklasa
-- **Romanian SuperLiga** (474) - Romania; selected, payload verification pending
+- **Romanian SuperLiga** (474) - Romania; active and payload-verified
 - **La Liga 2** (567) - Spanish Second Division
 - **Ukrainian Premier League** (609) - Ukraine
 

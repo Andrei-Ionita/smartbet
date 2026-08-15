@@ -26,7 +26,7 @@ Extended coverage for additional betting opportunities:
 
 | League | Country | SportMonks ID | Status |
 |--------|---------|---------------|--------|
-| **Romanian SuperLiga (provider: Liga 1)** | 🇷🇴 Romania | `474` | Selected; payload verification pending |
+| **Romanian SuperLiga (provider: Liga 1)** | 🇷🇴 Romania | `474` | Active and payload-verified |
 | **Danish Superliga** | 🇩🇰 Denmark | `271` | 📋 Configured |
 | **Eredivisie** | 🇳🇱 Netherlands | `72` | 📋 Configured |
 | **Belgian Pro League** | 🇧🇪 Belgium | `208` | 📋 Configured |
@@ -71,7 +71,7 @@ International club competitions:
 - ✅ Most betting opportunities
 
 ### Tier 2: Extended Coverage
-- Romanian SuperLiga (474) — selected and configured; payload verification pending
+- Romanian SuperLiga (474) — active and payload-verified
 - UEFA Champions League (5)
 - UEFA Europa League (6)
 
@@ -143,7 +143,7 @@ const url = `${SPORTMONKS_BASE_URL}/fixtures/upcoming?leagues=${TARGET_LEAGUE_ID
 | Serie A | 3-5 models | 60% | ⭐⭐⭐⭐⭐ |
 | Bundesliga | 3-5 models | 61% | ⭐⭐⭐⭐⭐ |
 | Ligue 1 | 3-5 models | 59% | ⭐⭐⭐⭐⭐ |
-| Romanian SuperLiga | Not yet measured | Not yet measured | Entitled; payload verification pending |
+| Romanian SuperLiga | Available | Available | Production payload verified 2026-08-15 |
 | Champions League | 3-5 models | 58% | ⭐⭐⭐⭐⭐ |
 | Europa League | 3-4 models | 57% | ⭐⭐⭐⭐ |
 
@@ -229,9 +229,9 @@ To add a new league to the system:
 ### Verified Romanian League ID
 SportMonks' public coverage catalog listed the Romanian top division as
 `Liga 1 #474` on 2026-08-13. BetGlitch selected it in the production account on
-that date as a no-cost replacement for Russian Premier League #486. Predictions
-and odds payload verification remains required before claiming verified data
-coverage.
+that date as a no-cost replacement for Russian Premier League #486. Production
+fixture, prediction, odds, bookmaker, timestamp and context payloads were
+verified on 2026-08-15.
 
 ### Common Pitfalls
 - ⚠️ Some SportMonks IDs changed between API versions

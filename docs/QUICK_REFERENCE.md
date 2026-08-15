@@ -134,7 +134,7 @@ curl http://localhost:3000/api/recommendations
 - Ligue 1 (France)
 
 ### **Other 22**
-EFL Championship, FA Cup, EFL Cup, Eredivisie, Austrian Bundesliga, Belgian Pro League, Croatian HNL, Danish Superliga, Serie B, Coppa Italia, Eliteserien, Ekstraklasa, Liga Portugal, Romanian SuperLiga, Scottish Premiership, La Liga 2, Copa del Rey, Allsvenskan, Swiss Super League, Süper Lig (Türkiye), Ukrainian Premier League, and more. Romanian SuperLiga is selected and configured; payload verification is pending.
+EFL Championship, FA Cup, EFL Cup, Eredivisie, Austrian Bundesliga, Belgian Pro League, Croatian HNL, Danish Superliga, Serie B, Coppa Italia, Eliteserien, Ekstraklasa, Liga Portugal, Romanian SuperLiga, Scottish Premiership, La Liga 2, Copa del Rey, Allsvenskan, Swiss Super League, Süper Lig (Türkiye), Ukrainian Premier League, and more. Romanian SuperLiga is selected, configured and payload-verified in production.
 
 ---
 

@@ -1,6 +1,6 @@
 # Romanian SuperLiga activation
 
-Status: **selected in SportMonks and configured in code; payload verification pending**  
+Status: **selected, configured and payload-verified in production**
 Verified: **2026-08-13**
 
 ## Provider identity
@@ -50,17 +50,18 @@ Activate it only after all of these checks pass in the production account:
 
 - [x] Liga 1 #474 is selected in My.SportMonks; Russian Premier League #486 was
       removed without changing the €132.75/month subscription total.
-- [ ] Upcoming fixtures return real Romanian clubs and the current season.
-- [ ] `participants`, `league`, `metadata`, `predictions`, and `odds` includes
+- [x] Upcoming fixtures return real Romanian clubs and the current season.
+- [x] `participants`, `league`, `predictions`, and `odds` includes
       used by BetGlitch return data without entitlement errors.
-- [ ] The 1X2 prediction types required by the signal engine are populated.
-- [ ] Canonical pre-match prices include bookmaker and freshness provenance.
-- [ ] Explore cards and the full fixture workspace work for at least three
+- [x] The 1X2 prediction types required by the signal engine are populated.
+- [x] Canonical pre-match prices include bookmaker and freshness provenance.
+- [x] Explore cards and the full fixture workspace work for at least three
       Romanian fixtures.
 - [x] Romania replaces Russia in both searchable and signal coverage in
       `smartbet-frontend/app/lib/coverage.ts`.
 - [x] Public competition counts and competition-identity tests pass.
 
-Until the remaining payload checks are complete, Romanian clubs may appear
-through UEFA competitions, but BetGlitch must not claim verified domestic
-Romanian SuperLiga data coverage.
+The activation gate passed against production on 2026-08-15. The 14-day Explore
+index returned 22 Romanian fixtures; three fixture payloads were sampled for
+model probabilities, verified prices, bookmaker and timestamp provenance, form,
+venue and archived context.

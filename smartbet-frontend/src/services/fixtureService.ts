@@ -12,6 +12,7 @@ import {
     type IntelligenceOutcomeInput,
 } from '@/app/lib/fixtureIntelligence'
 import type { FixtureContextTimeline } from '@/app/lib/fixtureTimeline'
+import { publicCompetitionLabel } from '@/app/lib/coverage'
 
 // Robust apiClient implementation
 const apiClient = {
@@ -137,6 +138,7 @@ export async function getFixtureDetails(fixtureId: string) {
     // Extract fixture data
     const homeTeam = fixture.participants?.find((p: any) => p.meta?.location === 'home')?.name || 'Home'
     const awayTeam = fixture.participants?.find((p: any) => p.meta?.location === 'away')?.name || 'Away'
+    const leagueId = fixture.league?.id ?? fixture.league_id ?? null
 
     // Double Chance labels are team-named in real payloads ("Club Brugge or
     // Draw"), so the selector needs the participants to build its label set.
@@ -555,7 +557,11 @@ export async function getFixtureDetails(fixtureId: string) {
             fixture_id: fixture.id,
             home_team: homeTeam,
             away_team: awayTeam,
-            league: fixture.league?.name || 'Unknown',
+            league_id: leagueId,
+            league: publicCompetitionLabel(
+                leagueId,
+                fixture.league?.name || 'Unknown competition',
+            ),
             kickoff: fixture.starting_at,
             predicted_outcome: predictedOutcome,
             prediction_confidence: confidence,

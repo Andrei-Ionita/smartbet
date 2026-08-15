@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import { describe, expect, it } from 'vitest'
 
 import {
@@ -41,12 +43,19 @@ describe('competition identity', () => {
       country: 'Romania',
       configured: true,
       providerEntitlementVerified: true,
-      providerPayloadsVerified: false,
+      providerPayloadsVerified: true,
     })
     expect(SEARCHABLE_COMPETITIONS.some(({ id }) => Number(id) === 474)).toBe(true)
     expect(SIGNAL_COMPETITION_IDS).toContain(474)
     expect(SEARCHABLE_COMPETITIONS.some(({ id }) => Number(id) === 486)).toBe(false)
     expect(SIGNAL_COMPETITION_IDS).not.toContain(486)
+  })
+
+  it('normalises the provider league name in full fixture workspaces', () => {
+    const source = readFileSync(resolve(process.cwd(), 'src/services/fixtureService.ts'), 'utf8')
+    expect(source).toContain("import { publicCompetitionLabel } from '@/app/lib/coverage'")
+    expect(source).toContain('league: publicCompetitionLabel(')
+    expect(source).toContain('league_id: leagueId')
   })
 
   it('contains no old ambiguous public competition placeholders', () => {

@@ -140,7 +140,7 @@ export const ROMANIAN_SUPERLIGA = {
   country: 'Romania',
   configured: true,
   providerEntitlementVerified: true,
-  providerPayloadsVerified: false,
+  providerPayloadsVerified: true,
 } as const
 
 /** How many competitions a visitor can search. Currently 30. */
