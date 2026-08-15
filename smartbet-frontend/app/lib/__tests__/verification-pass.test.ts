@@ -418,8 +418,8 @@ describe('the Explore detail is framed as a decision workspace', () => {
 
   it('translates data-quality limitations in the visitor language', () => {
     expect(workspace).toContain('const limitationCopy')
-    expect(workspace).toContain('Probabilitățile furnizorului nu sunt disponibile')
-    expect(workspace).toContain('Provider probabilities are unavailable')
+    expect(workspace).toContain('Probabilitățile modelului nu sunt disponibile')
+    expect(workspace).toContain('Model probabilities are unavailable')
   })
 
   it('is an accessible dialog', () => {

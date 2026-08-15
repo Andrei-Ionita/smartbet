@@ -56,7 +56,7 @@ function eventText(event: FixtureTimelineEvent, ro: boolean): string {
     case 'predictability_changed':
       return ro
         ? `Indicatorul de predictibilitate s-a schimbat: ${before} → ${after}.`
-        : `The provider predictability flag changed: ${before} → ${after}.`
+        : `The model-eligibility flag changed: ${before} → ${after}.`
     case 'lineup_status_changed':
       return ro
         ? `Statutul echipelor de start s-a schimbat: ${before} → ${after}.`
@@ -86,11 +86,11 @@ function eventText(event: FixtureTimelineEvent, ro: boolean): string {
     case 'model_leader_changed':
       return ro
         ? `Liderul modelului pentru ${market} s-a schimbat: ${before} → ${after} (${pct(data.probability)}).`
-        : `The provider-model leader for ${market} changed: ${before} → ${after} (${pct(data.probability)}).`
+        : `The prediction-model leader for ${market} changed: ${before} → ${after} (${pct(data.probability)}).`
     case 'model_probability_changed':
       return ro
         ? `Perspectiva modelului pentru ${market} · ${outcome} s-a schimbat: ${pct(data.from)} → ${pct(data.to)}.`
-        : `The provider view for ${market} · ${outcome} moved: ${pct(data.from)} → ${pct(data.to)}.`
+        : `The model view for ${market} · ${outcome} moved: ${pct(data.from)} → ${pct(data.to)}.`
     case 'verified_price_changed':
       return ro
         ? `Cota verificată pentru ${market} · ${outcome} s-a schimbat: ${odds(data.from)} → ${odds(data.to)}.`
@@ -178,7 +178,7 @@ export default function FixtureContextTimelinePanel({ timeline, homeTeam, awayTe
           <div className="mt-3 grid gap-3 sm:grid-cols-3">
             <ContextMetric
               icon={<ScanSearch className="h-4 w-4" />}
-              label={ro ? 'Predictibilitate furnizor' : 'Provider predictability'}
+              label={ro ? 'Eligibilitate model' : 'Model eligibility'}
               value={current.fixture_predictable === true
                 ? (ro ? 'Da' : 'Yes')
                 : current.fixture_predictable === false ? (ro ? 'Nu' : 'No') : (ro ? 'Necunoscută' : 'Unknown')}

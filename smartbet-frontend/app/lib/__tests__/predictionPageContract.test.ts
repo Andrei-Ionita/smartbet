@@ -65,7 +65,8 @@ describe('public decision copy respects model ownership', () => {
     for (const source of [pageSource, contentSource, workspaceSource, exploreSource]) {
       expect(source).not.toMatch(/AI[- ]powered|our AI|BetGlitch AI/i)
     }
-    expect(workspaceSource).toContain('Provider model')
+    expect(workspaceSource).toContain('Prediction model')
+    expect(workspaceSource).not.toContain("'Provider model'")
     expect(workspaceSource).toContain('not proof of value')
   })
 })

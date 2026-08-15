@@ -110,8 +110,8 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
     // what it applies to — the generic "highest-ranked outcome" line repeated
     // the label above it without adding information.
     reasons.push(language === 'ro'
-      ? `Modelul furnizorului clasează ${outcome} cel mai sus în această piață`
-      : `The provider's model rates ${outcome} highest in this market`)
+      ? `Modelul de predicție clasează ${outcome} cel mai sus în această piață`
+      : `The prediction model rates ${outcome} highest in this market`)
 
     // No value-based reason. This used to push "Excellent value detected
     // (+18% EV)" / "Good odds value (+11% EV)" whenever the EV cleared a
@@ -987,8 +987,8 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
                         const gap = (sorted[0] - sorted[1]).toFixed(1)
 
                         return language === 'ro'
-                          ? `în datele furnizorului, primul rezultat este cu ${gap} puncte peste următorul. O diferență mică înseamnă un meci apropiat de echilibru.`
-                          : `in the provider data, the leading outcome sits ${gap} points above the next. A small gap means the match is close to even.`
+                          ? `în datele modelului, primul rezultat este cu ${gap} puncte peste următorul. O diferență mică înseamnă un meci apropiat de echilibru.`
+                          : `in the model data, the leading outcome sits ${gap} points above the next. A small gap means the match is close to even.`
                       })()}
                     </div>
                   </div>
@@ -1021,17 +1021,17 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
                   </div>
                 )}
 
-                {/* Data Source & Quality */}
+                {/* Model context */}
                 <div className="flex items-start gap-2">
                   <span className="text-purple-600 mt-0.5">•</span>
                   <div>
                     <span className="font-semibold">
-                      {language === 'ro' ? 'Sursa datelor:' : 'Data source:'}
+                      {language === 'ro' ? 'Context model:' : 'Model context:'}
                     </span>
                     {' '}
                     {language === 'ro'
-                      ? 'Probabilitățile provin de la un furnizor specializat de date de fotbal. BetGlitch le filtrează și le clasează — nu antrenează un model predictiv propriu.'
-                      : 'Probabilities come from a specialist football data provider. BetGlitch filters and ranks them — it does not train a predictive model of its own.'}
+                      ? 'Probabilitățile modelului sunt estimări pe care BetGlitch le filtrează și le clasează; nu sunt rezultate garantate.'
+                      : 'Model probabilities are estimates that BetGlitch filters and ranks; they are not guaranteed outcomes.'}
                     {/* The "Signal quality: Good" suffix is gone with the rest
                         of the quality grading — it graded nothing. */}
                   </div>

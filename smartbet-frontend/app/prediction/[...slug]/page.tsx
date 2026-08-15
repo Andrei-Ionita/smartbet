@@ -30,7 +30,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { home_team, away_team, league } = data.fixture
   const title = `${home_team} vs ${away_team} — odds, probabilities & context`
-  const description = `Explore ${home_team} vs ${away_team} in ${league}: provider probabilities, verified market prices, margin-removed market views, uncertainty and a personal fair-odds calculator.`
+  const description = `Explore ${home_team} vs ${away_team} in ${league}: model probabilities, verified market prices, margin-removed market views, uncertainty and a personal fair-odds calculator.`
 
   return {
     title,

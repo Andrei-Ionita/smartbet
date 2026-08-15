@@ -37,7 +37,7 @@ export default function PredictionContent({ fixture, lastUpdated }: PredictionCo
       </div>
 
       <p className="mx-auto my-10 max-w-3xl text-center text-xs leading-relaxed text-slate-400">
-        Provider probabilities and market-implied probabilities are separate reference views. BetGlitch does not accept bets, and this workspace is not betting advice.
+        Model probabilities and market-implied probabilities are separate reference views. BetGlitch does not accept bets, and this workspace is not betting advice.
       </p>
     </div>
   )

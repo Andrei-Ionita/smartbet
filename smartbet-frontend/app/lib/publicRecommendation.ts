@@ -198,7 +198,7 @@ export function toPublicRecommendation(rec: Record<string, any>): PublicRecommen
         double_chance_supports:
           evaluation.crossMarket.doubleChanceSupportsSelection === true,
         selection_basis:
-          'Provider baseline probability balanced against the verified payout after every qualification gate passed.',
+          'Model probability balanced against the verified payout after every qualification gate passed.',
       }
       : null,
     // `is_recommended` is NOT published. It is true for every row the ranking

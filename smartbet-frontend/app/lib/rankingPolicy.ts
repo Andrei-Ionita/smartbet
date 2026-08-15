@@ -62,11 +62,11 @@ export const RANKING_POLICY = {
   maximumSelections: VALUE_STRATEGY_POLICY.maximumSelections,
 
   /** Auditable inputs and ordering for candidates that passed every gate. */
-  gemProbabilitySource: 'provider baseline price (1 / price)',
+  gemProbabilitySource: 'price-implied baseline probability (1 / price)',
   gemPayoutSource: 'verified canonical multi-bookmaker quote',
   gemPrimaryRanking: 'kelly-style probability-payout balance (ranking only, not a stake)',
   selection:
-    'probability-payout balance, league predictability, predictive-power trend, price advantage, provider implied probability, hit ratio, then price dispersion',
+    'probability-payout balance, league predictability, predictive-power trend, price advantage, model probability, hit ratio, then price dispersion',
 } as const
 
 /**

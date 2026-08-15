@@ -75,9 +75,9 @@ const EN = {
       plural: 'Live signals',
       short: 'Live signal',
       definition:
-        'BetGlitch’s current ranked outcome for an upcoming fixture, derived from provider probability data. It can change before kickoff.',
+        'BetGlitch’s current ranked outcome for an upcoming fixture, derived from prediction-model data. It can change before kickoff.',
       mutability:
-        'Live signals update when the pipeline runs again, odds move, new provider data arrives or a newer snapshot is generated.',
+        'Live signals update when the pipeline runs again, odds move, new model data arrives or a newer snapshot is generated.',
       notInRecord:
         'A live signal is not a betting recommendation, and it enters the public evaluation record only if BetGlitch formally commits it before kickoff.',
     },
@@ -115,7 +115,7 @@ const EN = {
     {
       id: 'analyse',
       title: 'Analyse',
-      body: 'We review provider-derived probability data, market pricing and the available fixture context.',
+      body: 'We review prediction-model probabilities, market pricing and the available fixture context.',
     },
     {
       id: 'rank',
@@ -172,7 +172,7 @@ const EN = {
     gemsHeading: 'Today\'s qualified Gems',
     gemsLimit: 'Up to three can appear. If none pass every gate, we publish none.',
     gemsSupporting:
-      'The few fixtures that passed every reliability, market-consensus and verified-price gate. Ranked by provider probability–payout balance, not by the biggest odds.',
+      'The few fixtures that passed every reliability, market-consensus and verified-price gate. Ranked by model probability–payout balance, not by the biggest odds.',
     scanFixtures: 'fixtures scanned',
     scanPredictions: 'prediction-ready',
     scanQualified: 'passed every gate',
@@ -185,7 +185,7 @@ const EN = {
       'This scan reports where candidates stopped. One fixture can fail more than one strategy check, so the reason counts may overlap.',
     diagnosticsSignalPrice: 'Signal or verified-price readiness',
     diagnosticsReliability: 'League and fixture reliability',
-    diagnosticsProviderValue: 'Provider value evidence',
+    diagnosticsProviderValue: 'Model-versus-price evidence',
     diagnosticsConsensus: 'Cross-market agreement',
     diagnosticsPriceQuality: 'Price quality and coverage',
     diagnosticsAffected: 'fixtures affected',
@@ -548,9 +548,9 @@ const RO: typeof EN = {
       plural: 'Semnale live',
       short: 'Semnal live',
       definition:
-        'Rezultatul clasat curent al BetGlitch pentru un meci viitor, derivat din datele de probabilitate ale furnizorului. Se poate schimba până la start.',
+        'Rezultatul clasat curent al BetGlitch pentru un meci viitor, derivat din datele modelului de predicție. Se poate schimba până la start.',
       mutability:
-        'Semnalele live se actualizează când pipeline-ul rulează din nou, când cotele se mișcă, când apar date noi de la furnizor sau când se generează un snapshot mai recent.',
+        'Semnalele live se actualizează când pipeline-ul rulează din nou, când cotele se mișcă, când apar date noi de model sau când se generează un snapshot mai recent.',
       notInRecord:
         'Un semnal live nu este o recomandare de pariere și intră în registrul public de evaluare doar dacă BetGlitch îl angajează formal înainte de start.',
     },
@@ -580,7 +580,7 @@ const RO: typeof EN = {
     {
       id: 'analyse',
       title: 'Analizăm',
-      body: 'Analizăm datele de probabilitate ale furnizorului, prețurile pieței și contextul de meci disponibil.',
+      body: 'Analizăm probabilitățile modelului de predicție, prețurile pieței și contextul de meci disponibil.',
     },
     {
       id: 'rank',
@@ -629,7 +629,7 @@ const RO: typeof EN = {
     gemsLimit: 'Pot apărea cel mult trei. Dacă niciunul nu trece toate filtrele, nu publicăm nimic.',
     gemsHeading: 'Gem-urile calificate astăzi',
     gemsSupporting:
-      'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al furnizorului, nu după cea mai mare cotă.',
+      'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al modelului, nu după cea mai mare cotă.',
     scanFixtures: 'meciuri scanate',
     scanPredictions: 'cu predicții disponibile',
     scanQualified: 'au trecut toate filtrele',
@@ -642,7 +642,7 @@ const RO: typeof EN = {
       'Scanarea arată unde s-au oprit candidații. Un meci poate eșua mai multe verificări ale strategiei, deci numerele motivelor se pot suprapune.',
     diagnosticsSignalPrice: 'Semnal sau preț verificat insuficient',
     diagnosticsReliability: 'Fiabilitatea ligii și a meciului',
-    diagnosticsProviderValue: 'Dovezi de valoare ale furnizorului',
+    diagnosticsProviderValue: 'Dovezi model–preț',
     diagnosticsConsensus: 'Acord între piețe',
     diagnosticsPriceQuality: 'Calitatea și acoperirea prețului',
     diagnosticsAffected: 'meciuri afectate',

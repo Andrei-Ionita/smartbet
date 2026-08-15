@@ -57,8 +57,8 @@ const decimal = (value: number | null, digits = 2): string =>
 const limitationCopy = (limitation: IntelligenceLimitation, ro: boolean): string => {
   const copy: Record<IntelligenceLimitation, { en: string; ro: string }> = {
     provider_probabilities_incomplete: {
-      en: 'Provider probabilities are unavailable for one or more markets.',
-      ro: 'Probabilitățile furnizorului nu sunt disponibile pentru una sau mai multe piețe.',
+      en: 'Model probabilities are unavailable for one or more markets.',
+      ro: 'Probabilitățile modelului nu sunt disponibile pentru una sau mai multe piețe.',
     },
     verified_price_board_incomplete: {
       en: 'A complete verified price board is unavailable for one or more markets.',
@@ -69,8 +69,8 @@ const limitationCopy = (limitation: IntelligenceLimitation, ro: boolean): string
       ro: 'Perspectiva pieței normalizează cotele canonice BetGlitch; nu reprezintă panoul complet al unei singure case.',
     },
     reference_views_not_value_verdict: {
-      en: 'Provider and market probabilities are separate reference views, not a BetGlitch value verdict.',
-      ro: 'Probabilitățile furnizorului și ale pieței sunt perspective distincte, nu un verdict BetGlitch despre valoare.',
+      en: 'Model and market probabilities are separate reference views, not a BetGlitch value verdict.',
+      ro: 'Probabilitățile modelului și ale pieței sunt perspective distincte, nu un verdict BetGlitch despre valoare.',
     },
   }
   return ro ? copy[limitation].ro : copy[limitation].en
@@ -118,8 +118,8 @@ export default function FixtureDecisionWorkspace({
     return (
       <div className="rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
         {ro
-          ? 'Furnizorul nu a returnat încă suficiente date pentru această analiză.'
-          : 'The provider has not returned enough data for this analysis yet.'}
+          ? 'Modelul nu are încă suficiente date pentru această analiză.'
+          : 'The model does not have enough data for this analysis yet.'}
       </div>
     )
   }
@@ -212,8 +212,8 @@ export default function FixtureDecisionWorkspace({
           </h3>
           <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
             {ro
-              ? 'Modelul furnizorului și piața fără marjă sunt afișate separat. Diferența dintre ele nu este o dovadă de valoare.'
-              : 'The provider model and the margin-removed market view are shown separately. Their difference is not proof of value.'}
+              ? 'Modelul de predicție și piața fără marjă sunt afișate separat. Diferența dintre ele nu este o dovadă de valoare.'
+              : 'The prediction model and the margin-removed market view are shown separately. Their difference is not proof of value.'}
           </p>
         </div>
 
@@ -250,8 +250,8 @@ export default function FixtureDecisionWorkspace({
           {activeMarket.leader_agreement !== null && (
             <span className={`rounded-full px-2.5 py-1 font-semibold ${activeMarket.leader_agreement ? 'bg-blue-50 text-blue-700' : 'bg-violet-50 text-violet-700'}`}>
               {activeMarket.leader_agreement
-                ? ro ? 'Modelul și piața au același lider' : 'Provider and market share the same leader'
-                : ro ? 'Modelul și piața au lideri diferiți' : 'Provider and market have different leaders'}
+                ? ro ? 'Modelul și piața au același lider' : 'Model and market share the same leader'
+                : ro ? 'Modelul și piața au lideri diferiți' : 'Model and market have different leaders'}
             </span>
           )}
         </div>
@@ -261,7 +261,7 @@ export default function FixtureDecisionWorkspace({
             <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
               <tr>
                 <th className="px-4 py-3 font-semibold">{ro ? 'Rezultat' : 'Outcome'}</th>
-                <th className="px-4 py-3 font-semibold">{ro ? 'Model furnizor' : 'Provider model'}</th>
+                <th className="px-4 py-3 font-semibold">{ro ? 'Model de predicție' : 'Prediction model'}</th>
                 <th className="px-4 py-3 font-semibold">{ro ? 'Piață fără marjă' : 'Market view'}</th>
                 <th className="px-4 py-3 font-semibold">{ro ? 'Preț verificat' : 'Verified price'}</th>
                 <th className="px-4 py-3 font-semibold">{ro ? 'Acoperire' : 'Coverage'}</th>

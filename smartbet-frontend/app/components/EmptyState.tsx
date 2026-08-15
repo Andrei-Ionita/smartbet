@@ -93,7 +93,7 @@ const SPECS: Record<EmptyStateKey, Spec> = {
     tone: 'problem',
     title: 'Match data is temporarily unavailable',
     body:
-      'The data provider did not respond. Nothing is wrong with your account and no signals were lost. Reload in a moment.',
+      'The football data service did not respond. Nothing is wrong with your account and no signals were lost. Reload in a moment.',
     primary: { label: 'Back to home', href: '/' },
   },
   first_dashboard: {
@@ -158,7 +158,7 @@ const RO_WORDS: Record<EmptyStateKey, Words> = {
   provider_unavailable: {
     title: 'Datele despre meciuri sunt temporar indisponibile',
     body:
-      'Furnizorul de date nu a răspuns. Contul tău nu are nicio problemă și niciun semnal nu s-a pierdut. Reîncarcă peste puțin timp.',
+      'Serviciul de date despre fotbal nu a răspuns. Contul tău nu are nicio problemă și niciun semnal nu s-a pierdut. Reîncarcă peste puțin timp.',
     primary: 'Înapoi acasă',
   },
   first_dashboard: {

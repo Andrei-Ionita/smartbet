@@ -152,8 +152,8 @@ export default function ExploreContent() {
 
   const stateMessage = () => {
     if (searchState === 'timeout') return ro
-      ? 'Furnizorul de meciuri nu a răspuns la timp.'
-      : 'The fixture provider did not respond in time.'
+      ? 'Serviciul de date despre meciuri nu a răspuns la timp.'
+      : 'The fixture data service did not respond in time.'
     if (searchState === 'provider_error') return ro
       ? 'Căutarea meciurilor nu este disponibilă momentan.'
       : 'Fixture search is unavailable right now.'
@@ -181,8 +181,8 @@ export default function ExploreContent() {
             </h1>
             <p className="mx-auto mt-4 max-w-3xl text-base leading-relaxed text-slate-600 md:text-lg">
               {ro
-                ? 'Caută orice meci acoperit și compară modelul furnizorului, piața fără marjă, cotele verificate și necunoscutele înainte să iei o decizie.'
-                : 'Search any covered fixture and compare the provider model, margin-removed market view, verified prices and unknowns before making a decision.'}
+                ? 'Caută orice meci acoperit și compară modelul de predicție, piața fără marjă, cotele verificate și necunoscutele înainte să iei o decizie.'
+                : 'Search any covered fixture and compare the prediction model, margin-removed market view, verified prices and unknowns before making a decision.'}
             </p>
           </header>
 
@@ -283,7 +283,7 @@ export default function ExploreContent() {
           <section className="mt-8 grid gap-4 md:grid-cols-3">
             {[
               [ro ? '1. Găsește meciul' : '1. Find the fixture', ro ? 'Caută sau filtrează fără să încarci mii de cote pentru fiecare card.' : 'Search or filter without loading thousands of prices for every card.'],
-              [ro ? '2. Compară perspectivele' : '2. Compare the views', ro ? 'Vezi separat probabilitățile furnizorului și piața fără marjă.' : 'See provider probabilities and the margin-removed market view separately.'],
+              [ro ? '2. Compară perspectivele' : '2. Compare the views', ro ? 'Vezi separat probabilitățile modelului și piața fără marjă.' : 'See model probabilities and the margin-removed market view separately.'],
               [ro ? '3. Stabilește prețul tău' : '3. Set your own price', ro ? 'Introdu propria probabilitate și calculează cota minimă pe care ai accepta-o.' : 'Enter your own probability and calculate the minimum odds you would accept.'],
             ].map(([title, body]) => (
               <div key={title} className="rounded-2xl border border-slate-200 bg-white p-5">

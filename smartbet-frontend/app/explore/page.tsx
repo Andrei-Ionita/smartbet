@@ -5,7 +5,7 @@ import BreadcrumbSchema from '@/components/BreadcrumbSchema'
 export const metadata: Metadata = {
   title: 'Explore football odds, probabilities and fixture context',
   description:
-    'Search any covered football fixture, compare provider probabilities with margin-removed market prices, inspect uncertainty and calculate your own fair odds.',
+    'Search any covered football fixture, compare model probabilities with margin-removed market prices, inspect uncertainty and calculate your own fair odds.',
   alternates: { canonical: '/explore' },
   openGraph: {
     title: 'Explore football decision intelligence | BetGlitch',
