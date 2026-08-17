@@ -92,6 +92,9 @@ urlpatterns = [
     # Internal operations — staff only, never linked from a public page.
     path('api/internal/scheduler-health/', internal_views.scheduler_health, name='scheduler_health'),
     path('api/internal/strategies-lab/', internal_views.strategies_lab, name='strategies_lab'),
+    # Server-to-server cache read. Shared-secret authenticated because the
+    # consumer is the Next.js frontend service rather than a staff user.
+    path('api/internal/gem-feed/', internal_views.gem_feed_snapshot, name='gem_feed_snapshot'),
 
     # Email Capture / Newsletter
     path('api/subscribe/', account_only(api_views.subscribe_email), name='subscribe_email'),

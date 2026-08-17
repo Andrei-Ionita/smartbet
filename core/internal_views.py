@@ -10,18 +10,68 @@ The project sets no DEFAULT_PERMISSION_CLASSES, which means DRF's default of
 AllowAny applies to any view that does not say otherwise. Every view in this
 module therefore states its permission explicitly.
 """
+import hmac
+import os
+
+from django.utils import timezone
 from rest_framework.authentication import SessionAuthentication
 from rest_framework.decorators import (
     api_view,
     authentication_classes,
     permission_classes,
 )
-from rest_framework.permissions import IsAdminUser
+from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
+from core.services import gem_feed_cache
 from core.services.scheduler_health import get_heartbeat
 from core.services.strategy_lab import build_report
+
+
+def _private_response(body, status=200):
+    response = Response(body, status=status)
+    response['Cache-Control'] = 'private, no-store, max-age=0, must-revalidate'
+    response['Pragma'] = 'no-cache'
+    response['Expires'] = '0'
+    response['Vary'] = 'X-Internal-Auth'
+    return response
+
+
+@api_view(['GET'])
+@authentication_classes([])
+@permission_classes([AllowAny])
+def gem_feed_snapshot(request):
+    """Return the worker-produced Gem feed to the frontend server only."""
+    expected = os.environ.get('INTERNAL_API_SECRET', '')
+    provided = request.headers.get('X-Internal-Auth', '')
+
+    if not expected:
+        return _private_response(
+            {'available': False, 'error': 'not configured'}, status=503,
+        )
+    if not provided or not hmac.compare_digest(provided, expected):
+        return _private_response(
+            {'available': False, 'error': 'unauthorized'}, status=401,
+        )
+
+    snapshot = gem_feed_cache.latest()
+    if snapshot is None:
+        return _private_response({'available': False, 'feed': None})
+
+    age_seconds = max(
+        0,
+        int((timezone.now() - snapshot.generated_at).total_seconds()),
+    )
+    return _private_response({
+        'available': True,
+        'generated_at': snapshot.generated_at,
+        'refreshed_at': snapshot.refreshed_at,
+        'age_seconds': age_seconds,
+        'recommendation_count': snapshot.recommendation_count,
+        'ranking_version': snapshot.ranking_version,
+        'feed': snapshot.payload,
+    })
 
 
 @api_view(['GET'])

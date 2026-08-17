@@ -21,7 +21,7 @@
  */
 import { NextResponse } from 'next/server'
 
-import { buildRecommendationPayload } from './engine'
+import { loadCachedGemFeed } from '@/app/lib/gemFeedSnapshot'
 import { toPublicRecommendationList } from '@/app/lib/publicRecommendation'
 
 export const dynamic = 'force-dynamic'
@@ -42,35 +42,82 @@ const PUBLIC_CACHE_HEADERS = {
   'Cache-Control': 'public, max-age=0, s-maxage=300, stale-while-revalidate=600',
 } as const
 
+const MAX_FEED_AGE_SECONDS = 3 * 60 * 60
+
+const numberOrZero = (value: unknown) =>
+  Number.isFinite(Number(value)) ? Number(value) : 0
+
+const kickoffIsFuture = (value: unknown, now = Date.now()) => {
+  if (typeof value !== 'string') return false
+  const normalized = value.includes('T') ? value : `${value.replace(' ', 'T')}Z`
+  const kickoff = Date.parse(normalized)
+  return Number.isFinite(kickoff) && kickoff > now
+}
+
+function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
+  const feed = snapshot.feed || {}
+  const ageSeconds = numberOrZero(snapshot.age_seconds)
+  const stale = !snapshot.available || !snapshot.feed || ageSeconds > MAX_FEED_AGE_SECONDS
+  const rawRecommendations = Array.isArray(feed.recommendations)
+    ? feed.recommendations
+    : []
+  const currentRecommendations = stale
+    ? []
+    : rawRecommendations.filter((rec: Record<string, any>) => kickoffIsFuture(rec.kickoff))
+  const publicGems = toPublicRecommendationList(currentRecommendations)
+  const rawScan = feed.gem_scan && typeof feed.gem_scan === 'object'
+    ? feed.gem_scan as Record<string, unknown>
+    : {}
+
+  return {
+    featured_gems: publicGems,
+    recommendations: toPublicRecommendationList(currentRecommendations),
+    total: publicGems.length,
+    leagues_covered: numberOrZero(feed.leagues_covered),
+    fixtures_analyzed: numberOrZero(feed.fixtures_analyzed),
+    fixtures_with_predictions: numberOrZero(feed.fixtures_with_predictions),
+    gem_scan: {
+      fixtures_scanned: numberOrZero(rawScan.fixtures_scanned),
+      fixtures_with_predictions: numberOrZero(rawScan.fixtures_with_predictions),
+      qualified_fixtures: numberOrZero(rawScan.qualified_fixtures),
+      displayed_gems: publicGems.length,
+      maximum_gems: numberOrZero(rawScan.maximum_gems),
+      status: !snapshot.available || !snapshot.feed
+        ? 'warming'
+        : stale ? 'delayed' : 'current',
+    },
+    lastUpdated: typeof feed.lastUpdated === 'string' ? feed.lastUpdated : null,
+    ranking_version: typeof feed.ranking_version === 'string'
+      ? feed.ranking_version
+      : null,
+    feed_status: {
+      source: 'hourly_snapshot',
+      age_seconds: ageSeconds,
+      stale,
+    },
+    message: !snapshot.available || !snapshot.feed
+      ? 'The first Gem scan is warming up.'
+      : stale
+        ? 'The latest Gem scan is delayed; no stale fixtures are displayed.'
+        : 'Success',
+  }
+}
+
 export async function GET() {
   try {
-    const result = await buildRecommendationPayload()
-
-    if (!result.ok) {
-      return NextResponse.json(result.body, {
-        status: result.status,
-        headers: PUBLIC_CACHE_HEADERS,
-      })
-    }
-
-    const publicGems = toPublicRecommendationList(result.recommendations)
-    // Unvalidated Strategies Lab diagnostics remain on the separately
-    // authenticated internal route, never in public recommendation JSON.
-    const { market_research: _privateResearch, ...publicEnvelope } = result.envelope
-
-    return NextResponse.json(
-      {
-        featured_gems: publicGems,
-        recommendations: toPublicRecommendationList(result.recommendations),
-        ...publicEnvelope,
-      },
-      { headers: PUBLIC_CACHE_HEADERS },
-    )
+    const snapshot = await loadCachedGemFeed()
+    return NextResponse.json(publicBody(snapshot), { headers: PUBLIC_CACHE_HEADERS })
   } catch (error) {
     // Never echo the error. A provider failure from `fetch` can carry the
     // request URL, and SportMonks authenticates by query parameter, so the
     // message can contain the live token.
-    console.error('Error in recommendations API:', error)
-    return NextResponse.json({ error: 'Failed' }, { status: 500 })
+    console.error('Error reading Gem feed snapshot:', error)
+    return NextResponse.json(
+      {
+        ...publicBody({ available: false, feed: null, age_seconds: 0 }),
+        message: 'The Gem feed is temporarily unavailable.',
+      },
+      { status: 503, headers: { 'Cache-Control': 'no-store' } },
+    )
   }
 }

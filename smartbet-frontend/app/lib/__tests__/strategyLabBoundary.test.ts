@@ -22,10 +22,11 @@ describe('Strategies Lab stays shadow-only', () => {
     expect(fixture).not.toContain('buildAsianHandicapResearchCandidates')
   })
 
-  it('removes private research diagnostics from public recommendation JSON', () => {
+  it('reads only the worker snapshot for public recommendation JSON', () => {
     const route = read('app/api/recommendations/route.ts')
-    expect(route).toContain('market_research: _privateResearch')
-    expect(route).toContain('...publicEnvelope')
-    expect(route).not.toContain('...result.envelope')
+    expect(route).toContain('loadCachedGemFeed')
+    expect(route).not.toContain('buildRecommendationPayload')
+    expect(route).not.toContain('market_research')
+    expect(route).not.toContain('result.envelope')
   })
 })
