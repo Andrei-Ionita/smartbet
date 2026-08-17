@@ -141,8 +141,19 @@ class Command(BaseCommand):
             data = response.json()
             
             recommendations = data.get('recommendations', [])
-            
+            if not isinstance(recommendations, list):
+                raise RuntimeError(
+                    'Internal recommendation payload has no recommendations list. '
+                    'Refusing to ingest or cache it.'
+                )
+
             if not recommendations:
+                # Empty is a successful scan result, not a cache miss. Persist
+                # it so the homepage can say honestly that nothing qualified
+                # without running the provider scan in a visitor request.
+                if not dry_run:
+                    from core.services import gem_feed_cache
+                    gem_feed_cache.store(data)
                 self.stdout.write(self.style.WARNING('No recommendations found in API response'))
                 return
 
@@ -209,6 +220,12 @@ class Command(BaseCommand):
                     ranking_version=data.get('ranking_version'),
                 )
 
+                # Publish the cache only after canonical ingest succeeds. If
+                # persistence fails, the previous known-good feed remains in
+                # place and the public site never gets ahead of the record.
+                from core.services import gem_feed_cache
+                gem_feed_cache.store(data)
+
                 logged_count = payload.get('logged_count', 0)
                 updated_count = payload.get('updated_count', 0)
                 snapshots_created = payload.get('snapshots_created', 0)
@@ -260,4 +277,3 @@ class Command(BaseCommand):
             # SportMonks authenticates by query parameter.
             self.stdout.write(self.style.ERROR(redact(traceback.format_exc())))
             raise
-

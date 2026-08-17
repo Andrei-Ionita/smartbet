@@ -14,7 +14,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 const INTERNAL_FIXTURE = {
   fixture_id: 1, home_team: 'A', away_team: 'B',
   home_id: 10, away_id: 11, season_id: 99,
-  league: 'L', kickoff: '2026-08-12 18:45:00',
+  league: 'L', kickoff: '2099-08-12 18:45:00',
   predicted_outcome: 'Btts yes',
   confidence: 0.66,
   expected_value: 0.2,
@@ -57,11 +57,15 @@ const OK_PAYLOAD = {
 }
 
 const buildRecommendationPayload = vi.fn()
+const loadCachedGemFeed = vi.fn()
 vi.mock('@/app/api/recommendations/engine', () => ({
   get buildRecommendationPayload() { return buildRecommendationPayload },
 }))
 vi.mock('../../api/recommendations/engine', () => ({
   get buildRecommendationPayload() { return buildRecommendationPayload },
+}))
+vi.mock('@/app/lib/gemFeedSnapshot', () => ({
+  get loadCachedGemFeed() { return loadCachedGemFeed },
 }))
 
 const SECRET = 'test-internal-secret-value-1234567890'
@@ -69,6 +73,17 @@ const SECRET = 'test-internal-secret-value-1234567890'
 beforeEach(() => {
   buildRecommendationPayload.mockReset()
   buildRecommendationPayload.mockResolvedValue(OK_PAYLOAD)
+  loadCachedGemFeed.mockReset()
+  loadCachedGemFeed.mockResolvedValue({
+    available: true,
+    generated_at: '2099-08-12T09:00:00.000Z',
+    age_seconds: 60,
+    feed: {
+      recommendations: OK_PAYLOAD.recommendations,
+      confidence_threshold: OK_PAYLOAD.confidenceThreshold,
+      ...OK_PAYLOAD.envelope,
+    },
+  })
   process.env.INTERNAL_API_SECRET = SECRET
 })
 
@@ -167,20 +182,55 @@ describe('PUBLIC /api/recommendations', () => {
       join(__dirname, '..', '..', 'api', 'recommendations', 'route.ts'), 'utf8')
     // It must serialize; it must not have an auth branch.
     expect(src).toContain('toPublicRecommendationList')
+    expect(src).toContain('loadCachedGemFeed')
+    expect(src).not.toContain('buildRecommendationPayload')
     expect(src).not.toContain('INTERNAL_API_SECRET')
     expect(src).not.toContain('x-internal-auth')
     expect(src).not.toContain('confidence_threshold')
   })
 
   it('does not echo the error when the engine throws', async () => {
-    buildRecommendationPayload.mockRejectedValue(
+    loadCachedGemFeed.mockRejectedValue(
       new Error('connect failed for ?api_token=SUPERSECRET&x=1'))
     const { GET } = await import('../../api/recommendations/route')
     const res = await GET()
     const body = await res.json()
-    expect(res.status).toBe(500)
+    expect(res.status).toBe(503)
     expect(JSON.stringify(body)).not.toContain('SUPERSECRET')
-    expect(body).toEqual({ error: 'Failed' })
+    expect(body.recommendations).toEqual([])
+    expect(body.message).toBe('The Gem feed is temporarily unavailable.')
+    expect(res.headers.get('cache-control')).toBe('no-store')
+  })
+
+  it('fails closed on a stale snapshot instead of showing expired prices', async () => {
+    loadCachedGemFeed.mockResolvedValue({
+      available: true,
+      age_seconds: 3 * 60 * 60 + 1,
+      feed: {
+        recommendations: OK_PAYLOAD.recommendations,
+        ...OK_PAYLOAD.envelope,
+      },
+    })
+    const { GET } = await import('../../api/recommendations/route')
+    const body = await (await GET()).json()
+    expect(body.recommendations).toEqual([])
+    expect(body.gem_scan.status).toBe('delayed')
+    expect(body.feed_status.stale).toBe(true)
+  })
+
+  it('never returns a cached fixture after its kickoff', async () => {
+    loadCachedGemFeed.mockResolvedValue({
+      available: true,
+      age_seconds: 60,
+      feed: {
+        recommendations: [{ ...INTERNAL_FIXTURE, kickoff: '2020-01-01 12:00:00' }],
+        ...OK_PAYLOAD.envelope,
+      },
+    })
+    const { GET } = await import('../../api/recommendations/route')
+    const body = await (await GET()).json()
+    expect(body.recommendations).toEqual([])
+    expect(body.gem_scan.status).toBe('current')
   })
 })
 

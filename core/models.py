@@ -1474,6 +1474,43 @@ class IngestRequest(models.Model):
         return f"{self.request_id} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
 
 
+class GemFeedCache(models.Model):
+    """The latest successfully completed Gem scan.
+
+    Gem discovery is deliberately expensive: it reads every supported league,
+    evaluates the available markets and then applies the versioned Gem gates.
+    That work belongs in the hourly worker, not in a visitor's HTTP request.
+
+    This singleton is an operational cache, not part of the immutable public
+    record. A successful scan replaces it atomically; a failed scan leaves the
+    previous value untouched. Empty successful scans are stored too, because
+    "nothing qualified" is a real result rather than a cache miss.
+    """
+
+    CACHE_KEY = 'current'
+
+    key = models.CharField(
+        max_length=16,
+        primary_key=True,
+        default=CACHE_KEY,
+        editable=False,
+    )
+    payload = models.JSONField(default=dict)
+    generated_at = models.DateTimeField(db_index=True)
+    refreshed_at = models.DateTimeField(auto_now=True)
+    ranking_version = models.CharField(max_length=128, null=True, blank=True)
+    recommendation_count = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Gem feed cache'
+
+    def __str__(self):
+        return (
+            f'Gem feed ({self.recommendation_count} rows, '
+            f'{self.generated_at:%Y-%m-%d %H:%M:%S})'
+        )
+
+
 class SignalObservation(models.Model):
     """An APPEND-ONLY record of one provider outcome, exactly as observed.
 

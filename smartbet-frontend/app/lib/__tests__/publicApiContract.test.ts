@@ -346,8 +346,13 @@ describe('the route serializes before responding', () => {
   })()
 
   it('passes everything it returns through the serializer', () => {
-    expect(src).toContain('toPublicRecommendationList(result.recommendations)')
+    expect(src).toContain('toPublicRecommendationList(currentRecommendations)')
     expect(src).toContain('featured_gems: publicGems')
+  })
+
+  it('serves a worker snapshot instead of running the provider engine', () => {
+    expect(src).toContain('loadCachedGemFeed')
+    expect(src).not.toContain('buildRecommendationPayload')
   })
 
   /*
