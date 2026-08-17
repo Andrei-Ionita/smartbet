@@ -16,21 +16,45 @@ import { publicCompetitionLabel } from '@/app/lib/coverage'
 import { buildMarketCatalogue } from '@/app/lib/marketCatalogue'
 import { buildExpandedModelCandidates } from '@/app/lib/expandedModelMarkets'
 
+const FIXTURE_PROVIDER_TIMEOUT_MS = 14_000
+const OPTIONAL_ENRICHMENT_TIMEOUT_MS = 2_500
+
+export class FixtureProviderTimeoutError extends Error {
+    constructor() {
+        super('The fixture data provider did not respond in time')
+        this.name = 'FixtureProviderTimeoutError'
+    }
+}
+
+function safeRequestLabel(url: string): string {
+    try {
+        const parsed = new URL(url)
+        parsed.searchParams.delete('api_token')
+        return parsed.toString()
+    } catch {
+        return 'fixture provider request'
+    }
+}
+
 // Robust apiClient implementation
 const apiClient = {
-    async request(url: string) {
+    async request(url: string, timeoutMs = FIXTURE_PROVIDER_TIMEOUT_MS) {
         const controller = new AbortController()
-        // 30 second timeout for external API calls
-        const timeoutId = setTimeout(() => controller.abort(), 30000)
+        let timedOut = false
+        const timeoutId = setTimeout(() => {
+            timedOut = true
+            controller.abort()
+        }, timeoutMs)
         try {
             const response = await fetch(url, { signal: controller.signal })
-            clearTimeout(timeoutId)
             if (!response.ok) throw new Error(`HTTP ${response.status} ${response.statusText}`)
             return response.json()
         } catch (e: any) {
-            clearTimeout(timeoutId)
-            console.error(`API Request failed: ${url} - ${e.message}`)
+            console.error(`API Request failed: ${safeRequestLabel(url)} - ${e.message}`)
+            if (timedOut) throw new FixtureProviderTimeoutError()
             throw e
+        } finally {
+            clearTimeout(timeoutId)
         }
     }
 }
@@ -48,10 +72,12 @@ async function getContextTimeline(fixtureId: string): Promise<FixtureContextTime
         (process.env.NODE_ENV === 'development'
             ? 'http://localhost:8000'
             : 'https://smartbet-backend-production.up.railway.app')
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), OPTIONAL_ENRICHMENT_TIMEOUT_MS)
     try {
         const response = await fetch(
             `${backend}/api/fixture/${encodeURIComponent(fixtureId)}/context-timeline/`,
-            { cache: 'no-store' },
+            { cache: 'no-store', signal: controller.signal },
         )
         if (!response.ok) return null
         const payload = await response.json()
@@ -59,6 +85,8 @@ async function getContextTimeline(fixtureId: string): Promise<FixtureContextTime
     } catch (error) {
         console.error('Context timeline unavailable:', error)
         return null
+    } finally {
+        clearTimeout(timeoutId)
     }
 }
 
@@ -634,7 +662,9 @@ export async function getFixtureDetails(fixtureId: string) {
     try {
         if (fixture.season_id) {
             const standingsUrl = `https://api.sportmonks.com/v3/football/standings/seasons/${fixture.season_id}?api_token=${getApiToken()}&include=form`
-            const standingsRes = await apiClient.request(standingsUrl)
+            // Form is useful context, but it must never hold the entire fixture
+            // workspace behind a long provider wait.
+            const standingsRes = await apiClient.request(standingsUrl, OPTIONAL_ENRICHMENT_TIMEOUT_MS)
             const standingsData = standingsRes.data || []
 
             let homeForm = null

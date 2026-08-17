@@ -28,6 +28,9 @@ interface SearchResult {
 
 type SearchState = 'idle' | 'loading' | 'ok' | 'empty' | 'timeout' | 'provider_error'
 
+const FIXTURE_SLOW_NOTICE_MS = 4_000
+const FIXTURE_CLIENT_TIMEOUT_MS = 20_000
+
 export default function ExploreContent() {
   const { language } = useLanguage()
   const ro = language === 'ro'
@@ -39,10 +42,14 @@ export default function ExploreContent() {
   const [selectedFixture, setSelectedFixture] = useState<FixtureDecisionFixture | null>(null)
   const [fixtureLoadedAt, setFixtureLoadedAt] = useState<string | null>(null)
   const [isLoadingFixture, setIsLoadingFixture] = useState(false)
+  const [fixtureTakingLong, setFixtureTakingLong] = useState(false)
   const [fixtureError, setFixtureError] = useState<string | null>(null)
+  const [fixtureRetryId, setFixtureRetryId] = useState<number | null>(null)
   const [commitments, setCommitments] = useState<Map<number, { proofUrl: string }>>(new Map())
   const requestSeq = useRef(0)
   const inFlight = useRef<AbortController | null>(null)
+  const fixtureRequestSeq = useRef(0)
+  const fixtureInFlight = useRef<AbortController | null>(null)
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -61,12 +68,15 @@ export default function ExploreContent() {
       .catch(() => {})
   }, [])
 
-  useEffect(() => () => inFlight.current?.abort(), [])
+  useEffect(() => () => {
+    inFlight.current?.abort()
+    fixtureInFlight.current?.abort()
+  }, [])
 
   useEffect(() => {
     if (!selectedFixture && !isLoadingFixture && !fixtureError) return
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape' && !isLoadingFixture) closeFixture()
+      if (event.key === 'Escape') closeFixture()
     }
     window.addEventListener('keydown', closeOnEscape)
     return () => window.removeEventListener('keydown', closeOnEscape)
@@ -119,31 +129,71 @@ export default function ExploreContent() {
   }, [searchQuery, selectedLeague]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFixture = async (fixtureId: number) => {
+    fixtureInFlight.current?.abort()
+    const controller = new AbortController()
+    fixtureInFlight.current = controller
+    const seq = ++fixtureRequestSeq.current
+    const isCurrent = () => seq === fixtureRequestSeq.current
+    let timedOut = false
+
     setFixtureError(null)
+    setFixtureRetryId(fixtureId)
     setSelectedFixture(null)
     setIsLoadingFixture(true)
+    setFixtureTakingLong(false)
+    const slowNoticeId = window.setTimeout(() => {
+      if (isCurrent()) setFixtureTakingLong(true)
+    }, FIXTURE_SLOW_NOTICE_MS)
+    const hardTimeoutId = window.setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, FIXTURE_CLIENT_TIMEOUT_MS)
     try {
-      const response = await fetch(`/api/fixture/${fixtureId}`)
+      const response = await fetch(`/api/fixture/${fixtureId}`, { signal: controller.signal })
       const data = await response.json().catch(() => ({}))
+      if (!isCurrent()) return
       if (!response.ok || !data.fixture?.intelligence) {
-        throw new Error(data.error || `HTTP ${response.status}`)
+        const requestError = new Error(data.error || `HTTP ${response.status}`)
+        if (data?.status === 'timeout' || response.status === 504) {
+          requestError.name = 'FixtureTimeoutError'
+        }
+        throw requestError
       }
       setSelectedFixture(data.fixture)
       setFixtureLoadedAt(data.lastUpdated || data.fixture.intelligence.generated_at)
     } catch (error) {
+      if (!isCurrent()) return
       console.error('Fixture intelligence load failed:', error)
-      setFixtureError(ro
-        ? 'Spațiul de decizie pentru acest meci nu a putut fi încărcat. Încearcă din nou.'
-        : 'This fixture decision workspace could not be loaded. Please try again.')
+      const timeout = timedOut ||
+        (error as Error)?.name === 'AbortError' ||
+        (error as Error)?.name === 'FixtureTimeoutError'
+      setFixtureError(timeout
+        ? (ro
+          ? 'Datele meciului nu au răspuns la timp. Poți încerca din nou.'
+          : 'The fixture data did not respond in time. You can try again.')
+        : (ro
+          ? 'Spațiul de decizie pentru acest meci nu a putut fi încărcat. Încearcă din nou.'
+          : 'This fixture decision workspace could not be loaded. Please try again.'))
     } finally {
-      setIsLoadingFixture(false)
+      window.clearTimeout(slowNoticeId)
+      window.clearTimeout(hardTimeoutId)
+      if (isCurrent()) {
+        fixtureInFlight.current = null
+        setIsLoadingFixture(false)
+        setFixtureTakingLong(false)
+      }
     }
   }
 
   const closeFixture = () => {
-    if (isLoadingFixture) return
+    ++fixtureRequestSeq.current
+    fixtureInFlight.current?.abort()
+    fixtureInFlight.current = null
+    setIsLoadingFixture(false)
+    setFixtureTakingLong(false)
     setSelectedFixture(null)
     setFixtureError(null)
+    setFixtureRetryId(null)
   }
 
   const formatKickoff = (value: string) => new Date(value).toLocaleString(ro ? 'ro-RO' : 'en-GB', {
@@ -297,15 +347,32 @@ export default function ExploreContent() {
         {modalOpen && (
           <div className="fixed inset-0 z-50 overflow-y-auto bg-slate-950/70 p-3 backdrop-blur-sm md:p-6" onClick={closeFixture}>
             <div role="dialog" aria-modal="true" aria-label="Fixture decision workspace" className="relative mx-auto min-h-[200px] max-w-6xl rounded-2xl bg-slate-50 p-4 shadow-2xl md:p-7" onClick={(event) => event.stopPropagation()}>
-              <button type="button" onClick={closeFixture} disabled={isLoadingFixture} aria-label={ro ? 'Închide' : 'Close'} className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm hover:bg-slate-100 disabled:opacity-40">
+              <button type="button" onClick={closeFixture} aria-label={ro ? 'Închide' : 'Close'} className="absolute right-3 top-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-white text-slate-600 shadow-sm hover:bg-slate-100">
                 <X className="h-5 w-5" />
               </button>
               {isLoadingFixture ? (
-                <div className="py-20"><LoadingSpinner size="lg" text={ro ? 'Construim spațiul de decizie…' : 'Building the decision workspace…'} /></div>
+                <div className="py-20 text-center">
+                  <LoadingSpinner size="lg" text={ro ? 'Construim spațiul de decizie…' : 'Building the decision workspace…'} />
+                  {fixtureTakingLong && (
+                    <div className="mx-auto mt-6 max-w-md">
+                      <p className="text-sm leading-relaxed text-slate-600">
+                        {ro
+                          ? 'Furnizorul de date răspunde mai lent decât de obicei. Nu vom lăsa această fereastră să aștepte la nesfârșit.'
+                          : 'The data feed is responding more slowly than usual. We will not leave this window waiting indefinitely.'}
+                      </p>
+                      <button type="button" onClick={closeFixture} className="mt-4 min-h-[44px] rounded-xl border border-slate-300 bg-white px-5 font-semibold text-slate-700 hover:bg-slate-50">
+                        {ro ? 'Anulează' : 'Cancel'}
+                      </button>
+                    </div>
+                  )}
+                </div>
               ) : fixtureError ? (
                 <div role="alert" className="py-16 text-center">
                   <p className="font-semibold text-slate-950">{fixtureError}</p>
-                  <button type="button" onClick={closeFixture} className="mt-5 min-h-[44px] rounded-xl border border-slate-300 bg-white px-5 font-semibold text-slate-700">{ro ? 'Închide' : 'Close'}</button>
+                  <div className="mt-5 flex flex-wrap justify-center gap-3">
+                    {fixtureRetryId !== null && <RetryButton onRetry={() => openFixture(fixtureRetryId)} />}
+                    <button type="button" onClick={closeFixture} className="min-h-[44px] rounded-xl border border-slate-300 bg-white px-5 font-semibold text-slate-700">{ro ? 'Închide' : 'Close'}</button>
+                  </div>
                 </div>
               ) : selectedFixture && (
                 <FixtureDecisionWorkspace

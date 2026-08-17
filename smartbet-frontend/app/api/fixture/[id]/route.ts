@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getFixtureDetails } from '@/src/services/fixtureService'
+import { FixtureProviderTimeoutError, getFixtureDetails } from '@/src/services/fixtureService'
 
 // This is a dynamic API route that should not be statically generated
 export const dynamic = 'force-dynamic'
@@ -28,13 +28,27 @@ export async function GET(
       )
     }
 
-    return NextResponse.json(data)
+    return NextResponse.json(data, {
+      headers: {
+        // Fixture prices remain fresh while repeat opens avoid rebuilding the
+        // same workspace on every click.
+        'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=60',
+      },
+    })
 
   } catch (error: any) {
     console.error('API Error:', error)
+    const timedOut = error instanceof FixtureProviderTimeoutError ||
+      error?.name === 'FixtureProviderTimeoutError' ||
+      error?.name === 'AbortError'
     return NextResponse.json(
-      { error: error.message || 'Internal Server Error' },
-      { status: 500 }
+      {
+        error: timedOut
+          ? 'The fixture data provider did not respond in time'
+          : 'The fixture workspace is temporarily unavailable',
+        status: timedOut ? 'timeout' : 'provider_error',
+      },
+      { status: timedOut ? 504 : 502 }
     )
   }
 }

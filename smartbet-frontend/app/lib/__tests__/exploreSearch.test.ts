@@ -57,6 +57,34 @@ describe('fixture intelligence loads only after selection', () => {
     expect(explore).toContain('Set your own price')
     expect(explore).toContain('Open decision workspace')
   })
+
+  it('bounds, explains and lets the visitor cancel a slow fixture request', () => {
+    expect(explore).toContain('FIXTURE_CLIENT_TIMEOUT_MS')
+    expect(explore).toContain('const fixtureInFlight = useRef<AbortController | null>(null)')
+    expect(explore).toContain("fetch(`/api/fixture/${fixtureId}`, { signal: controller.signal })")
+    expect(explore).toContain('fixtureInFlight.current?.abort()')
+    expect(explore).toContain('responding more slowly than usual')
+    expect(explore).toContain("ro ? 'Anulează' : 'Cancel'")
+    expect(explore).not.toContain('disabled={isLoadingFixture}')
+  })
+})
+
+describe('fixture endpoint treats optional context as optional', () => {
+  const service = read('src/services/fixtureService.ts')
+  const fixtureRoute = read('app/api/fixture/[id]/route.ts')
+
+  it('has separate hard limits for the core provider call and enrichments', () => {
+    expect(service).toContain('FIXTURE_PROVIDER_TIMEOUT_MS = 14_000')
+    expect(service).toContain('OPTIONAL_ENRICHMENT_TIMEOUT_MS = 2_500')
+    expect(service).toContain('{ cache: \'no-store\', signal: controller.signal }')
+    expect(service).toContain('apiClient.request(standingsUrl, OPTIONAL_ENRICHMENT_TIMEOUT_MS)')
+  })
+
+  it('returns a recoverable gateway timeout and briefly caches successful workspaces', () => {
+    expect(fixtureRoute).toContain("status: timedOut ? 'timeout' : 'provider_error'")
+    expect(fixtureRoute).toContain('{ status: timedOut ? 504 : 502 }')
+    expect(fixtureRoute).toContain("'Cache-Control': 'public, max-age=0, s-maxage=60, stale-while-revalidate=60'")
+  })
 })
 
 describe('a slow earlier response cannot overwrite a newer search', () => {
@@ -72,7 +100,8 @@ describe('a slow earlier response cannot overwrite a newer search', () => {
     expect(explore).toContain('inFlight.current?.abort()')
     expect(explore).toContain('{ signal: controller.signal }')
     expect(explore).toContain("(error as Error)?.name === 'AbortError'")
-    expect(explore).toContain('useEffect(() => () => inFlight.current?.abort(), [])')
+    expect(explore).toContain('useEffect(() => () => {')
+    expect(explore).toContain('fixtureInFlight.current?.abort()')
   })
 })
 
