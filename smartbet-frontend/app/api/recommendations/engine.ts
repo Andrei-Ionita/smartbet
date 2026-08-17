@@ -42,6 +42,8 @@ import {
   VALUE_STRATEGY_POLICY,
 } from '@/app/lib/providerStrategy'
 import { SIGNAL_COMPETITIONS } from '@/app/lib/coverage'
+import { buildExpandedModelCandidates } from '@/app/lib/expandedModelMarkets'
+import { buildAsianHandicapResearchCandidates } from '@/app/lib/asianHandicapResearch'
 
 
 // Simplified inline apiClient implementation with Timeout
@@ -101,6 +103,10 @@ const MARKET_CONFIG = {
     outcomes: ['yes', 'no'],
     min_gap: 0.12,
   },
+  'over_under_1.5': {
+    name: 'O/U 1.5', display_name: 'Over/Under 1.5 Goals', type_ids: [234],
+    outcomes: ['yes', 'no'], min_gap: 0.10,
+  },
   'over_under_2.5': {
     name: 'O/U 2.5',
     display_name: 'Over/Under 2.5 Goals',
@@ -108,12 +114,32 @@ const MARKET_CONFIG = {
     outcomes: ['yes', 'no'],  // yes = over, no = under
     min_gap: 0.12,
   },
+  'over_under_3.5': {
+    name: 'O/U 3.5', display_name: 'Over/Under 3.5 Goals', type_ids: [236],
+    outcomes: ['yes', 'no'], min_gap: 0.10,
+  },
   'double_chance': {
     name: 'DC',
     display_name: 'Double Chance',
     type_ids: [239],
     outcomes: ['draw_home', 'draw_away', 'home_away'],  // 1X, X2, 12
     min_gap: 0.10,  // Lower gap since each outcome has ~33% base
+  },
+  'half_time_result': {
+    name: 'HT 1X2', display_name: 'Half-time Result', type_ids: [233],
+    outcomes: ['home', 'draw', 'away'], min_gap: 0.10,
+  },
+  'half_time_full_time': {
+    name: 'HT/FT', display_name: 'Half-time / Full-time', type_ids: [232],
+    outcomes: [], min_gap: 0.10,
+  },
+  'first_team_to_score': {
+    name: 'First goal', display_name: 'First Team to Score', type_ids: [238],
+    outcomes: ['home', 'away', 'draw'], min_gap: 0.10,
+  },
+  'correct_score': {
+    name: 'Score', display_name: 'Correct Score', type_ids: [240],
+    outcomes: [], min_gap: 0.02,
   }
 } as const
 
@@ -140,6 +166,7 @@ interface MarketPrediction {
   odds_provenance: OddsProvenance | null
   /** Why a price was unavailable, when it was. */
   odds_unavailable_reason?: string
+  validation_status?: 'live' | 'shadow'
 }
 
 /**
@@ -216,6 +243,11 @@ export async function buildRecommendationPayload(): Promise<
     let totalFixtures = 0
     let fixturesWithPredictions = 0
     let strategyEvaluatedFixtures = 0
+    let shadowMarketCandidatesEvaluated = 0
+    let shadowMarketCandidatesPriced = 0
+    let shadowPositiveEdgeCandidates = 0
+    let asianHandicapCandidatesEvaluated = 0
+    let asianHandicapRobustEdges = 0
     const strategyRejectionCounts = emptyGemRejectionCounts()
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
@@ -514,6 +546,46 @@ export async function buildRecommendationPayload(): Promise<
               }
             }
 
+            // Expand the scan to every additional market for which the feed
+            // supplies a direct probability distribution and we have an exact
+            // canonical price mapping. These candidates are measured in shadow
+            // mode; they cannot become public Gems until forward validation
+            // promotes their strategy version.
+            const expandedCandidates = buildExpandedModelCandidates(
+              predictions,
+              fixture.odds,
+              { homeTeam, awayTeam },
+            )
+            for (const candidate of expandedCandidates) {
+              shadowMarketCandidatesEvaluated++
+              if (candidate.price_status === 'verified') shadowMarketCandidatesPriced++
+              if (candidate.expected_value !== null && candidate.expected_value > 0) {
+                shadowPositiveEdgeCandidates++
+              }
+              const marketData: MarketPrediction = {
+                ...candidate,
+                market_score: calculateMarketScore(
+                  candidate.probability_gap,
+                  Math.max(candidate.expected_value ?? 0, 0),
+                  candidate.probability,
+                ),
+              }
+              allMarketsData.push(marketData)
+              if (candidate.probability_gap >= 0.10 && clearsEV(candidate.expected_value, 0.05)) {
+                marketResults.push(marketData)
+              }
+            }
+
+            const asianHandicapCandidates = buildAsianHandicapResearchCandidates(
+              predictions,
+              fixture.odds,
+              { homeTeam, awayTeam },
+            )
+            asianHandicapCandidatesEvaluated += asianHandicapCandidates.length
+            asianHandicapRobustEdges += asianHandicapCandidates.filter(
+              (candidate) => candidate.robust_positive_edge,
+            ).length
+
             // ============= SELECT BEST MARKET =============
             // Uniform confidence floor. The response advertises a 55% confidence
             // threshold, but historically only over_under_2.5 enforced it — the
@@ -792,7 +864,9 @@ export async function buildRecommendationPayload(): Promise<
                 odds: m.odds,
                 expected_value: m.expected_value,
                 market_score: m.market_score,
-                is_recommended: marketResults.some(r => r.market_type === m.market_type)  // Flag if passes filters
+                validation_status: m.validation_status ?? 'live',
+                is_recommended: m.validation_status !== 'shadow' &&
+                  marketResults.some(r => r.market_type === m.market_type)
               })),
 
               // NEW: Accuracy enhancement metadata
@@ -991,6 +1065,15 @@ export async function buildRecommendationPayload(): Promise<
             strategyRejectionCounts,
           ),
           rejection_counts_overlap: true,
+        },
+        market_research: {
+          direct_model_markets: Object.keys(MARKET_CONFIG).length,
+          shadow_candidates_evaluated: shadowMarketCandidatesEvaluated,
+          shadow_candidates_with_verified_price: shadowMarketCandidatesPriced,
+          shadow_candidates_with_positive_raw_edge: shadowPositiveEdgeCandidates,
+          publication_rule: 'shadow_until_forward_validated',
+          asian_handicap_candidates_evaluated: asianHandicapCandidatesEvaluated,
+          asian_handicap_robust_edge_bounds: asianHandicapRobustEdges,
         },
         lastUpdated: new Date().toISOString(),
         // WHICH ranking policy produced these. Ingest stamps it onto every

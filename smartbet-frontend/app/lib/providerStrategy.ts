@@ -233,9 +233,15 @@ export interface LeagueMarketPerformance {
 const PERFORMANCE_MARKET_KEY: Record<ProductMarket, string> = {
   '1x2': 'fulltime_result',
   btts: 'both_teams_to_score',
+  'over_under_1.5': 'over_under_1_5',
   'over_under_2.5': 'over_under_2_5',
+  'over_under_3.5': 'over_under_3_5',
   // SportMonks does not publish an independent double-chance report card.
   double_chance: 'fulltime_result',
+  half_time_result: 'half_time_result',
+  half_time_full_time: 'half_time_full_time',
+  first_team_to_score: 'first_team_to_score',
+  correct_score: 'correct_score',
 }
 
 const metricName = (row: Record<string, any>): string => {

@@ -5,6 +5,9 @@ from .models import (
     PerformanceSnapshot,
     PredictionLog,
     SchedulerHeartbeat,
+    StrategyLabExperiment,
+    StrategyLabObservation,
+    StrategyLabSettlement,
 )
 
 
@@ -130,6 +133,57 @@ class SchedulerHeartbeatAdmin(admin.ModelAdmin):
 
     def has_add_permission(self, request):
         # Written by the scheduler only; a hand-made row would misreport liveness.
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StrategyLabExperiment)
+class StrategyLabExperimentAdmin(admin.ModelAdmin):
+    list_display = ('name', 'version', 'market', 'status',
+                    'decision_horizon_hours', 'minimum_settled_for_review')
+    list_filter = ('status', 'market')
+    readonly_fields = ('strategy_key', 'version', 'name', 'market',
+                       'decision_horizon_hours', 'rules', 'rules_hash',
+                       'minimum_settled_for_review', 'created_at')
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StrategyLabObservation)
+class StrategyLabObservationAdmin(admin.ModelAdmin):
+    list_display = ('fixture_id', 'label', 'evidence_phase', 'odds',
+                    'expected_return_lower', 'robust_positive_edge',
+                    'hours_to_kickoff', 'observed_at')
+    list_filter = ('experiment', 'evidence_phase', 'side',
+                   'robust_positive_edge', 'league')
+    search_fields = ('fixture_id', 'home_team', 'away_team', 'label')
+    readonly_fields = tuple(
+        field.name for field in StrategyLabObservation._meta.fields
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(StrategyLabSettlement)
+class StrategyLabSettlementAdmin(admin.ModelAdmin):
+    list_display = ('observation', 'outcome', 'unit_profit', 'result_version',
+                    'settled_at')
+    list_filter = ('outcome', 'observation__experiment')
+    readonly_fields = tuple(
+        field.name for field in StrategyLabSettlement._meta.fields
+    )
+
+    def has_add_permission(self, request):
         return False
 
     def has_delete_permission(self, request, obj=None):

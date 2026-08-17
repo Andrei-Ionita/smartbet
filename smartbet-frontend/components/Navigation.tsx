@@ -5,7 +5,7 @@ import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercial
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText, Gauge } from 'lucide-react'
+import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText, Gauge, LibraryBig } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
 import { ProBadge } from '../app/components/ProGate'
@@ -25,6 +25,7 @@ export default function Navigation() {
     { href: '/', label: t('nav.home'), icon: Trophy },
     ...(ACCOUNT_FEATURES_ENABLED && isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     { href: '/explore', label: t('nav.explore'), icon: Search },
+    { href: '/strategies', label: t('nav.strategies'), icon: LibraryBig },
     { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
     { href: '/calibration', label: t('nav.calibration'), icon: Gauge },
     ...(ACCOUNT_FEATURES_ENABLED ? [{ href: '/bankroll', label: t('nav.bankroll'), icon: Wallet }] : []),
@@ -84,7 +85,7 @@ export default function Navigation() {
           <div className="hidden xl:flex space-x-4">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))
               return (
                 <Link
                   key={item.href}
@@ -195,7 +196,7 @@ export default function Navigation() {
           <div className="px-2 pt-2 pb-3 space-y-1">
             {navItems.map((item) => {
               const Icon = item.icon
-              const isActive = pathname === item.href
+              const isActive = pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))
               return (
                 <Link
                   key={item.href}

@@ -6,6 +6,7 @@ export const translations = {
             home: 'Home',
             dashboard: 'Dashboard',
             explore: 'Explore',
+            strategies: 'Strategies',
             // 'Model monitoring' handed visitors an internal engineering
             // concept — and a model BetGlitch does not own. The page tracks
             // historical score evidence and measured weaknesses.
@@ -365,6 +366,7 @@ export const translations = {
             home: 'Acasă',
             dashboard: 'Panou Control',
             explore: 'Explorează',
+            strategies: 'Strategii',
             monitoring: 'Cercetarea semnalului',
             calibration: 'Calibrare',
             trackRecord: 'Rezultate',

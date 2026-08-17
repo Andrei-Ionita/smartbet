@@ -13,6 +13,8 @@ import {
 } from '@/app/lib/fixtureIntelligence'
 import type { FixtureContextTimeline } from '@/app/lib/fixtureTimeline'
 import { publicCompetitionLabel } from '@/app/lib/coverage'
+import { buildMarketCatalogue } from '@/app/lib/marketCatalogue'
+import { buildExpandedModelCandidates } from '@/app/lib/expandedModelMarkets'
 
 // Robust apiClient implementation
 const apiClient = {
@@ -82,13 +84,20 @@ export interface MarketPrediction {
     odds_provenance: OddsProvenance | null
     odds_unavailable_reason?: OddsUnavailableReason
     raw_predictions: Record<string, number>
+    validation_status?: 'live' | 'shadow'
 }
 
 const MARKET_CONFIG: Record<ProductMarket, { name: string; display_name: string }> = {
     '1x2': { name: '1X2', display_name: 'Match Result' },
     'btts': { name: 'BTTS', display_name: 'Both Teams to Score' },
+    'over_under_1.5': { name: 'O/U 1.5', display_name: 'Over/Under 1.5 Goals' },
     'over_under_2.5': { name: 'O/U 2.5', display_name: 'Over/Under 2.5 Goals' },
-    'double_chance': { name: 'DC', display_name: 'Double Chance' }
+    'over_under_3.5': { name: 'O/U 3.5', display_name: 'Over/Under 3.5 Goals' },
+    'double_chance': { name: 'DC', display_name: 'Double Chance' },
+    'half_time_result': { name: 'HT 1X2', display_name: 'Half-time Result' },
+    'half_time_full_time': { name: 'HT/FT', display_name: 'Half-time / Full-time' },
+    'first_team_to_score': { name: 'First goal', display_name: 'First Team to Score' },
+    'correct_score': { name: 'Score', display_name: 'Correct Score' }
 }
 
 function calculateMarketScore(probability_gap: number, expected_value: number, confidence: number): number {
@@ -120,7 +129,7 @@ export async function getFixtureDetails(fixtureId: string) {
         // `metadata` was requested but never read. `odds.bookmaker` is required:
         // without it provenance has no bookmaker name and every price would be
         // correctly classified unpublishable.
-        include: 'participants;league;predictions;odds;odds.bookmaker',
+        include: 'participants;league;predictions.type;odds;odds.bookmaker',
         timezone: 'Europe/Bucharest'
     })
 
@@ -157,7 +166,10 @@ export async function getFixtureDetails(fixtureId: string) {
 
     // Extract predictions if available
     const predictions = fixture.predictions || []
-    const x12Predictions = predictions.filter((p: any) => [233, 237, 238].includes(p.type_id))
+    // 237 is the full-time result distribution. Types 233 (half-time result)
+    // and 238 (first team to score) have the same {home, draw, away} shape but
+    // describe different bets and must never be blended into 1X2.
+    const x12Predictions = predictions.filter((p: any) => p.type_id === 237)
 
     let predictionData = null
     if (x12Predictions.length > 0) {
@@ -356,6 +368,22 @@ export async function getFixtureDetails(fixtureId: string) {
         }
     }
 
+    // Score every additional directly-modelled market in shadow mode. This
+    // broadens discovery now while preventing an unvalidated strategy from
+    // being presented as a proven Gem.
+    for (const candidate of buildExpandedModelCandidates(predictions, fixture.odds, teamContext)) {
+        const marketData: MarketPrediction = {
+            ...candidate,
+            market_score: calculateMarketScore(
+                candidate.probability_gap,
+                scoreEV(candidate.expected_value),
+                candidate.probability,
+            ),
+        }
+        allMarketsData.push(marketData)
+        if (qualifies(marketData, 0.10)) marketResults.push(marketData)
+    }
+
     // Sort and select best market
     allMarketsData.sort((a, b) => b.market_score - a.market_score)
     marketResults.sort((a, b) => b.market_score - a.market_score)
@@ -478,6 +506,7 @@ export async function getFixtureDetails(fixtureId: string) {
         price_status: m.price_status,
         odds_provenance: m.odds_provenance,
         odds_unavailable_reason: m.odds_unavailable_reason,
+        validation_status: m.validation_status ?? 'live',
     })
 
     const probabilityVector = (market: ProductMarket): Record<string, number> =>
@@ -507,6 +536,21 @@ export async function getFixtureDetails(fixtureId: string) {
     const vectorBtts = probabilityVector('btts')
     const vectorGoals = probabilityVector('over_under_2.5')
     const vectorDoubleChance = probabilityVector('double_chance')
+
+    const expandedIntelligenceMarkets: IntelligenceMarketInput[] = allMarketsData
+        .filter((market) => market.validation_status === 'shadow')
+        .map((market) => ({
+            key: market.market_type,
+            label: MARKET_CONFIG[market.market_type].display_name,
+            probability_kind: 'distribution',
+            outcomes: Object.entries(market.raw_predictions).map(([key, value]) =>
+                intelligenceOutcome(
+                    market.market_type,
+                    key,
+                    key.replace(/_/g, ' ').replace(/\b\w/g, (letter) => letter.toUpperCase()),
+                    value,
+                )),
+        }))
 
     const intelligenceMarkets: IntelligenceMarketInput[] = [
         {
@@ -547,9 +591,11 @@ export async function getFixtureDetails(fixtureId: string) {
                 intelligenceOutcome('double_chance', '12', 'Home or Away', vectorDoubleChance['12'] ?? null),
             ],
         },
+        ...expandedIntelligenceMarkets,
     ]
 
     const intelligence = buildFixtureIntelligence(intelligenceMarkets, evaluatedAt)
+    const marketCatalogue = buildMarketCatalogue(fixture.odds, evaluatedAt)
 
     // Prepare response data with rich structure like recommendations API
     const responseData = {
@@ -569,6 +615,7 @@ export async function getFixtureDetails(fixtureId: string) {
             odds_data: oddsData,
             ev_analysis: evAnalysis,
             intelligence,
+            market_catalogue: marketCatalogue,
             context_timeline: contextTimeline,
             has_predictions: x12Predictions.length > 0,
             has_odds: !!(fixture.odds && fixture.odds.length > 0),
@@ -576,7 +623,8 @@ export async function getFixtureDetails(fixtureId: string) {
             best_market: bestMarket ? serialiseMarket(bestMarket) : undefined,
             all_markets: allMarketsData.map(m => ({
                 ...serialiseMarket(m),
-                is_recommended: marketResults.some(r => r.market_type === m.market_type)
+                is_recommended: m.validation_status !== 'shadow' &&
+                    marketResults.some(r => r.market_type === m.market_type)
             }))
         },
         lastUpdated: evaluatedAt.toISOString()

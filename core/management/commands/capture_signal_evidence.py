@@ -11,7 +11,7 @@ from core.services import evidence_capture
 
 
 class Command(BaseCommand):
-    help = 'Capture provider signal evidence (append-only). Writes no predictions.'
+    help = 'Capture private signal and strategy evidence (append-only).'
 
     def add_arguments(self, parser):
         parser.add_argument('--days', type=int, default=5,

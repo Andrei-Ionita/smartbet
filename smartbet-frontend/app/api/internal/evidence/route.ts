@@ -38,25 +38,48 @@ import {
   leagueMarketPerformance,
   nativeValueBet,
 } from '@/app/lib/providerStrategy'
+import { buildAsianHandicapResearchCandidates } from '@/app/lib/asianHandicapResearch'
+import {
+  buildAsianGoalLineResearchCandidates,
+  buildTeamTotalResearchCandidates,
+} from '@/app/lib/scoreDistributionMarkets'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 /** Provider prediction type ids, mirroring the live pipeline exactly.
  *  237 = Fulltime Result, 231 = BTTS, 235 = Over/Under 2.5, 239 = Double chance. */
-const PROVIDER_MARKETS: Record<ProductMarket, {
-  typeId: number
-  /** provider vector key -> our canonical outcome name */
-  outcomeMap: Record<string, string>
-}> = {
+const PROVIDER_MARKETS = {
   '1x2': { typeId: 237, outcomeMap: { home: 'home', draw: 'draw', away: 'away' } },
   btts: { typeId: 231, outcomeMap: { yes: 'yes', no: 'no' } },
+  'over_under_1.5': { typeId: 234, outcomeMap: { yes: 'over', no: 'under' } },
   'over_under_2.5': { typeId: 235, outcomeMap: { yes: 'over', no: 'under' } },
+  'over_under_3.5': { typeId: 236, outcomeMap: { yes: 'over', no: 'under' } },
   double_chance: {
     typeId: 239,
     outcomeMap: { draw_home: '1x', draw_away: 'x2', home_away: '12' },
   },
-}
+  half_time_result: {
+    typeId: 233,
+    outcomeMap: { home: 'home', draw: 'draw', away: 'away' },
+  },
+  half_time_full_time: {
+    typeId: 232,
+    outcomeMap: {
+      home_home: 'home_home', home_draw: 'home_draw', home_away: 'home_away',
+      draw_home: 'draw_home', draw_draw: 'draw_draw', draw_away: 'draw_away',
+      away_home: 'away_home', away_draw: 'away_draw', away_away: 'away_away',
+    },
+  },
+  first_team_to_score: {
+    typeId: 238,
+    outcomeMap: { home: 'home', away: 'away', draw: 'none' },
+  },
+} as const satisfies Partial<Record<ProductMarket, {
+  typeId: number
+  /** provider vector key -> our canonical outcome name */
+  outcomeMap: Record<string, string>
+}>>
 
 
 /** Provider values arrive as percentages or fractions depending on the type. */
@@ -146,6 +169,7 @@ export async function GET(request: NextRequest) {
     const leagueIds: number[] = (leaguesData.data || []).map((l: any) => l.id).slice(0, 30)
 
     const candidates: any[] = []
+    const strategyCandidates: any[] = []
     const fixtureContexts: any[] = []
     let fixturesSeen = 0
 
@@ -213,6 +237,49 @@ export async function GET(request: NextRequest) {
 
         const home = fixture.participants?.find((p: any) => p.meta?.location === 'home')
         const away = fixture.participants?.find((p: any) => p.meta?.location === 'away')
+        const teamContext = { homeTeam: home?.name, awayTeam: away?.name }
+
+        // Strategies Lab, module 1: capture every settlement-aware Asian
+        // Handicap quote as a shadow observation. Selection happens later in
+        // Django at one fixed pre-kickoff horizon, never in this feed.
+        for (const candidate of buildAsianHandicapResearchCandidates(
+          preds,
+          fixture.odds,
+          { homeTeam: home?.name, awayTeam: away?.name },
+        )) {
+          strategyCandidates.push({
+            strategy_key: 'asian-handicap-score-distribution',
+            strategy_version: 'v2',
+            strategy_status: 'shadow',
+            fixture_id: fixture.id,
+            home_team: home?.name ?? 'Home',
+            away_team: away?.name ?? 'Away',
+            league: fixture.league?.name ?? '',
+            league_id: fixture.league?.id ?? leagueId,
+            kickoff: fixture.starting_at,
+            observed_at: observedAt,
+            market: 'asian_handicap',
+            ...candidate,
+            calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
+          })
+        }
+        for (const candidate of [
+          ...buildAsianGoalLineResearchCandidates(preds, fixture.odds),
+          ...buildTeamTotalResearchCandidates(preds, fixture.odds, teamContext),
+        ]) {
+          strategyCandidates.push({
+            strategy_status: 'shadow',
+            fixture_id: fixture.id,
+            home_team: home?.name ?? 'Home',
+            away_team: away?.name ?? 'Away',
+            league: fixture.league?.name ?? '',
+            league_id: fixture.league?.id ?? leagueId,
+            kickoff: fixture.starting_at,
+            observed_at: observedAt,
+            ...candidate,
+            calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
+          })
+        }
 
         const seasonForm = formBySeason.get(fixture.season_id) ?? new Map()
         const homeParsed = formFor(seasonForm, home?.id)
@@ -308,8 +375,115 @@ export async function GET(request: NextRequest) {
           calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
         })
 
-        for (const [market, cfg] of Object.entries(PROVIDER_MARKETS) as
-          [ProductMarket, typeof PROVIDER_MARKETS[ProductMarket]][]) {
+        // Correct score is nested under predictions.scores rather than a flat
+        // provider vector, so it cannot share PROVIDER_MARKETS' parser. Capture
+        // every exact score (not only the favourite) and keep the Other buckets
+        // in the full vector so probability mass is never silently discarded.
+        const scorePrediction = preds.find((p: any) => p.type_id === 240)
+        const rawScores = scorePrediction?.predictions?.scores
+        if (rawScores && typeof rawScores === 'object') {
+          const scoreVector: Record<string, number> = {}
+          const rawScoreVector: Record<string, number> = {}
+          for (const [score, raw] of Object.entries(rawScores)) {
+            const value = normalize(raw)
+            if (value === null) continue
+            scoreVector[score] = value
+            rawScoreVector[score] = typeof raw === 'number' ? raw : Number(raw)
+          }
+          const exactScores = Object.keys(scoreVector).filter((score) => /^\d+-\d+$/.test(score))
+          const expectedScoreKeys = [
+            ...Array.from({ length: 4 }, (_, homeGoals) =>
+              Array.from({ length: 4 }, (_, awayGoals) => `${homeGoals}-${awayGoals}`),
+            ).flat(),
+            'Other_1', 'Other_2', 'Other_X',
+          ]
+          const vectorComplete = expectedScoreKeys.every((score) => score in scoreVector)
+          const vectorSum = Object.values(scoreVector).reduce((sum, value) => sum + value, 0)
+          const scorePrices: Record<string, unknown> = {}
+          let pricedScores = 0
+          for (const score of exactScores) {
+            const price = priceMarket(fixture.odds, 'correct_score', score, teamContext)
+            if (price.status === 'verified') {
+              pricedScores++
+              scorePrices[score] = {
+                odds: price.odds,
+                bookmaker: price.provenance.odds_bookmaker_name,
+                market_id: price.provenance.odds_market_id,
+                odds_entry_id: price.provenance.odds_entry_id ?? null,
+                captured_at: price.provenance.odds_captured_at,
+                selection_policy: price.provenance.odds_selection_policy,
+              }
+            } else {
+              scorePrices[score] = { odds: null, reason: price.unavailable_reason }
+            }
+          }
+          const leader = [...exactScores].sort(
+            (a, b) => scoreVector[b] - scoreVector[a],
+          )[0]
+          const second = [...exactScores].sort(
+            (a, b) => scoreVector[b] - scoreVector[a],
+          )[1]
+
+          for (const score of exactScores) {
+            const price = priceMarket(fixture.odds, 'correct_score', score, teamContext)
+            const selected = score === leader
+            candidates.push({
+              fixture_id: fixture.id,
+              home_team: home?.name ?? 'Home',
+              away_team: away?.name ?? 'Away',
+              league: fixture.league?.name ?? '',
+              league_id: fixture.league?.id ?? null,
+              kickoff: fixture.starting_at,
+              observed_at: observedAt,
+              market: 'correct_score',
+              outcome: score,
+              provider: 'sportmonks',
+              provider_type_id: 240,
+              provider_predicted_at: scorePrediction.updated_at ?? null,
+              provider_model_version: scorePrediction.type?.code ?? '',
+              raw_probability: rawScoreVector[score],
+              normalized_probability: scoreVector[score],
+              provider_context: {
+                fixture_predictable: fixturePredictability(fixture.metadata),
+              },
+              raw_vector: scoreVector,
+              vector_sum: vectorSum,
+              vector_complete: vectorComplete,
+              price_status: price.status,
+              odds: price.status === 'verified' ? price.odds : null,
+              bookmaker: price.status === 'verified'
+                ? price.provenance.odds_bookmaker_name
+                : '',
+              odds_captured_at: price.status === 'verified'
+                ? price.provenance.odds_captured_at
+                : null,
+              odds_provenance: price.status === 'verified' ? price.provenance : null,
+              market_price_vector: scorePrices,
+              price_vector_complete: pricedScores === exactScores.length,
+              is_selected_outcome: selected,
+              probability_gap: selected ? scoreVector[leader] - (scoreVector[second] ?? 0) : null,
+              form_multiplier: null,
+              form_inputs: null,
+              adjusted_score: null,
+              cap_applied: false,
+              market_score: null,
+              ranking_ev: selected && price.status === 'verified'
+                ? scoreVector[score] * price.odds - 1
+                : null,
+              variant_b_available: false,
+              variant_b_missing_reason: 'not_defined_for_correct_score',
+              selection_reason: selected ? 'highest_provider_probability' : '',
+              pipeline_version: pipelineVersion(),
+              live_activation_state: formHeuristicActivationState(),
+              calculation_version: process.env.RAILWAY_GIT_COMMIT_SHA || 'unknown',
+            })
+          }
+        }
+
+        for (const [market, cfg] of Object.entries(PROVIDER_MARKETS) as Array<[
+          keyof typeof PROVIDER_MARKETS,
+          (typeof PROVIDER_MARKETS)[keyof typeof PROVIDER_MARKETS],
+        ]>) {
           const pred = preds.find((p: any) => p.type_id === cfg.typeId)
           if (!pred?.predictions) continue
 
@@ -332,7 +506,7 @@ export async function GET(request: NextRequest) {
           const priceVector: Record<string, unknown> = {}
           let pricedCount = 0
           for (const outcome of MARKET_SPECS[market].outcomes) {
-            const price = priceMarket(fixture.odds, market, outcome)
+            const price = priceMarket(fixture.odds, market, outcome, teamContext)
             if (price.status === 'verified') {
               pricedCount++
               priceVector[outcome] = {
@@ -375,7 +549,7 @@ export async function GET(request: NextRequest) {
             : (homeParsed.reason || awayParsed.reason || 'provider_form_unavailable')
 
           const selectedPrice = selectedOutcome
-            ? priceMarket(fixture.odds, market, selectedOutcome)
+            ? priceMarket(fixture.odds, market, selectedOutcome, teamContext)
             : null
           const selectedEv =
             selectedOutcome && selectedPrice
@@ -413,7 +587,7 @@ export async function GET(request: NextRequest) {
 
           // One candidate per OUTCOME, including the side we would not pick.
           for (const outcome of Object.keys(vector)) {
-            const price = priceMarket(fixture.odds, market, outcome)
+            const price = priceMarket(fixture.odds, market, outcome, teamContext)
             const isSelected = outcome === selectedOutcome
             candidates.push({
               fixture_id: fixture.id,
@@ -500,12 +674,14 @@ export async function GET(request: NextRequest) {
       observed_at: observedAt,
       fixtures_seen: fixturesSeen,
       candidate_count: candidates.length,
+      strategy_candidate_count: strategyCandidates.length,
       fixture_context_count: fixtureContexts.length,
       // Request accounting, so cost is visible rather than inferred.
       form_requests: formRequests,
       form_ms: formMs,
       seasons_seen: formBySeason.size,
       candidates,
+      strategy_candidates: strategyCandidates,
       fixture_contexts: fixtureContexts,
     })
   } catch (error: any) {

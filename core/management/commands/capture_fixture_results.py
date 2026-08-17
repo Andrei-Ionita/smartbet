@@ -1,8 +1,8 @@
 """Append-only result evidence capture. Scheduler stage 6.
 
-Works from SignalObservation's fixture universe, never PredictionLog. Writes
-only FixtureResultObservation rows: no settlement, no publication, no change to
-any prediction.
+Works from the private signal and Strategies Lab fixture universe, never
+PredictionLog. Writes only FixtureResultObservation rows: no settlement, no
+publication, no change to any prediction.
 """
 from django.core.management.base import BaseCommand
 

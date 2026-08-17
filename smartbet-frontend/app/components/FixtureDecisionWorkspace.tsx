@@ -24,7 +24,9 @@ import {
 } from '../lib/fixtureIntelligence'
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
 import FixtureContextTimelinePanel from './FixtureContextTimelinePanel'
+import AllMarketsBrowser from './AllMarketsBrowser'
 import type { FixtureContextTimeline } from '../lib/fixtureTimeline'
+import type { FixtureMarketCatalogue } from '../lib/marketCatalogue'
 
 export interface FixtureDecisionFixture {
   fixture_id: number
@@ -34,6 +36,7 @@ export interface FixtureDecisionFixture {
   league: string
   kickoff: string
   intelligence: FixtureIntelligence
+  market_catalogue?: FixtureMarketCatalogue | null
   teams_data?: {
     home?: { form?: unknown }
     away?: { form?: unknown }
@@ -283,6 +286,11 @@ export default function FixtureDecisionWorkspace({
           </p>
         )}
       </section>
+
+      <AllMarketsBrowser
+        catalogue={fixture.market_catalogue}
+        ro={ro}
+      />
 
       <FixtureContextTimelinePanel
         timeline={fixture.context_timeline}

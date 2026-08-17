@@ -2,9 +2,9 @@
 Append-only capture of provider signal evidence.
 
 Reads the internal evidence feed (server-to-server, shared secret) and writes
-one SignalObservation per fixture-market-outcome candidate plus one compact
-FixtureContextObservation whenever the pre-match context changes. It performs
-no ranking and publishes nothing.
+one SignalObservation per fixture-market-outcome candidate, compact fixture
+context changes, and append-only Strategies Lab observations. It publishes
+nothing; lab selection is performed later under versioned rules.
 
 Idempotency is content-derived, exactly like the prediction run id: the hash
 covers the provider values and the price for that one candidate, so replaying a
@@ -18,8 +18,11 @@ import uuid
 import requests
 from django.utils import timezone
 
-from core.models import FixtureContextObservation, SignalObservation
+from core.models import (
+    FixtureContextObservation, SignalObservation, StrategyLabObservation,
+)
 from core.services.integrity import canonical_sha256, norm_dt, norm_num
+from core.services import strategy_lab
 
 logger = logging.getLogger(__name__)
 
@@ -214,6 +217,10 @@ def fetch_evidence(base_url=None, secret=None, days=5):
 
 def capture(payload, ingestion_run_id=None):
     """Append observations. Returns a summary dict. Never updates a row."""
+    # Register every rule set before writing the first live signal. This exact
+    # cutoff lets the backfill command distinguish older retrospective rows
+    # from genuinely forward evidence without guessing from kickoff dates.
+    strategy_lab.ensure_all_experiments()
     candidates = payload.get('candidates') or []
     run_id = ingestion_run_id or canonical_sha256({
         'observed_at': payload.get('observed_at'),
@@ -222,6 +229,7 @@ def capture(payload, ingestion_run_id=None):
 
     written = skipped = invalid = 0
     post_kickoff = 0
+    written_signals = []
 
     for candidate in candidates:
         kickoff = _as_aware(candidate.get('kickoff'))
@@ -243,7 +251,7 @@ def capture(payload, ingestion_run_id=None):
 
         vector = candidate.get('raw_vector') or {}
         try:
-            SignalObservation.objects.create(
+            signal = SignalObservation.objects.create(
                 observation_id=uuid.uuid4(),
                 ingestion_run_id=run_id,
                 source_payload_hash=digest,
@@ -292,6 +300,7 @@ def capture(payload, ingestion_run_id=None):
                 pipeline_version=(candidate.get('pipeline_version') or '')[:80],
                 calculation_version=(candidate.get('calculation_version') or '')[:80],
             )
+            written_signals.append(signal)
             written += 1
         except Exception:
             logger.exception('failed to append observation for fixture %s',
@@ -308,4 +317,13 @@ def capture(payload, ingestion_run_id=None):
         'fixtures': len({c.get('fixture_id') for c in candidates}),
     }
     summary.update(_capture_contexts(payload, run_id))
+    summary.update(strategy_lab.capture(payload, run_id))
+    # Only rows created by this live sweep enter the forward phase. Historical
+    # rows are materialised explicitly by ``backtest_strategy_lab`` and are
+    # structurally unable to masquerade as forward validation.
+    summary.update(strategy_lab.capture_signal_observations(
+        written_signals,
+        phase=StrategyLabObservation.PHASE_FORWARD,
+        ingestion_run_id=run_id,
+    ))
     return summary

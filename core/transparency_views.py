@@ -9,6 +9,7 @@ from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
 from django.utils import timezone
+from django.views.decorators.cache import cache_page
 import logging
 import os
 from datetime import timedelta
@@ -18,6 +19,16 @@ from core.services.accuracy_calculator import AccuracyCalculator
 from core.services import claim_publication, public_universe
 
 logger = logging.getLogger(__name__)
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@cache_page(60)
+def public_strategy_lab(request):
+    """Public experiment progress without candidates or internal diagnostics."""
+    from core.services.strategy_lab import build_public_report
+
+    return Response({'success': True, 'data': build_public_report()})
 
 
 @api_view(['GET'])

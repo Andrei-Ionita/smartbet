@@ -60,6 +60,7 @@ urlpatterns = [
     path('api/transparency/quick-stats/', transparency_views.quick_stats, name='quick_stats'),
     path('api/transparency/calibration/', transparency_views.calibration_evidence, name='calibration_evidence'),
     path('api/transparency/prediction-archive/', transparency_views.prediction_evidence_archive, name='prediction_evidence_archive'),
+    path('api/transparency/strategies/', transparency_views.public_strategy_lab, name='public_strategy_lab'),
     # REMOVED 2026-08-03: 'api/transparency/update-results/'. Same class of
     # problem — AllowAny + csrf_exempt, ran ResultUpdaterService against
     # production and returned str(e) to the caller. Its only caller (a button
@@ -89,6 +90,7 @@ urlpatterns = [
     
     # Internal operations — staff only, never linked from a public page.
     path('api/internal/scheduler-health/', internal_views.scheduler_health, name='scheduler_health'),
+    path('api/internal/strategies-lab/', internal_views.strategies_lab, name='strategies_lab'),
 
     # Email Capture / Newsletter
     path('api/subscribe/', account_only(api_views.subscribe_email), name='subscribe_email'),

@@ -21,6 +21,7 @@ from rest_framework.response import Response
 from rest_framework_simplejwt.authentication import JWTAuthentication
 
 from core.services.scheduler_health import get_heartbeat
+from core.services.strategy_lab import build_report
 
 
 @api_view(['GET'])
@@ -55,3 +56,11 @@ def scheduler_health(request):
         'run_id': hb.run_id,
         'version': hb.version,
     })
+
+
+@api_view(['GET'])
+@authentication_classes([JWTAuthentication, SessionAuthentication])
+@permission_classes([IsAdminUser])
+def strategies_lab(request):
+    """Private research report. It is intentionally absent from public URLs/UI."""
+    return Response(build_report())

@@ -20,7 +20,17 @@
  * independently audited.
  */
 
-export type ProductMarket = '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+export type ProductMarket =
+  | '1x2'
+  | 'btts'
+  | 'over_under_1.5'
+  | 'over_under_2.5'
+  | 'over_under_3.5'
+  | 'double_chance'
+  | 'half_time_result'
+  | 'half_time_full_time'
+  | 'first_team_to_score'
+  | 'correct_score'
 
 /** A single SportMonks odds entry (only the fields we rely on). */
 export interface SportMonksOdd {
@@ -102,6 +112,8 @@ interface MarketSpec {
   outcomes: string[]
   /** Build the set of acceptable labels for a predicted outcome. */
   labelsFor: (outcome: string, ctx: TeamContext) => string[]
+  /** Optional exact matcher for markets whose outcome lives in `name`. */
+  matchesOutcome?: (odd: SportMonksOdd, outcome: string, ctx: TeamContext) => boolean
   /**
    * SportMonks markets that price a DIFFERENT bet but are easy to confuse with
    * this one. Documented per market, and asserted in table-driven tests, so a
@@ -158,10 +170,26 @@ const norm = (s: unknown): string =>
 const GOALS_OVER_UNDER_MARKETS = [80, 7]
 
 export const MARKET_SPECS: Record<ProductMarket, MarketSpec> = {
+  'over_under_1.5': {
+    description: 'Full-match total goals, 1.5 line',
+    marketIds: GOALS_OVER_UNDER_MARKETS,
+    requiredLine: 1.5,
+    outcomes: ['over', 'under'],
+    labelsFor: (outcome) => (norm(outcome) === 'over' ? ['over'] : ['under']),
+    rejects: GOALS_CONFUSABLES,
+  },
   'over_under_2.5': {
     description: 'Full-match total goals, 2.5 line',
     marketIds: GOALS_OVER_UNDER_MARKETS,
     requiredLine: 2.5,
+    outcomes: ['over', 'under'],
+    labelsFor: (outcome) => (norm(outcome) === 'over' ? ['over'] : ['under']),
+    rejects: GOALS_CONFUSABLES,
+  },
+  'over_under_3.5': {
+    description: 'Full-match total goals, 3.5 line',
+    marketIds: GOALS_OVER_UNDER_MARKETS,
+    requiredLine: 3.5,
     outcomes: ['over', 'under'],
     labelsFor: (outcome) => (norm(outcome) === 'over' ? ['over'] : ['under']),
     rejects: GOALS_CONFUSABLES,
@@ -174,7 +202,7 @@ export const MARKET_SPECS: Record<ProductMarket, MarketSpec> = {
     outcomes: ['home', 'draw', 'away'],
     labelsFor: (outcome) => [norm(outcome)],
     rejects: [
-      { marketId: 6, description: '1st Half Result' },
+      { marketId: 6, description: 'Asian Handicap' },
       { marketId: 37, description: 'Result / Total Goals' },
       { marketId: 126, description: 'Result / Both Teams To Score' },
     ],
@@ -222,6 +250,78 @@ export const MARKET_SPECS: Record<ProductMarket, MarketSpec> = {
           return []
       }
     },
+  },
+  half_time_result: {
+    description: 'Half-time result',
+    marketIds: [31],
+    requiredLine: null,
+    outcomes: ['home', 'draw', 'away'],
+    labelsFor: (outcome) => [norm(outcome)],
+    rejects: [
+      { marketId: 1, description: 'Fulltime Result' },
+      { marketId: 97, description: '2nd Half Result' },
+    ],
+  },
+  first_team_to_score: {
+    description: 'First team to score',
+    marketIds: [247],
+    requiredLine: null,
+    outcomes: ['home', 'away', 'none'],
+    labelsFor: (outcome, ctx) => {
+      if (norm(outcome) === 'home') return ['1', 'home', norm(ctx.homeTeam)].filter(Boolean)
+      if (norm(outcome) === 'away') return ['2', 'away', norm(ctx.awayTeam)].filter(Boolean)
+      return ['no goals', 'none', 'no goal']
+    },
+    rejects: [
+      { marketId: 11, description: 'Last Team to Score' },
+      { marketId: 84, description: 'Early Goal' },
+    ],
+  },
+  half_time_full_time: {
+    description: 'Half-time / full-time result',
+    marketIds: [29],
+    requiredLine: null,
+    outcomes: [
+      'home_home', 'home_draw', 'home_away',
+      'draw_home', 'draw_draw', 'draw_away',
+      'away_home', 'away_draw', 'away_away',
+    ],
+    labelsFor: (outcome, ctx) => {
+      const parts = norm(outcome).split(' ')
+      if (parts.length !== 2) return []
+      const word = (part: string) => {
+        if (part === 'home') return norm(ctx.homeTeam) || 'home'
+        if (part === 'away') return norm(ctx.awayTeam) || 'away'
+        return 'draw'
+      }
+      return [`${word(parts[0])} ${word(parts[1])}`]
+    },
+    matchesOutcome: (odd, outcome, ctx) => {
+      const parts = norm(outcome).split(' ')
+      if (parts.length !== 2) return false
+      const word = (part: string) => {
+        if (part === 'home') return norm(ctx.homeTeam) || 'home'
+        if (part === 'away') return norm(ctx.awayTeam) || 'away'
+        return 'draw'
+      }
+      const wanted = `${word(parts[0])} ${word(parts[1])}`
+      return norm(odd.label) === wanted || norm(odd.name) === wanted
+    },
+    rejects: [
+      { marketId: 1, description: 'Fulltime Result' },
+      { marketId: 31, description: 'Half Time Result' },
+    ],
+  },
+  correct_score: {
+    description: 'Correct full-time score',
+    marketIds: [57],
+    requiredLine: null,
+    outcomes: [],
+    labelsFor: () => [],
+    matchesOutcome: (odd, outcome) => norm(odd.name) === norm(outcome),
+    rejects: [
+      { marketId: 30, description: 'Half Time Correct Score' },
+    ],
   },
 }
 
@@ -280,7 +380,9 @@ export function selectOdds(
   if (onLine.length === 0) return { ok: false, reason: 'line_not_offered' }
 
   // Exact label equality after normalisation — never substring containment.
-  const onOutcome = onLine.filter((o) => wantedLabels.indexOf(norm(o.label)) !== -1)
+  const onOutcome = onLine.filter((o) => spec.matchesOutcome
+    ? spec.matchesOutcome(o, outcome, ctx)
+    : wantedLabels.indexOf(norm(o.label)) !== -1)
   if (onOutcome.length === 0) return { ok: false, reason: 'outcome_not_offered' }
 
   const live = onOutcome.filter(isLive)

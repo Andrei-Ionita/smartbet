@@ -61,6 +61,11 @@ export default function Footer() {
                                     {f.explore}
                                 </Link>
                             </li>
+                            <li>
+                                <Link href="/strategies" className="text-gray-600 hover:text-primary-600 transition-colors">
+                                    {f.strategies}
+                                </Link>
+                            </li>
                             {ACCOUNT_FEATURES_ENABLED && (
                               <li>
                                   <Link href="/dashboard" className="text-gray-600 hover:text-primary-600 transition-colors">

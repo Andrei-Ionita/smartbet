@@ -3,9 +3,10 @@ import {
   type CanonicalPriceFields,
   type OddsProvenance,
   type OddsUnavailableReason,
+  type ProductMarket,
 } from './marketPricing'
 
-export type IntelligenceMarketKey = '1x2' | 'btts' | 'over_under_2.5' | 'double_chance'
+export type IntelligenceMarketKey = ProductMarket
 
 export interface IntelligenceOutcomeInput extends CanonicalPriceFields {
   key: string

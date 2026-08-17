@@ -49,6 +49,7 @@ class Command(BaseCommand):
         self.stdout.write('  4. Settle published claims (settle_published_claims)')
         self.stdout.write('  5. Append signal evidence (capture_signal_evidence)')
         self.stdout.write('  6. Append fixture results (capture_fixture_results)')
+        self.stdout.write('  7. Settle private strategy experiments (settle_strategy_lab)')
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:
@@ -141,6 +142,10 @@ class Command(BaseCommand):
         # SignalObservation fixture universe, not PredictionLog, so a fixture we
         # observed but never recommended still becomes scoreable.
         self.run_task('capture_fixture_results')
+
+        # Task 7: Grade only fixed-horizon, rule-qualified shadow decisions.
+        # This writes private research settlements and cannot publish a Gem.
+        self.run_task('settle_strategy_lab')
 
     def run_task(self, command_name, **kwargs):
         """Helper to run a single management command.

@@ -21,7 +21,9 @@ import uuid
 import requests
 from django.utils import timezone
 
-from core.models import FixtureResultObservation, SignalObservation
+from core.models import (
+    FixtureResultObservation, SignalObservation, StrategyLabObservation,
+)
 from core.services.integrity import canonical_sha256, norm_dt
 
 logger = logging.getLogger(__name__)
@@ -52,6 +54,12 @@ def fixtures_needing_results(now=None, limit=500):
 
     observed = set(
         SignalObservation.objects
+        .filter(kickoff__lt=now)
+        .values_list('fixture_id', flat=True)
+        .distinct()
+    )
+    observed.update(
+        StrategyLabObservation.objects
         .filter(kickoff__lt=now)
         .values_list('fixture_id', flat=True)
         .distinct()

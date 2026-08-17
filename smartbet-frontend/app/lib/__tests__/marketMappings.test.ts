@@ -57,7 +57,11 @@ const ALL_MARKETS = Object.keys(MARKET_SPECS) as ProductMarket[]
 describe('canonical mapping per supported market', () => {
   it('covers every ProductMarket in the union', () => {
     expect(ALL_MARKETS.sort()).toEqual(
-      ['1x2', 'btts', 'double_chance', 'over_under_2.5'].sort(),
+      [
+        '1x2', 'btts', 'over_under_1.5', 'over_under_2.5', 'over_under_3.5',
+        'double_chance', 'half_time_result', 'half_time_full_time',
+        'first_team_to_score', 'correct_score',
+      ].sort(),
     )
   })
 
@@ -118,12 +122,16 @@ describe('canonical mapping per supported market', () => {
     if (!r.ok) expect(r.reason).toBe('no_odds_payload')
   })
 
-  it('no two product markets share a canonical market id', () => {
-    const seen = new Map<number, string>()
+  it('no two product markets share the same canonical market id and line', () => {
+    const seen = new Map<string, string>()
     for (const market of ALL_MARKETS) {
       for (const id of MARKET_SPECS[market].marketIds) {
-        expect(seen.has(id), `market_id ${id} claimed by ${seen.get(id)} and ${market}`).toBe(false)
-        seen.set(id, market)
+        const identity = `${id}:${MARKET_SPECS[market].requiredLine ?? 'main'}`
+        expect(
+          seen.has(identity),
+          `${identity} claimed by ${seen.get(identity)} and ${market}`,
+        ).toBe(false)
+        seen.set(identity, market)
       }
     }
   })

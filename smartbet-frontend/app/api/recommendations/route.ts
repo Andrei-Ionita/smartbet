@@ -54,12 +54,15 @@ export async function GET() {
     }
 
     const publicGems = toPublicRecommendationList(result.recommendations)
+    // Unvalidated Strategies Lab diagnostics remain on the separately
+    // authenticated internal route, never in public recommendation JSON.
+    const { market_research: _privateResearch, ...publicEnvelope } = result.envelope
 
     return NextResponse.json(
       {
         featured_gems: publicGems,
         recommendations: toPublicRecommendationList(result.recommendations),
-        ...result.envelope,
+        ...publicEnvelope,
       },
       { headers: PUBLIC_CACHE_HEADERS },
     )
