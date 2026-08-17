@@ -33,6 +33,22 @@ def public_strategy_lab(request):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@cache_page(60)
+def public_strategy_fits(request, strategy_key):
+    """Fresh, qualified research fits for one public strategy page."""
+    from core.services.strategy_lab import build_public_current_fits
+
+    report = build_public_current_fits(strategy_key)
+    if report is None:
+        return Response({
+            'success': False,
+            'error': 'Unknown strategy.',
+        }, status=404)
+    return Response({'success': True, 'data': report})
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def calibration_evidence(request):
     """Public probability-quality report from append-only pre-match evidence."""
     from core.services import calibration_evidence as evidence

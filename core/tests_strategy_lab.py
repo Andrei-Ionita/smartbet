@@ -4,6 +4,7 @@ from datetime import timedelta
 from io import StringIO
 
 from django.contrib.auth.models import User
+from django.core.cache import cache
 from django.core.management import call_command
 from django.test import TestCase
 from django.utils import timezone
@@ -304,6 +305,9 @@ class DirectMarketLabTests(TestCase):
 
 
 class StrategyLabVisibilityTests(TestCase):
+    def setUp(self):
+        cache.clear()
+
     def test_public_report_is_narrow_read_only_and_anonymous(self):
         before = strategy_lab.StrategyLabExperiment.objects.count()
         response = self.client.get('/api/transparency/strategies/')
@@ -334,3 +338,111 @@ class StrategyLabVisibilityTests(TestCase):
         report = strategy_lab.build_report()['experiments'][0]
         self.assertFalse(report['promotion_gates']['minimum_forward_sample'])
         self.assertFalse(report['promotion_ready'])
+
+    def test_public_current_fits_are_capped_ranked_and_one_per_fixture(self):
+        rows = []
+        for index in range(7):
+            rows.append(candidate(
+                fixture_id=8100 + index,
+                handicap=-.25,
+                lower=.03 + index / 100,
+            ))
+        # A stronger second line for one fixture must replace, not duplicate,
+        # that fixture in the public list.
+        rows.append(candidate(
+            fixture_id=8106, handicap=-.5, lower=.12,
+        ))
+        strategy_lab.capture({'strategy_candidates': rows}, 'public-fits')
+
+        response = self.client.get(
+            '/api/transparency/strategies/'
+            'asian-handicap-score-distribution/current-fits/',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()['data']
+        self.assertEqual(len(body['fits']), 5)
+        self.assertEqual(body['eligible_fixture_count'], 7)
+        self.assertEqual(body['fits'][0]['fixture_id'], 8106)
+        self.assertEqual(len({row['fixture_id'] for row in body['fits']}), 5)
+        self.assertTrue(body['policy']['empty_is_valid'])
+        self.assertFalse(body['policy']['fit_is_public_pick'])
+
+    def test_public_current_fits_exclude_failed_or_stale_latest_state(self):
+        now = timezone.now()
+        kickoff = now + timedelta(hours=8)
+        first = candidate(fixture_id=8201, hours=8, lower=.08)
+        first['kickoff'] = kickoff.isoformat()
+        first['observed_at'] = (now - timedelta(hours=2)).isoformat()
+        first['captured_at'] = first['observed_at']
+        latest = candidate(fixture_id=8201, hours=8, lower=.01)
+        latest['kickoff'] = kickoff.isoformat()
+        latest['observed_at'] = now.isoformat()
+        latest['captured_at'] = now.isoformat()
+        strategy_lab.capture(
+            {'strategy_candidates': [first, latest]}, 'public-latest-state',
+        )
+
+        body = self.client.get(
+            '/api/transparency/strategies/'
+            'asian-handicap-score-distribution/current-fits/',
+        ).json()['data']
+
+        self.assertEqual(body['fits'], [])
+        self.assertEqual(body['eligible_fixture_count'], 0)
+
+    def test_public_current_fit_exposes_price_context_not_private_rules(self):
+        strategy_lab.capture(
+            {'strategy_candidates': [candidate(fixture_id=8301)]},
+            'public-allowlist',
+        )
+
+        row = self.client.get(
+            '/api/transparency/strategies/'
+            'asian-handicap-score-distribution/current-fits/',
+        ).json()['data']['fits'][0]
+
+        self.assertEqual(row['qualification'], 'registered_rules_passed')
+        self.assertEqual(row['probability']['kind'], 'bounded_score_distribution')
+        self.assertIn('break_even_probability_percent', row)
+        self.assertNotIn('expected_return_lower', row)
+        self.assertNotIn('rules', row)
+        self.assertNotIn('calculation_version', row)
+
+    def test_unknown_public_strategy_returns_404(self):
+        response = self.client.get(
+            '/api/transparency/strategies/not-a-strategy/current-fits/',
+        )
+        self.assertEqual(response.status_code, 404)
+
+    def test_direct_fit_includes_model_fair_price_and_margin_removed_market_view(self):
+        source = signal(fixture_id=8401, probability=.6, odds=2.0)
+        strategy_lab.capture_signal_observations(
+            [source], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        row = self.client.get(
+            '/api/transparency/strategies/'
+            'full-time-result-value/current-fits/',
+        ).json()['data']['fits'][0]
+
+        self.assertEqual(row['probability']['kind'], 'point_estimate')
+        self.assertEqual(row['probability']['model_probability_percent'], 60.0)
+        self.assertEqual(row['probability']['model_fair_odds'], 1.67)
+        self.assertEqual(row['probability']['market_no_vig_probability_percent'], 33.3)
+
+    def test_unverified_direct_price_never_appears_as_a_current_fit(self):
+        source = signal(fixture_id=8402, probability=.6, odds=2.0)
+        SignalObservation.objects.filter(pk=source.pk).update(
+            price_status='missing_provenance', provenance_complete=False,
+        )
+        source.refresh_from_db()
+        strategy_lab.capture_signal_observations(
+            [source], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        body = self.client.get(
+            '/api/transparency/strategies/'
+            'full-time-result-value/current-fits/',
+        ).json()['data']
+        self.assertEqual(body['fits'], [])

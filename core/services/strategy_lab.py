@@ -9,6 +9,7 @@ Nothing in this module publishes a Gem automatically.
 """
 import math
 from collections import Counter, defaultdict
+from datetime import timedelta
 
 from django.utils import timezone
 
@@ -464,10 +465,22 @@ def qualifies(observation):
     payload = observation.selection_payload or {}
     complete_vector = payload.get('vector_complete', True)
     complete_prices = payload.get('price_vector_complete', True)
+    if observation.source_signal is not None:
+        price_provenance_ready = (
+            observation.source_signal.price_status == 'verified'
+            and observation.source_signal.provenance_complete
+        )
+    else:
+        price_provenance_ready = bool(
+            observation.bookmaker
+            and (observation.price_provenance or {}).get('selection_policy')
+        )
     quote_age = (
         observation.observed_at - observation.odds_captured_at
     ).total_seconds() / 3600.0
     return (
+        price_provenance_ready
+        and
         observation.robust_positive_edge
         and observation.expected_return_lower > rules['expected_return_lower_gt']
         and rules['minimum_model_mass'] <= observation.model_mass <= rules['maximum_model_mass']
@@ -928,5 +941,225 @@ def build_public_report():
             'retrospective_role': 'screen_and_reject_only',
             'promotion_evidence': 'forward_only',
             'automatic_publication': False,
+        },
+    }
+
+
+def _public_evidence_status(experiment):
+    """Summarise one experiment without exposing its private diagnostics."""
+    report = _experiment_report(experiment)
+    settled = report['forward_validation']['settled']
+    if report['promotion_ready'] and experiment.status == StrategyLabExperiment.STATUS_VALIDATED:
+        status = 'validated'
+    elif report['promotion_ready']:
+        status = 'review_ready'
+    elif settled:
+        status = 'collecting_evidence'
+    else:
+        status = 'insufficient_evidence'
+    return {
+        'evidence_status': status,
+        'forward_settled': settled,
+        'minimum_forward_settled_for_review': experiment.minimum_settled_for_review,
+    }
+
+
+def _market_probability(observation):
+    """Return the selected outcome's de-vigged market probability if valid."""
+    signal = observation.source_signal
+    if signal is None or not signal.price_vector_complete:
+        return None
+    vector = signal.market_price_vector
+    if not isinstance(vector, dict) or observation.side not in vector:
+        return None
+    implied = {}
+    try:
+        for outcome, entry in vector.items():
+            odds = float(entry.get('odds') if isinstance(entry, dict) else entry)
+            if not math.isfinite(odds) or odds <= 1:
+                return None
+            implied[outcome] = 1 / odds
+    except (TypeError, ValueError):
+        return None
+    total = sum(implied.values())
+    if total <= 0:
+        return None
+    return implied[observation.side] / total
+
+
+def _public_probability_summary(observation):
+    """Expose probability context only where the stored evidence supports it."""
+    payload = observation.selection_payload or {}
+    probability = payload.get('normalized_probability')
+    if probability is not None:
+        try:
+            probability = float(probability)
+        except (TypeError, ValueError):
+            probability = None
+    if probability is not None and 0 < probability <= 1:
+        market_probability = _market_probability(observation)
+        return {
+            'kind': 'point_estimate',
+            'model_probability_percent': round(probability * 100, 1),
+            'model_probability_low_percent': None,
+            'model_probability_high_percent': None,
+            'model_fair_odds': round(1 / probability, 2),
+            'market_no_vig_probability_percent': (
+                round(market_probability * 100, 1)
+                if market_probability is not None else None
+            ),
+            'score_distribution_coverage_percent': None,
+        }
+
+    # Specialist markets calculate conservative lower/upper expected-return
+    # bounds from the enumerated score distribution. Algebraically recovering
+    # the probability bounds is safe; presenting either bound as an exact
+    # probability would not be.
+    try:
+        low = (float(observation.expected_return_lower) + 1) / observation.odds
+        high = (float(observation.expected_return_upper) + 1) / observation.odds
+    except (TypeError, ValueError, ZeroDivisionError):
+        low = high = None
+    if low is not None:
+        low = min(1.0, max(0.0, low))
+        high = min(1.0, max(low, high))
+    return {
+        'kind': 'bounded_score_distribution',
+        'model_probability_percent': None,
+        'model_probability_low_percent': round(low * 100, 1) if low is not None else None,
+        'model_probability_high_percent': round(high * 100, 1) if high is not None else None,
+        'model_fair_odds': None,
+        'market_no_vig_probability_percent': None,
+        'score_distribution_coverage_percent': round(observation.model_mass * 100, 1),
+    }
+
+
+def _fit_rank(observation):
+    """Deterministic internal ordering; scores are deliberately not public."""
+    price_width = max(0.0, observation.price_max - observation.price_min)
+    return (
+        observation.expected_return_lower,
+        observation.bookmaker_count,
+        -price_width,
+        observation.observed_at.timestamp(),
+        -abs(observation.handicap or 0),
+    )
+
+
+def build_public_current_fits(strategy_key, *, limit=5):
+    """Return up to five fresh fixtures that pass one registered strategy.
+
+    This is a read-only, allowlisted projection of forward observations. It
+    never exposes private rules, internal scores or unqualified candidates and
+    it never promotes a fit into a public pick. One fixture can occupy at most
+    one position on a strategy page.
+    """
+    limit = min(5, max(1, int(limit)))
+    definition = next((
+        item for item in STRATEGY_DEFINITIONS
+        if item['strategy_key'] == strategy_key
+    ), None)
+    if definition is None:
+        return None
+
+    experiment = StrategyLabExperiment.objects.filter(
+        strategy_key=definition['strategy_key'],
+        version=definition['version'],
+    ).first()
+    now = timezone.now()
+    if experiment is None:
+        return {
+            'strategy_key': definition['strategy_key'],
+            'version': definition['version'],
+            'market': definition['market'],
+            'evidence_status': 'not_started',
+            'generated_at': now.isoformat(),
+            'eligible_fixture_count': 0,
+            'fits': [],
+            'policy': {
+                'maximum_fits': 5,
+                'empty_is_valid': True,
+                'fit_is_public_pick': False,
+            },
+        }
+
+    maximum_age = experiment.rules.get('maximum_quote_age_hours', 24)
+    rows = experiment.observations.filter(
+        evidence_phase=StrategyLabObservation.PHASE_FORWARD,
+        kickoff__gt=now,
+        odds_captured_at__gte=now - timedelta(hours=maximum_age),
+        odds_captured_at__lte=now + timedelta(minutes=5),
+    ).select_related('source_signal').order_by(
+        'fixture_id', 'side', 'handicap', '-observed_at',
+    )
+
+    # First freeze the latest state of each candidate line. If its newest state
+    # no longer qualifies, an older, more flattering quote cannot resurface.
+    latest_lines = {}
+    for row in rows:
+        identity = (row.fixture_id, row.side, row.handicap)
+        latest_lines.setdefault(identity, row)
+
+    by_fixture = defaultdict(list)
+    for row in latest_lines.values():
+        if qualifies(row):
+            by_fixture[row.fixture_id].append(row)
+
+    chosen = [max(fixture_rows, key=_fit_rank) for fixture_rows in by_fixture.values()]
+    chosen.sort(key=lambda row: (_fit_rank(row), -row.kickoff.timestamp()), reverse=True)
+
+    fits = []
+    specialist = definition.get('source') == 'specialist_candidate'
+    for rank, row in enumerate(chosen[:limit], start=1):
+        probability = _public_probability_summary(row)
+        fits.append({
+            'rank': rank,
+            'fixture_id': row.fixture_id,
+            'home_team': row.home_team,
+            'away_team': row.away_team,
+            'league': row.league,
+            'kickoff': row.kickoff.isoformat(),
+            'market': row.market,
+            'selection': row.label,
+            'side': row.side,
+            'line': row.handicap,
+            'odds': round(row.odds, 2),
+            'bookmaker': row.bookmaker,
+            'bookmaker_count': row.bookmaker_count,
+            'price_captured_at': row.odds_captured_at.isoformat(),
+            'observed_at': row.observed_at.isoformat(),
+            'break_even_probability_percent': round(100 / row.odds, 1),
+            'probability': probability,
+            'qualification': 'registered_rules_passed',
+            'fit_reasons': [
+                'fresh_verified_price',
+                'multi_bookmaker_confirmation',
+                ('exact_settlement_distribution' if specialist
+                 else 'complete_model_and_price_vectors'),
+                'conservative_value_threshold_passed',
+            ],
+            'caveats': [
+                'price_can_move',
+                'strategy_not_validated' if experiment.status != StrategyLabExperiment.STATUS_VALIDATED
+                else 'strategy_evidence_still_not_a_guarantee',
+                ('bounded_score_model' if specialist else 'model_estimate_not_calibrated'),
+            ],
+        })
+
+    evidence = _public_evidence_status(experiment)
+    return {
+        'strategy_key': experiment.strategy_key,
+        'version': experiment.version,
+        'market': experiment.market,
+        **evidence,
+        'generated_at': now.isoformat(),
+        'eligible_fixture_count': len(chosen),
+        'fits': fits,
+        'policy': {
+            'maximum_fits': 5,
+            'empty_is_valid': True,
+            'fit_is_public_pick': False,
+            'one_fit_per_fixture': True,
+            'prices_must_be_fresh_and_verified': True,
         },
     }

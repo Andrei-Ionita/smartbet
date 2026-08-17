@@ -46,6 +46,20 @@ describe('public strategy library', () => {
     expect(route).not.toContain('/api/internal/strategies-lab/')
   })
 
+  it('shows no more than five qualified current research fits without calling them picks', () => {
+    const detail = read('app/strategies/[slug]/StrategyDetailContent.tsx')
+    const component = read('app/components/StrategyCurrentFits.tsx')
+    const route = read('app/api/strategy-fits/[strategyKey]/route.ts')
+
+    expect(detail).toContain('<StrategyCurrentFits')
+    expect(component).toContain('Up to 5 current research fits')
+    expect(component).toContain('No fixture passes every check right now')
+    expect(component).toContain('is not a published BetGlitch pick')
+    expect(component).toContain('not a calibrated probability')
+    expect(route).toContain('/current-fits/')
+    expect(route).not.toContain('/api/internal/strategies-lab/')
+  })
+
   it('is reachable through navigation, footer and sitemap', () => {
     expect(read('components/Navigation.tsx')).toContain("href: '/strategies'")
     expect(read('components/Footer.tsx')).toContain('href="/strategies"')
