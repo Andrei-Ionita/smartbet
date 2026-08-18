@@ -107,6 +107,8 @@ export default function HomePage() {
 
   const gems: Recommendation[] = data?.featured_gems ?? data?.recommendations ?? []
   const shortlist: ModelShortlistItem[] = data?.model_shortlist ?? []
+  const shortlistStatus = data?.model_shortlist_status ?? 'pending_refresh'
+  const shortlistReady = shortlistStatus === 'ready'
   const scan = {
     fixtures: data?.gem_scan?.fixtures_scanned ?? data?.fixtures_analyzed ?? 0,
     predictions: data?.gem_scan?.fixtures_with_predictions ?? data?.fixtures_with_predictions ?? 0,
@@ -266,7 +268,16 @@ export default function HomePage() {
             </div>
           )}
 
-          {!isLoading && !error && shortlist.length === 0 && (
+          {!isLoading && !error && shortlist.length === 0 && !shortlistReady && (
+            <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-7 text-center">
+              <h3 className="font-bold text-blue-950">{copy.home.shortlistPendingHeading}</h3>
+              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-blue-900">
+                {copy.home.shortlistPendingBody}
+              </p>
+            </div>
+          )}
+
+          {!isLoading && !error && shortlist.length === 0 && shortlistReady && (
             <div className="rounded-2xl border border-dashed border-blue-200 bg-white p-7 text-center">
               <h3 className="font-bold text-gray-950">{copy.home.noShortlistHeading}</h3>
               <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600">

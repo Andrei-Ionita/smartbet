@@ -42,6 +42,17 @@ const input = (strategyEvaluation = evaluation()) => ({
 })
 
 describe('model shortlist', () => {
+  it('stamps every generated feed so empty and not-yet-generated stay distinct', async () => {
+    const { readFileSync } = await import('node:fs')
+    const { join } = await import('node:path')
+    const engine = readFileSync(
+      join(__dirname, '..', '..', 'api', 'recommendations', 'engine.ts'),
+      'utf8',
+    )
+    expect(engine).toContain('model_shortlist_generated: true')
+    expect(engine).toContain("feed_schema_version: 'gem-feed-v4-shortlist-v1'")
+  })
+
   it('admits a clear, predictable signal with a current multi-bookmaker price', () => {
     const candidate = buildModelShortlistCandidate(input())
     expect(candidate).not.toBeNull()

@@ -24,6 +24,9 @@ def feed(*, recommendations=None, updated=None, ranking='gems-v3'):
         'leagues_covered': 27,
         'fixtures_analyzed': 140,
         'fixtures_with_predictions': 90,
+        'model_shortlist': [],
+        'model_shortlist_generated': True,
+        'feed_schema_version': 'gem-feed-v4-shortlist-v1',
         'gem_scan': {
             'fixtures_scanned': 140,
             'fixtures_with_predictions': 90,
@@ -55,6 +58,7 @@ class GemFeedCacheServiceTests(TestCase):
         cached = gem_feed_cache.store(feed(recommendations=[]))
         self.assertEqual(cached.recommendation_count, 0)
         self.assertEqual(cached.payload['recommendations'], [])
+        self.assertTrue(cached.payload['model_shortlist_generated'])
 
     def test_invalid_payload_cannot_replace_last_good_scan(self):
         original = feed(ranking='good')

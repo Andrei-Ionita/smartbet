@@ -187,7 +187,42 @@ describe('PUBLIC /api/recommendations', () => {
       signal_strength: 0.62,
       bookmakers_checked: 3,
     })
+    expect(body.model_shortlist_status).toBe('ready')
     expect(JSON.stringify(body.model_shortlist)).not.toContain('strategy_evaluation')
+  })
+
+  it('distinguishes a pre-shortlist snapshot from a completed empty scan', async () => {
+    loadCachedGemFeed.mockResolvedValueOnce({
+      available: true,
+      age_seconds: 60,
+      feed: {
+        recommendations: [],
+        fixtures_analyzed: 100,
+        fixtures_with_predictions: 50,
+        lastUpdated: '2026-08-18T12:00:00.000Z',
+      },
+    })
+    const { GET } = await import('../../api/recommendations/route')
+    const pending = await (await GET()).json()
+    expect(pending.model_shortlist).toEqual([])
+    expect(pending.model_shortlist_status).toBe('pending_refresh')
+    expect(pending.model_shortlist_message).toMatch(/predates/i)
+
+    loadCachedGemFeed.mockResolvedValueOnce({
+      available: true,
+      age_seconds: 60,
+      feed: {
+        recommendations: [],
+        model_shortlist: [],
+        model_shortlist_generated: true,
+        feed_schema_version: 'gem-feed-v4-shortlist-v1',
+        lastUpdated: '2026-08-18T13:00:00.000Z',
+      },
+    })
+    const empty = await (await GET()).json()
+    expect(empty.model_shortlist_status).toBe('ready')
+    expect(empty.model_shortlist_message).toMatch(/completed/i)
+    expect(empty.feed_status.schema_version).toBe('gem-feed-v4-shortlist-v1')
   })
 
   it('ignores X-Internal-Auth entirely — no header can widen the response', async () => {
@@ -249,6 +284,7 @@ describe('PUBLIC /api/recommendations', () => {
     const body = await (await GET()).json()
     expect(body.recommendations).toEqual([])
     expect(body.gem_scan.status).toBe('delayed')
+    expect(body.model_shortlist_status).toBe('delayed')
     expect(body.feed_status.stale).toBe(true)
   })
 

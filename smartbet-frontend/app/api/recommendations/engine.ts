@@ -1084,6 +1084,7 @@ export async function buildRecommendationPayload(): Promise<
     // The engine stops here. It expresses no opinion about who may see what —
     // that is the caller's decision, and there is no branch in this function
     // that could serve internal fields to a public request.
+    const scanCompletedAt = new Date().toISOString()
     return {
       ok: true,
       recommendations: featuredGems,
@@ -1093,6 +1094,11 @@ export async function buildRecommendationPayload(): Promise<
         fixtures_analyzed: totalFixtures,
         fixtures_with_predictions: fixturesWithPredictions,
         model_shortlist: modelShortlist,
+        // Explicit capability marker. Older snapshots pre-date the shortlist
+        // and therefore contain no array at all; an empty array with this flag
+        // means the current engine genuinely ran and found zero eligible rows.
+        model_shortlist_generated: true,
+        feed_schema_version: 'gem-feed-v4-shortlist-v1',
         gem_scan: {
           fixtures_scanned: totalFixtures,
           fixtures_with_predictions: fixturesWithPredictions,
@@ -1125,7 +1131,7 @@ export async function buildRecommendationPayload(): Promise<
           asian_handicap_candidates_evaluated: asianHandicapCandidatesEvaluated,
           asian_handicap_robust_edge_bounds: asianHandicapRobustEdges,
         },
-        lastUpdated: new Date().toISOString(),
+        lastUpdated: scanCompletedAt,
         // WHICH ranking policy produced these. Ingest stamps it onto every
         // snapshot and therefore onto every published claim, so a record
         // accumulated across changes to the logic stays interpretable rather

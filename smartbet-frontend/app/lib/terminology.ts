@@ -178,6 +178,9 @@ const EN = {
       'Upcoming fixtures with a clear leading model signal and a fresh multi-bookmaker price, selected to help you decide what deserves deeper investigation.',
     shortlistDistinction:
       'These are research starting points, not published picks. They do not enter the verified Gem record.',
+    shortlistPendingHeading: 'The first current shortlist scan is still processing',
+    shortlistPendingBody:
+      'The available fixture snapshot was created before this shortlist was introduced. BetGlitch will show candidates only after the current engine completes a compatible scan.',
     noShortlistHeading: 'No shortlist fixture is current right now',
     noShortlistBody:
       'The scan did not find a fixture with enough signal separation, data and price coverage. Browse Explore for the full fixture set.',
@@ -672,6 +675,9 @@ const RO: typeof EN = {
       'Meciuri viitoare cu un semnal principal clar și o cotă recentă din mai multe case, selectate pentru a te ajuta să decizi ce merită analizat în profunzime.',
     shortlistDistinction:
       'Sunt puncte de pornire pentru analiză, nu selecții publicate. Nu intră în istoricul verificat al Gem-urilor.',
+    shortlistPendingHeading: 'Prima scanare actuală pentru listă este încă în procesare',
+    shortlistPendingBody:
+      'Snapshotul disponibil a fost creat înainte ca această listă să fie introdusă. BetGlitch va afișa candidați numai după ce motorul actual finalizează o scanare compatibilă.',
     noShortlistHeading: 'Nu există acum un meci actual pentru listă',
     noShortlistBody:
       'Scanarea nu a găsit un meci cu suficientă separare a semnalului, date și acoperire de cote. Explore conține toate meciurile.',

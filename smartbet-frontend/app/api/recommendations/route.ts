@@ -72,6 +72,11 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
   const rawShortlist = Array.isArray(feed.model_shortlist)
     ? feed.model_shortlist
     : []
+  const shortlistGenerated = feed.model_shortlist_generated === true ||
+    Array.isArray(feed.model_shortlist)
+  const shortlistStatus = stale
+    ? 'delayed'
+    : shortlistGenerated ? 'ready' : 'pending_refresh'
   const currentShortlist = stale
     ? []
     : rawShortlist.filter((item: Record<string, any>) => kickoffIsFuture(item.kickoff))
@@ -85,6 +90,14 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
     recommendations: toPublicRecommendationList(currentRecommendations),
     model_shortlist: publicShortlist,
     model_shortlist_limit: MODEL_SHORTLIST_POLICY.maximumSelections,
+    model_shortlist_status: shortlistStatus,
+    model_shortlist_message: shortlistStatus === 'ready'
+      ? (publicShortlist.length
+          ? 'The current scan produced a model shortlist.'
+          : 'The current scan completed and no fixture qualified for the model shortlist.')
+      : shortlistStatus === 'delayed'
+        ? 'The model shortlist is hidden until a fresh scan completes.'
+        : 'This snapshot predates the model shortlist; the first compatible scan is pending.',
     total: publicGems.length,
     leagues_covered: numberOrZero(feed.leagues_covered),
     fixtures_analyzed: numberOrZero(feed.fixtures_analyzed),
@@ -107,6 +120,12 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
       source: 'hourly_snapshot',
       age_seconds: ageSeconds,
       stale,
+      snapshot_refreshed_at: typeof snapshot.refreshed_at === 'string'
+        ? snapshot.refreshed_at
+        : null,
+      schema_version: typeof feed.feed_schema_version === 'string'
+        ? feed.feed_schema_version
+        : null,
     },
     message: !snapshot.available || !snapshot.feed
       ? 'The first Gem scan is warming up.'

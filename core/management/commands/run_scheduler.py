@@ -2,6 +2,7 @@
 import time
 import sys
 import logging
+import os
 from datetime import datetime
 from django.core.management.base import BaseCommand
 from django.core.management import call_command
@@ -83,7 +84,14 @@ class Command(BaseCommand):
         connection.close()
 
         try:
-            with record_run(interval_minutes=interval_minutes) as run_id:
+            # Railway exposes the deployed commit. Recording it makes a stale
+            # worker distinguishable from a healthy worker that merely found
+            # no new rows, without exposing any credential or provider detail.
+            deployed_version = os.environ.get('RAILWAY_GIT_COMMIT_SHA', '')[:40]
+            with record_run(
+                interval_minutes=interval_minutes,
+                version=deployed_version,
+            ) as run_id:
                 self.stdout.write(f'   run_id={run_id}')
                 self._run = run_id
                 self._stages = {}
