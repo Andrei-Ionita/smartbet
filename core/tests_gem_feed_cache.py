@@ -26,7 +26,7 @@ def feed(*, recommendations=None, updated=None, ranking='gems-v3'):
         'fixtures_with_predictions': 90,
         'model_shortlist': [],
         'model_shortlist_generated': True,
-        'feed_schema_version': 'gem-feed-v4-shortlist-v1',
+        'feed_schema_version': 'gem-feed-v4-decision-board-v1',
         'gem_scan': {
             'fixtures_scanned': 140,
             'fixtures_with_predictions': 90,

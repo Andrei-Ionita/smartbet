@@ -1,8 +1,12 @@
 import type { OddsProvenance } from './oddsSelection'
-import type { StrategyEvaluation } from './providerStrategy'
+import {
+  VALUE_STRATEGY_POLICY,
+  type StrategyEvaluation,
+} from './providerStrategy'
 
 export const MODEL_SHORTLIST_POLICY = {
-  maximumSelections: 5,
+  maximumSelections: 6,
+  maximumPerDecisionLane: 3,
   confidenceFloor: 0.55,
   minimumGap: { draw: 0.10, other: 0.08 },
   minimumBookmakers: 2,
@@ -100,6 +104,15 @@ export function buildModelShortlistCandidate(
   if (!eligible) return null
 
   const valueBet = evaluation.valueBet
+  const valueSignalAligned = Boolean(
+    valueBet?.active &&
+    valueBet.outcome === selected &&
+    valueBet.fairOdds && valueBet.fairOdds > 1 &&
+    valueBet.offeredOdds && valueBet.offeredOdds > valueBet.fairOdds &&
+    input.odds > valueBet.fairOdds &&
+    evaluation.fairOddsBuffer !== null &&
+    evaluation.fairOddsBuffer >= VALUE_STRATEGY_POLICY.minimumFairOddsBuffer
+  )
   return {
     fixture_id: input.fixtureId,
     home_team: input.homeTeam,
@@ -116,10 +129,12 @@ export function buildModelShortlistCandidate(
     relative_price_spread: spread,
     supporting_models: supportingModels,
     explicit_contradictions: explicitContradictions,
-    value_signal_aligned: Boolean(
-      valueBet?.active && valueBet.outcome === selected &&
-      valueBet.fairOdds && input.odds > valueBet.fairOdds,
-    ),
+    // This is deliberately stronger than "a VALUEBET row exists". The
+    // dedicated price model must be active and aligned, both its quoted offer
+    // and our canonical multi-bookmaker quote must clear its baseline, and the
+    // canonical gap must reach the registered minimum. Clear favourites with
+    // no price disagreement belong in the strong-signal lane instead.
+    value_signal_aligned: valueSignalAligned,
     strategy_evaluation: evaluation,
   }
 }

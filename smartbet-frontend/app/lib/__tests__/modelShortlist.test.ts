@@ -50,7 +50,9 @@ describe('model shortlist', () => {
       'utf8',
     )
     expect(engine).toContain('model_shortlist_generated: true')
-    expect(engine).toContain("feed_schema_version: 'gem-feed-v4-shortlist-v1'")
+    expect(engine).toContain("feed_schema_version: 'gem-feed-v4-decision-board-v1'")
+    expect(engine).toContain('price_watchlist: priceWatchlist')
+    expect(engine).toContain('strong_signals: strongSignals')
   })
 
   it('admits a clear, predictable signal with a current multi-bookmaker price', () => {
@@ -85,7 +87,20 @@ describe('model shortlist', () => {
         active: true, outcome: 'home', fairOdds: 1.8,
         offeredOdds: 1.9, bookmaker: 'Book', stake: null,
       },
+      fairOddsBuffer: 1.9 / 1.8 - 1,
     })))!
+    expect(aligned.value_signal_aligned).toBe(true)
     expect(compareModelShortlist(aligned, plain)).toBeLessThan(0)
+  })
+
+  it('does not call an active value row aligned when the verified buffer is too small', () => {
+    const candidate = buildModelShortlistCandidate(input(evaluation({
+      valueBet: {
+        active: true, outcome: 'home', fairOdds: 1.88,
+        offeredOdds: 1.9, bookmaker: 'Book', stake: null,
+      },
+      fairOddsBuffer: 1.9 / 1.88 - 1,
+    })))!
+    expect(candidate.value_signal_aligned).toBe(false)
   })
 })

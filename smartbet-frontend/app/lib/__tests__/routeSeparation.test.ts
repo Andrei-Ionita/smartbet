@@ -189,6 +189,29 @@ describe('PUBLIC /api/recommendations', () => {
     })
     expect(body.model_shortlist_status).toBe('ready')
     expect(JSON.stringify(body.model_shortlist)).not.toContain('strategy_evaluation')
+    expect(body.decision_board.price_watchlist).toEqual([])
+    expect(body.decision_board.strong_signals[0].fixture_id).toBe(2)
+    expect(JSON.stringify(body.decision_board)).not.toContain('value_signal_aligned')
+  })
+
+  it('separates price disagreement from strong consensus without duplicating a row', async () => {
+    loadCachedGemFeed.mockResolvedValueOnce({
+      available: true,
+      age_seconds: 60,
+      feed: {
+        recommendations: [],
+        model_shortlist: [
+          { ...INTERNAL_SHORTLIST_ITEM, fixture_id: 20, value_signal_aligned: true },
+          { ...INTERNAL_SHORTLIST_ITEM, fixture_id: 21, value_signal_aligned: false },
+        ],
+        model_shortlist_generated: true,
+        lastUpdated: '2026-08-18T13:00:00.000Z',
+      },
+    })
+    const { GET } = await import('../../api/recommendations/route')
+    const body = await (await GET()).json()
+    expect(body.decision_board.price_watchlist.map((item: any) => item.fixture_id)).toEqual([20])
+    expect(body.decision_board.strong_signals.map((item: any) => item.fixture_id)).toEqual([21])
   })
 
   it('distinguishes a pre-shortlist snapshot from a completed empty scan', async () => {
@@ -215,14 +238,14 @@ describe('PUBLIC /api/recommendations', () => {
         recommendations: [],
         model_shortlist: [],
         model_shortlist_generated: true,
-        feed_schema_version: 'gem-feed-v4-shortlist-v1',
+        feed_schema_version: 'gem-feed-v4-decision-board-v1',
         lastUpdated: '2026-08-18T13:00:00.000Z',
       },
     })
     const empty = await (await GET()).json()
     expect(empty.model_shortlist_status).toBe('ready')
     expect(empty.model_shortlist_message).toMatch(/completed/i)
-    expect(empty.feed_status.schema_version).toBe('gem-feed-v4-shortlist-v1')
+    expect(empty.feed_status.schema_version).toBe('gem-feed-v4-decision-board-v1')
   })
 
   it('ignores X-Internal-Auth entirely — no header can widen the response', async () => {

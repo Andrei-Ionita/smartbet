@@ -948,11 +948,20 @@ export async function buildRecommendationPayload(): Promise<
     let featuredGems = allRecommendations
       .slice(0, VALUE_STRATEGY_POLICY.maximumSelections)
       .map((rec, index) => ({ ...rec, is_recommended: true, gem_rank: index + 1 }))
-    const modelShortlist = allShortlistCandidates
+    const researchCandidates = allShortlistCandidates
       // Keep this cohort technically and semantically separate from Gems. A
       // fixture that qualified as a Gem belongs only in the Gem collection.
       .filter(candidate => !candidate.strategy_evaluation.eligible)
       .sort(compareModelShortlist)
+    const priceWatchlist = researchCandidates
+      .filter(candidate => candidate.value_signal_aligned)
+      .slice(0, MODEL_SHORTLIST_POLICY.maximumPerDecisionLane)
+    const strongSignals = researchCandidates
+      .filter(candidate => !candidate.value_signal_aligned)
+      .slice(0, MODEL_SHORTLIST_POLICY.maximumPerDecisionLane)
+    // Backwards-compatible aggregate for older clients. The decision-board
+    // lanes below are the canonical public presentation.
+    const modelShortlist = [...priceWatchlist, ...strongSignals]
       .slice(0, MODEL_SHORTLIST_POLICY.maximumSelections)
 
     // --- ENRICHMENT: Fetch Standings for Form Data ---
@@ -1094,11 +1103,15 @@ export async function buildRecommendationPayload(): Promise<
         fixtures_analyzed: totalFixtures,
         fixtures_with_predictions: fixturesWithPredictions,
         model_shortlist: modelShortlist,
+        decision_board: {
+          price_watchlist: priceWatchlist,
+          strong_signals: strongSignals,
+        },
         // Explicit capability marker. Older snapshots pre-date the shortlist
         // and therefore contain no array at all; an empty array with this flag
         // means the current engine genuinely ran and found zero eligible rows.
         model_shortlist_generated: true,
-        feed_schema_version: 'gem-feed-v4-shortlist-v1',
+        feed_schema_version: 'gem-feed-v4-decision-board-v1',
         gem_scan: {
           fixtures_scanned: totalFixtures,
           fixtures_with_predictions: fixturesWithPredictions,

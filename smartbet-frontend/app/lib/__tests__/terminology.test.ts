@@ -25,7 +25,7 @@ const PUBLIC_SOURCES = [
   'app/about/page.tsx',
   'app/register/page.tsx',
   'app/explore/ExploreContent.tsx',
-  'app/components/HomepageStrategyFits.tsx',
+  'app/components/HomepageDecisionBoard.tsx',
   'app/strategies/StrategiesContent.tsx',
   'app/strategies/[slug]/StrategyDetailContent.tsx',
   'app/track-record/page.tsx',

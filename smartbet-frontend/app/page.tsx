@@ -14,8 +14,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import GemCard from './components/GemCard'
-import ModelShortlistCard from './components/ModelShortlistCard'
-import HomepageStrategyFits from './components/HomepageStrategyFits'
+import HomepageDecisionBoard from './components/HomepageDecisionBoard'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
@@ -107,8 +106,9 @@ export default function HomePage() {
 
   const gems: Recommendation[] = data?.featured_gems ?? data?.recommendations ?? []
   const shortlist: ModelShortlistItem[] = data?.model_shortlist ?? []
+  const valueWatchlist: ModelShortlistItem[] = data?.decision_board?.price_watchlist ?? []
+  const strongSignals: ModelShortlistItem[] = data?.decision_board?.strong_signals ?? shortlist
   const shortlistStatus = data?.model_shortlist_status ?? 'pending_refresh'
-  const shortlistReady = shortlistStatus === 'ready'
   const scan = {
     fixtures: data?.gem_scan?.fixtures_scanned ?? data?.fixtures_analyzed ?? 0,
     predictions: data?.gem_scan?.fixtures_with_predictions ?? data?.fixtures_with_predictions ?? 0,
@@ -220,72 +220,17 @@ export default function HomePage() {
           </button>
         </header>
 
-        {/* 2. Daily research shortlist; technically separate from Gems. */}
-        <section aria-labelledby="shortlist-heading" className="mt-16 sm:mt-20">
-          <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <p className="mb-2 text-xs font-bold uppercase tracking-widest text-blue-700">
-                {copy.home.shortlistEyebrow}
-              </p>
-              <h2 id="shortlist-heading" className="text-2xl font-bold text-gray-900 sm:text-3xl">
-                {copy.home.shortlistHeading}
-              </h2>
-              <p className="mt-1 max-w-2xl text-sm leading-relaxed text-gray-600">
-                {copy.home.shortlistSupporting}
-              </p>
-              <p className="mt-2 max-w-2xl text-sm font-semibold text-gray-800">
-                {copy.home.shortlistDistinction}
-              </p>
-            </div>
-            <Link
-              href="/explore"
-              onClick={() => track('home_primary_cta', { surface: 'model_shortlist' })}
-              className="shrink-0 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline"
-            >
-              {copy.home.browseAll} →
-            </Link>
-          </div>
-
-          {isLoading && (
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <RecommendationCardSkeleton key={i} />
-              ))}
-            </div>
-          )}
-
-          {!isLoading && !error && shortlist.length > 0 && (
-            <div className="grid gap-4 sm:gap-6 lg:grid-cols-2">
-              {shortlist.map((item, index) => (
-                <ModelShortlistCard
-                  key={item.fixture_id}
-                  item={item}
-                  language={language}
-                  displayRank={index + 1}
-                  onViewDetails={handleViewDetails}
-                />
-              ))}
-            </div>
-          )}
-
-          {!isLoading && !error && shortlist.length === 0 && !shortlistReady && (
-            <div className="rounded-2xl border border-blue-200 bg-blue-50/70 p-7 text-center">
-              <h3 className="font-bold text-blue-950">{copy.home.shortlistPendingHeading}</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-blue-900">
-                {copy.home.shortlistPendingBody}
-              </p>
-            </div>
-          )}
-
-          {!isLoading && !error && shortlist.length === 0 && shortlistReady && (
-            <div className="rounded-2xl border border-dashed border-blue-200 bg-white p-7 text-center">
-              <h3 className="font-bold text-gray-950">{copy.home.noShortlistHeading}</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600">
-                {copy.home.noShortlistBody}
-              </p>
-            </div>
-          )}
-        </section>
+        {/* 2. One compact board, with evidence lanes that cannot masquerade as
+            one another. Value, strategy fit and model consensus are different
+            claims and therefore get different cards and caveats. */}
+        <HomepageDecisionBoard
+          language={language}
+          valueWatchlist={valueWatchlist}
+          strongSignals={strongSignals}
+          status={shortlistStatus}
+          recommendationsLoading={isLoading}
+          recommendationsError={Boolean(error)}
+        />
 
         {/* 3. Qualified Gems from the latest scan. */}
         <section aria-labelledby="gems-heading" className="mt-16 sm:mt-20">
@@ -430,8 +375,6 @@ export default function HomePage() {
             </div>
           )}
         </section>
-
-        <HomepageStrategyFits language={language} />
 
         <section aria-labelledby="learning-heading" className="mt-16 sm:mt-20">
           <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{copy.home.learningEyebrow}</p>

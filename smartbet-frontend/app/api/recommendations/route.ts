@@ -72,6 +72,15 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
   const rawShortlist = Array.isArray(feed.model_shortlist)
     ? feed.model_shortlist
     : []
+  const rawDecisionBoard = feed.decision_board && typeof feed.decision_board === 'object'
+    ? feed.decision_board as Record<string, unknown>
+    : {}
+  const rawPriceWatchlist = Array.isArray(rawDecisionBoard.price_watchlist)
+    ? rawDecisionBoard.price_watchlist
+    : rawShortlist.filter((item: Record<string, any>) => item.value_signal_aligned === true)
+  const rawStrongSignals = Array.isArray(rawDecisionBoard.strong_signals)
+    ? rawDecisionBoard.strong_signals
+    : rawShortlist.filter((item: Record<string, any>) => item.value_signal_aligned !== true)
   const shortlistGenerated = feed.model_shortlist_generated === true ||
     Array.isArray(feed.model_shortlist)
   const shortlistStatus = stale
@@ -81,6 +90,12 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
     ? []
     : rawShortlist.filter((item: Record<string, any>) => kickoffIsFuture(item.kickoff))
   const publicShortlist = toPublicModelShortlist(currentShortlist)
+  const publicPriceWatchlist = toPublicModelShortlist(stale
+    ? []
+    : rawPriceWatchlist.filter((item: Record<string, any>) => kickoffIsFuture(item.kickoff)))
+  const publicStrongSignals = toPublicModelShortlist(stale
+    ? []
+    : rawStrongSignals.filter((item: Record<string, any>) => kickoffIsFuture(item.kickoff)))
   const rawScan = feed.gem_scan && typeof feed.gem_scan === 'object'
     ? feed.gem_scan as Record<string, unknown>
     : {}
@@ -98,6 +113,12 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
       : shortlistStatus === 'delayed'
         ? 'The model shortlist is hidden until a fresh scan completes.'
         : 'This snapshot predates the model shortlist; the first compatible scan is pending.',
+    decision_board: {
+      status: shortlistStatus,
+      maximum_per_lane: MODEL_SHORTLIST_POLICY.maximumPerDecisionLane,
+      price_watchlist: publicPriceWatchlist,
+      strong_signals: publicStrongSignals,
+    },
     total: publicGems.length,
     leagues_covered: numberOrZero(feed.leagues_covered),
     fixtures_analyzed: numberOrZero(feed.fixtures_analyzed),
