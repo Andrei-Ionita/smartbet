@@ -1193,3 +1193,61 @@ def build_public_current_fits(strategy_key, *, limit=5):
             'prices_must_be_fresh_and_verified': True,
         },
     }
+
+
+HOMEPAGE_STRATEGY_ORDER = (
+    'asian-handicap-score-distribution',
+    'total-goals-2-5-value',
+    'full-time-result-value',
+    'both-teams-score-value',
+    'asian-goal-line-score-distribution',
+    'team-total-score-distribution',
+    'double-chance-value',
+    'total-goals-1-5-value',
+    'total-goals-3-5-value',
+)
+
+
+def build_public_strategy_highlights(*, limit=3):
+    """Select a small, diverse homepage view of current research fits.
+
+    Each strategy contributes at most its strongest current fit and each
+    fixture can appear only once. The ordering deliberately alternates market
+    families; fit scores from different registered strategies are not treated
+    as directly comparable. This endpoint is only a projection of the same
+    public research rows used on strategy pages and never publishes a Gem.
+    """
+    limit = min(3, max(1, int(limit)))
+    highlights = []
+    seen_fixtures = set()
+
+    for strategy_key in HOMEPAGE_STRATEGY_ORDER:
+        report = build_public_current_fits(strategy_key, limit=1)
+        if not report or not report['fits']:
+            continue
+        fit = report['fits'][0]
+        if fit['fixture_id'] in seen_fixtures:
+            continue
+        seen_fixtures.add(fit['fixture_id'])
+        highlights.append({
+            'strategy_key': report['strategy_key'],
+            'version': report['version'],
+            'market': report['market'],
+            'evidence_status': report['evidence_status'],
+            'generated_at': report['generated_at'],
+            'fit': fit,
+        })
+        if len(highlights) == limit:
+            break
+
+    return {
+        'generated_at': timezone.now().isoformat(),
+        'highlights': highlights,
+        'policy': {
+            'maximum_highlights': 3,
+            'one_fit_per_strategy': True,
+            'one_fit_per_fixture': True,
+            'fit_is_public_pick': False,
+            'empty_is_valid': True,
+        },
+    }

@@ -60,6 +60,19 @@ describe('public strategy library', () => {
     expect(route).not.toContain('/api/internal/strategies-lab/')
   })
 
+  it('shows at most three distinct live strategy fits on the homepage', () => {
+    const home = read('app/page.tsx')
+    const component = read('app/components/HomepageStrategyFits.tsx')
+    const route = read('app/api/homepage-strategy-fits/route.ts')
+
+    expect(home).toContain('<HomepageStrategyFits')
+    expect(component).toContain('Three live ideas from the research lab')
+    expect(component).toContain('not published picks')
+    expect(component).toContain("href=\"/strategies\"")
+    expect(route).toContain('/api/transparency/strategies/current-fits/')
+    expect(route).not.toContain('/api/internal/strategies-lab/')
+  })
+
   it('is reachable through navigation, footer and sitemap', () => {
     expect(read('components/Navigation.tsx')).toContain("href: '/strategies'")
     expect(read('components/Footer.tsx')).toContain('href="/strategies"')

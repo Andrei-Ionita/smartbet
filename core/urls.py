@@ -61,6 +61,7 @@ urlpatterns = [
     path('api/transparency/calibration/', transparency_views.calibration_evidence, name='calibration_evidence'),
     path('api/transparency/prediction-archive/', transparency_views.prediction_evidence_archive, name='prediction_evidence_archive'),
     path('api/transparency/strategies/', transparency_views.public_strategy_lab, name='public_strategy_lab'),
+    path('api/transparency/strategies/current-fits/', transparency_views.public_strategy_highlights, name='public_strategy_highlights'),
     path('api/transparency/strategies/<str:strategy_key>/current-fits/', transparency_views.public_strategy_fits, name='public_strategy_fits'),
     # REMOVED 2026-08-03: 'api/transparency/update-results/'. Same class of
     # problem — AllowAny + csrf_exempt, ran ResultUpdaterService against

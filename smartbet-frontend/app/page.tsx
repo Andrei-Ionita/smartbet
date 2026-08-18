@@ -1,19 +1,21 @@
 'use client'
 
+import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   AlertCircle,
   ArrowRight,
   BarChart3,
-  Calculator,
+  FlaskConical,
   Lock,
+  Search,
   ScrollText,
 } from 'lucide-react'
 import Image from 'next/image'
 import GemCard from './components/GemCard'
 import ModelShortlistCard from './components/ModelShortlistCard'
-import EmptyState from './components/EmptyState'
+import HomepageStrategyFits from './components/HomepageStrategyFits'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
@@ -45,12 +47,13 @@ const FEATURED_LEAGUES = [
 /** Single source of truth — never hardcode a coverage number on a page. */
 const TOTAL_LEAGUES = SEARCHABLE_COMPETITION_COUNT
 
-const BENEFIT_ICONS = [BarChart3, ScrollText, Calculator]
+const LEARNING_ICONS = [ScrollText, BarChart3, FlaskConical]
 
 export default function HomePage() {
   const router = useRouter()
   const { language } = useLanguage()
   const copy = getCopy(language)
+  const [fixtureQuery, setFixtureQuery] = useState('')
 
   const enhancedFetcher = async (url: string) => {
     const response = await fetch(url)
@@ -110,6 +113,13 @@ export default function HomePage() {
     qualified: data?.gem_scan?.qualified_fixtures ?? gems.length,
     shown: data?.gem_scan?.displayed_gems ?? gems.length,
   }
+
+  const searchFixture = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    const query = fixtureQuery.trim()
+    track('home_primary_cta', { surface: query ? 'homepage_search' : 'homepage_browse' })
+    router.push(query ? `/explore?q=${encodeURIComponent(query)}` : '/explore')
+  }
   const rejectionLabels: Record<string, string> = {
     signal_or_verified_price: copy.home.diagnosticsSignalPrice,
     reliability: copy.home.diagnosticsReliability,
@@ -152,21 +162,32 @@ export default function HomePage() {
             {copy.hero.supporting}
           </p>
 
-          <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row">
+          <form onSubmit={searchFixture} className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-[1fr_auto]">
+            <label className="relative text-left">
+              <span className="sr-only">{copy.home.searchLabel}</span>
+              <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+              <input
+                type="search"
+                value={fixtureQuery}
+                onChange={(event) => setFixtureQuery(event.target.value)}
+                placeholder={copy.home.searchPlaceholder}
+                className="min-h-[52px] w-full rounded-xl border border-slate-300 bg-white pl-12 pr-4 text-slate-950 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+              />
+            </label>
             <button
-              onClick={goExplore}
-              className="group inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3 font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
+              type="submit"
+              className="group inline-flex min-h-[52px] items-center justify-center gap-2 rounded-xl bg-blue-600 px-7 py-3 font-semibold text-white shadow-lg transition-colors hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-700"
             >
-              {copy.hero.primaryCta}
+              {copy.home.searchCta}
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
             </button>
-            <button
-              onClick={goVerifiedRecord}
-              className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-300 bg-white px-7 py-3 font-semibold text-gray-800 transition-colors hover:bg-gray-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-            >
-              {copy.hero.secondaryCta}
-            </button>
-          </div>
+          </form>
+          <button
+            onClick={goVerifiedRecord}
+            className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-white/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
+          >
+            {copy.hero.secondaryCta} <ArrowRight className="h-4 w-4" />
+          </button>
 
           {/* Three commitments in one quiet line. Deliberately NOT badges:
               these are rules the architecture enforces, and rules read best
@@ -399,192 +420,28 @@ export default function HomePage() {
           )}
         </section>
 
-        {/* ── 3. How BetGlitch works ──────────────────────────────────────
-            Numbered because the order is real: a pick cannot be verified
-            before it is published, or published before it exists. */}
-        <section aria-labelledby="how-heading" className="mt-16 sm:mt-20">
-          <h2
-            id="how-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.home.howHeading}
-          </h2>
-          {/* Five stages now, so the grid steps 1 → 2 → 3 → 5 across
-              breakpoints instead of assuming three. The last two stages —
-              Measure and Improve — are why the triad was retired: the old flow
-              ended at the result, which reads as a static prediction engine. */}
-          <ol className="mt-6 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5">
-            {copy.workflow.map((step, i) => (
-              <li
-                key={step.id}
-                className="rounded-2xl border border-gray-200 bg-white p-5"
-              >
-                <span className="text-xs font-bold tracking-widest text-gray-400">
-                  {String(i + 1).padStart(2, '0')}
-                </span>
-                <h3 className="mt-2 text-lg font-bold text-gray-900">
-                  {step.title}
-                </h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                  {step.body}
-                </p>
-              </li>
-            ))}
-          </ol>
-        </section>
+        <HomepageStrategyFits language={language} />
 
-        {/* ── 3b. The difference, as a contrast a visitor can read in three
-            seconds: everyone else's pipeline stops at the result; ours loops
-            back into evaluation. ── */}
-        <section aria-labelledby="difference-contrast-heading" className="mt-16 sm:mt-20">
-          <h2
-            id="difference-contrast-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.home.differenceContrastHeading}
-          </h2>
-          <div className="mt-6 grid gap-4 md:grid-cols-2">
-            <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-                {copy.home.differenceOthersLabel}
-              </p>
-              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-500">
-                {copy.home.differenceOthersFlow.map((step, i) => (
-                  <span key={step} className="flex items-center gap-2">
-                    {i > 0 && <ArrowRight aria-hidden className="h-4 w-4 text-gray-300" />}
-                    <span>{step}</span>
-                  </span>
-                ))}
-              </p>
-            </div>
-            <div className="rounded-2xl border border-blue-200 bg-blue-50/50 p-6">
-              <p className="text-xs font-bold uppercase tracking-widest text-blue-700">
-                {copy.home.differenceUsLabel}
-              </p>
-              <p className="mt-4 flex flex-wrap items-center gap-2 text-sm font-semibold text-gray-800">
-                {copy.home.differenceUsFlow.map((step, i) => (
-                  <span key={step} className="flex items-center gap-2">
-                    {i > 0 && <ArrowRight aria-hidden className="h-4 w-4 text-blue-300" />}
-                    <span>{step}</span>
-                  </span>
-                ))}
-              </p>
-            </div>
-          </div>
-
-          {/* Product rules. Plain bordered cells, no icons, no colour — they
-              should look like constraints, because they are. */}
-          <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-6">
-            <p className="text-xs font-bold uppercase tracking-widest text-gray-400">
-              {copy.home.rulesHeading}
-            </p>
-            <ul className="mt-4 grid gap-3 text-sm font-medium text-gray-800 sm:grid-cols-2 lg:grid-cols-4">
-              {copy.home.rules.map((rule) => (
-                <li key={rule} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
-                  {rule}
-                </li>
-              ))}
-            </ul>
-          </div>
-        </section>
-
-        {/* ── 4. Signal vs published proof ────────────────────────────────
-            The single most important idea in the product, given its own
-            section and shown with the real badges rather than described. */}
-        <section
-          aria-labelledby="difference-heading"
-          className="mt-16 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-6 sm:mt-20 sm:p-8"
-        >
-          <div className="flex flex-col gap-6 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-2xl">
-              <div className="inline-flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-100 text-indigo-700">
-                <Lock className="h-5 w-5" aria-hidden="true" />
-              </div>
-              <h2 id="difference-heading" className="mt-4 text-2xl font-bold text-gray-900 sm:text-3xl">
-                {copy.home.differenceHeading}
-              </h2>
-              <p className="mt-3 text-base leading-relaxed text-gray-700">
-                {copy.home.differenceBody}
-              </p>
-            </div>
-            <Link
-              href="/track-record#published-picks"
-              className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
-            >
-              {copy.home.openRecord}
-              <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-          </div>
-        </section>
-
-        {/* ── 4b. The three counters, side by side ─────────────────────────
-            This strip exists to make "many live signals, 1 commitment,
-            0 verified results" read as the NORMAL shape of the funnel rather
-            than a contradiction. Each stage links to where it lives. */}
-        {/* ── 5. Verified record ──────────────────────────────────────── */}
-        <section aria-labelledby="record-heading" className="mt-16 sm:mt-20">
-          <h2
-            id="record-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.terms.verifiedRecord.label}
-          </h2>
-          <p className="mt-2 max-w-2xl text-sm text-gray-600">
-            {copy.terms.verifiedRecord.definition}{' '}
-            {copy.terms.verifiedRecord.scope}
-          </p>
-
-          <div className="mt-6">
-            {hasVerifiedResults ? (
-              <div className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-                <p className="text-sm text-gray-600">
-                  {copy.home.settledLabel}
-                </p>
-                <p className="mt-1 text-4xl font-bold text-gray-900">
-                  {settledCount}
-                </p>
-                <Link
-                  href="/track-record"
-                  onClick={() =>
-                    track('home_verified_record_cta', { surface: 'record_section' })
-                  }
-                  className="mt-4 inline-flex min-h-[44px] items-center justify-center rounded-lg bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
-                >
-                  {copy.home.openRecord}
-                </Link>
-              </div>
-            ) : (
-              <EmptyState state="no_verified_results" lang={language} />
-            )}
-          </div>
-        </section>
-
-        {/* ── 6. What you can do here ─────────────────────────────────── */}
-        <section aria-labelledby="benefits-heading" className="mt-16 sm:mt-20">
-          <h2
-            id="benefits-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.home.benefitsHeading}
-          </h2>
+        <section aria-labelledby="learning-heading" className="mt-16 sm:mt-20">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{copy.home.learningEyebrow}</p>
+          <h2 id="learning-heading" className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{copy.home.learningHeading}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{copy.home.learningSupporting}</p>
           <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {copy.home.benefits.map((benefit, i) => {
-              const Icon = BENEFIT_ICONS[i] ?? BarChart3
+            {copy.home.learningLinks.map((item, index) => {
+              const Icon = LEARNING_ICONS[index] ?? BarChart3
               return (
-                <div
-                  key={benefit.title}
-                  className="rounded-2xl border border-gray-200 bg-white p-6"
-                >
-                  <Icon className="h-6 w-6 text-blue-600" aria-hidden="true" />
-                  <h3 className="mt-3 font-bold text-gray-900">
-                    {benefit.title}
-                  </h3>
-                  <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                    {benefit.body}
-                  </p>
-                </div>
+                <Link key={item.href} href={item.href} className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+                  <Icon className="h-6 w-6 text-blue-700" aria-hidden="true" />
+                  <h3 className="mt-4 font-bold text-gray-950">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">{index === 0 && hasVerifiedResults ? `${settledCount} ${copy.home.settledLabel.toLowerCase()}. ` : ''}{item.body}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-blue-700">{item.cta}<ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span>
+                </Link>
               )
             })}
+          </div>
+          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-3xl"><h3 className="font-bold text-indigo-950">{copy.home.differenceHeading}</h3><p className="mt-1 text-sm leading-6 text-indigo-900">{copy.home.differenceBody}</p></div>
+            <Link href="/track-record#published-picks" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
           </div>
         </section>
 
@@ -618,42 +475,6 @@ export default function HomePage() {
           >
             {copy.home.viewAllLeagues} →
           </Link>
-        </section>
-
-        {/* ── 7b. Continuous improvement — stated without claiming success.
-            The honest tense is future-conditional: the record exists to find
-            out whether the filtering helps, not to celebrate that it does. ── */}
-        <section aria-labelledby="improvement-heading" className="mt-16 sm:mt-20">
-          <h2
-            id="improvement-heading"
-            className="text-2xl font-bold text-gray-900 sm:text-3xl"
-          >
-            {copy.home.improvementHeading}
-          </h2>
-          <p className="mt-4 max-w-3xl text-sm leading-relaxed text-gray-600 sm:text-base">
-            {copy.home.improvementBody}
-          </p>
-        </section>
-
-        {/* ── 7c. The manifesto. One authored text shared with About — the
-            philosophy must not be paraphrased per-page or it drifts. ── */}
-        <section
-          aria-labelledby="manifesto-heading"
-          className="mt-16 rounded-2xl border border-gray-200 bg-white p-8 sm:mt-20 sm:p-10"
-        >
-          <h2
-            id="manifesto-heading"
-            className="max-w-3xl text-xl font-bold leading-snug text-gray-900 sm:text-2xl"
-          >
-            {copy.manifesto.heading}
-          </h2>
-          <div className="mt-5 max-w-3xl space-y-4">
-            {copy.manifesto.paragraphs.map((paragraph) => (
-              <p key={paragraph.slice(0, 24)} className="text-sm leading-relaxed text-gray-600 sm:text-base">
-                {paragraph}
-              </p>
-            ))}
-          </div>
         </section>
 
         {/* ── 8. Final CTA ────────────────────────────────────────────── */}

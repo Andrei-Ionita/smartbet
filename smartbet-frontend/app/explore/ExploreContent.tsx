@@ -35,6 +35,7 @@ export default function ExploreContent() {
   const { language } = useLanguage()
   const ro = language === 'ro'
   const [searchQuery, setSearchQuery] = useState('')
+  const [initialQueryReady, setInitialQueryReady] = useState(false)
   const [selectedLeague, setSelectedLeague] = useState('')
   const [searchResults, setSearchResults] = useState<SearchResult[]>([])
   const [searchState, setSearchState] = useState<SearchState>('idle')
@@ -50,6 +51,12 @@ export default function ExploreContent() {
   const inFlight = useRef<AbortController | null>(null)
   const fixtureRequestSeq = useRef(0)
   const fixtureInFlight = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    setSearchQuery(params.get('q')?.trim() ?? '')
+    setInitialQueryReady(true)
+  }, [])
 
   useEffect(() => {
     const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
@@ -124,9 +131,10 @@ export default function ExploreContent() {
   }
 
   useEffect(() => {
+    if (!initialQueryReady) return
     const timeoutId = window.setTimeout(performQuery, 450)
     return () => window.clearTimeout(timeoutId)
-  }, [searchQuery, selectedLeague]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [initialQueryReady, searchQuery, selectedLeague]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFixture = async (fixtureId: number) => {
     fixtureInFlight.current?.abort()

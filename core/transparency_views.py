@@ -34,6 +34,19 @@ def public_strategy_lab(request):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 @cache_page(60)
+def public_strategy_highlights(request):
+    """Up to three distinct live research fits for the homepage."""
+    from core.services.strategy_lab import build_public_strategy_highlights
+
+    return Response({
+        'success': True,
+        'data': build_public_strategy_highlights(),
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@cache_page(60)
 def public_strategy_fits(request, strategy_key):
     """Fresh, qualified research fits for one public strategy page."""
     from core.services.strategy_lab import build_public_current_fits

@@ -169,6 +169,9 @@ const EN = {
 
   home: {
     signalsHeading: 'Live signals right now',
+    searchLabel: 'Search any covered fixture',
+    searchPlaceholder: 'Search a team, league or country',
+    searchCta: 'Search fixtures',
     shortlistEyebrow: 'Research layer · up to five fixtures',
     shortlistHeading: 'Today\'s model shortlist',
     shortlistSupporting:
@@ -200,6 +203,30 @@ const EN = {
     diagnosticsAffected: 'fixtures affected',
     methodologyCta: 'Read the exact methodology',
     browseAll: 'Browse all fixtures',
+    learningEyebrow: 'Public evidence, kept short',
+    learningHeading: 'What BetGlitch is learning',
+    learningSupporting:
+      'Follow the evidence without reading a wall of marketing copy: what was published, how the scores behave and which exact rules are running now.',
+    learningLinks: [
+      {
+        title: 'Results',
+        body: 'Every settled Gem from the active strategy remains visible, including losses.',
+        cta: 'Open Results',
+        href: '/track-record#results',
+      },
+      {
+        title: 'Calibration',
+        body: 'See whether model score ranges have matched real outcomes as the forward sample grows.',
+        cta: 'Inspect calibration',
+        href: '/calibration',
+      },
+      {
+        title: 'Methodology',
+        body: 'Read the current ranking, price and qualification rules by version.',
+        cta: 'Read the rules',
+        href: '/methodology',
+      },
+    ],
 
     // ── The BetGlitch difference: a conceptual contrast, not a feature list.
     differenceContrastHeading: 'The BetGlitch difference',
@@ -636,6 +663,9 @@ const RO: typeof EN = {
 
   home: {
     signalsHeading: 'Semnale live acum',
+    searchLabel: 'Caută orice meci acoperit',
+    searchPlaceholder: 'Caută o echipă, ligă sau țară',
+    searchCta: 'Caută meciuri',
     shortlistEyebrow: 'Nivel de cercetare · până la cinci meciuri',
     shortlistHeading: 'Lista modelului de astăzi',
     shortlistSupporting:
@@ -667,6 +697,30 @@ const RO: typeof EN = {
     diagnosticsAffected: 'meciuri afectate',
     methodologyCta: 'Citește metodologia exactă',
     browseAll: 'Vezi toate meciurile',
+    learningEyebrow: 'Dovezi publice, pe scurt',
+    learningHeading: 'Ce învață BetGlitch',
+    learningSupporting:
+      'Urmărește dovezile fără un zid de text de marketing: ce a fost publicat, cum se comportă scorurile și ce reguli exacte rulează acum.',
+    learningLinks: [
+      {
+        title: 'Rezultate',
+        body: 'Fiecare Gem încheiat din strategia activă rămâne vizibil, inclusiv pierderile.',
+        cta: 'Deschide Rezultatele',
+        href: '/track-record#results',
+      },
+      {
+        title: 'Calibrare',
+        body: 'Vezi dacă intervalele scorului modelului au corespuns rezultatelor reale pe măsură ce eșantionul forward crește.',
+        cta: 'Analizează calibrarea',
+        href: '/calibration',
+      },
+      {
+        title: 'Metodologie',
+        body: 'Citește regulile actuale de clasare, preț și calificare, separate pe versiuni.',
+        cta: 'Citește regulile',
+        href: '/methodology',
+      },
+    ],
 
     differenceContrastHeading: 'Diferența BetGlitch',
     differenceOthersLabel: 'Majoritatea produselor de predicții',

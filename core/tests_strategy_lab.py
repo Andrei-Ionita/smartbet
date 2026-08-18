@@ -389,6 +389,33 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertTrue(body['policy']['empty_is_valid'])
         self.assertFalse(body['policy']['fit_is_public_pick'])
 
+    def test_homepage_highlights_use_distinct_strategies_and_fixtures(self):
+        strategy_lab.capture(
+            {'strategy_candidates': [candidate(fixture_id=8151)]},
+            'homepage-specialist',
+        )
+        direct = signal(fixture_id=8152, probability=.6, odds=2.0)
+        strategy_lab.capture_signal_observations(
+            [direct], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        response = self.client.get(
+            '/api/transparency/strategies/current-fits/',
+        )
+
+        self.assertEqual(response.status_code, 200)
+        body = response.json()['data']
+        self.assertLessEqual(len(body['highlights']), 3)
+        self.assertEqual(
+            len({row['strategy_key'] for row in body['highlights']}),
+            len(body['highlights']),
+        )
+        self.assertEqual(
+            len({row['fit']['fixture_id'] for row in body['highlights']}),
+            len(body['highlights']),
+        )
+        self.assertFalse(body['policy']['fit_is_public_pick'])
+
     def test_public_current_fits_exclude_failed_or_stale_latest_state(self):
         now = timezone.now()
         kickoff = now + timedelta(hours=8)

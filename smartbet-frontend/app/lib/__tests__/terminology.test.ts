@@ -25,6 +25,7 @@ const PUBLIC_SOURCES = [
   'app/about/page.tsx',
   'app/register/page.tsx',
   'app/explore/ExploreContent.tsx',
+  'app/components/HomepageStrategyFits.tsx',
   'app/strategies/StrategiesContent.tsx',
   'app/strategies/[slug]/StrategyDetailContent.tsx',
   'app/track-record/page.tsx',
@@ -77,6 +78,16 @@ describe('the homepage answers the five-second question', () => {
   it('offers one primary action and one secondary, not three peers', () => {
     // The old hero had Explore + Track Record + Learn More at equal weight.
     expect(src).not.toContain('landing.learnMore')
+  })
+
+  it('makes fixture search direct and keeps the evidence loop compact', () => {
+    expect(src).toContain('onSubmit={searchFixture}')
+    expect(src).toContain("`/explore?q=${encodeURIComponent(query)}`")
+    expect(src).toContain('copy.home.learningLinks.map')
+    expect(src).toContain("href=\"/track-record#published-picks\"")
+    expect(getCopy('en').home.learningLinks.map((item) => item.href)).toEqual([
+      '/track-record#results', '/calibration', '/methodology',
+    ])
   })
 
   it('carries the responsible-use statement', () => {
