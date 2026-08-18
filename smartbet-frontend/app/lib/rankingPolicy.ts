@@ -46,15 +46,16 @@ export const RANKING_POLICY = {
   confidenceFloor: 0.55,
 
   /** Minimum probability gap to the next outcome, per market shape. */
-  minimumGap: { draw: 0.15, other: 0.12 },
+  minimumGap: { draw: 0.10, other: 0.08 },
 
   /** Provider quality, native value and canonical-price gates. */
   fixturePredictableRequired: VALUE_STRATEGY_POLICY.requirePredictableFixture,
-  allowedLeaguePredictability: VALUE_STRATEGY_POLICY.leaguePredictability,
+  rejectedLeaguePredictability: VALUE_STRATEGY_POLICY.rejectedLeaguePredictability,
   rejectedPredictivePower: VALUE_STRATEGY_POLICY.rejectedPredictivePower,
   activeAlignedValueBetRequired: VALUE_STRATEGY_POLICY.requireActiveAlignedValueBet,
   correctScoreAgreementRequired: VALUE_STRATEGY_POLICY.requireCorrectScoreAgreement,
   doubleChanceSupportRequired: VALUE_STRATEGY_POLICY.requireDoubleChanceSupport,
+  maximumCrossMarketContradictions: VALUE_STRATEGY_POLICY.maximumCrossMarketContradictions,
   minimumFairOddsBuffer: VALUE_STRATEGY_POLICY.minimumFairOddsBuffer,
   minimumBookmakers: VALUE_STRATEGY_POLICY.minimumBookmakers,
   maximumRelativePriceSpread: VALUE_STRATEGY_POLICY.maximumRelativePriceSpread,
@@ -66,7 +67,7 @@ export const RANKING_POLICY = {
   gemPayoutSource: 'verified canonical multi-bookmaker quote',
   gemPrimaryRanking: 'kelly-style probability-payout balance (ranking only, not a stake)',
   selection:
-    'probability-payout balance, league predictability, predictive-power trend, price advantage, model probability, hit ratio, then price dispersion',
+    'probability-payout balance, supporting cross-market evidence, league predictability, predictive-power trend, price advantage, model probability, hit ratio, then price dispersion',
 } as const
 
 /**

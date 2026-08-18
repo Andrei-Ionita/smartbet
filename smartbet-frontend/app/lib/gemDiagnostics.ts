@@ -32,7 +32,11 @@ export function categorizeGemRejectionReason(reason: string): GemRejectionCatego
     return 'reliability'
   }
   if (reason.startsWith('provider_')) return 'provider_value'
-  if (reason.startsWith('correct_score_') || reason.startsWith('double_chance_')) {
+  if (
+    reason.startsWith('correct_score_') ||
+    reason.startsWith('double_chance_') ||
+    reason.startsWith('cross_market_')
+  ) {
     return 'cross_market_consensus'
   }
   if (

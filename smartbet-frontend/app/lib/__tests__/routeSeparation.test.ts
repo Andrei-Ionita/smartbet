@@ -45,12 +45,38 @@ const INTERNAL_FIXTURE = {
   is_recommended: true,
 }
 
+const INTERNAL_SHORTLIST_ITEM = {
+  fixture_id: 2,
+  home_team: 'C', away_team: 'D', league: 'L',
+  kickoff: '2099-08-13 18:45:00', leading_selection: 'Home',
+  signal_strength: 0.62, signal_gap: 0.14, verified_price: 1.9,
+  bookmaker: 'X', bookmakers_checked: 3, price_age_hours: 2,
+  relative_price_spread: 0.08, supporting_models: 1,
+  explicit_contradictions: 0, value_signal_aligned: false,
+  strategy_evaluation: {
+    eligible: false,
+    rejectionReasons: ['provider_value_bet_missing'],
+    fixturePredictable: true,
+    leaguePerformance: {
+      marketKey: 'fulltime_result', historicalLogLoss: null, hitRatio: null,
+      predictability: null, predictivePower: null, currentLogLoss: null,
+    },
+    valueBet: null,
+    crossMarket: {
+      correctScoreOutcome: 'home', correctScoreVector: null,
+      doubleChanceSupportsSelection: null, leadingDoubleChance: null,
+    },
+    fairOddsBuffer: null, relativePriceSpread: 0.08, priceAgeHours: 2,
+  },
+}
+
 const OK_PAYLOAD = {
   ok: true as const,
   recommendations: [INTERNAL_FIXTURE],
   envelope: {
     total: 1, leagues_covered: 27, fixtures_analyzed: 10,
     fixtures_with_predictions: 5,
+    model_shortlist: [INTERNAL_SHORTLIST_ITEM],
     lastUpdated: '2026-08-06T09:00:00.000Z', message: 'Success',
   },
   confidenceThreshold: 55,
@@ -155,6 +181,13 @@ describe('PUBLIC /api/recommendations', () => {
     expect(rec.odds).toBe(1.8)
     expect(rec.best_market.probability_gap).toBe(0.3)
     expect(body.total).toBe(1)
+    expect(body.model_shortlist[0]).toMatchObject({
+      fixture_id: 2,
+      leading_selection: 'Home',
+      signal_strength: 0.62,
+      bookmakers_checked: 3,
+    })
+    expect(JSON.stringify(body.model_shortlist)).not.toContain('strategy_evaluation')
   })
 
   it('ignores X-Internal-Auth entirely — no header can widen the response', async () => {
@@ -198,6 +231,7 @@ describe('PUBLIC /api/recommendations', () => {
     expect(res.status).toBe(503)
     expect(JSON.stringify(body)).not.toContain('SUPERSECRET')
     expect(body.recommendations).toEqual([])
+    expect(body.model_shortlist).toEqual([])
     expect(body.message).toBe('The Gem feed is temporarily unavailable.')
     expect(res.headers.get('cache-control')).toBe('no-store')
   })
@@ -225,11 +259,13 @@ describe('PUBLIC /api/recommendations', () => {
       feed: {
         recommendations: [{ ...INTERNAL_FIXTURE, kickoff: '2020-01-01 12:00:00' }],
         ...OK_PAYLOAD.envelope,
+        model_shortlist: [{ ...INTERNAL_SHORTLIST_ITEM, kickoff: '2020-01-01 12:00:00' }],
       },
     })
     const { GET } = await import('../../api/recommendations/route')
     const body = await (await GET()).json()
     expect(body.recommendations).toEqual([])
+    expect(body.model_shortlist).toEqual([])
     expect(body.gem_scan.status).toBe('current')
   })
 })

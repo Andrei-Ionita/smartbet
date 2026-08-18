@@ -169,17 +169,26 @@ const EN = {
 
   home: {
     signalsHeading: 'Live signals right now',
+    shortlistEyebrow: 'Research layer · up to five fixtures',
+    shortlistHeading: 'Today\'s model shortlist',
+    shortlistSupporting:
+      'Upcoming fixtures with a clear leading model signal and a fresh multi-bookmaker price, selected to help you decide what deserves deeper investigation.',
+    shortlistDistinction:
+      'These are research starting points, not published picks. They do not enter the verified Gem record.',
+    noShortlistHeading: 'No shortlist fixture is current right now',
+    noShortlistBody:
+      'The scan did not find a fixture with enough signal separation, data and price coverage. Browse Explore for the full fixture set.',
     gemsHeading: 'Today\'s qualified Gems',
     gemsLimit: 'Up to three can appear. If none pass every gate, we publish none.',
     gemsSupporting:
-      'The few fixtures that passed every reliability, market-consensus and verified-price gate. Ranked by model probability–payout balance, not by the biggest odds.',
+      'The few fixtures that passed every core reliability, model-versus-price and verified-price gate. Supporting market signals strengthen the ranking instead of acting as duplicate vetoes.',
     scanFixtures: 'fixtures scanned',
     scanPredictions: 'prediction-ready',
     scanQualified: 'passed every gate',
     scanShown: 'shown',
     noGemsHeading: 'No fixture earned Gem status',
     noGemsBody:
-      'None passed every reliability, consensus and price test. Showing nothing is the filter working—not a reason to lower the standard.',
+      'None passed every core reliability, model-versus-price and price test. The research shortlist above can still show fixtures worth investigating without presenting them as qualified Gems.',
     diagnosticsHeading: 'Why fixtures were filtered out',
     diagnosticsBody:
       'This scan reports where candidates stopped. One fixture can fail more than one strategy check, so the reason counts may overlap.',
@@ -627,17 +636,26 @@ const RO: typeof EN = {
 
   home: {
     signalsHeading: 'Semnale live acum',
+    shortlistEyebrow: 'Nivel de cercetare · până la cinci meciuri',
+    shortlistHeading: 'Lista modelului de astăzi',
+    shortlistSupporting:
+      'Meciuri viitoare cu un semnal principal clar și o cotă recentă din mai multe case, selectate pentru a te ajuta să decizi ce merită analizat în profunzime.',
+    shortlistDistinction:
+      'Sunt puncte de pornire pentru analiză, nu selecții publicate. Nu intră în istoricul verificat al Gem-urilor.',
+    noShortlistHeading: 'Nu există acum un meci actual pentru listă',
+    noShortlistBody:
+      'Scanarea nu a găsit un meci cu suficientă separare a semnalului, date și acoperire de cote. Explore conține toate meciurile.',
     gemsLimit: 'Pot apărea cel mult trei. Dacă niciunul nu trece toate filtrele, nu publicăm nimic.',
     gemsHeading: 'Gem-urile calificate astăzi',
     gemsSupporting:
-      'Puținele meciuri care au trecut toate filtrele de fiabilitate, consens între piețe și preț verificat. Clasate după echilibrul probabilitate–plată al modelului, nu după cea mai mare cotă.',
+      'Puținele meciuri care au trecut toate filtrele esențiale de fiabilitate, model–cotă și preț verificat. Semnalele piețelor de sprijin întăresc clasarea, fără a acționa ca veto-uri duplicate.',
     scanFixtures: 'meciuri scanate',
     scanPredictions: 'cu predicții disponibile',
     scanQualified: 'au trecut toate filtrele',
     scanShown: 'afișate',
     noGemsHeading: 'Niciun meci nu a obținut statutul Gem',
     noGemsBody:
-      'Niciunul nu a trecut toate testele de fiabilitate, consens și preț. Faptul că nu afișăm nimic arată că filtrul funcționează—nu este un motiv să coborâm standardul.',
+      'Niciunul nu a trecut toate testele esențiale de fiabilitate, model–cotă și preț. Lista de cercetare de mai sus poate arăta totuși meciuri care merită analizate, fără a le prezenta drept Gem-uri calificate.',
     diagnosticsHeading: 'De ce au fost filtrate meciurile',
     diagnosticsBody:
       'Scanarea arată unde s-au oprit candidații. Un meci poate eșua mai multe verificări ale strategiei, deci numerele motivelor se pot suprapune.',

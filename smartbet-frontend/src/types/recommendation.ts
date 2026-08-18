@@ -8,6 +8,25 @@ import type { CanonicalPriceFields } from '@/app/lib/marketPricing'
 
 export type { CanonicalPriceFields }
 
+export interface ModelShortlistItem {
+  fixture_id: number
+  home_team: string
+  away_team: string
+  league: string
+  kickoff: string
+  leading_selection: string
+  signal_strength: number
+  signal_gap: number
+  verified_price: number
+  bookmaker: string | null
+  bookmakers_checked: number
+  price_age_hours: number | null
+  supporting_models: number
+  gem_gap_categories: string[]
+  why_shortlisted: string[]
+  why_not_gem: string[]
+}
+
 export interface Recommendation extends CanonicalPriceFields {
   fixture_id: number
   home_team: string

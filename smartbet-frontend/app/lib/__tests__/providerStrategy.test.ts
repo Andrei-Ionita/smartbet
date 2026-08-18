@@ -4,6 +4,7 @@ import {
   compareGemStrategy,
   crossMarketConsensus,
   evaluateValueStrategy,
+  evaluateValueStrategyV3,
   fixturePredictability,
   gemMetrics,
   leagueMarketPerformance,
@@ -167,7 +168,7 @@ describe('value strategy', () => {
     expect(result.rejectionReasons).toContain('provider_value_bet_not_aligned')
   })
 
-  it('rejects missing league evidence, stale prices and thin books', () => {
+  it('treats absent league labels as neutral but still rejects stale prices and thin books', () => {
     const result = evaluateValueStrategy({
       ...base,
       leaguePerformancePayload: [],
@@ -178,12 +179,52 @@ describe('value strategy', () => {
       },
     })
     expect(result.eligible).toBe(false)
-    expect(result.rejectionReasons).toEqual(expect.arrayContaining([
+    expect(result.rejectionReasons).not.toEqual(expect.arrayContaining([
       'league_predictability_missing',
       'league_predictive_power_missing',
+    ]))
+    expect(result.rejectionReasons).toEqual(expect.arrayContaining([
       'insufficient_bookmaker_coverage',
       'price_stale_or_timestamp_missing',
     ]))
+  })
+
+  it('keeps the frozen v3 rule available as a shadow comparator', () => {
+    const result = evaluateValueStrategyV3({
+      ...base,
+      leaguePerformancePayload: [],
+    })
+    expect(result.eligible).toBe(false)
+    expect(result.rejectionReasons).toEqual(expect.arrayContaining([
+      'league_predictability_missing',
+      'league_predictive_power_missing',
+    ]))
+  })
+
+  it('uses related market signals as support and rejects only a double contradiction', () => {
+    const oneContradiction = evaluateValueStrategy({
+      ...base,
+      predictions: predictions.map(row => row.type_id === 240
+        ? { ...row, predictions: { scores: { '0-1': 70, '1-0': 30 } } }
+        : row),
+    })
+    expect(oneContradiction.eligible).toBe(true)
+
+    const twoContradictions = evaluateValueStrategy({
+      ...base,
+      predictions: predictions.map(row => {
+        if (row.type_id === 240) {
+          return { ...row, predictions: { scores: { '0-1': 70, '1-0': 30 } } }
+        }
+        if (row.type_id === 239) {
+          return { ...row, predictions: { draw_home: 20, draw_away: 70, home_away: 40 } }
+        }
+        return row
+      }),
+    })
+    expect(twoContradictions.eligible).toBe(false)
+    expect(twoContradictions.rejectionReasons)
+      .toContain('cross_market_consensus_contradiction')
   })
 
   it('does not let an unrelated value bet qualify BTTS or totals', () => {

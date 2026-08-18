@@ -14,6 +14,7 @@ describe('Gem rejection diagnostics', () => {
     ['provider_value_bet_inactive', 'provider_value'],
     ['correct_score_consensus_missing', 'cross_market_consensus'],
     ['double_chance_consensus_not_aligned', 'cross_market_consensus'],
+    ['cross_market_consensus_contradiction', 'cross_market_consensus'],
     ['canonical_price_buffer_too_small', 'price_quality'],
     ['insufficient_bookmaker_coverage', 'price_quality'],
     ['price_dispersion_too_wide', 'price_quality'],

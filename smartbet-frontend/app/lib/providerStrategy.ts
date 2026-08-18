@@ -10,19 +10,22 @@ import type { OddsProvenance, ProductMarket } from './oddsSelection'
  * The old engine instead treated an uncalibrated ranking score as a probability,
  * derived its own EV from it, and called the top ten rows recommendations.  This
  * module does not manufacture another probability.  A public betting candidate
- * must be supported by the provider's own value model, its own league report
- * card, and a fresh, broadly quoted canonical price.
+ * must be supported by the provider's own value model and a fresh, broadly
+ * quoted canonical price. League and cross-market evidence strengthen the
+ * ordering and can reject explicit poor or contradictory evidence; absent
+ * secondary labels no longer behave like independent vetoes.
  */
 
 export const VALUE_STRATEGY_POLICY = {
-  generation: 3,
+  generation: 4,
   eligibleMarkets: ['1x2'] as const,
   requirePredictableFixture: true,
-  leaguePredictability: ['good', 'high'] as const,
+  rejectedLeaguePredictability: ['poor', 'low', 'bad'] as const,
   rejectedPredictivePower: ['down'] as const,
   requireActiveAlignedValueBet: true,
-  requireCorrectScoreAgreement: true,
-  requireDoubleChanceSupport: true,
+  requireCorrectScoreAgreement: false,
+  requireDoubleChanceSupport: false,
+  maximumCrossMarketContradictions: 1,
   minimumFairOddsBuffer: 0.02,
   minimumBookmakers: 3,
   maximumRelativePriceSpread: 0.15,
@@ -374,13 +377,10 @@ export function evaluateValueStrategy(input: StrategyInput): StrategyEvaluation 
     predictable === false ? 'fixture_not_predictable' : 'fixture_predictability_missing',
   )
 
-  if (!VALUE_STRATEGY_POLICY.leaguePredictability.includes(performance.predictability as any)) {
-    reasons.push(performance.predictability
-      ? 'league_predictability_below_good'
-      : 'league_predictability_missing')
+  if (VALUE_STRATEGY_POLICY.rejectedLeaguePredictability.includes(performance.predictability as any)) {
+    reasons.push('league_predictability_poor')
   }
-  if (!performance.predictivePower) reasons.push('league_predictive_power_missing')
-  else if (VALUE_STRATEGY_POLICY.rejectedPredictivePower.includes(performance.predictivePower as any)) {
+  if (VALUE_STRATEGY_POLICY.rejectedPredictivePower.includes(performance.predictivePower as any)) {
     reasons.push('league_predictive_power_down')
   }
 
@@ -397,14 +397,17 @@ export function evaluateValueStrategy(input: StrategyInput): StrategyEvaluation 
     }
   }
 
-  if (!crossMarket.correctScoreOutcome) reasons.push('correct_score_consensus_missing')
-  else if (crossMarket.correctScoreOutcome !== selected) {
-    reasons.push('correct_score_consensus_not_aligned')
-  }
-  if (crossMarket.doubleChanceSupportsSelection === null) {
-    reasons.push('double_chance_consensus_missing')
-  } else if (!crossMarket.doubleChanceSupportsSelection) {
-    reasons.push('double_chance_consensus_not_aligned')
+  // Correct-score and double-chance are produced from closely related model
+  // inputs. Generation 3 made both mandatory and therefore counted correlated
+  // evidence as two independent vetoes. Generation 4 keeps them as useful
+  // ordering evidence, while still rejecting the rare case where BOTH models
+  // explicitly contradict the selected outcome. Missing evidence is neutral.
+  const crossMarketContradictions = [
+    crossMarket.correctScoreOutcome !== null && crossMarket.correctScoreOutcome !== selected,
+    crossMarket.doubleChanceSupportsSelection === false,
+  ].filter(Boolean).length
+  if (crossMarketContradictions > VALUE_STRATEGY_POLICY.maximumCrossMarketContradictions) {
+    reasons.push('cross_market_consensus_contradiction')
   }
 
   const fairOddsBuffer = valueBet?.fairOdds && valueBet.fairOdds > 1
@@ -448,6 +451,44 @@ export function evaluateValueStrategy(input: StrategyInput): StrategyEvaluation 
 }
 
 /**
+ * Frozen Generation-3 evaluator used only as a shadow comparator. It lets the
+ * monitoring payload report how many fixtures the previous rule would have
+ * admitted without publishing, ingesting or rewriting a v3 pick.
+ */
+export function evaluateValueStrategyV3(input: StrategyInput): StrategyEvaluation {
+  const result = evaluateValueStrategy(input)
+  const reasons = result.rejectionReasons.filter(
+    reason => reason !== 'cross_market_consensus_contradiction',
+  )
+  const selected = input.predictedOutcome.trim().toLowerCase()
+  const performance = result.leaguePerformance
+  const crossMarket = result.crossMarket
+
+  if (!['good', 'high'].includes(performance.predictability ?? '')) {
+    reasons.push(performance.predictability
+      ? 'league_predictability_below_good'
+      : 'league_predictability_missing')
+  }
+  if (!performance.predictivePower) reasons.push('league_predictive_power_missing')
+
+  if (!crossMarket.correctScoreOutcome) reasons.push('correct_score_consensus_missing')
+  else if (crossMarket.correctScoreOutcome !== selected) {
+    reasons.push('correct_score_consensus_not_aligned')
+  }
+  if (crossMarket.doubleChanceSupportsSelection === null) {
+    reasons.push('double_chance_consensus_missing')
+  } else if (!crossMarket.doubleChanceSupportsSelection) {
+    reasons.push('double_chance_consensus_not_aligned')
+  }
+
+  return {
+    ...result,
+    eligible: reasons.length === 0,
+    rejectionReasons: Array.from(new Set(reasons)),
+  }
+}
+
+/**
  * Rank only candidates that already passed every eligibility gate. The first
  * term is the Kelly growth fraction without turning it into a stake: it
  * rewards a useful price advantage while penalising payout-dependent longshot
@@ -457,8 +498,15 @@ export function compareGemStrategy(
   a: StrategyEvaluation,
   b: StrategyEvaluation,
 ): number {
-  const predictabilityRank: Record<string, number> = { high: 2, good: 1 }
-  const powerRank: Record<string, number> = { up: 2, unchanged: 1 }
+  const predictabilityRank: Record<string, number> = {
+    high: 3, good: 2, medium: 1, average: 1,
+  }
+  const powerRank: Record<string, number> = { up: 2, unchanged: 1, stable: 1 }
+  const supportCount = (value: StrategyEvaluation) => [
+    value.crossMarket.correctScoreOutcome !== null &&
+      value.crossMarket.correctScoreOutcome === value.valueBet?.outcome,
+    value.crossMarket.doubleChanceSupportsSelection === true,
+  ].filter(Boolean).length
   const by = (left: number | null, right: number | null, descending = true) => {
     const l = left ?? Number.NEGATIVE_INFINITY
     const r = right ?? Number.NEGATIVE_INFINITY
@@ -467,6 +515,7 @@ export function compareGemStrategy(
 
   return (
     by(gemMetrics(a).probabilityPayoutBalance, gemMetrics(b).probabilityPayoutBalance) ||
+    by(supportCount(a), supportCount(b)) ||
     by(predictabilityRank[a.leaguePerformance.predictability ?? ''] ?? 0,
       predictabilityRank[b.leaguePerformance.predictability ?? ''] ?? 0) ||
     by(powerRank[a.leaguePerformance.predictivePower ?? ''] ?? 0,
@@ -478,5 +527,5 @@ export function compareGemStrategy(
   )
 }
 
-/** Backwards-compatible name for internal callers while Generation 3 rolls out. */
+/** Backwards-compatible name for internal callers while Generation 4 rolls out. */
 export const compareValueStrategy = compareGemStrategy

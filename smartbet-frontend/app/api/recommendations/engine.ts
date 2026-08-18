@@ -39,8 +39,15 @@ import {
 import {
   compareGemStrategy,
   evaluateValueStrategy,
+  evaluateValueStrategyV3,
   VALUE_STRATEGY_POLICY,
 } from '@/app/lib/providerStrategy'
+import {
+  buildModelShortlistCandidate,
+  compareModelShortlist,
+  MODEL_SHORTLIST_POLICY,
+  type InternalModelShortlistCandidate,
+} from '@/app/lib/modelShortlist'
 import { SIGNAL_COMPETITIONS } from '@/app/lib/coverage'
 import { buildExpandedModelCandidates } from '@/app/lib/expandedModelMarkets'
 import { buildAsianHandicapResearchCandidates } from '@/app/lib/asianHandicapResearch'
@@ -94,7 +101,7 @@ const MARKET_CONFIG = {
     // fulltime-result model. Verified via SportMonks /core/types lookup.
     type_ids: [237],
     outcomes: ['home', 'draw', 'away'],
-    min_gap: 0.12,  // 12% for home/away, 15% for draw (handled in code)
+    min_gap: 0.08,  // 8% for home/away, 10% for draw (handled in code)
   },
   'btts': {
     name: 'BTTS',
@@ -240,6 +247,7 @@ export async function buildRecommendationPayload(): Promise<
     const keyLeagues = SIGNAL_COMPETITIONS
 
     const allRecommendations: any[] = []
+    const allShortlistCandidates: InternalModelShortlistCandidate[] = []
     let totalFixtures = 0
     let fixturesWithPredictions = 0
     let strategyEvaluatedFixtures = 0
@@ -248,6 +256,7 @@ export async function buildRecommendationPayload(): Promise<
     let shadowPositiveEdgeCandidates = 0
     let asianHandicapCandidatesEvaluated = 0
     let asianHandicapRobustEdges = 0
+    let v3QualifiedFixtures = 0
     const strategyRejectionCounts = emptyGemRejectionCounts()
 
     // Limited loop for safety if needed, but processing keyLeagues logic remains
@@ -268,9 +277,9 @@ export async function buildRecommendationPayload(): Promise<
           `?api_token=${token}&include=type&per_page=50`
         const [data, leaguePerformancePayload] = await Promise.all([
           apiClient.request(`${url}?${params}`),
-          // Missing report-card data is not silently treated as positive
-          // evidence. The strategy evaluator receives an empty payload and
-          // rejects the candidate with a diagnostic reason.
+          // Missing report-card data is passed through as unknown, never
+          // silently upgraded to positive evidence. Generation 4 ranks known
+          // good evidence above unknown and still rejects explicit poor/down.
           apiClient.request(performanceUrl).catch(() => ({ data: [] })),
         ])
         const fixtures = data.data || []
@@ -339,7 +348,7 @@ export async function buildRecommendationPayload(): Promise<
               // Deterministic price: market_id 1 ("Fulltime Result"), exact label.
               const x12Price = priceMarket(fixture.odds, '1x2', outcome)
               const ev = canonicalEV(maxProb, x12Price)
-              const minGap = outcome === 'draw' ? 0.15 : 0.12
+              const minGap = outcome === 'draw' ? 0.1 : 0.08
 
               const marketData: MarketPrediction = {
                 market_type: '1x2',
@@ -637,6 +646,36 @@ export async function buildRecommendationPayload(): Promise<
               odds: bestMarketOdds,
               oddsProvenance: bestMarketProvenance,
             })
+            const v3Evaluation = evaluateValueStrategyV3({
+              market: bestMarket.market_type,
+              predictedOutcome: bestMarket.predicted_outcome,
+              metadata: fixture.metadata,
+              predictions,
+              leaguePerformancePayload,
+              odds: bestMarketOdds,
+              oddsProvenance: bestMarketProvenance,
+            })
+            const v3MinimumGap = bestMarket.predicted_outcome.toLowerCase() === 'draw'
+              ? 0.15
+              : 0.12
+            if (v3Evaluation.eligible && bestMarket.probability_gap >= v3MinimumGap) {
+              v3QualifiedFixtures++
+            }
+
+            const shortlistCandidate = buildModelShortlistCandidate({
+              fixtureId: fixture.id,
+              homeTeam,
+              awayTeam,
+              league: league.name,
+              kickoff: fixture.starting_at,
+              predictedOutcome: bestMarket.predicted_outcome,
+              signalStrength: bestMarket.probability,
+              signalGap: bestMarket.probability_gap,
+              odds: bestMarketOdds,
+              oddsProvenance: bestMarketProvenance,
+              strategyEvaluation,
+            })
+            if (shortlistCandidate) allShortlistCandidates.push(shortlistCandidate)
             strategyEvaluatedFixtures++
             if (!strategyEvaluation.eligible) {
               recordGemRejection(
@@ -899,7 +938,7 @@ export async function buildRecommendationPayload(): Promise<
       }
     }
 
-    // Every row here has passed all Generation 3 gates. Rank the survivors by
+    // Every row here has passed all Generation 4 gates. Rank the survivors by
     // provider-probability/payout balance, then use the provider report card
     // and price consensus as deterministic tie-breakers.
     allRecommendations.sort((a, b) =>
@@ -909,6 +948,12 @@ export async function buildRecommendationPayload(): Promise<
     let featuredGems = allRecommendations
       .slice(0, VALUE_STRATEGY_POLICY.maximumSelections)
       .map((rec, index) => ({ ...rec, is_recommended: true, gem_rank: index + 1 }))
+    const modelShortlist = allShortlistCandidates
+      // Keep this cohort technically and semantically separate from Gems. A
+      // fixture that qualified as a Gem belongs only in the Gem collection.
+      .filter(candidate => !candidate.strategy_evaluation.eligible)
+      .sort(compareModelShortlist)
+      .slice(0, MODEL_SHORTLIST_POLICY.maximumSelections)
 
     // --- ENRICHMENT: Fetch Standings for Form Data ---
     try {
@@ -1047,6 +1092,7 @@ export async function buildRecommendationPayload(): Promise<
         leagues_covered: keyLeagues.length,
         fixtures_analyzed: totalFixtures,
         fixtures_with_predictions: fixturesWithPredictions,
+        model_shortlist: modelShortlist,
         gem_scan: {
           fixtures_scanned: totalFixtures,
           fixtures_with_predictions: fixturesWithPredictions,
@@ -1065,6 +1111,10 @@ export async function buildRecommendationPayload(): Promise<
             strategyRejectionCounts,
           ),
           rejection_counts_overlap: true,
+          previous_policy_comparison: {
+            generation: 3,
+            qualified_fixtures: v3QualifiedFixtures,
+          },
         },
         market_research: {
           direct_model_markets: Object.keys(MARKET_CONFIG).length,

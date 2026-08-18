@@ -31,7 +31,7 @@ describe('the declared policy mirrors the engine', () => {
 
   it('declares every material quality, value and price gate', () => {
     for (const key of [
-      'requirePredictableFixture', 'leaguePredictability',
+      'requirePredictableFixture', 'rejectedLeaguePredictability',
       'requireActiveAlignedValueBet', 'minimumFairOddsBuffer',
       'requireCorrectScoreAgreement', 'requireDoubleChanceSupport',
       'minimumBookmakers', 'maximumRelativePriceSpread',
@@ -64,9 +64,10 @@ describe('the version is derived, not declared', () => {
   it('covers every ranking-relevant parameter', () => {
     for (const key of [
       'confidenceFloor', 'minimumGap', 'fixturePredictableRequired',
-      'allowedLeaguePredictability', 'rejectedPredictivePower',
+      'rejectedLeaguePredictability', 'rejectedPredictivePower',
       'activeAlignedValueBetRequired', 'minimumFairOddsBuffer',
       'correctScoreAgreementRequired', 'doubleChanceSupportRequired',
+      'maximumCrossMarketContradictions',
       'minimumBookmakers', 'maximumRelativePriceSpread',
       'maximumPriceAgeHours', 'maximumSelections', 'markets', 'selection',
       'gemProbabilitySource', 'gemPayoutSource', 'gemPrimaryRanking',

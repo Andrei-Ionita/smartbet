@@ -11,7 +11,9 @@ const WORDS = {
     providerChance: 'Model probability', priceAdvantage: 'Above model baseline',
     leagueEvidence: 'League evidence', books: 'bookmakers checked', fresh: 'price age',
     checks: 'Why it qualified', predictable: 'Fixture marked predictable',
-    consensus: 'Correct-score and double-chance signals agree',
+    consensusBoth: 'Correct-score and double-chance signals both support the selection',
+    consensusOne: 'A supporting market signal strengthens the selection',
+    consensusNone: 'No pair of supporting market signals explicitly contradicts the selection',
     price: 'Fresh multi-bookmaker price passed dispersion checks',
     disclaimer: 'Model estimate, not a guaranteed outcome or staking instruction.',
     details: 'See fixture context', hours: 'h', unknown: 'Not available',
@@ -22,7 +24,9 @@ const WORDS = {
     providerChance: 'Probabilitatea modelului', priceAdvantage: 'Peste baza modelului',
     leagueEvidence: 'Dovezi din ligă', books: 'case verificate', fresh: 'vechimea prețului',
     checks: 'De ce s-a calificat', predictable: 'Meci marcat ca predictibil',
-    consensus: 'Semnalele scor-corect și șansă-dublă sunt aliniate',
+    consensusBoth: 'Semnalele de scor corect și șansă dublă susțin selecția',
+    consensusOne: 'Un semnal de piață suplimentar întărește selecția',
+    consensusNone: 'Nicio pereche de semnale suplimentare nu contrazice explicit selecția',
     price: 'Preț recent din mai multe case, cu dispersie acceptată',
     disclaimer: 'Estimare a modelului, nu rezultat garantat sau instrucțiune de miză.',
     details: 'Vezi contextul meciului', hours: 'h', unknown: 'Indisponibil',
@@ -63,6 +67,11 @@ export default function GemCard({
   const w = WORDS[language]
   const gem = recommendation.gem
   const rank = gem?.rank ?? displayRank
+  const consensusSupport = Number(gem?.correct_score_agrees) +
+    Number(gem?.double_chance_supports)
+  const consensusCopy = consensusSupport === 2
+    ? w.consensusBoth
+    : consensusSupport === 1 ? w.consensusOne : w.consensusNone
 
   return (
     <article className="flex h-full flex-col overflow-hidden rounded-2xl border border-emerald-200 bg-white shadow-sm">
@@ -124,7 +133,7 @@ export default function GemCard({
             <ShieldCheck className="h-4 w-4 text-emerald-600" /> {w.checks}
           </p>
           <ul className="mt-2 space-y-2 text-xs leading-relaxed text-gray-600">
-            {[w.predictable, w.consensus, w.price].map((item) => (
+            {[w.predictable, consensusCopy, w.price].map((item) => (
               <li key={item} className="flex gap-2">
                 <Check className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-600" />
                 <span>{item}</span>

@@ -29,7 +29,7 @@ export default function MethodologyPage() {
           Ranking methodology
         </h1>
         <p className="mt-3 text-base leading-relaxed text-gray-700">
-          BetGlitch does not train a predictive model. Generation 3 combines a
+          BetGlitch does not train a predictive model. Generation {p.generation} combines a
           specialist provider&apos;s fixture signal, its per-league model report
           card, its dedicated value-bet model and a verified bookmaker price.
           This page states the eligibility rule exactly and names the version
@@ -100,11 +100,12 @@ export default function MethodologyPage() {
               value={String(p.minimumGap.other)}
             />
             <Param label="Provider fixture must be predictable" value={p.fixturePredictableRequired ? 'yes' : 'no'} />
-            <Param label="Allowed league predictability" value={p.allowedLeaguePredictability.join(', ')} />
+            <Param label="Rejected league predictability labels" value={p.rejectedLeaguePredictability.join(', ')} />
             <Param label="Rejected predictive-power trend" value={p.rejectedPredictivePower.join(', ')} />
             <Param label="Active, outcome-aligned provider value bet" value={p.activeAlignedValueBetRequired ? 'required' : 'not required'} />
-            <Param label="Correct-score distribution agrees with 1X2" value={p.correctScoreAgreementRequired ? 'required' : 'not required'} />
-            <Param label="Leading double-chance leg contains selection" value={p.doubleChanceSupportRequired ? 'required' : 'not required'} />
+            <Param label="Correct-score agreement" value={p.correctScoreAgreementRequired ? 'required' : 'supporting ranking evidence'} />
+            <Param label="Double-chance support" value={p.doubleChanceSupportRequired ? 'required' : 'supporting ranking evidence'} />
+            <Param label="Maximum explicit cross-market contradictions" value={String(p.maximumCrossMarketContradictions)} />
             <Param label="Minimum canonical-price buffer above fair odd" value={`${p.minimumFairOddsBuffer * 100}%`} />
             <Param label="Minimum bookmakers quoting selection" value={String(p.minimumBookmakers)} />
             <Param label="Maximum relative price spread" value={`${p.maximumRelativePriceSpread * 100}%`} />
@@ -129,7 +130,10 @@ export default function MethodologyPage() {
             <code>(p × verified price − 1) / (verified price − 1)</code>.
           </p>
           <p className="mt-2 text-sm leading-relaxed text-emerald-950">
-            This prevents a large price or a large price difference from winning
+            Correct-score and double-chance agreement strengthen this ordering,
+            but neither is an independent veto because both are correlated with
+            the same underlying fixture evidence. Two explicit contradictions
+            still reject a Gem. This prevents a large price or a large price difference from winning
             the ranking automatically. It is a conservative ordering device,
             not a BetGlitch-calibrated probability, a stake size or betting
             advice. Provider quality, trend, hit ratio and price dispersion are

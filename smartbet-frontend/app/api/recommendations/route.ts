@@ -22,6 +22,10 @@
 import { NextResponse } from 'next/server'
 
 import { loadCachedGemFeed } from '@/app/lib/gemFeedSnapshot'
+import {
+  MODEL_SHORTLIST_POLICY,
+  toPublicModelShortlist,
+} from '@/app/lib/modelShortlist'
 import { toPublicRecommendationList } from '@/app/lib/publicRecommendation'
 
 export const dynamic = 'force-dynamic'
@@ -65,6 +69,13 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
     ? []
     : rawRecommendations.filter((rec: Record<string, any>) => kickoffIsFuture(rec.kickoff))
   const publicGems = toPublicRecommendationList(currentRecommendations)
+  const rawShortlist = Array.isArray(feed.model_shortlist)
+    ? feed.model_shortlist
+    : []
+  const currentShortlist = stale
+    ? []
+    : rawShortlist.filter((item: Record<string, any>) => kickoffIsFuture(item.kickoff))
+  const publicShortlist = toPublicModelShortlist(currentShortlist)
   const rawScan = feed.gem_scan && typeof feed.gem_scan === 'object'
     ? feed.gem_scan as Record<string, unknown>
     : {}
@@ -72,6 +83,8 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
   return {
     featured_gems: publicGems,
     recommendations: toPublicRecommendationList(currentRecommendations),
+    model_shortlist: publicShortlist,
+    model_shortlist_limit: MODEL_SHORTLIST_POLICY.maximumSelections,
     total: publicGems.length,
     leagues_covered: numberOrZero(feed.leagues_covered),
     fixtures_analyzed: numberOrZero(feed.fixtures_analyzed),
