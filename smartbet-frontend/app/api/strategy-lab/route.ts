@@ -4,12 +4,14 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
 export async function GET() {
-  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const api = process.env.DJANGO_API_URL
+    || process.env.NEXT_PUBLIC_API_URL
+    || 'https://api.betglitch.com'
 
   try {
     const response = await fetch(`${api}/api/transparency/strategies/`, {
       cache: 'no-store',
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(12000),
     })
     if (!response.ok) throw new Error(`strategy evidence API ${response.status}`)
     const body = await response.json()

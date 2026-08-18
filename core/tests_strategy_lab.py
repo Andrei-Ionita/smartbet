@@ -2,6 +2,7 @@
 import uuid
 from datetime import timedelta
 from io import StringIO
+from unittest.mock import patch
 
 from django.contrib.auth.models import User
 from django.core.cache import cache
@@ -320,6 +321,26 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertNotIn('rules_hash', body['strategies'][0])
         self.assertNotIn('retrospective_backtest', body['strategies'][0])
         self.assertFalse(body['policy']['automatic_publication'])
+
+    @patch(
+        'core.services.strategy_lab._experiment_report',
+        side_effect=AssertionError('private report must stay off public requests'),
+    )
+    def test_public_endpoints_never_rebuild_private_research_report(self, _private):
+        strategy_lab.capture(
+            {'strategy_candidates': [candidate(fixture_id=8001)]},
+            'public-fast-path',
+        )
+
+        overview = self.client.get('/api/transparency/strategies/')
+        fits = self.client.get(
+            '/api/transparency/strategies/'
+            'asian-handicap-score-distribution/current-fits/',
+        )
+
+        self.assertEqual(overview.status_code, 200)
+        self.assertEqual(fits.status_code, 200)
+        self.assertEqual(len(fits.json()['data']['fits']), 1)
 
     def test_report_is_staff_only(self):
         self.assertIn(

@@ -11,6 +11,7 @@ import math
 from collections import Counter, defaultdict
 from datetime import timedelta
 
+from django.db.models import Count
 from django.utils import timezone
 
 from core.models import (
@@ -893,6 +894,20 @@ def build_public_report():
             version__in=[version for _key, version in wanted],
         )
     }
+    settled_by_experiment = {
+        row['observation__experiment_id']: row['settled']
+        for row in (
+            StrategyLabSettlement.objects
+            .filter(
+                observation__experiment_id__in=[
+                    experiment.experiment_id for experiment in existing.values()
+                ],
+                observation__evidence_phase=StrategyLabObservation.PHASE_FORWARD,
+            )
+            .values('observation__experiment_id')
+            .annotate(settled=Count('observation_id', distinct=True))
+        )
+    }
     strategies = []
     for identity, definition in wanted.items():
         experiment = existing.get(identity)
@@ -909,29 +924,29 @@ def build_public_report():
             })
             continue
 
-        report = _experiment_report(experiment)
-        forward = report['forward_validation']
-        settled = forward['settled']
-        if report['promotion_ready'] and experiment.status == StrategyLabExperiment.STATUS_VALIDATED:
-            evidence_status = 'validated'
-        elif report['promotion_ready']:
-            evidence_status = 'review_ready'
-        elif settled:
-            evidence_status = 'collecting_evidence'
-        else:
-            evidence_status = 'insufficient_evidence'
+        evidence = _public_evidence_status(
+            experiment,
+            settled=settled_by_experiment.get(experiment.experiment_id, 0),
+        )
+        settled = evidence['forward_settled']
         strategies.append({
             'strategy_key': experiment.strategy_key,
             'version': experiment.version,
             'market': experiment.market,
-            'evidence_status': evidence_status,
+            'evidence_status': evidence['evidence_status'],
             'forward_settled': settled,
             'minimum_forward_settled_for_review': experiment.minimum_settled_for_review,
             'evidence_progress_percent': min(
                 100,
                 round(100 * settled / experiment.minimum_settled_for_review),
             ),
-            'promotion_ready': report['promotion_ready'],
+            # Candidate/validated are explicit reviewed lifecycle states. The
+            # expensive research gates remain in the private lab report and
+            # never need to be recomputed in a visitor request.
+            'promotion_ready': experiment.status in (
+                StrategyLabExperiment.STATUS_CANDIDATE,
+                StrategyLabExperiment.STATUS_VALIDATED,
+            ),
         })
     return {
         'lab_version': 'strategies-lab-v2',
@@ -945,13 +960,28 @@ def build_public_report():
     }
 
 
-def _public_evidence_status(experiment):
-    """Summarise one experiment without exposing its private diagnostics."""
-    report = _experiment_report(experiment)
-    settled = report['forward_validation']['settled']
-    if report['promotion_ready'] and experiment.status == StrategyLabExperiment.STATUS_VALIDATED:
+def _public_evidence_status(experiment, *, settled=None):
+    """Summarise reviewed public state without rebuilding the private lab.
+
+    ``_experiment_report`` walks every historical observation, settlement and
+    closing-price candidate. That belongs in offline research, not in a public
+    request. Public pages need only the distinct forward-settled count and the
+    experiment's explicit reviewed lifecycle state.
+    """
+    if settled is None:
+        settled = (
+            StrategyLabSettlement.objects
+            .filter(
+                observation__experiment=experiment,
+                observation__evidence_phase=StrategyLabObservation.PHASE_FORWARD,
+            )
+            .values('observation_id')
+            .distinct()
+            .count()
+        )
+    if experiment.status == StrategyLabExperiment.STATUS_VALIDATED:
         status = 'validated'
-    elif report['promotion_ready']:
+    elif experiment.status == StrategyLabExperiment.STATUS_CANDIDATE:
         status = 'review_ready'
     elif settled:
         status = 'collecting_evidence'
@@ -1089,7 +1119,7 @@ def build_public_current_fits(strategy_key, *, limit=5):
         kickoff__gt=now,
         odds_captured_at__gte=now - timedelta(hours=maximum_age),
         odds_captured_at__lte=now + timedelta(minutes=5),
-    ).select_related('source_signal').order_by(
+    ).select_related('experiment', 'source_signal').order_by(
         'fixture_id', 'side', 'handicap', '-observed_at',
     )
 

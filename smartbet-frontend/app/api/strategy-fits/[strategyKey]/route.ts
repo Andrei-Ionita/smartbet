@@ -16,13 +16,15 @@ export async function GET(
     )
   }
 
-  const api = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+  const api = process.env.DJANGO_API_URL
+    || process.env.NEXT_PUBLIC_API_URL
+    || 'https://api.betglitch.com'
   const strategyKey = encodeURIComponent(params.strategyKey)
 
   try {
     const response = await fetch(
       `${api}/api/transparency/strategies/${strategyKey}/current-fits/`,
-      { cache: 'no-store', signal: AbortSignal.timeout(8000) },
+      { cache: 'no-store', signal: AbortSignal.timeout(12000) },
     )
     if (!response.ok) throw new Error(`strategy fits API ${response.status}`)
     const body = await response.json()
