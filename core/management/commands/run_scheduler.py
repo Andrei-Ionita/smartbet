@@ -19,6 +19,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
+# A deployment can replace the worker while the previous cycle still owns the
+# database heartbeat. `--run-now` must not overlap it, but a single refusal must
+# not turn into the normal 60-minute sleep either. Retry the startup cycle until
+# the live run finishes or its 15-minute lease expires.
+STARTUP_RETRY_SECONDS = 60
+
 class Command(BaseCommand):
     help = 'Runs a scheduler loop to automatically update predictions and results interactively'
 
@@ -54,7 +60,7 @@ class Command(BaseCommand):
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:
-            self.run_tasks(interval_minutes)
+            self.run_startup_cycle(interval_minutes)
 
         try:
             while True:
@@ -69,6 +75,15 @@ class Command(BaseCommand):
         except KeyboardInterrupt:
             self.stdout.write(self.style.WARNING('\n🛑 Scheduler stopped by user.'))
             sys.exit(0)
+
+    def run_startup_cycle(self, interval_minutes=60):
+        """Run once on boot, retrying a temporary overlap instead of sleeping an hour."""
+        retry_seconds = min(STARTUP_RETRY_SECONDS, max(1, interval_minutes * 60))
+        while not self.run_tasks(interval_minutes):
+            self.stdout.write(self.style.WARNING(
+                f'Startup cycle deferred; retrying in {retry_seconds} seconds...'
+            ))
+            time.sleep(retry_seconds)
 
     def run_tasks(self, interval_minutes=60):
         """Execute all scheduled tasks sequentially, recording a heartbeat.
@@ -100,7 +115,7 @@ class Command(BaseCommand):
             # Not an error: the previous cycle is still working. Skip this tick
             # rather than running the same commands concurrently.
             self.stdout.write(self.style.WARNING(f'⏭️  Skipping run — {exc}'))
-            return
+            return False
 
         failed = [k for k, v in (getattr(self, '_stages', None) or {}).items()
                   if v != 'ok']
@@ -111,6 +126,7 @@ class Command(BaseCommand):
         else:
             self.stdout.write(
                 self.style.SUCCESS('✅ All tasks completed successfully.\n'))
+        return True
 
     def run_all_tasks(self):
         # Task 1: Fetch new recommendations

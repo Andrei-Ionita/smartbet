@@ -33,7 +33,12 @@ class SchedulerAlreadyRunning(RuntimeError):
 # A run still marked "running" after this long is treated as abandoned — the
 # worker was killed mid-cycle and never got to write a terminal status. Without
 # this a single hard crash would block every later run forever.
-STALE_RUNNING_AFTER_MINUTES = 90
+# A normal production cycle currently completes in roughly 6-7 minutes. A
+# 15-minute lease leaves more than 2x headroom for a slow provider response,
+# while still allowing a replacement worker to recover promptly when Railway
+# terminates the previous container mid-cycle. The old 90-minute lease combined
+# with --run-now skipping once could leave every feed stale for almost two hours.
+STALE_RUNNING_AFTER_MINUTES = 15
 
 
 def _counts():

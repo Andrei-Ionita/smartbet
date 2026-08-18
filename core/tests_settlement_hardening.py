@@ -152,6 +152,17 @@ class SchedulerPipelineIntactTests(TestCase):
         self.assertEqual(heartbeat.stage_status['update_results'], 'failed')
         self.assertEqual(heartbeat.stage_status['settle_published_claims'], 'ok')
 
+    def test_startup_retries_a_temporary_overlap_instead_of_sleeping_an_hour(self):
+        from core.management.commands.run_scheduler import Command
+
+        cmd = Command(stdout=io.StringIO(), stderr=io.StringIO())
+        with mock.patch.object(cmd, 'run_tasks', side_effect=[False, False, True]) as run:
+            with mock.patch('core.management.commands.run_scheduler.time.sleep') as sleep:
+                cmd.run_startup_cycle(interval_minutes=60)
+
+        self.assertEqual(run.call_count, 3)
+        self.assertEqual(sleep.call_args_list, [mock.call(60), mock.call(60)])
+
 
 class SchedulerHeartbeatRecordingTests(TestCase):
     def test_never_run_before_the_first_cycle(self):
@@ -243,6 +254,27 @@ class SchedulerConcurrencyTests(TestCase):
         hb = get_heartbeat()
         hb.status = SchedulerHeartbeat.STATUS_RUNNING
         hb.last_run_started_at = timezone.now() - timedelta(hours=4)
+        hb.save(update_fields=['status', 'last_run_started_at'])
+
+        with record_run(interval_minutes=60):
+            pass
+
+        self.assertEqual(get_heartbeat().status, SchedulerHeartbeat.STATUS_SUCCESS)
+
+    def test_a_slow_but_plausible_cycle_keeps_the_lock(self):
+        hb = get_heartbeat()
+        hb.status = SchedulerHeartbeat.STATUS_RUNNING
+        hb.last_run_started_at = timezone.now() - timedelta(minutes=10)
+        hb.save(update_fields=['status', 'last_run_started_at'])
+
+        with self.assertRaises(SchedulerAlreadyRunning):
+            with record_run(interval_minutes=60):
+                self.fail('a plausible live cycle must not be overlapped')
+
+    def test_a_fifteen_minute_running_lease_can_be_reclaimed(self):
+        hb = get_heartbeat()
+        hb.status = SchedulerHeartbeat.STATUS_RUNNING
+        hb.last_run_started_at = timezone.now() - timedelta(minutes=16)
         hb.save(update_fields=['status', 'last_run_started_at'])
 
         with record_run(interval_minutes=60):
