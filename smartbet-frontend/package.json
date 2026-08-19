@@ -11,7 +11,8 @@
     "setup": "npm install && echo '✅ Dependencies installed! Ready to run npm run dev'",
     "test": "vitest run",
     "test:watch": "vitest",
-    "launch:check": "node scripts/check-public-launch.mjs"
+    "launch:check": "node scripts/check-public-launch.mjs",
+    "monetization:check": "node scripts/check-monetization-readiness.mjs"
   },
   "dependencies": {
     "date-fns": "^2.30.0",

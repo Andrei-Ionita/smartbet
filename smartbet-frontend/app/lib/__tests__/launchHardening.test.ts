@@ -48,11 +48,19 @@ describe('launch hardening', () => {
     expect(home).toContain('fixtures_affected')
   })
 
-  it('requires verified legal identity and operational confirmations for broad launch', () => {
+  it('separates the free public launch gate from monetization readiness', () => {
     const identity = read('app/lib/publicLegalIdentity.ts')
     const launchCheck = read('scripts/check-public-launch.mjs')
+    const monetizationCheck = read('scripts/check-monetization-readiness.mjs')
+    const packageJson = read('package.json')
     const terms = read('app/terms/TermsContent.tsx')
     const privacy = read('app/privacy/PrivacyContent.tsx')
+
+    expect(launchCheck).toContain('NEXT_PUBLIC_ACCOUNT_FEATURES_ENABLED')
+    expect(launchCheck).toContain('NEXT_PUBLIC_COMMERCIAL_MODE')
+    expect(launchCheck).toContain('Free public launch mode is correctly fail-closed')
+    expect(launchCheck).not.toContain('NEXT_PUBLIC_OPERATOR_NAME')
+    expect(packageJson).toContain('"monetization:check"')
 
     for (const name of [
       'NEXT_PUBLIC_OPERATOR_NAME',
@@ -62,11 +70,31 @@ describe('launch hardening', () => {
       'NEXT_PUBLIC_COMPETENT_COURTS',
     ]) {
       expect(identity).toContain(name)
-      expect(launchCheck).toContain(name)
+      expect(monetizationCheck).toContain(name)
     }
-    expect(launchCheck).toContain('CONTACT_EMAILS_MONITORED')
-    expect(launchCheck).toContain('LEGAL_REVIEW_CONFIRMED')
+    expect(monetizationCheck).toContain('CONTACT_EMAILS_MONITORED')
+    expect(monetizationCheck).toContain('LEGAL_REVIEW_CONFIRMED')
     expect(terms).toContain('PUBLIC_LEGAL_IDENTITY_COMPLETE')
     expect(privacy).toContain('PUBLIC_LEGAL_IDENTITY_COMPLETE')
+  })
+
+  it('keeps launch-critical public surfaces available in Romanian', () => {
+    const surfaces = [
+      ['app/calibration/CalibrationContent.tsx', 'Sunt probabilitățile corecte?'],
+      ['app/terms/TermsContent.tsx', 'Termeni și condiții'],
+      ['app/privacy/PrivacyContent.tsx', 'Politica de confidențialitate'],
+      ['app/disclaimer/DisclaimerContent.tsx', 'Declinarea răspunderii'],
+      ['app/responsible-gambling/ResponsibleGamblingContent.tsx', 'Joc responsabil'],
+      ['app/components/AgeGateModal.tsx', 'Este necesară confirmarea vârstei'],
+    ] as const
+
+    for (const [rel, romanianCopy] of surfaces) {
+      const source = read(rel)
+      expect(source, rel).toContain('useLanguage')
+      expect(source, rel).toContain(romanianCopy)
+    }
+
+    const layout = read('app/layout.tsx')
+    expect(layout.indexOf('<LanguageProvider>')).toBeLessThan(layout.indexOf('<AgeGateModal />'))
   })
 })

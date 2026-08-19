@@ -2,8 +2,32 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Shield, AlertTriangle, CheckCircle2, ExternalLink } from 'lucide-react'
+import { useLanguage } from '../contexts/LanguageContext'
+
+const COPY = {
+    en: {
+        title: 'Age Verification Required', subtitle: 'Confirm that you meet the requirements to access BetGlitch', notice: 'Important Notice',
+        noticeBody: 'BetGlitch provides informational sports research only. It is not a betting operator and accepts no bets or wagers.',
+        age: 'I confirm that I am 18 or older (or meet the legal age in my jurisdiction) and may legally access gambling-related information.',
+        risk: 'I understand that gambling involves risk, that I should wager only what I can afford to lose, and that past results do not guarantee future outcomes.',
+        region: 'I understand that gambling may be restricted or illegal where I live and that compliance with local law is my responsibility.',
+        adults: 'Access is restricted to adults. BetGlitch promotes responsible gambling.', leave: 'Leave Site', enter: 'Enter Site',
+        terms: 'Terms of Service', privacy: 'Privacy Policy', responsible: 'Responsible Gambling', declineUrl: 'https://www.begambleaware.org/',
+    },
+    ro: {
+        title: 'Este necesară confirmarea vârstei', subtitle: 'Confirmă că îndeplinești condițiile pentru a accesa BetGlitch', notice: 'Atenționare importantă',
+        noticeBody: 'BetGlitch oferă exclusiv cercetare sportivă informativă. Nu este operator de pariuri și nu acceptă pariuri sau mize.',
+        age: 'Confirm că am cel puțin 18 ani (sau vârsta legală din jurisdicția mea) și că pot accesa legal informații despre jocuri de noroc.',
+        risk: 'Înțeleg că jocurile de noroc implică riscuri, că ar trebui să mizez doar ceea ce îmi permit să pierd și că rezultatele anterioare nu garantează rezultate viitoare.',
+        region: 'Înțeleg că jocurile de noroc pot fi restricționate sau ilegale în locația mea și că respectarea legislației locale este responsabilitatea mea.',
+        adults: 'Accesul este permis doar adulților. BetGlitch promovează jocul responsabil.', leave: 'Părăsește site-ul', enter: 'Intră pe site',
+        terms: 'Termeni și condiții', privacy: 'Politica de confidențialitate', responsible: 'Joc responsabil', declineUrl: 'https://jocresponsabil.ro/',
+    },
+} as const
 
 export default function AgeGateModal() {
+    const { language } = useLanguage()
+    const copy = COPY[language === 'ro' ? 'ro' : 'en']
     const [showModal, setShowModal] = useState(false)
     const dialogRef = useRef<HTMLDivElement>(null)
     const headingRef = useRef<HTMLHeadingElement>(null)
@@ -68,7 +92,7 @@ export default function AgeGateModal() {
 
     const handleDecline = () => {
         // Redirect to a safe page explaining why they can't proceed
-        window.location.href = 'https://www.begambleaware.org/'
+        window.location.href = copy.declineUrl
     }
 
     if (!showModal) return null
@@ -97,10 +121,10 @@ export default function AgeGateModal() {
                         tabIndex={-1}
                         className="text-2xl font-bold text-white mb-2 outline-none"
                     >
-                        Age Verification Required
+                        {copy.title}
                     </h2>
                     <p id="age-gate-desc" className="text-primary-100 text-sm">
-                        Please confirm you meet the requirements to access BetGlitch
+                        {copy.subtitle}
                     </p>
                 </div>
 
@@ -111,11 +135,8 @@ export default function AgeGateModal() {
                         <div className="flex gap-3">
                             <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
                             <div className="text-sm">
-                                <p className="font-semibold text-amber-800 mb-1">Important Notice</p>
-                                <p className="text-amber-700">
-                                    BetGlitch provides sports predictions for <strong>informational and entertainment purposes only</strong>.
-                                    We are <strong>NOT a betting operator</strong> and do not accept bets or wagers of any kind.
-                                </p>
+                                <p className="font-semibold text-amber-800 mb-1">{copy.notice}</p>
+                                <p className="text-amber-700">{copy.noticeBody}</p>
                             </div>
                         </div>
                     </div>
@@ -130,8 +151,7 @@ export default function AgeGateModal() {
                                 className="w-6 h-6 mt-0.5 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                             />
                             <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                I confirm that I am <strong>18 years of age or older</strong> (or the legal age in my jurisdiction)
-                                and legally permitted to access gambling-related content.
+                                {copy.age}
                             </span>
                         </label>
 
@@ -143,8 +163,7 @@ export default function AgeGateModal() {
                                 className="w-6 h-6 mt-0.5 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                             />
                             <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                I understand that <strong>gambling involves risk</strong> and I should only bet what I can afford to lose.
-                                Past performance does not guarantee future results.
+                                {copy.risk}
                             </span>
                         </label>
 
@@ -156,8 +175,7 @@ export default function AgeGateModal() {
                                 className="w-6 h-6 mt-0.5 flex-shrink-0 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
                             />
                             <span className="text-sm text-gray-700 group-hover:text-gray-900">
-                                I acknowledge that <strong>gambling may be restricted or illegal</strong> in my jurisdiction and
-                                it is my responsibility to ensure compliance with local laws before using this service.
+                                {copy.region}
                             </span>
                         </label>
                     </div>
@@ -168,7 +186,7 @@ export default function AgeGateModal() {
                             <span className="text-red-600 font-bold text-lg">18+</span>
                         </div>
                         <p className="text-xs text-gray-500 max-w-xs">
-                            Access to BetGlitch is restricted to adults only. We promote responsible gambling.
+                            {copy.adults}
                         </p>
                     </div>
 
@@ -178,7 +196,7 @@ export default function AgeGateModal() {
                             onClick={handleDecline}
                             className="flex-1 px-4 py-3 text-sm font-medium text-gray-700 bg-gray-100 rounded-xl hover:bg-gray-200 transition-colors"
                         >
-                            Leave Site
+                            {copy.leave}
                         </button>
                         <button
                             onClick={handleAccept}
@@ -190,20 +208,20 @@ export default function AgeGateModal() {
                                 }`}
                         >
                             {allChecked && <CheckCircle2 className="w-4 h-4" />}
-                            Enter Site
+                            {copy.enter}
                         </button>
                     </div>
 
                     {/* Footer Links */}
                     <div className="mt-6 pt-4 border-t border-gray-100 flex flex-wrap justify-center gap-4 text-xs text-gray-500">
                         <a href="/terms" className="hover:text-primary-600 flex items-center gap-1">
-                            Terms of Service <ExternalLink className="w-3 h-3" />
+                            {copy.terms} <ExternalLink className="w-3 h-3" />
                         </a>
                         <a href="/privacy" className="hover:text-primary-600 flex items-center gap-1">
-                            Privacy Policy <ExternalLink className="w-3 h-3" />
+                            {copy.privacy} <ExternalLink className="w-3 h-3" />
                         </a>
                         <a href="/responsible-gambling" className="hover:text-primary-600 flex items-center gap-1">
-                            Responsible Gambling <ExternalLink className="w-3 h-3" />
+                            {copy.responsible} <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>
                 </div>

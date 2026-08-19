@@ -91,9 +91,9 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans">
-        <AgeGateModal />
         <AuthProvider>
           <LanguageProvider>
+            <AgeGateModal />
             <div className="min-h-screen bg-gray-50 flex flex-col">
               <Navigation />
               <main className="container mx-auto px-4 py-8 flex-grow">
