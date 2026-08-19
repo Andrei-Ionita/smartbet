@@ -60,16 +60,16 @@ describe('public strategy library', () => {
     expect(route).not.toContain('/api/internal/strategies-lab/')
   })
 
-  it('places at most two distinct live strategy fits inside the homepage decision board', () => {
+  it('places distinct live strategy fits inside the five-fixture homepage stream', () => {
     const home = read('app/page.tsx')
     const component = read('app/components/HomepageDecisionBoard.tsx')
     const route = read('app/api/homepage-strategy-fits/route.ts')
 
     expect(home).toContain('<HomepageDecisionBoard')
-    expect(component).toContain('Different evidence, clearly separated')
-    expect(component).toContain('None of these research cards is a published pick')
-    expect(component).toContain('.slice(0, 2)')
-    expect(component).toContain('!valueIds.has(item.fit.fixture_id)')
+    expect(component).toContain('Five fixtures worth a closer look')
+    expect(component).toContain('none are published picks')
+    expect(component).toContain('rankedItems.length >= 5')
+    expect(component).toContain('usedIds.has(item.fixtureId)')
     expect(route).toContain('/api/transparency/strategies/current-fits/')
     expect(route).not.toContain('/api/internal/strategies-lab/')
   })

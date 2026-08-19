@@ -17,19 +17,18 @@ describe('homepage decision board', () => {
     expect(home).not.toContain('<HomepageStrategyFits')
   })
 
-  it('states three different evidence claims and their boundaries', () => {
-    expect(board).toContain('Price watchlist')
-    expect(board).toContain('Strategy opportunities')
-    expect(board).toContain('Strong signals')
-    expect(board).toContain('no verified price edge')
-    expect(board).toContain('not evidence that the strategy is profitable')
-    expect(board).toContain('not evidence that the available odds are valuable')
+  it('labels three different evidence claims inside one ranked stream', () => {
+    expect(board).toContain('Potential value')
+    expect(board).toContain('Strategy match')
+    expect(board).toContain('Strong model signal')
+    expect(board).toContain('a match does not prove profitability')
+    expect(board).toContain('the available price has no verified edge')
   })
 
-  it('shows no more than six distinct research cards', () => {
-    expect(board).toContain('valueWatchlist.slice(0, 2)')
-    expect(board).toContain('.slice(0, 2)')
-    expect(board).toContain('!usedIds.has(item.fixture_id)')
+  it('shows no more than five distinct research cards', () => {
+    expect(board).toContain('rankedItems.length >= 5')
+    expect(board).toContain('usedIds.has(item.fixtureId)')
+    expect(board).toContain('one card per fixture')
   })
 
   it('classifies price evidence before crossing the public boundary', () => {
@@ -39,7 +38,8 @@ describe('homepage decision board', () => {
     expect(route).toContain('toPublicModelShortlist')
   })
 
-  it('does not fill an empty price lane with ordinary favourites', () => {
-    expect(board).toContain('We will not fill this lane with ordinary favourites.')
+  it('does not mislabel model-only signals as value', () => {
+    expect(board).toContain("add({ kind: 'strong'")
+    expect(board).toContain('Potential value first')
   })
 })

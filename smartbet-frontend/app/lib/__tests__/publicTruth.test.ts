@@ -412,21 +412,16 @@ describe('one maintained source of truth for coverage counts', () => {
 // ── Positioning ────────────────────────────────────────────────────────────
 
 describe('consistent public positioning', () => {
-  it('the homepage headline is the brand line, in both languages', () => {
-    // Superseded 2026-08-07 by the brand pass: the line names the mission
-    // (better decisions through better evidence), not the feature. It promises
-    // evidence quality, never outcomes — which keeps it inside the truth
-    // contract this suite enforces.
+  it('the homepage headline leads with the user task, in both languages', () => {
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toContain("headline: 'Every signal explained. Every published pick locked. Every result visible.'")
-    expect(copy).toContain("headline: 'Fiecare semnal explicat. Fiecare selecție blocată. Fiecare rezultat vizibil.'")
+    expect(copy).toContain("headline: 'Search any fixture. See the evidence. Decide for yourself.'")
+    expect(copy).toContain("headline: 'Caută orice meci. Vezi dovezile. Decide singur.'")
   })
 
-  it('the supporting copy names context, uncertainty, locked picks and results', () => {
+  it('the supporting copy names signals, verified odds, context and missing information', () => {
     const copy = read('app/lib/terminology.ts')
-    expect(copy).toContain('probabilities, prices, context and uncertainty')
-    expect(copy).toContain('lock it before kickoff')
-    expect(copy).toContain('keep the result visible')
+    expect(copy).toContain('model signals, verified odds and fixture context')
+    expect(copy).toContain('what is known, what is missing')
   })
 
   it('does not promise fixture context the product does not deliver', () => {

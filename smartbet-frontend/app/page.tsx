@@ -94,11 +94,6 @@ export default function HomePage() {
     router.push('/explore')
   }
 
-  const goVerifiedRecord = () => {
-    track('home_verified_record_cta', { surface: 'homepage' })
-    router.push('/track-record')
-  }
-
   const handleViewDetails = (fixtureId: number) => {
     track('fixture_opened', { surface: 'homepage' })
     router.push(`/explore?fixture=${fixtureId}`)
@@ -142,7 +137,7 @@ export default function HomePage() {
             One job: say what this is, show why it can be trusted, and give
             exactly one obvious first click. */}
         <header className="mx-auto max-w-3xl text-center">
-          <div className="relative mx-auto mb-6 h-20 w-20 sm:h-24 sm:w-24">
+          <div className="relative mx-auto mb-4 h-16 w-16 sm:h-20 sm:w-20">
             <Image
               src="/images/logo-final-v6.png"
               alt=""
@@ -152,7 +147,7 @@ export default function HomePage() {
             />
           </div>
 
-          <p className="mb-4 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700">
+          <p className="mb-3 inline-flex items-center rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-xs font-bold uppercase tracking-widest text-blue-700">
             {copy.hero.eyebrow}
           </p>
 
@@ -160,11 +155,11 @@ export default function HomePage() {
             {copy.hero.headline}
           </h1>
 
-          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
+          <p className="mx-auto mt-4 max-w-2xl text-base leading-relaxed text-gray-600 sm:text-lg">
             {copy.hero.supporting}
           </p>
 
-          <form onSubmit={searchFixture} className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-[1fr_auto]">
+          <form onSubmit={searchFixture} className="mx-auto mt-6 grid max-w-2xl gap-3 sm:grid-cols-[1fr_auto]">
             <label className="relative text-left">
               <span className="sr-only">{copy.home.searchLabel}</span>
               <Search className="absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" aria-hidden="true" />
@@ -184,40 +179,6 @@ export default function HomePage() {
               <ArrowRight className="h-5 w-5 transition-transform group-hover:translate-x-0.5" />
             </button>
           </form>
-          <button
-            onClick={goVerifiedRecord}
-            className="mt-3 inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl px-5 py-2 text-sm font-semibold text-gray-700 transition-colors hover:bg-white/70 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-          >
-            {copy.hero.secondaryCta} <ArrowRight className="h-4 w-4" />
-          </button>
-
-          {/* Three commitments in one quiet line. Deliberately NOT badges:
-              these are rules the architecture enforces, and rules read best
-              as a plain sentence. */}
-          <p className="mt-5 text-xs uppercase tracking-wide text-gray-500">
-            {copy.hero.trustLine}
-          </p>
-
-          {/* Verified-record status. At zero settled picks this states the
-              honest position instead of rendering 0%, which reads as
-              break-even performance rather than "no data yet". */}
-          <button
-            onClick={goVerifiedRecord}
-            className="mx-auto mt-6 flex items-center gap-2 rounded-full border border-gray-300 bg-white/70 px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-gray-900"
-          >
-            <ScrollText className="h-4 w-4 shrink-0 text-gray-500" />
-            {hasVerifiedResults ? (
-              <span>
-                <strong className="font-semibold text-gray-900">
-                  {settledCount}
-                </strong>{' '}
-                {copy.home.settledLabel.toLowerCase()}
-              </span>
-            ) : (
-              <span>{copy.hero.zeroState}</span>
-            )}
-            <ArrowRight className="h-4 w-4 shrink-0 text-gray-400" />
-          </button>
         </header>
 
         {/* 2. One compact board, with evidence lanes that cannot masquerade as
@@ -233,7 +194,8 @@ export default function HomePage() {
         />
 
         {/* 3. Qualified Gems from the latest scan. */}
-        <section aria-labelledby="gems-heading" className="mt-16 sm:mt-20">
+        <section aria-labelledby="gems-heading" className={gems.length > 0 || isLoading || error ? 'mt-16 sm:mt-20' : 'mt-8'}>
+          {(isLoading || error || gems.length > 0) && (
           <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
               <div className="mb-2">
@@ -260,8 +222,9 @@ export default function HomePage() {
               {copy.home.browseAll} →
             </Link>
           </div>
+          )}
 
-          {!isLoading && !error && (
+          {!isLoading && !error && gems.length > 0 && (
             <>
               <dl className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-4">
                 {[
@@ -355,51 +318,26 @@ export default function HomePage() {
           )}
 
           {!isLoading && !error && gems.length === 0 && (
-            <div className="rounded-2xl border border-dashed border-gray-300 bg-white p-8 text-center sm:p-10">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
-                <Lock className="h-5 w-5 text-gray-500" />
+            <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-start gap-3">
+                <span className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-100">
+                  <Lock className="h-4 w-4 text-slate-500" />
+                </span>
+                <div>
+                  <h2 id="gems-heading" className="font-bold text-slate-950">{copy.home.noGemsHeading}</h2>
+                  <p className="mt-1 text-sm leading-5 text-slate-600">
+                    {copy.home.noGemsBody}
+                  </p>
+                </div>
               </div>
-              <h3 className="mt-4 text-lg font-bold text-gray-950">{copy.home.noGemsHeading}</h3>
-              <p className="mx-auto mt-2 max-w-xl text-sm leading-relaxed text-gray-600">
-                {scan.fixtures} {copy.home.scanFixtures}; {scan.predictions} {copy.home.scanPredictions}.{' '}
-                {copy.home.noGemsBody}
-              </p>
-              <div className="mt-5 flex flex-col justify-center gap-3 sm:flex-row">
-                <Link href="/explore" className="font-semibold text-blue-700 underline underline-offset-4">
-                  {copy.home.browseAll}
-                </Link>
-                <Link href="/methodology" className="font-semibold text-blue-700 underline underline-offset-4">
-                  {copy.home.methodologyCta}
-                </Link>
-              </div>
+              <Link href="/explore" className="shrink-0 text-sm font-semibold text-blue-700 underline-offset-4 hover:underline">
+                {copy.home.browseAll} →
+              </Link>
             </div>
           )}
         </section>
 
-        <section aria-labelledby="learning-heading" className="mt-16 sm:mt-20">
-          <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{copy.home.learningEyebrow}</p>
-          <h2 id="learning-heading" className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{copy.home.learningHeading}</h2>
-          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{copy.home.learningSupporting}</p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
-            {copy.home.learningLinks.map((item, index) => {
-              const Icon = LEARNING_ICONS[index] ?? BarChart3
-              return (
-                <Link key={item.href} href={item.href} className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
-                  <Icon className="h-6 w-6 text-blue-700" aria-hidden="true" />
-                  <h3 className="mt-4 font-bold text-gray-950">{item.title}</h3>
-                  <p className="mt-2 text-sm leading-6 text-gray-600">{index === 0 && hasVerifiedResults ? `${settledCount} ${copy.home.settledLabel.toLowerCase()}. ` : ''}{item.body}</p>
-                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-blue-700">{item.cta}<ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span>
-                </Link>
-              )
-            })}
-          </div>
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
-            <div className="max-w-3xl"><h3 className="font-bold text-indigo-950">{copy.home.differenceHeading}</h3><p className="mt-1 text-sm leading-6 text-indigo-900">{copy.home.differenceBody}</p></div>
-            <Link href="/track-record#published-picks" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
-          </div>
-        </section>
-
-        {/* ── 7. Coverage ─────────────────────────────────────────────── */}
+        {/* Coverage stays close to the live football content. */}
         <section aria-labelledby="coverage-heading" className="mt-16 sm:mt-20">
           <h2
             id="coverage-heading"
@@ -431,7 +369,31 @@ export default function HomePage() {
           </Link>
         </section>
 
-        {/* ── 8. Final CTA ────────────────────────────────────────────── */}
+        {/* Detailed public evidence belongs below the product experience. */}
+        <section aria-labelledby="learning-heading" className="mt-16 sm:mt-20">
+          <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{copy.home.learningEyebrow}</p>
+          <h2 id="learning-heading" className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{copy.home.learningHeading}</h2>
+          <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{copy.home.learningSupporting}</p>
+          <div className="mt-6 grid gap-4 md:grid-cols-3">
+            {copy.home.learningLinks.map((item, index) => {
+              const Icon = LEARNING_ICONS[index] ?? BarChart3
+              return (
+                <Link key={item.href} href={item.href} className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
+                  <Icon className="h-6 w-6 text-blue-700" aria-hidden="true" />
+                  <h3 className="mt-4 font-bold text-gray-950">{item.title}</h3>
+                  <p className="mt-2 text-sm leading-6 text-gray-600">{index === 0 && hasVerifiedResults ? `${settledCount} ${copy.home.settledLabel.toLowerCase()}. ` : ''}{item.body}</p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-sm font-bold text-blue-700">{item.cta}<ArrowRight className="h-4 w-4 transition group-hover:translate-x-1" /></span>
+                </Link>
+              )
+            })}
+          </div>
+          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="max-w-3xl"><h3 className="font-bold text-indigo-950">{copy.home.differenceHeading}</h3><p className="mt-1 text-sm leading-6 text-indigo-900">{copy.home.differenceBody}</p></div>
+            <Link href="/track-record#published-picks" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
+          </div>
+        </section>
+
+        {/* Final CTA. */}
         <section className="mt-16 rounded-2xl bg-gray-900 p-8 text-center sm:mt-20 sm:p-10">
           <p className="text-xs font-bold uppercase tracking-widest text-blue-300">
             {copy.hero.eyebrow}

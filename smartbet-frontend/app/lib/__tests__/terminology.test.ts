@@ -50,7 +50,6 @@ describe('unsupported claims are absent from public copy', () => {
     const src = read('app/page.tsx')
     // A literal "0%" would read as break-even rather than "nothing settled yet".
     expect(src).not.toMatch(/['"`>]\s*\+?0%/)
-    expect(src).toContain('hero.zeroState')
   })
 
   it('the homepage no longer ships the internal PRODUCTION league chips', () => {
@@ -62,9 +61,10 @@ describe('the homepage answers the five-second question', () => {
   const src = read('app/page.tsx')
 
   it('uses the hero copy from the shared source, not its own wording', () => {
-    for (const key of ['eyebrow', 'headline', 'supporting', 'primaryCta', 'secondaryCta']) {
+    for (const key of ['eyebrow', 'headline', 'supporting', 'primaryCta']) {
       expect(src).toContain(`hero.${key}`)
     }
+    expect(src).not.toContain('hero.secondaryCta')
   })
 
   it('states what BetGlitch is, in one sentence', () => {
@@ -72,7 +72,7 @@ describe('the homepage answers the five-second question', () => {
     // signals" named the feature; the brand line names the reason the feature
     // exists. The truth constraints are unchanged — the line promises better
     // evidence, not better outcomes.
-    expect(HERO.headline).toBe('Every signal explained. Every published pick locked. Every result visible.')
+    expect(HERO.headline).toBe('Search any fixture. See the evidence. Decide for yourself.')
   })
 
   it('offers one primary action and one secondary, not three peers', () => {

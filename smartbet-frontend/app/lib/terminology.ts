@@ -141,11 +141,11 @@ const EN = {
 
   hero: {
     eyebrow: 'FREE PUBLIC BETA',
-    // The brand line. Not "verifiable signals" (a feature) but the reason the
-    // feature exists: decisions improve when the evidence behind them does.
-    headline: 'Every signal explained. Every published pick locked. Every result visible.',
+    // The homepage promise: start with a fixture, inspect the evidence, and
+    // keep the final decision with the user.
+    headline: 'Search any fixture. See the evidence. Decide for yourself.',
     supporting:
-      'Search any fixture, understand the probabilities, prices, context and uncertainty, then decide for yourself. When BetGlitch publishes a pick, we lock it before kickoff and keep the result visible — win or lose.',
+      'Compare model signals, verified odds and fixture context in one place. BetGlitch shows what is known, what is missing and why a fixture deserves attention.',
     primaryCta: 'Explore live signals',
     secondaryCta: 'See published results',
     // Three commitments in one quiet line — a rule, not a badge.
@@ -192,9 +192,9 @@ const EN = {
     scanPredictions: 'prediction-ready',
     scanQualified: 'passed every gate',
     scanShown: 'shown',
-    noGemsHeading: 'No fixture earned Gem status',
+    noGemsHeading: 'No fixture passed every Gem test today',
     noGemsBody:
-      'None passed every core reliability, model-versus-price and price test. The research shortlist above can still show fixtures worth investigating without presenting them as qualified Gems.',
+      'The ranked fixtures above can still be worth investigating; none met every stricter Gem requirement.',
     diagnosticsHeading: 'Why fixtures were filtered out',
     diagnosticsBody:
       'This scan reports where candidates stopped. One fixture can fail more than one strategy check, so the reason counts may overlap.',
@@ -646,9 +646,9 @@ const RO: typeof EN = {
 
   hero: {
     eyebrow: 'BETA PUBLIC GRATUIT',
-    headline: 'Fiecare semnal explicat. Fiecare selecție blocată. Fiecare rezultat vizibil.',
+    headline: 'Caută orice meci. Vezi dovezile. Decide singur.',
     supporting:
-      'Caută orice meci, înțelege probabilitățile, prețurile, contextul și incertitudinea, apoi decide singur. Când BetGlitch publică o selecție, o blocăm înainte de start și păstrăm rezultatul vizibil — câștig sau pierdere.',
+      'Compară semnalele modelului, cotele verificate și contextul meciului într-un singur loc. BetGlitch arată ce știm, ce lipsește și de ce merită analizat un meci.',
     primaryCta: 'Explorează semnalele live',
     secondaryCta: 'Vezi rezultatele publicate',
     trustLine: 'Beta public gratuit · Fără câștiguri garantate · Fără pierderi ascunse · Metodologie versionată',
@@ -689,9 +689,9 @@ const RO: typeof EN = {
     scanPredictions: 'cu predicții disponibile',
     scanQualified: 'au trecut toate filtrele',
     scanShown: 'afișate',
-    noGemsHeading: 'Niciun meci nu a obținut statutul Gem',
+    noGemsHeading: 'Niciun meci nu a trecut toate testele Gem astăzi',
     noGemsBody:
-      'Niciunul nu a trecut toate testele esențiale de fiabilitate, model–cotă și preț. Lista de cercetare de mai sus poate arăta totuși meciuri care merită analizate, fără a le prezenta drept Gem-uri calificate.',
+      'Meciurile ordonate de mai sus pot merita analizate; niciunul nu a îndeplinit toate cerințele Gem mai stricte.',
     diagnosticsHeading: 'De ce au fost filtrate meciurile',
     diagnosticsBody:
       'Scanarea arată unde s-au oprit candidații. Un meci poate eșua mai multe verificări ale strategiei, deci numerele motivelor se pot suprapune.',
