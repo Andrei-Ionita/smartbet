@@ -92,25 +92,26 @@ describe('the verdict never softens a weak result', () => {
   })
 })
 
-describe('the monitoring page publishes the measurement', () => {
+describe('the monitoring page publishes the current evidence archive', () => {
   const table = readFileSync(
     join(root, 'app/components/RecommendedPredictionsTable.tsx'), 'utf-8',
   ).replace(/\r\n/g, '\n')
 
-  it('renders AUC, both means and the separation', () => {
-    expect(table).toContain('computeDiscrimination')
-    expect(table).toContain('Ranking power (AUC)')
-    expect(table).toContain('Mean score when correct')
-    expect(table).toContain('Mean score when incorrect')
+  it('uses fixed pre-match decisions rather than mutable recommendations', () => {
+    expect(table).toContain('/api/prediction-archive')
+    expect(table).toContain('Eligible pre-match decisions')
+    expect(table).not.toContain('/api/django/recommended-predictions')
   })
 
-  it('measures ALL loaded rows, not the filtered view', () => {
-    // Filtering until the number flatters us would be trivial otherwise.
-    expect(table).toContain('computeDiscrimination(predictions)')
-    expect(table).not.toContain('computeDiscrimination(filteredPredictions)')
+  it('keeps evaluated and pending decisions visible', () => {
+    expect(table).toContain("['evaluated', c.evaluatedState]")
+    expect(table).toContain("['pending_result', c.pendingState]")
+    expect(table).toContain('decision.correct === false')
   })
 
-  it('warns that these rows are not the published results', () => {
-    expect(table).toContain('they are not the published results')
+  it('separates research evidence from Gem performance in both languages', () => {
+    expect(table).toContain('not a betting performance record')
+    expect(table).toContain('nu un istoric al performanței la pariuri')
+    expect(table).toContain('/track-record')
   })
 })

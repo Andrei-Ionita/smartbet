@@ -28,7 +28,7 @@ const root = join(__dirname, '..', '..', '..')
 const read = (p: string) => readFileSync(join(root, p), 'utf-8').replace(/\r\n/g, '\n')
 
 const MONITORING_TABLE = read('app/components/RecommendedPredictionsTable.tsx')
-const MONITORING_ROUTE = read('app/api/django/recommended-predictions/route.ts')
+const MONITORING_ROUTE = read('app/api/prediction-archive/route.ts')
 const BANKROLL_MODAL = read('app/components/BankrollSetupModal.tsx')
 const DASHBOARD_CARDS = read('app/components/dashboard/PersonalizedRecommendations.tsx')
 
@@ -60,23 +60,17 @@ describe('the monitoring page publishes no performance figure', () => {
     expect(rendered).not.toContain('Accuracy')
   })
 
-  it('points performance claims at the verified record instead', () => {
+  it('points performance claims at the verified Gem record instead', () => {
     expect(MONITORING_TABLE).toContain('/track-record')
-    expect(MONITORING_TABLE).toContain('not a performance record')
+    expect(MONITORING_TABLE).toContain('not a betting performance record')
   })
 
-  it('reconciles its counters against the table, not just arithmetically', () => {
-    // 317 tracked / 296 completed / 13 pending left 8 rows unexplained. The
-    // first fix invented a "no usable result" bucket for them — wrong: those
-    // 8 ARE graded, they are audit-excluded, and the table showed 178 + 126 =
-    // 304 graded rows against a headline claiming 296.
-    expect(MONITORING_ROUTE).toContain('audit_excluded')
-    expect(MONITORING_ROUTE).toContain('graded')
-    expect(MONITORING_TABLE).toContain('Graded against a final score')
-    expect(MONITORING_TABLE).toContain('Of those, audit-excluded')
-    // The retired, incorrect label must not come back.
-    expect(MONITORING_TABLE).not.toContain('no_usable_result')
-    expect(MONITORING_TABLE).not.toContain('Postponed, abandoned or ungraded')
+  it('reads the append-only evidence universe instead of recommendation flags', () => {
+    expect(MONITORING_TABLE).toContain("fetch('/api/calibration'")
+    expect(MONITORING_TABLE).toContain('fetch(`/api/prediction-archive?')
+    expect(MONITORING_TABLE).toContain('eligible_decisions')
+    expect(MONITORING_TABLE).toContain('decision_states.evaluated')
+    expect(MONITORING_TABLE).not.toContain('recommended-predictions')
   })
 })
 
@@ -90,9 +84,9 @@ describe('the monitoring payload carries no price', () => {
     expect(rendered).not.toContain('odds_away')
   })
 
-  it('the proxy serializes an allowlist, not the raw Django row', () => {
-    expect(MONITORING_ROUTE).toContain('toMonitoringRow')
-    expect(MONITORING_ROUTE).not.toContain('...item')
+  it('the archive proxy forwards only the public evidence response', () => {
+    expect(MONITORING_ROUTE).toContain('/api/transparency/prediction-archive/')
+    expect(MONITORING_ROUTE).not.toContain('recommended-predictions')
     for (const leaked of [
       'odds_home', 'odds_draw', 'odds_away', 'bookmaker',
       'profit_loss_10', 'roi_percent', 'expected_value', 'stake_recommendation',

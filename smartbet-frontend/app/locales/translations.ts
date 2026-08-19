@@ -198,7 +198,7 @@ export const translations = {
             tabs: {
                 dashboard: 'Signal performance',
                 accuracy: 'Detailed Accuracy',
-                recommended: 'Signal history',
+                recommended: 'Public evidence archive',
                 analytics: 'Analytics',
                 settings: 'Settings'
             },
@@ -540,7 +540,7 @@ export const translations = {
             tabs: {
                 dashboard: 'Performanța semnalelor',
                 accuracy: 'Acuratețe Detaliată',
-                recommended: 'Istoric semnale',
+                recommended: 'Arhiva publică de dovezi',
                 analytics: 'Analitice',
                 settings: 'Setări'
             },
