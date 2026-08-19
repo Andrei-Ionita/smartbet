@@ -49,6 +49,30 @@ def _as_aware(value):
     return parsed
 
 
+def _provider_context_for_identity(context):
+    """Return only the stable decision facts used to identify an observation.
+
+    ``priceAgeHours`` is calculated from the wall clock whenever the evidence
+    endpoint is read.  Including it in the content hash manufactured a new
+    append-only signal every scheduler run even when the probability, price
+    and decision were unchanged.  Keep the full value in ``provider_context``
+    for auditability, but exclude this continuously increasing display value
+    from identity.  A meaningful age transition still appends evidence because
+    it changes the registered rejection reasons (for example when a quote
+    becomes stale).
+    """
+    if not isinstance(context, dict):
+        return {}
+
+    stable = dict(context)
+    evaluation = stable.get('strategy_evaluation')
+    if isinstance(evaluation, dict):
+        stable_evaluation = dict(evaluation)
+        stable_evaluation.pop('priceAgeHours', None)
+        stable['strategy_evaluation'] = stable_evaluation
+    return stable
+
+
 def observation_hash(candidate):
     """Deterministic identity for one observed candidate.
 
@@ -85,7 +109,9 @@ def observation_hash(candidate):
         # A changed predictability rating, active value flag or fair odd is a
         # genuinely new pre-match state even when the raw outcome probability
         # and bookmaker quote did not move.
-        'provider_context': candidate.get('provider_context') or {},
+        'provider_context': _provider_context_for_identity(
+            candidate.get('provider_context'),
+        ),
     })
 
 

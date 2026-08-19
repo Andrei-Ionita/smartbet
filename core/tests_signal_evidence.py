@@ -106,6 +106,68 @@ class EvidenceCaptureTests(TestCase):
 
         self.assertEqual(SignalObservation.objects.count(), 2)
 
+    def test_advancing_price_age_alone_does_not_append_new_evidence(self):
+        base_context = {
+            'fixture_predictable': True,
+            'league_market_performance': {
+                'predictability': 'good', 'predictivePower': 'up',
+            },
+            'native_value_bet': None,
+            'strategy_evaluation': {
+                'eligible': False,
+                'priceAgeHours': 1.25,
+                'rejectionReasons': ['canonical_price_buffer_too_small'],
+            },
+        }
+        later_context = {
+            **base_context,
+            'strategy_evaluation': {
+                **base_context['strategy_evaluation'],
+                'priceAgeHours': 2.25,
+            },
+        }
+
+        evidence_capture.capture(_payload([_candidate(
+            provider_context=base_context,
+        )]))
+        summary = evidence_capture.capture(_payload([_candidate(
+            provider_context=later_context,
+        )]))
+
+        self.assertEqual(summary['written'], 0)
+        self.assertEqual(summary['skipped_duplicate'], 1)
+        self.assertEqual(SignalObservation.objects.count(), 1)
+
+    def test_price_age_state_transition_remains_new_evidence(self):
+        base_context = {
+            'fixture_predictable': True,
+            'strategy_evaluation': {
+                'eligible': False,
+                'priceAgeHours': 23.9,
+                'rejectionReasons': ['canonical_price_buffer_too_small'],
+            },
+        }
+        stale_context = {
+            **base_context,
+            'strategy_evaluation': {
+                **base_context['strategy_evaluation'],
+                'priceAgeHours': 24.1,
+                'rejectionReasons': [
+                    'canonical_price_buffer_too_small',
+                    'price_stale_or_timestamp_missing',
+                ],
+            },
+        }
+
+        evidence_capture.capture(_payload([_candidate(
+            provider_context=base_context,
+        )]))
+        evidence_capture.capture(_payload([_candidate(
+            provider_context=stale_context,
+        )]))
+
+        self.assertEqual(SignalObservation.objects.count(), 2)
+
     def test_raw_probability_is_never_overwritten_by_the_adjusted_score(self):
         evidence_capture.capture(_payload([_candidate()]))
         row = SignalObservation.objects.get()
