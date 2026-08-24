@@ -3,13 +3,31 @@
 from django.db import migrations, models
 
 
+class CreateModelIfMissing(migrations.CreateModel):
+    """Create the telemetry table unless an earlier rollout already did so.
+
+    Railway can briefly overlap replacement containers.  A previous rollout
+    created this append-only table before its migration record was committed,
+    so a normal ``CreateModel`` makes every later container fail at startup.
+    Keeping the guard inside the migration preserves ordinary fresh-database
+    behaviour while making recovery safe and repeatable.
+    """
+
+    def database_forwards(self, app_label, schema_editor, from_state, to_state):
+        model = to_state.apps.get_model(app_label, self.name)
+        existing_tables = schema_editor.connection.introspection.table_names()
+        if model._meta.db_table in existing_tables:
+            return
+        super().database_forwards(app_label, schema_editor, from_state, to_state)
+
+
 class Migration(migrations.Migration):
 
     dependencies = [
         ('core', '0042_gemfeedcache'),
     ]
     operations = [
-        migrations.CreateModel(
+        CreateModelIfMissing(
             name='ProductEvent',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
