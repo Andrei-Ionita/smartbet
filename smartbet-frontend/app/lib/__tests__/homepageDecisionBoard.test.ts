@@ -39,7 +39,20 @@ describe('homepage decision board', () => {
   })
 
   it('does not mislabel model-only signals as value', () => {
-    expect(board).toContain("add({ kind: 'strong'")
+    expect(board).toContain("candidates.push({ kind: 'strong'")
     expect(board).toContain('Potential value first')
+  })
+
+  it('lets visitors change the ranking lens without changing the evidence claim', () => {
+    expect(board).toContain("type DecisionLens = 'mixed' | 'value' | 'strategy' | 'strong' | 'fresh' | 'soon'")
+    expect(board).toContain('Freshest prices')
+    expect(board).toContain('Kicking off soon')
+    expect(board).toContain('aria-pressed={lens === value}')
+  })
+
+  it('opens and shares permanent fixture research URLs', () => {
+    expect(board).toContain("return `/prediction/${slug(")
+    expect(board).toContain('<ShareResearchButton')
+    expect(board).not.toContain('href={`/explore?fixture=')
   })
 })

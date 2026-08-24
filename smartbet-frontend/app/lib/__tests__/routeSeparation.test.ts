@@ -194,6 +194,48 @@ describe('PUBLIC /api/recommendations', () => {
     expect(JSON.stringify(body.decision_board)).not.toContain('value_signal_aligned')
   })
 
+  it('publishes the qualification funnel without leaking internal scoring', async () => {
+    loadCachedGemFeed.mockResolvedValueOnce({
+      available: true,
+      age_seconds: 60,
+      feed: {
+        recommendations: [],
+        model_shortlist: [],
+        model_shortlist_generated: true,
+        gem_scan: {
+          fixtures_scanned: 451,
+          fixtures_with_predictions: 216,
+          qualified_fixtures: 0,
+          gate_funnel: {
+            fixtures_scanned: 451,
+            prediction_ready: 216,
+            signal_and_price_ready: 43,
+            strategy_qualified: 0,
+          },
+          rejection_breakdown: [
+            { code: 'price_quality', fixtures_affected: 21 },
+            { code: 'internal_secret_score', fixtures_affected: 999 },
+          ],
+          rejection_counts_overlap: true,
+        },
+        lastUpdated: '2099-08-18T13:00:00.000Z',
+      },
+    })
+    const { GET } = await import('../../api/recommendations/route')
+    const body = await (await GET()).json()
+
+    expect(body.gem_scan.gate_funnel).toMatchObject({
+      fixtures_scanned: 451,
+      prediction_ready: 216,
+      signal_and_price_ready: 43,
+      strategy_qualified: 0,
+    })
+    expect(body.gem_scan.rejection_breakdown).toEqual([
+      { code: 'price_quality', fixtures_affected: 21 },
+    ])
+    expect(JSON.stringify(body)).not.toContain('internal_secret_score')
+  })
+
   it('separates price disagreement from strong consensus without duplicating a row', async () => {
     loadCachedGemFeed.mockResolvedValueOnce({
       available: true,

@@ -99,6 +99,26 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
   const rawScan = feed.gem_scan && typeof feed.gem_scan === 'object'
     ? feed.gem_scan as Record<string, unknown>
     : {}
+  const rawGateFunnel = rawScan.gate_funnel && typeof rawScan.gate_funnel === 'object'
+    ? rawScan.gate_funnel as Record<string, unknown>
+    : {}
+  const publicRejectionCodes = new Set([
+    'signal_or_verified_price',
+    'reliability',
+    'provider_value',
+    'cross_market_consensus',
+    'price_quality',
+  ])
+  const rejectionBreakdown = Array.isArray(rawScan.rejection_breakdown)
+    ? rawScan.rejection_breakdown
+        .filter((item: unknown): item is Record<string, unknown> => Boolean(
+          item && typeof item === 'object' && publicRejectionCodes.has(String((item as Record<string, unknown>).code)),
+        ))
+        .map(item => ({
+          code: String(item.code),
+          fixtures_affected: numberOrZero(item.fixtures_affected),
+        }))
+    : []
 
   return {
     featured_gems: publicGems,
@@ -129,6 +149,15 @@ function publicBody(snapshot: Awaited<ReturnType<typeof loadCachedGemFeed>>) {
       qualified_fixtures: numberOrZero(rawScan.qualified_fixtures),
       displayed_gems: publicGems.length,
       maximum_gems: numberOrZero(rawScan.maximum_gems),
+      gate_funnel: {
+        fixtures_scanned: numberOrZero(rawGateFunnel.fixtures_scanned ?? rawScan.fixtures_scanned),
+        prediction_ready: numberOrZero(rawGateFunnel.prediction_ready ?? rawScan.fixtures_with_predictions),
+        signal_and_price_ready: numberOrZero(rawGateFunnel.signal_and_price_ready),
+        strategy_qualified: numberOrZero(rawGateFunnel.strategy_qualified ?? rawScan.qualified_fixtures),
+        displayed: publicGems.length,
+      },
+      rejection_breakdown: rejectionBreakdown,
+      rejection_counts_overlap: rawScan.rejection_counts_overlap === true,
       status: !snapshot.available || !snapshot.feed
         ? 'warming'
         : stale ? 'delayed' : 'current',

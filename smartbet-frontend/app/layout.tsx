@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
 import Footer from '@/components/Footer'
 import AgeGateModal from './components/AgeGateModal'
+import ProductAnalytics from './components/ProductAnalytics'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://www.betglitch.com'),
@@ -45,7 +46,7 @@ export const metadata: Metadata = {
     follow: true,
   },
   icons: {
-    icon: '/images/logo-final-v6.png',
+    icon: '/favicon.ico',
     apple: '/images/logo-final-v6.png',
   },
 }
@@ -91,6 +92,7 @@ export default function RootLayout({
         />
       </head>
       <body className="font-sans">
+        <ProductAnalytics />
         <AuthProvider>
           <LanguageProvider>
             <AgeGateModal />

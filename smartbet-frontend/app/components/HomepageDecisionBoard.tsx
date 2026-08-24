@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { useState } from 'react'
 import useSWR from 'swr'
 import {
   ArrowRight,
@@ -14,6 +15,7 @@ import type { ModelShortlistItem } from '../../src/types/recommendation'
 import type { Lang } from '../lib/terminology'
 import { STRATEGIES } from '../lib/strategyLibrary'
 import type { StrategyFit } from '../lib/useStrategyFits'
+import ShareResearchButton from './ShareResearchButton'
 
 interface StrategyHighlight {
   strategy_key: string
@@ -25,6 +27,7 @@ interface StrategyHighlight {
 }
 
 type SignalKind = 'value' | 'strong'
+type DecisionLens = 'mixed' | 'value' | 'strategy' | 'strong' | 'fresh' | 'soon'
 type RankedItem =
   | { kind: SignalKind; fixtureId: number; signal: ModelShortlistItem }
   | { kind: 'strategy'; fixtureId: number; highlight: StrategyHighlight }
@@ -57,6 +60,12 @@ const COPY = {
     strategyReason: 'This fixture currently matches a registered market strategy.',
     strategyCaveat: 'The strategy remains experimental; a match does not prove profitability.',
     exploreAll: 'Explore all fixtures',
+    lensesLabel: 'Change decision lens',
+    lenses: {
+      mixed: 'Best current mix', value: 'Potential value', strategy: 'Strategy matches',
+      strong: 'Strongest signals', fresh: 'Freshest prices', soon: 'Kicking off soon',
+    },
+    lensEmpty: 'No current fixture fits this decision lens.',
   },
   ro: {
     eyebrow: 'Analiza de fotbal de astăzi',
@@ -85,6 +94,12 @@ const COPY = {
     strategyReason: 'Meciul se potrivește acum unei strategii de piață înregistrate.',
     strategyCaveat: 'Strategia este experimentală; potrivirea nu dovedește profitabilitatea.',
     exploreAll: 'Explorează toate meciurile',
+    lensesLabel: 'Schimbă perspectiva de analiză',
+    lenses: {
+      mixed: 'Selecție mixtă', value: 'Valoare potențială', strategy: 'Potriviri de strategie',
+      strong: 'Cele mai puternice semnale', fresh: 'Cele mai proaspete cote', soon: 'Încep în curând',
+    },
+    lensEmpty: 'Niciun meci actual nu corespunde acestei perspective.',
   },
 } as const
 
@@ -102,6 +117,11 @@ function slug(value: string) {
 function strategyFixtureHref(fit: StrategyFit) {
   const date = fit.kickoff.slice(0, 10)
   return `/prediction/${slug(fit.league || 'league')}/${slug(`${fit.home_team}-vs-${fit.away_team}`)}-${date}-${fit.fixture_id}`
+}
+
+function signalFixtureHref(item: ModelShortlistItem) {
+  const date = item.kickoff.slice(0, 10)
+  return `/prediction/${slug(item.league || 'league')}/${slug(`${item.home_team}-vs-${item.away_team}`)}-${date}-${item.fixture_id}`
 }
 
 function kickoffLabel(value: string, language: Lang) {
@@ -172,6 +192,7 @@ function SignalRow({
 }) {
   const c = COPY[language]
   const value = kind === 'value'
+  const href = signalFixtureHref(item)
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:p-5">
       <div className="flex items-start gap-3 sm:gap-4">
@@ -194,9 +215,12 @@ function SignalRow({
               <div className="rounded-xl bg-slate-50 p-2.5"><dt className="text-slate-500">{c.signalRank}</dt><dd className="mt-1 font-black text-slate-950">{Math.round(item.signal_strength * 100)}/100</dd></div>
               <div className="rounded-xl bg-slate-50 p-2.5"><dt className="text-slate-500">{c.verifiedPrice}</dt><dd className="mt-1 font-black text-slate-950">{item.verified_price.toFixed(2)}</dd></div>
             </dl>
-            <Link href={`/explore?fixture=${item.fixture_id}`} className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
-              {c.inspect}<ArrowRight className="h-4 w-4" />
-            </Link>
+            <div className="grid shrink-0 gap-2">
+              <Link href={href} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
+                {c.inspect}<ArrowRight className="h-4 w-4" />
+              </Link>
+              <ShareResearchButton href={href} title={`${item.home_team} vs ${item.away_team} — BetGlitch research`} language={language} surface="homepage_decision_board" />
+            </div>
           </div>
           <p className={`mt-3 rounded-lg px-3 py-2 text-xs leading-5 ${value ? 'bg-emerald-50 text-emerald-950' : 'bg-blue-50 text-blue-950'}`}>
             {value ? c.valueCaveat : c.strongCaveat}
@@ -220,6 +244,7 @@ function StrategyRow({
   const strategy = STRATEGIES.find(item => item.strategyKey === highlight.strategy_key)
   if (!strategy) return null
   const fit = highlight.fit
+  const href = strategyFixtureHref(fit)
   return (
     <article className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-violet-200 hover:shadow-md sm:p-5">
       <div className="flex items-start gap-3 sm:gap-4">
@@ -246,7 +271,8 @@ function StrategyRow({
               <div className="rounded-xl bg-blue-50 p-2.5"><dt className="text-blue-700">{c.modelView}</dt><dd className="mt-1 font-black text-blue-950">{modelLabel(fit)}</dd></div>
             </dl>
             <div className="grid shrink-0 gap-2">
-              <Link href={strategyFixtureHref(fit)} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">{c.inspect}<ArrowRight className="h-4 w-4" /></Link>
+              <Link href={href} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">{c.inspect}<ArrowRight className="h-4 w-4" /></Link>
+              <ShareResearchButton href={href} title={`${fit.home_team} vs ${fit.away_team} — BetGlitch research`} language={language} surface="homepage_strategy_fit" />
               <Link href={`/strategies/${strategy.slug}`} className="text-center text-xs font-bold text-violet-800 underline-offset-4 hover:underline">{c.learn}</Link>
             </div>
           </div>
@@ -273,6 +299,7 @@ export default function HomepageDecisionBoard({
   recommendationsError: boolean
 }) {
   const c = COPY[language]
+  const [lens, setLens] = useState<DecisionLens>('mixed')
   const { data, error: strategyError, isLoading: strategiesLoading } = useSWR(
     '/api/homepage-strategy-fits', fetcher, {
       refreshInterval: 120000,
@@ -281,13 +308,6 @@ export default function HomepageDecisionBoard({
     },
   )
 
-  const rankedItems: RankedItem[] = []
-  const usedIds = new Set<number>()
-  const add = (item: RankedItem) => {
-    if (rankedItems.length >= 5 || usedIds.has(item.fixtureId)) return
-    rankedItems.push(item)
-    usedIds.add(item.fixtureId)
-  }
   const recommendationsReady = status === 'ready'
     && !recommendationsLoading
     && !recommendationsError
@@ -296,26 +316,64 @@ export default function HomepageDecisionBoard({
     ?? data?.highlights
     ?? []
 
+  const candidates: RankedItem[] = []
   if (recommendationsReady) {
-    valueWatchlist.forEach(signal => add({ kind: 'value', fixtureId: signal.fixture_id, signal }))
+    valueWatchlist.forEach(signal => candidates.push({ kind: 'value', fixtureId: signal.fixture_id, signal }))
   }
   if (strategiesReady) {
-    allHighlights.forEach(highlight => add({
+    allHighlights.forEach(highlight => candidates.push({
       kind: 'strategy',
       fixtureId: highlight.fit.fixture_id,
       highlight,
     }))
   }
   if (recommendationsReady) {
-    strongSignals.forEach(signal => add({ kind: 'strong', fixtureId: signal.fixture_id, signal }))
+    strongSignals.forEach(signal => candidates.push({ kind: 'strong', fixtureId: signal.fixture_id, signal }))
   }
 
-  const allSourcesUnavailable = rankedItems.length === 0
+  const kickoffTime = (item: RankedItem) => Date.parse(
+    item.kind === 'strategy' ? item.highlight.fit.kickoff : item.signal.kickoff,
+  ) || Number.MAX_SAFE_INTEGER
+  const priceAge = (item: RankedItem) => {
+    if (item.kind !== 'strategy') return item.signal.price_age_hours ?? Number.MAX_SAFE_INTEGER
+    const captured = Date.parse(item.highlight.fit.price_captured_at)
+    return Number.isFinite(captured)
+      ? Math.max(0, (Date.now() - captured) / 3_600_000)
+      : Number.MAX_SAFE_INTEGER
+  }
+  const strength = (item: RankedItem) => {
+    if (item.kind !== 'strategy') return item.signal.signal_strength
+    const probability = item.highlight.fit.probability
+    return (probability.model_probability_percent
+      ?? probability.model_probability_low_percent
+      ?? 0) / 100
+  }
+
+  let ordered = [...candidates]
+  if (lens === 'value' || lens === 'strategy' || lens === 'strong') {
+    ordered = ordered.filter(item => item.kind === lens)
+  } else if (lens === 'fresh') {
+    ordered.sort((a, b) => priceAge(a) - priceAge(b))
+  } else if (lens === 'soon') {
+    ordered.sort((a, b) => kickoffTime(a) - kickoffTime(b))
+  }
+  if (lens === 'strong') ordered.sort((a, b) => strength(b) - strength(a))
+
+  const rankedItems: RankedItem[] = []
+  const usedIds = new Set<number>()
+  for (const item of ordered) {
+    if (rankedItems.length >= 5) break
+    if (usedIds.has(item.fixtureId)) continue
+    rankedItems.push(item)
+    usedIds.add(item.fixtureId)
+  }
+
+  const allSourcesUnavailable = candidates.length === 0
     && (recommendationsError || status === 'delayed')
     && Boolean(strategyError)
-  const partiallyUnavailable = rankedItems.length > 0
+  const partiallyUnavailable = candidates.length > 0
     && (recommendationsError || status === 'delayed' || Boolean(strategyError))
-  const loading = rankedItems.length === 0
+  const loading = candidates.length === 0
     && (recommendationsLoading || strategiesLoading || status === 'pending_refresh')
 
   return (
@@ -339,6 +397,24 @@ export default function HomepageDecisionBoard({
         <p className="mt-4 text-xs text-slate-500">{c.strategyLoading}</p>
       )}
 
+      {candidates.length > 0 && (
+        <div className="mt-5 flex flex-wrap gap-2" role="group" aria-label={c.lensesLabel}>
+          {(Object.keys(c.lenses) as DecisionLens[]).map(value => (
+            <button
+              key={value}
+              type="button"
+              aria-pressed={lens === value}
+              onClick={() => setLens(value)}
+              className={`min-h-[40px] rounded-full border px-3.5 text-xs font-bold transition ${lens === value
+                ? 'border-slate-950 bg-slate-950 text-white'
+                : 'border-slate-300 bg-white text-slate-700 hover:border-blue-300 hover:text-blue-800'}`}
+            >
+              {c.lenses[value]}
+            </button>
+          ))}
+        </div>
+      )}
+
       <div className="mt-6 space-y-3">
         {rankedItems.map((item, index) => item.kind === 'strategy'
           ? <StrategyRow key={`strategy:${item.fixtureId}`} highlight={item.highlight} language={language} rank={index + 1} />
@@ -352,7 +428,7 @@ export default function HomepageDecisionBoard({
         <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-center text-sm text-amber-950">{c.unavailable}</div>
       )}
       {!loading && !allSourcesUnavailable && rankedItems.length === 0 && (
-        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">{c.empty}</div>
+        <div className="mt-6 rounded-2xl border border-dashed border-slate-300 bg-white p-6 text-center text-sm text-slate-600">{candidates.length ? c.lensEmpty : c.empty}</div>
       )}
     </section>
   )

@@ -1278,6 +1278,66 @@ class MarketingEvent(models.Model):
         return f"{self.event_name} @ {self.created_at:%Y-%m-%d %H:%M:%S}"
 
 
+class ProductEvent(models.Model):
+    """Privacy-minimal, append-only product telemetry.
+
+    The browser creates a random identifier scoped to one tab session. The
+    server immediately hashes it with ``SECRET_KEY`` and never stores the raw
+    value. Properties are explicit columns rather than an arbitrary JSON blob,
+    so new personal data cannot quietly enter the event stream.
+    """
+
+    EVENT_CHOICES = [
+        ('page_viewed', 'Page Viewed'),
+        ('page_dwell', 'Page Dwell'),
+        ('home_primary_cta', 'Homepage Primary CTA'),
+        ('home_verified_record_cta', 'Homepage Verified Record CTA'),
+        ('explore_search', 'Explore Search'),
+        ('fixture_opened', 'Fixture Opened'),
+        ('research_shared', 'Research Shared'),
+        ('published_proof_opened', 'Published Proof Opened'),
+        ('registration_started', 'Registration Started'),
+        ('registration_completed', 'Registration Completed'),
+        ('first_login', 'First Login'),
+        ('onboarding_action', 'Onboarding Action'),
+        ('dashboard_visited', 'Dashboard Visited'),
+        ('beta_page_viewed', 'Beta Page Viewed'),
+    ]
+    DURATION_BUCKET_CHOICES = [
+        ('under_10s', 'Under 10 seconds'),
+        ('10_to_30s', '10 to 30 seconds'),
+        ('30_to_120s', '30 seconds to 2 minutes'),
+        ('2_to_5m', '2 to 5 minutes'),
+        ('over_5m', 'Over 5 minutes'),
+    ]
+
+    session_hash = models.CharField(max_length=64, db_index=True)
+    event_name = models.CharField(max_length=50, choices=EVENT_CHOICES, db_index=True)
+    surface = models.CharField(max_length=120, blank=True, default='', db_index=True)
+    action = models.CharField(max_length=80, blank=True, default='')
+    has_results = models.BooleanField(null=True, blank=True)
+    duration_bucket = models.CharField(
+        max_length=20,
+        choices=DURATION_BUCKET_CHOICES,
+        blank=True,
+        default='',
+    )
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['event_name', '-created_at']),
+            models.Index(fields=['session_hash', 'created_at']),
+            models.Index(fields=['surface', '-created_at']),
+        ]
+        verbose_name = 'Product Event'
+        verbose_name_plural = 'Product Events'
+
+    def __str__(self):
+        return f'{self.event_name} on {self.surface or "unknown"}'
+
+
 class UserProfile(models.Model):
     """Per-user subscription + persistence data that doesn't belong on the auth User row.
 

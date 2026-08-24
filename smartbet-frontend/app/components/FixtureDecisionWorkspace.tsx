@@ -25,6 +25,7 @@ import {
 import { generateMatchSlug } from '../../src/utils/seo-helpers'
 import FixtureContextTimelinePanel from './FixtureContextTimelinePanel'
 import AllMarketsBrowser from './AllMarketsBrowser'
+import ShareResearchButton from './ShareResearchButton'
 import type { FixtureContextTimeline } from '../lib/fixtureTimeline'
 import type { FixtureMarketCatalogue } from '../lib/marketCatalogue'
 
@@ -174,6 +175,12 @@ export default function FixtureDecisionWorkspace({
                   <CheckCircle2 className="h-3.5 w-3.5" /> {ro ? 'VEZI SELECȚIA BLOCATĂ' : 'VIEW LOCKED PICK'}
                 </a>
               )}
+              <ShareResearchButton
+                href={matchSlug}
+                title={`${fixture.home_team} vs ${fixture.away_team} — BetGlitch research`}
+                language={ro ? 'ro' : 'en'}
+                className="border-slate-500 bg-slate-900 text-slate-100 hover:bg-slate-800"
+              />
             </div>
           </div>
 

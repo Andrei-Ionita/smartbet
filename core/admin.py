@@ -4,11 +4,27 @@ from .models import (
     MarketingEvent,
     PerformanceSnapshot,
     PredictionLog,
+    ProductEvent,
     SchedulerHeartbeat,
     StrategyLabExperiment,
     StrategyLabObservation,
     StrategyLabSettlement,
 )
+
+
+@admin.register(ProductEvent)
+class ProductEventAdmin(admin.ModelAdmin):
+    list_display = ('event_name', 'surface', 'action', 'has_results', 'duration_bucket', 'created_at')
+    list_filter = ('event_name', 'surface', 'duration_bucket', 'created_at')
+    search_fields = ('surface', 'action')
+    readonly_fields = tuple(field.name for field in ProductEvent._meta.fields)
+    date_hierarchy = 'created_at'
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(PredictionLog)

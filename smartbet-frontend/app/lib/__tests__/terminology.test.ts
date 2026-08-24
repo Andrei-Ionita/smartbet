@@ -86,7 +86,7 @@ describe('the homepage answers the five-second question', () => {
     expect(src).toContain('copy.home.learningLinks.map')
     expect(src).toContain("href=\"/track-record#published-picks\"")
     expect(getCopy('en').home.learningLinks.map((item) => item.href)).toEqual([
-      '/track-record#results', '/calibration', '/methodology',
+      '/track-record#results', '/monitoring', '/calibration', '/methodology',
     ])
   })
 

@@ -4,6 +4,7 @@ from . import bankroll_views
 from . import auth_views
 from . import transparency_views
 from . import internal_views
+from . import product_event_views
 from .feature_flags import account_features_required
 
 account_only = account_features_required
@@ -101,4 +102,5 @@ urlpatterns = [
     path('api/subscribe/', account_only(api_views.subscribe_email), name='subscribe_email'),
     path('api/marketing/events/', account_only(api_views.track_marketing_event), name='track_marketing_event'),
     path('api/marketing/webhook/', account_only(api_views.marketing_webhook), name='marketing_webhook'),
+    path('api/product-events/', product_event_views.product_events, name='product_events'),
 ]

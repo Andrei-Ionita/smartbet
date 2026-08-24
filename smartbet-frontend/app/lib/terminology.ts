@@ -190,8 +190,12 @@ const EN = {
       'The few fixtures that passed every core reliability, model-versus-price and verified-price gate. Supporting market signals strengthen the ranking instead of acting as duplicate vetoes.',
     scanFixtures: 'fixtures scanned',
     scanPredictions: 'prediction-ready',
+    scanSignalPrice: 'signal + price ready',
     scanQualified: 'passed every gate',
     scanShown: 'shown',
+    scanLedgerHeading: 'How today\'s Gem scan narrowed the field',
+    scanLedgerBody:
+      'This is the complete qualification funnel from the latest successful scan. Zero qualified fixtures is a valid result, not a missing feed.',
     noGemsHeading: 'No fixture passed every Gem test today',
     noGemsBody:
       'The ranked fixtures above can still be worth investigating; none met every stricter Gem requirement.',
@@ -216,6 +220,12 @@ const EN = {
         body: 'Every settled Gem from the active strategy remains visible, including losses.',
         cta: 'Open Results',
         href: '/track-record#results',
+      },
+      {
+        title: 'Research archive',
+        body: 'Every eligible pre-match model decision is fixed and evaluated separately from published Gems.',
+        cta: 'Open research evidence',
+        href: '/monitoring',
       },
       {
         title: 'Calibration',
@@ -687,8 +697,12 @@ const RO: typeof EN = {
       'Puținele meciuri care au trecut toate filtrele esențiale de fiabilitate, model–cotă și preț verificat. Semnalele piețelor de sprijin întăresc clasarea, fără a acționa ca veto-uri duplicate.',
     scanFixtures: 'meciuri scanate',
     scanPredictions: 'cu predicții disponibile',
+    scanSignalPrice: 'semnal + preț disponibile',
     scanQualified: 'au trecut toate filtrele',
     scanShown: 'afișate',
+    scanLedgerHeading: 'Cum a restrâns scanarea Gem de astăzi lista',
+    scanLedgerBody:
+      'Acesta este traseul complet de calificare din ultima scanare reușită. Zero meciuri calificate este un rezultat valid, nu un flux lipsă.',
     noGemsHeading: 'Niciun meci nu a trecut toate testele Gem astăzi',
     noGemsBody:
       'Meciurile ordonate de mai sus pot merita analizate; niciunul nu a îndeplinit toate cerințele Gem mai stricte.',
@@ -713,6 +727,12 @@ const RO: typeof EN = {
         body: 'Fiecare Gem încheiat din strategia activă rămâne vizibil, inclusiv pierderile.',
         cta: 'Deschide Rezultatele',
         href: '/track-record#results',
+      },
+      {
+        title: 'Arhivă de cercetare',
+        body: 'Fiecare decizie eligibilă a modelului este fixată înainte de meci și evaluată separat de Gem-urile publicate.',
+        cta: 'Deschide dovezile de cercetare',
+        href: '/monitoring',
       },
       {
         title: 'Calibrare',

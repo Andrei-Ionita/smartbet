@@ -7,6 +7,7 @@ import {
   AlertCircle,
   ArrowRight,
   BarChart3,
+  Database,
   FlaskConical,
   Lock,
   Search,
@@ -46,7 +47,7 @@ const FEATURED_LEAGUES = [
 /** Single source of truth — never hardcode a coverage number on a page. */
 const TOTAL_LEAGUES = SEARCHABLE_COMPETITION_COUNT
 
-const LEARNING_ICONS = [ScrollText, BarChart3, FlaskConical]
+const LEARNING_ICONS = [ScrollText, Database, BarChart3, FlaskConical]
 
 export default function HomePage() {
   const router = useRouter()
@@ -107,8 +108,10 @@ export default function HomePage() {
   const scan = {
     fixtures: data?.gem_scan?.fixtures_scanned ?? data?.fixtures_analyzed ?? 0,
     predictions: data?.gem_scan?.fixtures_with_predictions ?? data?.fixtures_with_predictions ?? 0,
+    signalPriceReady: data?.gem_scan?.gate_funnel?.signal_and_price_ready ?? 0,
     qualified: data?.gem_scan?.qualified_fixtures ?? gems.length,
     shown: data?.gem_scan?.displayed_gems ?? gems.length,
+    status: data?.gem_scan?.status ?? 'warming',
   }
 
   const searchFixture = (event: React.FormEvent<HTMLFormElement>) => {
@@ -193,6 +196,59 @@ export default function HomePage() {
           recommendationsError={Boolean(error)}
         />
 
+        {/* The qualification denominator stays visible even when zero Gems
+            survive. Hiding the funnel on empty days made a strict scan look
+            indistinguishable from a broken one. */}
+        {!isLoading && !error && scan.status === 'current' && (
+          <section aria-labelledby="qualification-ledger-heading" className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-6">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+              <div>
+                <p className="text-xs font-black uppercase tracking-[0.16em] text-slate-500">{copy.home.diagnosticsHeading}</p>
+                <h2 id="qualification-ledger-heading" className="mt-1 text-xl font-black text-slate-950">{copy.home.scanLedgerHeading}</h2>
+                <p className="mt-2 max-w-3xl text-sm leading-6 text-slate-600">{copy.home.scanLedgerBody}</p>
+              </div>
+              {data?.lastUpdated && (
+                <time dateTime={data.lastUpdated} className="shrink-0 text-xs text-slate-500">
+                  {new Date(data.lastUpdated).toLocaleString(language === 'ro' ? 'ro-RO' : 'en-GB')}
+                </time>
+              )}
+            </div>
+
+            <dl className="mt-5 grid grid-cols-2 gap-px overflow-hidden rounded-xl border border-slate-200 bg-slate-200 sm:grid-cols-4">
+              {[
+                [scan.fixtures, copy.home.scanFixtures],
+                [scan.predictions, copy.home.scanPredictions],
+                [scan.signalPriceReady, copy.home.scanSignalPrice],
+                [scan.qualified, copy.home.scanQualified],
+              ].map(([value, label], index) => (
+                <div key={String(label)} className="relative bg-slate-50 px-4 py-4 text-center">
+                  {index > 0 && <span aria-hidden className="absolute -left-2 top-1/2 z-10 hidden -translate-y-1/2 rounded-full bg-slate-900 px-1.5 py-0.5 text-[10px] text-white sm:block">→</span>}
+                  <dt className="text-xs leading-tight text-slate-500">{label}</dt>
+                  <dd className="mt-1 text-2xl font-black text-slate-950">{value}</dd>
+                </div>
+              ))}
+            </dl>
+
+            {rejectionBreakdown.length > 0 && scan.predictions > 0 && (
+              <details className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+                <summary className="cursor-pointer text-sm font-bold text-slate-800">{copy.home.diagnosticsHeading}</summary>
+                <p className="mt-3 text-xs leading-relaxed text-slate-500">{copy.home.diagnosticsBody}</p>
+                <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
+                  {rejectionBreakdown.map((item) => (
+                    <div key={item.code} className="rounded-lg bg-white px-3 py-3">
+                      <dt className="text-xs leading-snug text-slate-600">{rejectionLabels[item.code] ?? item.code}</dt>
+                      <dd className="mt-1 text-lg font-black text-slate-950">
+                        {item.fixtures_affected}{' '}
+                        <span className="text-xs font-normal text-slate-500">{copy.home.diagnosticsAffected}</span>
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              </details>
+            )}
+          </section>
+        )}
+
         {/* 3. Qualified Gems from the latest scan. */}
         <section aria-labelledby="gems-heading" className={gems.length > 0 || isLoading || error ? 'mt-16 sm:mt-20' : 'mt-8'}>
           {(isLoading || error || gems.length > 0) && (
@@ -222,50 +278,6 @@ export default function HomePage() {
               {copy.home.browseAll} →
             </Link>
           </div>
-          )}
-
-          {!isLoading && !error && gems.length > 0 && (
-            <>
-              <dl className="mb-4 grid grid-cols-2 gap-px overflow-hidden rounded-2xl border border-gray-200 bg-gray-200 sm:grid-cols-4">
-                {[
-                  [scan.fixtures, copy.home.scanFixtures],
-                  [scan.predictions, copy.home.scanPredictions],
-                  [scan.qualified, copy.home.scanQualified],
-                  [scan.shown, copy.home.scanShown],
-                ].map(([value, label]) => (
-                  <div key={String(label)} className="bg-white px-4 py-4 text-center">
-                    <dt className="text-xs leading-tight text-gray-500">{label}</dt>
-                    <dd className="mt-1 text-2xl font-bold text-gray-950">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-
-              {rejectionBreakdown.length > 0 && scan.predictions > 0 && (
-                <details className="mb-6 rounded-xl border border-slate-200 bg-white px-4 py-3">
-                  <summary className="cursor-pointer text-sm font-semibold text-slate-800">
-                    {copy.home.diagnosticsHeading}
-                  </summary>
-                  <p className="mt-3 text-xs leading-relaxed text-slate-500">
-                    {copy.home.diagnosticsBody}
-                  </p>
-                  <dl className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-5">
-                    {rejectionBreakdown.map((item) => (
-                      <div key={item.code} className="rounded-lg bg-slate-50 px-3 py-3">
-                        <dt className="text-xs leading-snug text-slate-600">
-                          {rejectionLabels[item.code] ?? item.code}
-                        </dt>
-                        <dd className="mt-1 text-lg font-bold text-slate-950">
-                          {item.fixtures_affected}{' '}
-                          <span className="text-xs font-normal text-slate-500">
-                            {copy.home.diagnosticsAffected}
-                          </span>
-                        </dd>
-                      </div>
-                    ))}
-                  </dl>
-                </details>
-              )}
-            </>
           )}
 
           {isLoading && (
@@ -374,7 +386,7 @@ export default function HomePage() {
           <p className="text-xs font-bold uppercase tracking-widest text-blue-700">{copy.home.learningEyebrow}</p>
           <h2 id="learning-heading" className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{copy.home.learningHeading}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{copy.home.learningSupporting}</p>
-          <div className="mt-6 grid gap-4 md:grid-cols-3">
+          <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
             {copy.home.learningLinks.map((item, index) => {
               const Icon = LEARNING_ICONS[index] ?? BarChart3
               return (
