@@ -72,6 +72,17 @@ describe('the monitoring page publishes no performance figure', () => {
     expect(MONITORING_TABLE).toContain('decision_states.evaluated')
     expect(MONITORING_TABLE).not.toContain('recommended-predictions')
   })
+
+  it('makes result-state filters unambiguous and exposes their live counts', () => {
+    expect(MONITORING_TABLE).toContain('Confirmed result — evaluated')
+    expect(MONITORING_TABLE).toContain('Rezultat confirmat — evaluată')
+    expect(MONITORING_TABLE).toContain('Provisional final — awaiting confirmation')
+    expect(MONITORING_TABLE).toContain('Scor final provizoriu — așteaptă confirmarea')
+    expect(MONITORING_TABLE).toContain('labelWithCount(label, count)')
+    expect(MONITORING_TABLE).toContain('counts[value] ?? 0')
+    expect(MONITORING_TABLE).toContain("state === 'awaiting_confirmation'")
+    expect(MONITORING_TABLE).toContain("setState('evaluated')")
+  })
 })
 
 describe('the monitoring payload carries no price', () => {

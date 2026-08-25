@@ -95,12 +95,16 @@ const COPY = {
     marketBtts: 'Both teams to score',
     marketTotals: 'Over / under 2.5',
     marketDc: 'Double chance',
-    evaluatedState: 'Evaluated',
+    evaluatedState: 'Confirmed result — evaluated',
     pendingState: 'Pending result',
-    confirmingState: 'Confirming result',
+    confirmingState: 'Provisional final — awaiting confirmation',
     unscoreableState: 'Not scoreable',
+    filterHelp: '“Evaluated” means the final result is confirmed and scored. “Provisional final” is only the short state before a final score is independently reconfirmed.',
     refresh: 'Refresh',
     noRows: 'No decisions match these filters.',
+    noProvisionalRows: (evaluated: number) => `No provisional finals are awaiting confirmation right now. ${evaluated} completed decisions are available under Evaluated.`,
+    showEvaluated: 'Show evaluated decisions',
+    clearFilters: 'Clear filters',
     observed: 'recorded',
     beforeKickoff: 'before kickoff',
     leadingOutcome: 'Leading outcome',
@@ -143,12 +147,16 @@ const COPY = {
     marketBtts: 'Ambele echipe marchează',
     marketTotals: 'Peste / sub 2,5 goluri',
     marketDc: 'Șansă dublă',
-    evaluatedState: 'Evaluată',
+    evaluatedState: 'Rezultat confirmat — evaluată',
     pendingState: 'Rezultat în așteptare',
-    confirmingState: 'Rezultat în confirmare',
+    confirmingState: 'Scor final provizoriu — așteaptă confirmarea',
     unscoreableState: 'Nu poate fi evaluată',
+    filterHelp: '„Evaluată” înseamnă că rezultatul final este confirmat și analizat. „Scor final provizoriu” este doar starea scurtă de dinaintea reconfirmării independente.',
     refresh: 'Actualizează',
     noRows: 'Nicio decizie nu corespunde acestor filtre.',
+    noProvisionalRows: (evaluated: number) => `Niciun scor final provizoriu nu așteaptă confirmarea acum. Cele ${evaluated} de decizii finalizate sunt disponibile la Evaluată.`,
+    showEvaluated: 'Arată deciziile evaluate',
+    clearFilters: 'Șterge filtrele',
     observed: 'înregistrată',
     beforeKickoff: 'înainte de start',
     leadingOutcome: 'Rezultat principal',
@@ -172,6 +180,10 @@ const COPY = {
 
 function percent(value: number) {
   return `${(value * 100).toFixed(1)}%`
+}
+
+function labelWithCount(label: string, count: number | undefined) {
+  return typeof count === 'number' ? `${label} (${count})` : label
 }
 
 function stateLabel(state: string, language: Lang) {
@@ -250,13 +262,22 @@ export default function RecommendedPredictionsTable() {
     ['over_under_2.5', c.marketTotals],
     ['double_chance', c.marketDc],
   ], [c])
-  const stateOptions = useMemo(() => [
-    ['', c.allStates],
-    ['evaluated', c.evaluatedState],
-    ['pending_result', c.pendingState],
-    ['awaiting_confirmation', c.confirmingState],
-    ['unscoreable_result', c.unscoreableState],
-  ], [c])
+  const stateOptions = useMemo(() => {
+    const baseOptions = [
+      ['', c.allStates],
+      ['evaluated', c.evaluatedState],
+      ['pending_result', c.pendingState],
+      ['awaiting_confirmation', c.confirmingState],
+      ['unscoreable_result', c.unscoreableState],
+    ] as const
+    const counts = report?.coverage.decision_states
+    return baseOptions.map(([value, label]) => {
+      const count = value
+        ? (counts ? counts[value] ?? 0 : undefined)
+        : report?.coverage.eligible_decisions
+      return [value, labelWithCount(label, count)] as const
+    })
+  }, [c, report])
 
   if (reportError && archiveError && !report && !archive) {
     return (
@@ -341,6 +362,7 @@ export default function RecommendedPredictionsTable() {
             </button>
           </div>
         </div>
+        <p className="mt-3 text-xs leading-5 text-slate-500">{c.filterHelp}</p>
 
         <div className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white">
           {archiveError && !archive ? (
@@ -348,7 +370,18 @@ export default function RecommendedPredictionsTable() {
           ) : !archive ? (
             <div className="p-10 text-center text-sm text-slate-500"><RefreshCw className="mx-auto mb-3 h-5 w-5 animate-spin text-blue-600" />{c.loading}</div>
           ) : archive.decisions.length === 0 ? (
-            <div className="p-10 text-center text-sm text-slate-500">{c.noRows}</div>
+            <div className="p-10 text-center text-sm text-slate-500">
+              <p>{state === 'awaiting_confirmation' ? c.noProvisionalRows(evaluated) : c.noRows}</p>
+              {state === 'awaiting_confirmation' && evaluated > 0 ? (
+                <button onClick={() => { setState('evaluated'); setPage(1) }} className="mt-4 rounded-xl bg-blue-600 px-4 py-2.5 font-bold text-white hover:bg-blue-700">
+                  {c.showEvaluated}
+                </button>
+              ) : (market || state) ? (
+                <button onClick={() => { setMarket(''); setState(''); setPage(1) }} className="mt-4 rounded-xl border border-slate-300 bg-white px-4 py-2.5 font-bold text-slate-800 hover:bg-slate-50">
+                  {c.clearFilters}
+                </button>
+              ) : null}
+            </div>
           ) : (
             <div className="divide-y divide-slate-100">
               {archive.decisions.map(decision => (
