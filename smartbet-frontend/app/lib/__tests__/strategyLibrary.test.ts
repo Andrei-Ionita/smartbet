@@ -68,7 +68,9 @@ describe('public strategy library', () => {
 
     expect(home).toContain('<HomepageSelections')
     expect(component).toContain('category=homepage&state=pending')
-    expect(component).not.toContain('Strategy match')
+    expect(component).toContain('category=strategy&state=pending')
+    expect(component).toContain('Strategy match')
+    expect(component).toContain('Tracked in Results')
     expect(results).toContain("category: 'homepage' | 'strategy'")
     expect(results).toContain("row.category === 'strategy'")
   })

@@ -11,7 +11,7 @@ describe('homepage tracked selections', () => {
   const route = read('app/api/results-selections/route.ts')
   const engine = read('app/api/recommendations/engine.ts')
 
-  it('replaces the technical decision board with one clear public selection stream', () => {
+  it('keeps one clear public selection stream on the homepage', () => {
     expect(home).toContain('<HomepageSelections')
     expect(home).not.toContain('<HomepageDecisionBoard')
     expect(home).not.toContain('<ModelShortlistCard')
@@ -20,28 +20,38 @@ describe('homepage tracked selections', () => {
 
   it('separates frozen selections from current candidates without overstating the record', () => {
     expect(selections).toContain('Frozen selections enter Results')
-    expect(selections).toContain('current candidates remain visible')
+    expect(selections).toContain('current candidates do not count until they are recorded')
     expect(selections).toContain('Tracked in Results')
     expect(selections).toContain('Current candidate')
-    expect(selections).toContain('not guarantees or instructions to bet')
     expect(selections).not.toContain('permanently tracked')
   })
 
-  it('shows at most five active selections with one reason per card', () => {
-    expect(selections).toContain('.slice(0, 5)')
+  it('restores a horizontal five-card mix of value, strategies and signals', () => {
+    expect(selections).toContain('Five fixtures worth a closer look')
     expect(selections).toContain("reason_code === 'potential_value'")
+    expect(selections).toContain("reason_code === 'strategy_match'")
+    expect(selections).toContain("reason_code === 'strong_signal'")
     expect(selections).toContain('Potential value')
-    expect(selections).toContain('Strong model signal')
-    expect(selections).not.toContain('Strategy match')
+    expect(selections).toContain('Strategy match')
+    expect(selections).toContain('Strong signal')
+    expect(selections).toContain('xl:grid-cols-5')
+    expect(selections).toContain('overflow-x-auto')
   })
 
-  it('merges the frozen homepage record with the live recommendation feed', () => {
+  it('merges frozen records with both live evidence feeds', () => {
     expect(selections).toContain('/api/results-selections?category=homepage&state=pending')
+    expect(selections).toContain('/api/results-selections?category=strategy&state=pending')
     expect(selections).toContain('/api/recommendations/')
-    expect(selections).toContain('...trackedRows(trackedFeed.data), ...candidateRows(candidateFeed.data)')
-    expect(selections).toContain('seen.has(item.fixture_id)')
+    expect(selections).toContain('/api/homepage-strategy-fits')
     expect(route).toContain('/api/results/selections/')
     expect(route).not.toContain('/api/internal/')
+  })
+
+  it('deduplicates fixtures and strategy types while capping the board at five', () => {
+    expect(selections).toContain('selected.length >= 5')
+    expect(selections).toContain('fixtures.has(item.fixture_id)')
+    expect(selections).toContain('strategyKeys.has(item.strategy_key)')
+    expect(selections).toContain('addFirst(strategies)')
   })
 
   it('keeps price classification inside the selection engine', () => {
@@ -51,7 +61,7 @@ describe('homepage tracked selections', () => {
 
   it('opens permanent fixture pages and the complete homepage record', () => {
     expect(selections).toContain("return `/prediction/${slug(")
-    expect(selections).toContain('/track-record?category=homepage')
+    expect(selections).toContain('href="/track-record"')
     expect(selections).not.toContain('href={`/explore?fixture=')
   })
 })
