@@ -18,10 +18,13 @@ describe('homepage tracked selections', () => {
     expect(home).not.toContain('<HomepageStrategyFits')
   })
 
-  it('states that selections are frozen and permanently tracked', () => {
-    expect(selections).toContain('frozen before kickoff')
-    expect(selections).toContain('Every outcome remains in Results')
+  it('separates frozen selections from current candidates without overstating the record', () => {
+    expect(selections).toContain('Frozen selections enter Results')
+    expect(selections).toContain('current candidates remain visible')
+    expect(selections).toContain('Tracked in Results')
+    expect(selections).toContain('Current candidate')
     expect(selections).toContain('not guarantees or instructions to bet')
+    expect(selections).not.toContain('permanently tracked')
   })
 
   it('shows at most five active selections with one reason per card', () => {
@@ -32,8 +35,11 @@ describe('homepage tracked selections', () => {
     expect(selections).not.toContain('Strategy match')
   })
 
-  it('reads only the frozen homepage record', () => {
+  it('merges the frozen homepage record with the live recommendation feed', () => {
     expect(selections).toContain('/api/results-selections?category=homepage&state=pending')
+    expect(selections).toContain('/api/recommendations/')
+    expect(selections).toContain('...trackedRows(trackedFeed.data), ...candidateRows(candidateFeed.data)')
+    expect(selections).toContain('seen.has(item.fixture_id)')
     expect(route).toContain('/api/results/selections/')
     expect(route).not.toContain('/api/internal/')
   })
