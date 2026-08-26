@@ -45,6 +45,8 @@ export interface InternalModelShortlistCandidate {
   supporting_models: number
   explicit_contradictions: number
   value_signal_aligned: boolean
+  /** Internal-only canonical price evidence used by the publication worker. */
+  odds_provenance: OddsProvenance
   strategy_evaluation: StrategyEvaluation
 }
 
@@ -135,6 +137,7 @@ export function buildModelShortlistCandidate(
     // canonical gap must reach the registered minimum. Clear favourites with
     // no price disagreement belong in the strong-signal lane instead.
     value_signal_aligned: valueSignalAligned,
+    odds_provenance: input.oddsProvenance,
     strategy_evaluation: evaluation,
   }
 }

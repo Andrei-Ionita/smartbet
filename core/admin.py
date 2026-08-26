@@ -5,11 +5,43 @@ from .models import (
     PerformanceSnapshot,
     PredictionLog,
     ProductEvent,
+    PublicSelection,
+    PublicSelectionResult,
     SchedulerHeartbeat,
     StrategyLabExperiment,
     StrategyLabObservation,
     StrategyLabSettlement,
 )
+
+
+@admin.register(PublicSelection)
+class PublicSelectionAdmin(admin.ModelAdmin):
+    list_display = ('category', 'fixture_id', 'home_team', 'away_team',
+                    'source_key', 'predicted_outcome', 'odds', 'published_at')
+    list_filter = ('category', 'source_key', 'reason_code', 'published_at')
+    search_fields = ('fixture_id', 'home_team', 'away_team', 'source_key')
+    readonly_fields = tuple(field.name for field in PublicSelection._meta.fields)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PublicSelectionResult)
+class PublicSelectionResultAdmin(admin.ModelAdmin):
+    list_display = ('selection', 'status', 'unit_profit', 'settled_at')
+    list_filter = ('status', 'selection__category', 'settled_at')
+    readonly_fields = tuple(
+        field.name for field in PublicSelectionResult._meta.fields
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
 
 
 @admin.register(ProductEvent)

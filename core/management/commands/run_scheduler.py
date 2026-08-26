@@ -162,6 +162,11 @@ class Command(BaseCommand):
         # nothing, and a failure here must never cost us a settlement.
         self.run_task('capture_signal_evidence')
 
+        # Freeze exactly what the public Homepage and named Strategies are
+        # displaying. These broader selections have their own record and never
+        # enter or dilute the stricter Gem claim universe.
+        self.run_task('publish_public_selections')
+
         # Task 6: Append provider RESULTS for observed fixtures. Works from the
         # SignalObservation fixture universe, not PredictionLog, so a fixture we
         # observed but never recommended still becomes scoreable.
@@ -170,6 +175,11 @@ class Command(BaseCommand):
         # Task 7: Grade only fixed-horizon, rule-qualified shadow decisions.
         # This writes private research settlements and cannot publish a Gem.
         self.run_task('settle_strategy_lab')
+
+        # Strategy selections reuse the exact lab settlement, including Asian
+        # half-wins, pushes and half-losses. Run only after the lab has graded
+        # the latest confirmed fixture-result observations.
+        self.run_task('settle_public_selections')
 
     def run_task(self, command_name, **kwargs):
         """Helper to run a single management command.

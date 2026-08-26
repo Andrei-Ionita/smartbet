@@ -15,7 +15,7 @@ import {
 } from 'lucide-react'
 import Image from 'next/image'
 import GemCard from './components/GemCard'
-import HomepageDecisionBoard from './components/HomepageDecisionBoard'
+import HomepageSelections from './components/HomepageSelections'
 import RecommendationCardSkeleton from './components/RecommendationCardSkeleton'
 import ErrorBoundary from './components/ErrorBoundary'
 import RetryButton from './components/RetryButton'
@@ -24,7 +24,7 @@ import { getCopy } from './lib/terminology'
 import { SEARCHABLE_COMPETITION_COUNT } from './lib/coverage'
 import { track } from './lib/analytics'
 import { useLanguage } from './contexts/LanguageContext'
-import { ModelShortlistItem, Recommendation } from '../src/types/recommendation'
+import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
 
 const fetcher = (url: string) => fetch(url).then(res => res.json())
@@ -101,10 +101,6 @@ export default function HomePage() {
   }
 
   const gems: Recommendation[] = data?.featured_gems ?? data?.recommendations ?? []
-  const shortlist: ModelShortlistItem[] = data?.model_shortlist ?? []
-  const valueWatchlist: ModelShortlistItem[] = data?.decision_board?.price_watchlist ?? []
-  const strongSignals: ModelShortlistItem[] = data?.decision_board?.strong_signals ?? shortlist
-  const shortlistStatus = data?.model_shortlist_status ?? 'pending_refresh'
   const scan = {
     fixtures: data?.gem_scan?.fixtures_scanned ?? data?.fixtures_analyzed ?? 0,
     predictions: data?.gem_scan?.fixtures_with_predictions ?? data?.fixtures_with_predictions ?? 0,
@@ -184,17 +180,10 @@ export default function HomePage() {
           </form>
         </header>
 
-        {/* 2. One compact board, with evidence lanes that cannot masquerade as
-            one another. Value, strategy fit and model consensus are different
-            claims and therefore get different cards and caveats. */}
-        <HomepageDecisionBoard
-          language={language}
-          valueWatchlist={valueWatchlist}
-          strongSignals={strongSignals}
-          status={shortlistStatus}
-          recommendationsLoading={isLoading}
-          recommendationsError={Boolean(error)}
-        />
+        {/* A public selection is frozen before kickoff and permanently graded.
+            Technical model lanes remain internal evidence, not competing picks
+            presented to ordinary visitors. */}
+        <HomepageSelections language={language} />
 
         {/* The qualification denominator stays visible even when zero Gems
             survive. Hiding the funnel on empty days made a strict scan look
@@ -401,7 +390,7 @@ export default function HomePage() {
           </div>
           <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-3xl"><h3 className="font-bold text-indigo-950">{copy.home.differenceHeading}</h3><p className="mt-1 text-sm leading-6 text-indigo-900">{copy.home.differenceBody}</p></div>
-            <Link href="/track-record#published-picks" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
+            <Link href="/track-record" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
           </div>
         </section>
 

@@ -62,6 +62,45 @@ def public_strategy_fits(request, strategy_key):
 
 @api_view(['GET'])
 @permission_classes([AllowAny])
+@cache_page(60)
+def public_selections_list(request):
+    """Homepage and named-strategy selections frozen before kickoff.
+
+    Gems stay on ``/api/proof/claims/``. The Results page combines the two
+    public APIs while preserving their separate denominators and standards.
+    """
+    from core.models import PublicSelection
+    from core.services import public_selections
+
+    category = request.query_params.get('category', '').strip()
+    source_key = request.query_params.get('source_key', '').strip()
+    state = request.query_params.get('state', '').strip()
+    if category and category not in {
+        PublicSelection.CATEGORY_HOMEPAGE,
+        PublicSelection.CATEGORY_STRATEGY,
+    }:
+        return Response({'success': False, 'error': 'unsupported category'}, status=400)
+    if state and state not in {'pending', 'settled'}:
+        return Response({'success': False, 'error': 'unsupported state'}, status=400)
+
+    rows = public_selections.public_rows(
+        category=category, source_key=source_key, state=state,
+    )
+    return Response({
+        'success': True,
+        'selections': rows,
+        'total': len(rows),
+        'policy': {
+            'categories_are_separate': True,
+            'flat_stake': 10,
+            'published_before_kickoff': True,
+            'results_are_insert_only': True,
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
 def calibration_evidence(request):
     """Public probability-quality report from append-only pre-match evidence."""
     from core.services import calibration_evidence as evidence

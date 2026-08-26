@@ -79,7 +79,7 @@ const PUBLIC_SURFACES = [
   // because the surface list below was incomplete, not because the scan was
   // wrong — shared components are public surfaces too.
   'app/components/StatusBadge.tsx',
-  'app/components/HomepageDecisionBoard.tsx',
+  'app/components/HomepageSelections.tsx',
   'app/components/EmptyState.tsx',
   'app/components/BettingCalculatorModal.tsx',
   'app/proof/_shared/ProofPageBody.tsx',

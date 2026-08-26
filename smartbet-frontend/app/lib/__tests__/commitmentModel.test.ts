@@ -48,7 +48,7 @@ describe('homepage simplification', () => {
     expect(en.home.differenceHeading).toBe('Published before kickoff. Visible after the result.')
     expect(en.home.differenceBody).toContain('cannot add it after the match')
     expect(src).toContain('copy.home.differenceHeading')
-    expect(src).toContain('/track-record#published-picks')
+    expect(src).toContain('href="/track-record"')
   })
 
   it('removes the three-stage counter funnel', () => {

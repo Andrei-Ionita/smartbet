@@ -25,7 +25,7 @@ const PUBLIC_SOURCES = [
   'app/about/page.tsx',
   'app/register/page.tsx',
   'app/explore/ExploreContent.tsx',
-  'app/components/HomepageDecisionBoard.tsx',
+  'app/components/HomepageSelections.tsx',
   'app/strategies/StrategiesContent.tsx',
   'app/strategies/[slug]/StrategyDetailContent.tsx',
   'app/track-record/page.tsx',
@@ -84,9 +84,9 @@ describe('the homepage answers the five-second question', () => {
     expect(src).toContain('onSubmit={searchFixture}')
     expect(src).toContain("`/explore?q=${encodeURIComponent(query)}`")
     expect(src).toContain('copy.home.learningLinks.map')
-    expect(src).toContain("href=\"/track-record#published-picks\"")
+    expect(src).toContain("href=\"/track-record\"")
     expect(getCopy('en').home.learningLinks.map((item) => item.href)).toEqual([
-      '/track-record#results', '/monitoring', '/calibration', '/methodology',
+      '/track-record', '/track-record?category=strategy', '/calibration', '/methodology',
     ])
   })
 
@@ -311,9 +311,9 @@ describe('the verified record page does not promise a proven history', () => {
     expect(src.toLowerCase()).not.toContain('real roi')
   })
 
-  it('describes the published-pick universe in its metadata', () => {
-    expect(src).toContain('Current Gem strategy results')
-    expect(src).toContain('every Gem published by the current BetGlitch strategy')
+  it('describes the three separate public result universes in its metadata', () => {
+    expect(src).toContain('Results — homepage, strategies and Hidden Gems')
+    expect(src).toContain('every frozen BetGlitch homepage selection, named strategy and Hidden Gem')
   })
 })
 

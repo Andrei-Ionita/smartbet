@@ -217,15 +217,15 @@ const EN = {
     learningLinks: [
       {
         title: 'Results',
-        body: 'Every settled Gem from the active strategy remains visible, including losses.',
+        body: 'Homepage selections, strategy selections and Hidden Gems keep separate complete records, including losses.',
         cta: 'Open Results',
-        href: '/track-record#results',
+        href: '/track-record',
       },
       {
-        title: 'Research archive',
-        body: 'Every eligible pre-match model decision is fixed and evaluated separately from published Gems.',
-        cta: 'Open research evidence',
-        href: '/monitoring',
+        title: 'Strategy results',
+        body: 'Every tracked strategy selection keeps its original price and outcome in a separate record.',
+        cta: 'Open strategy results',
+        href: '/track-record?category=strategy',
       },
       {
         title: 'Calibration',
@@ -724,15 +724,15 @@ const RO: typeof EN = {
     learningLinks: [
       {
         title: 'Rezultate',
-        body: 'Fiecare Gem încheiat din strategia activă rămâne vizibil, inclusiv pierderile.',
+        body: 'Selecțiile de pe prima pagină, strategiile și Hidden Gems păstrează istorice complete separate, inclusiv pierderile.',
         cta: 'Deschide Rezultatele',
-        href: '/track-record#results',
+        href: '/track-record',
       },
       {
-        title: 'Arhivă de cercetare',
-        body: 'Fiecare decizie eligibilă a modelului este fixată înainte de meci și evaluată separat de Gem-urile publicate.',
-        cta: 'Deschide dovezile de cercetare',
-        href: '/monitoring',
+        title: 'Rezultatele strategiilor',
+        body: 'Fiecare selecție urmărită a unei strategii păstrează cota inițială și rezultatul într-un istoric separat.',
+        cta: 'Deschide rezultatele strategiilor',
+        href: '/track-record?category=strategy',
       },
       {
         title: 'Calibrare',

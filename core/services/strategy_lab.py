@@ -1080,9 +1080,10 @@ def build_public_current_fits(strategy_key, *, limit=5):
     """Return up to five fresh fixtures that pass one registered strategy.
 
     This is a read-only, allowlisted projection of forward observations. It
-    never exposes private rules, internal scores or unqualified candidates and
-    it never promotes a fit into a public pick. One fixture can occupy at most
-    one position on a strategy page.
+    never exposes private rules, internal scores or unqualified candidates.
+    The scheduler freezes every displayed fit into the separate Strategy
+    Results record before kickoff. One fixture can occupy at most one position
+    on a strategy page.
     """
     limit = min(5, max(1, int(limit)))
     definition = next((
@@ -1109,7 +1110,8 @@ def build_public_current_fits(strategy_key, *, limit=5):
             'policy': {
                 'maximum_fits': 5,
                 'empty_is_valid': True,
-                'fit_is_public_pick': False,
+                'fit_is_public_pick': True,
+                'fit_enters_strategy_results': True,
             },
         }
 
@@ -1188,7 +1190,8 @@ def build_public_current_fits(strategy_key, *, limit=5):
         'policy': {
             'maximum_fits': 5,
             'empty_is_valid': True,
-            'fit_is_public_pick': False,
+            'fit_is_public_pick': True,
+            'fit_enters_strategy_results': True,
             'one_fit_per_fixture': True,
             'prices_must_be_fresh_and_verified': True,
         },

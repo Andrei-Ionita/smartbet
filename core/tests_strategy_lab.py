@@ -387,7 +387,8 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertEqual(body['fits'][0]['fixture_id'], 8106)
         self.assertEqual(len({row['fixture_id'] for row in body['fits']}), 5)
         self.assertTrue(body['policy']['empty_is_valid'])
-        self.assertFalse(body['policy']['fit_is_public_pick'])
+        self.assertTrue(body['policy']['fit_is_public_pick'])
+        self.assertTrue(body['policy']['fit_enters_strategy_results'])
 
     def test_homepage_highlights_use_distinct_strategies_and_fixtures(self):
         strategy_lab.capture(

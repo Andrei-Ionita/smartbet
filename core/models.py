@@ -785,6 +785,197 @@ class PublishedClaimResult(models.Model):
         })[:16]
 
 
+class PublicSelection(models.Model):
+    """An append-only selection BetGlitch actually displayed to the public.
+
+    Gems remain :class:`PublishedClaim` because they carry the stricter Gem
+    qualification and independent anchoring lifecycle.  Homepage and strategy
+    selections are a different promise: they are useful, clearly-labelled
+    selections whose complete outcomes will be tracked.  Keeping them in their
+    own immutable table prevents the broader record from weakening or
+    masquerading as the Gem record.
+    """
+
+    CATEGORY_HOMEPAGE = 'homepage'
+    CATEGORY_STRATEGY = 'strategy'
+    CATEGORY_CHOICES = [
+        (CATEGORY_HOMEPAGE, 'Homepage selection'),
+        (CATEGORY_STRATEGY, 'Strategy selection'),
+    ]
+
+    REASON_VALUE = 'potential_value'
+    REASON_STRONG = 'strong_signal'
+    REASON_STRATEGY = 'strategy_match'
+    REASON_CHOICES = [
+        (REASON_VALUE, 'Potential value'),
+        (REASON_STRONG, 'Strong model signal'),
+        (REASON_STRATEGY, 'Strategy match'),
+    ]
+
+    selection_id = models.UUIDField(primary_key=True, editable=False)
+    category = models.CharField(max_length=16, choices=CATEGORY_CHOICES,
+                                db_index=True)
+    source_key = models.CharField(max_length=80, db_index=True)
+    source_version = models.CharField(max_length=128, blank=True, default='')
+    source_ref = models.CharField(max_length=160, unique=True)
+    reason_code = models.CharField(max_length=32, choices=REASON_CHOICES)
+
+    # Optional immutable evidence row behind a strategy selection. Homepage
+    # selections are frozen from the worker-produced decision-board snapshot.
+    source_strategy_observation = models.ForeignKey(
+        'StrategyLabObservation', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='public_selections',
+    )
+
+    fixture_id = models.IntegerField(db_index=True)
+    home_team = models.CharField(max_length=100)
+    away_team = models.CharField(max_length=100)
+    league = models.CharField(max_length=100, blank=True, default='')
+    league_id = models.IntegerField(null=True, blank=True)
+    kickoff = models.DateTimeField(db_index=True)
+
+    market_type = models.CharField(max_length=40)
+    predicted_outcome = models.CharField(max_length=120)
+    side = models.CharField(max_length=32, blank=True, default='')
+    line = models.FloatField(null=True, blank=True)
+    model_score = models.FloatField(null=True, blank=True)
+
+    odds = models.FloatField()
+    bookmaker = models.CharField(max_length=64, blank=True, default='')
+    bookmaker_count = models.PositiveIntegerField(default=1)
+    odds_captured_at = models.DateTimeField()
+    published_at = models.DateTimeField(default=timezone.now, db_index=True)
+
+    selection_hash = models.CharField(max_length=64, unique=True)
+    selection_hash_version = models.CharField(max_length=8, default='v1')
+
+    class Meta:
+        ordering = ['-published_at']
+        constraints = [
+            models.UniqueConstraint(
+                fields=['category', 'source_key', 'fixture_id'],
+                name='uniq_public_selection_source_fixture',
+            ),
+        ]
+        indexes = [
+            models.Index(fields=['category', '-published_at']),
+            models.Index(fields=['fixture_id', 'category']),
+        ]
+
+    SELECTION_HASH_VERSION = 'v1'
+
+    def canonical_payload(self):
+        from core.services.integrity import norm_dt, norm_num
+
+        return {
+            'selection_hash_version': self.SELECTION_HASH_VERSION,
+            'category': self.category,
+            'source_key': self.source_key,
+            'source_version': self.source_version,
+            'source_ref': self.source_ref,
+            'reason_code': self.reason_code,
+            'source_strategy_observation_id': (
+                str(self.source_strategy_observation_id)
+                if self.source_strategy_observation_id else None
+            ),
+            'fixture_id': self.fixture_id,
+            'home_team': self.home_team,
+            'away_team': self.away_team,
+            'league': self.league,
+            'league_id': self.league_id,
+            'kickoff': norm_dt(self.kickoff),
+            'market_type': self.market_type,
+            'predicted_outcome': self.predicted_outcome,
+            'side': self.side,
+            'line': norm_num(self.line),
+            'model_score': norm_num(self.model_score),
+            'odds': norm_num(self.odds),
+            'bookmaker': self.bookmaker,
+            'bookmaker_count': self.bookmaker_count,
+            'odds_captured_at': norm_dt(self.odds_captured_at),
+            'published_at': norm_dt(self.published_at),
+        }
+
+    def compute_hash(self):
+        from core.services.integrity import canonical_sha256
+
+        return canonical_sha256(self.canonical_payload())
+
+    def verify_integrity(self):
+        return bool(self.selection_hash) and self.selection_hash == self.compute_hash()
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError(
+                'PublicSelection is immutable — publish a new version rather '
+                'than rewriting a displayed selection.'
+            )
+        if not self.selection_id:
+            self.selection_id = uuid.uuid4()
+        self.selection_hash_version = self.SELECTION_HASH_VERSION
+        self.selection_hash = self.compute_hash()
+        super().save(*args, **kwargs)
+
+    @property
+    def result_status(self):
+        result = getattr(self, 'result', None)
+        return result.status if result is not None else PublicSelectionResult.STATUS_PENDING
+
+    def __str__(self):
+        return (
+            f'{self.category}: {self.home_team} v {self.away_team} — '
+            f'{self.predicted_outcome} @ {self.odds}'
+        )
+
+
+class PublicSelectionResult(models.Model):
+    """Insert-only settlement for a displayed public selection."""
+
+    STATUS_PENDING = 'PENDING'
+    STATUS_WON = 'WON'
+    STATUS_HALF_WON = 'HALF_WON'
+    STATUS_PUSH = 'PUSH'
+    STATUS_HALF_LOST = 'HALF_LOST'
+    STATUS_LOST = 'LOST'
+    STATUS_VOID = 'VOID'
+    STATUS_CANCELLED = 'CANCELLED'
+    STATUS_CHOICES = [
+        (STATUS_WON, 'Won'),
+        (STATUS_HALF_WON, 'Half won'),
+        (STATUS_PUSH, 'Push'),
+        (STATUS_HALF_LOST, 'Half lost'),
+        (STATUS_LOST, 'Lost'),
+        (STATUS_VOID, 'Void'),
+        (STATUS_CANCELLED, 'Cancelled'),
+    ]
+
+    selection = models.OneToOneField(
+        PublicSelection, on_delete=models.PROTECT,
+        related_name='result', primary_key=True,
+    )
+    status = models.CharField(max_length=16, choices=STATUS_CHOICES)
+    unit_profit = models.FloatField()
+    actual_score_home = models.IntegerField(null=True, blank=True)
+    actual_score_away = models.IntegerField(null=True, blank=True)
+    settled_at = models.DateTimeField(default=timezone.now)
+    result_source = models.CharField(max_length=64, default='sportmonks')
+    result_reference = models.CharField(max_length=160, blank=True, default='')
+
+    class Meta:
+        verbose_name = 'Public Selection Result'
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError(
+                'PublicSelectionResult is insert-only — a corrected provider '
+                'result must be recorded separately.'
+            )
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return f'{self.selection_id} -> {self.status} ({self.unit_profit:+.3f}u)'
+
+
 class PerformanceSnapshot(models.Model):
     """
     Daily/weekly snapshots of overall performance metrics.

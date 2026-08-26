@@ -5,7 +5,7 @@ import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercial
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Trophy, Search, Activity, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText, Gauge, LibraryBig } from 'lucide-react'
+import { Trophy, Search, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, Globe, Tag, Zap, ScrollText, LibraryBig } from 'lucide-react'
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
 import { ProBadge } from '../app/components/ProGate'
@@ -27,9 +27,7 @@ export default function Navigation() {
     { href: '/explore', label: t('nav.explore'), icon: Search },
     { href: '/strategies', label: t('nav.strategies'), icon: LibraryBig },
     { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
-    { href: '/calibration', label: t('nav.calibration'), icon: Gauge },
     ...(ACCOUNT_FEATURES_ENABLED ? [{ href: '/bankroll', label: t('nav.bankroll'), icon: Wallet }] : []),
-    { href: '/monitoring', label: t('nav.monitoring'), icon: Activity },
     // Hidden while BetGlitch is a free public beta. One flag controls every
     // commercial surface — see app/lib/commercialMode.ts.
     ...(PAYMENTS_ENABLED

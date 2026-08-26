@@ -1,17 +1,17 @@
 import { Metadata } from 'next'
 
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
-import TrackRecordContent from './TrackRecordContent'
+import UnifiedResultsContent from './UnifiedResultsContent'
 
 export const metadata: Metadata = {
-  title: 'Current Gem strategy results',
+  title: 'Results — homepage, strategies and Hidden Gems',
   description:
-    'See every Gem published by the current BetGlitch strategy and how each locked selection settled, win or lose.',
+    'See every frozen BetGlitch homepage selection, named strategy and Hidden Gem, including pending selections, wins and losses.',
   alternates: { canonical: '/track-record' },
   openGraph: {
-    title: 'Current Gem strategy results | BetGlitch',
+    title: 'Complete BetGlitch Results',
     description:
-      'One current strategy, one complete published record, with earlier methodologies kept separately.',
+      'Separate, complete records for homepage selections, named strategies and Hidden Gems.',
     url: 'https://www.betglitch.com/track-record',
   },
 }
@@ -23,7 +23,7 @@ export default function TrackRecordPage() {
         { name: 'Home', url: 'https://www.betglitch.com' },
         { name: 'Results', url: 'https://www.betglitch.com/track-record' },
       ]} />
-      <TrackRecordContent />
+      <UnifiedResultsContent />
     </>
   )
 }

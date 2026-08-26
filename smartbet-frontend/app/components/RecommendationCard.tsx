@@ -419,14 +419,11 @@ export default function RecommendationCard({ recommendation, onViewDetails, last
                 {Math.round(recommendation.confidence * 100)}/100
               </span>
               {' · '}
-              <Link
-                href="/monitoring"
-                className="font-medium text-gray-600 underline underline-offset-2 hover:text-gray-900"
-              >
+              <span className="font-medium text-gray-600">
                 {language === 'ro'
-                  ? 'cât de bine separă acest scor?'
-                  : 'how well does this score separate?'}
-              </Link>
+                  ? 'clasare relativă, nu probabilitate de câștig'
+                  : 'relative ranking, not win probability'}
+              </span>
             </p>
 
             {/* Recent Form Section */}
