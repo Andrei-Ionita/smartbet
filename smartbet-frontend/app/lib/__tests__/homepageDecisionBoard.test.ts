@@ -26,7 +26,7 @@ describe('homepage tracked selections', () => {
     expect(selections).not.toContain('permanently tracked')
   })
 
-  it('restores a horizontal five-card mix of value, strategies and signals', () => {
+  it('restores five rich full-width rows mixing value, strategies and signals', () => {
     expect(selections).toContain('Five fixtures worth a closer look')
     expect(selections).toContain("reason_code === 'potential_value'")
     expect(selections).toContain("reason_code === 'strategy_match'")
@@ -34,8 +34,17 @@ describe('homepage tracked selections', () => {
     expect(selections).toContain('Potential value')
     expect(selections).toContain('Strategy match')
     expect(selections).toContain('Strong signal')
-    expect(selections).toContain('xl:grid-cols-5')
-    expect(selections).toContain('overflow-x-auto')
+    expect(selections).toContain('mt-6 space-y-3')
+    expect(selections).toContain('lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.9fr)_auto]')
+    expect(selections).not.toContain('xl:grid-cols-5')
+    expect(selections).not.toContain('overflow-x-auto')
+  })
+
+  it('restores strategy explanations and richer evidence on each row', () => {
+    expect(selections).toContain('Understand strategy')
+    expect(selections).toContain('strategyHref(item.strategy_key)')
+    expect(selections).toContain('bookmakers checked')
+    expect(selections).toContain('The selection and displayed price were frozen before kickoff')
   })
 
   it('merges frozen records with both live evidence feeds', () => {

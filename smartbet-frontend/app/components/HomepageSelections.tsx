@@ -74,8 +74,13 @@ const COPY = {
     boundary: 'One selection per fixture. Frozen selections enter Results; current candidates do not count until they are recorded before kickoff.',
     value: 'Potential value', strategy: 'Strategy match', strong: 'Strong signal',
     tracked: 'Tracked in Results', candidate: 'Current candidate',
-    selection: 'Selection', odds: 'Odds', books: 'books',
-    analyse: 'Analyse fixture', results: 'Open complete Results',
+    selection: 'Selection', odds: 'Verified odds', market: 'Market', books: 'bookmakers checked',
+    valueReason: 'The model and the verified market price disagree enough to merit a closer look.',
+    strategyReason: 'This fixture matches the registered rules of a named market strategy.',
+    strongReason: 'The model separates one outcome clearly from the alternatives.',
+    trackedCaveat: 'The selection and displayed price were frozen before kickoff and remain in Results.',
+    candidateCaveat: 'This is a current candidate. It does not enter Results unless it is recorded before kickoff.',
+    analyse: 'Analyse fixture', learn: 'Understand strategy', results: 'Open complete Results',
     loading: 'Building today’s varied fixture list…',
     partial: 'Some current evidence is temporarily unavailable; the valid selections we do have remain visible.',
     emptyTitle: 'No current fixture passes the board checks',
@@ -89,8 +94,13 @@ const COPY = {
     boundary: 'O selecție pe meci. Selecțiile blocate intră în Rezultate; candidații actuali nu sunt numărați până când nu sunt înregistrați înainte de start.',
     value: 'Valoare potențială', strategy: 'Potrivire de strategie', strong: 'Semnal puternic',
     tracked: 'Urmărită în Rezultate', candidate: 'Candidat actual',
-    selection: 'Selecție', odds: 'Cotă', books: 'operatori',
-    analyse: 'Analizează meciul', results: 'Deschide toate Rezultatele',
+    selection: 'Selecție', odds: 'Cotă verificată', market: 'Piață', books: 'operatori verificați',
+    valueReason: 'Modelul și cota verificată diferă suficient pentru ca meciul să merite o analiză atentă.',
+    strategyReason: 'Meciul corespunde regulilor înregistrate ale unei strategii de piață denumite.',
+    strongReason: 'Modelul separă clar un rezultat de alternative.',
+    trackedCaveat: 'Selecția și cota afișată au fost blocate înainte de start și rămân în Rezultate.',
+    candidateCaveat: 'Acesta este un candidat actual. Nu intră în Rezultate decât dacă este înregistrat înainte de start.',
+    analyse: 'Analizează meciul', learn: 'Înțelege strategia', results: 'Deschide toate Rezultatele',
     loading: 'Construim lista variată de meciuri de astăzi…',
     partial: 'Unele dovezi actuale sunt temporar indisponibile; selecțiile valide disponibile rămân vizibile.',
     emptyTitle: 'Niciun meci actual nu trece verificările panoului',
@@ -112,6 +122,19 @@ function slug(value: string) {
 
 function fixtureHref(item: DisplaySelection) {
   return `/prediction/${slug(item.league || 'league')}/${slug(`${item.home_team}-vs-${item.away_team}`)}-${item.kickoff.slice(0, 10)}-${item.fixture_id}`
+}
+
+function strategyHref(strategyKey: string) {
+  const strategy = STRATEGIES.find(item => item.strategyKey === strategyKey)
+  return strategy ? `/strategies/${strategy.slug}` : '/strategies'
+}
+
+function kickoffLabel(value: string, language: Lang) {
+  const date = new Date(value.includes('T') ? value : `${value.replace(' ', 'T')}Z`)
+  if (Number.isNaN(date.getTime())) return value
+  return new Intl.DateTimeFormat(language === 'ro' ? 'ro-RO' : 'en-GB', {
+    day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit',
+  }).format(date)
 }
 
 function kickoffTime(value: string) {
@@ -288,44 +311,59 @@ export default function HomepageSelections({ language }: { language: Lang }) {
           <p className="mt-2 text-sm text-slate-600">{c.emptyBody}</p>
         </div>
       ) : (
-        <div className="-mx-4 mt-6 overflow-x-auto px-4 pb-3 [scrollbar-width:thin]">
-          <div className="grid min-w-max auto-cols-[82vw] grid-flow-col gap-4 sm:auto-cols-[320px] xl:min-w-0 xl:auto-cols-auto xl:grid-flow-row xl:grid-cols-5">
-            {selections.map((item, index) => {
-              const reason = item.reason_code
-              const config = reason === 'potential_value'
-                ? { Icon: BadgeDollarSign, label: c.value, color: 'bg-emerald-50 text-emerald-800' }
-                : reason === 'strategy_match'
-                  ? { Icon: FlaskConical, label: c.strategy, color: 'bg-violet-50 text-violet-800' }
-                  : { Icon: SearchCheck, label: c.strong, color: 'bg-blue-50 text-blue-800' }
-              return (
-                <article key={item.id} className="flex min-h-[360px] flex-col rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:-translate-y-0.5 hover:border-blue-200 hover:shadow-md">
-                  <div className="flex items-start justify-between gap-2">
-                    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10px] font-black uppercase tracking-wide ${config.color}`}>
-                      <config.Icon className="h-3.5 w-3.5" /> {config.label}
-                    </span>
-                    <span className="text-sm font-black text-slate-400">#{index + 1}</span>
+        <div className="mt-6 space-y-3">
+          {selections.map((item, index) => {
+            const reason = item.reason_code
+            const config = reason === 'potential_value'
+              ? { Icon: BadgeDollarSign, label: c.value, color: 'border-emerald-200 bg-emerald-50 text-emerald-800', panel: 'bg-emerald-50 text-emerald-950', explanation: c.valueReason }
+              : reason === 'strategy_match'
+                ? { Icon: FlaskConical, label: c.strategy, color: 'border-violet-200 bg-violet-50 text-violet-800', panel: 'bg-violet-50 text-violet-950', explanation: c.strategyReason }
+                : { Icon: SearchCheck, label: c.strong, color: 'border-blue-200 bg-blue-50 text-blue-800', panel: 'bg-blue-50 text-blue-950', explanation: c.strongReason }
+            return (
+              <article key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-blue-200 hover:shadow-md sm:p-5">
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-slate-950 text-sm font-black text-white">{index + 1}</span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px] font-black uppercase tracking-wide ${config.color}`}>
+                          <config.Icon className="h-3.5 w-3.5" /> {config.label}
+                        </span>
+                        {item.strategy_name && <span className="text-xs font-bold text-violet-800">{item.strategy_name}</span>}
+                        <span className={`inline-flex items-center gap-1 text-xs font-semibold ${item.tracked ? 'text-emerald-800' : 'text-amber-900'}`}>
+                          {item.tracked ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
+                          {item.tracked ? c.tracked : c.candidate}
+                        </span>
+                      </div>
+                      <time dateTime={item.kickoff} className="text-xs text-slate-500">{kickoffLabel(item.kickoff, language)}</time>
+                    </div>
+
+                    <div className="mt-3 grid gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(360px,0.9fr)_auto] lg:items-center">
+                      <div>
+                        <p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{item.league}</p>
+                        <h3 className="mt-1 text-lg font-black leading-snug text-slate-950">{item.home_team} <span className="font-medium text-slate-400">vs</span> {item.away_team}</h3>
+                        <p className="mt-2 text-sm leading-5 text-slate-600">{config.explanation}</p>
+                      </div>
+                      <dl className="grid grid-cols-3 gap-2 text-xs">
+                        <div className="rounded-xl bg-slate-50 p-2.5"><dt className="text-slate-500">{c.selection}</dt><dd className="mt-1 font-black text-slate-950">{selectionLabel(item.predicted_outcome)}</dd></div>
+                        <div className="rounded-xl bg-slate-50 p-2.5"><dt className="text-slate-500">{c.odds}</dt><dd className="mt-1 font-black text-slate-950">{item.odds.toFixed(2)}</dd></div>
+                        <div className="rounded-xl bg-slate-50 p-2.5"><dt className="text-slate-500">{c.market}</dt><dd className="mt-1 font-black text-slate-950">{marketLabel(item.market)}{item.bookmaker_count > 0 ? ` · ${item.bookmaker_count} ${c.books}` : ''}</dd></div>
+                      </dl>
+                      <div className="grid shrink-0 gap-2">
+                        <Link href={fixtureHref(item)} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
+                          {c.analyse}<ArrowRight className="h-4 w-4" />
+                        </Link>
+                        {item.strategy_key && (
+                          <Link href={strategyHref(item.strategy_key)} className="text-center text-xs font-bold text-violet-800 underline-offset-4 hover:underline">{c.learn}</Link>
+                        )}
+                      </div>
+                    </div>
+                    <p className={`mt-3 rounded-lg px-3 py-2 text-xs leading-5 ${config.panel}`}>{item.tracked ? c.trackedCaveat : c.candidateCaveat}</p>
                   </div>
-                  {item.strategy_name && <p className="mt-3 text-xs font-black text-violet-800">{item.strategy_name}</p>}
-                  <p className={`${item.strategy_name ? 'mt-1' : 'mt-4'} text-[10px] font-bold uppercase tracking-wide text-slate-500`}>{item.league}</p>
-                  <h3 className="mt-1 text-lg font-black leading-snug text-slate-950">{item.home_team} <span className="font-medium text-slate-400">vs</span> {item.away_team}</h3>
-                  <dl className="mt-4 grid grid-cols-2 gap-2 text-xs">
-                    <div className="col-span-2 rounded-xl bg-slate-50 p-3"><dt className="text-slate-500">{c.selection}</dt><dd className="mt-1 font-black text-slate-950">{selectionLabel(item.predicted_outcome)}</dd></div>
-                    <div className="rounded-xl bg-slate-50 p-3"><dt className="text-slate-500">{c.odds}</dt><dd className="mt-1 font-black text-slate-950">{item.odds.toFixed(2)}</dd></div>
-                    <div className="min-w-0 rounded-xl bg-slate-50 p-3"><dt className="break-words text-slate-500">{marketLabel(item.market)}</dt><dd className="mt-1 font-black text-slate-950">{item.bookmaker_count || '—'} {item.bookmaker_count ? c.books : ''}</dd></div>
-                  </dl>
-                  <div className="mt-auto pt-4">
-                    <p className={`flex items-center gap-1.5 text-xs font-semibold ${item.tracked ? 'text-emerald-800' : 'text-amber-900'}`}>
-                      {item.tracked ? <CheckCircle2 className="h-4 w-4" /> : <Clock3 className="h-4 w-4" />}
-                      {item.tracked ? c.tracked : c.candidate}
-                    </p>
-                    <Link href={fixtureHref(item)} className="mt-3 inline-flex min-h-[42px] w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-3 text-sm font-bold text-white hover:bg-slate-800">
-                      {c.analyse}<ArrowRight className="h-4 w-4" />
-                    </Link>
-                  </div>
-                </article>
-              )
-            })}
-          </div>
+                </div>
+              </article>
+            )
+          })}
         </div>
       )}
     </section>
