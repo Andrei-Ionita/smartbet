@@ -154,6 +154,52 @@ class ResultCaptureTests(TestCase):
         self.assertFalse(scoreable)
         self.assertEqual(reason, 'extra_time_not_90min')
 
+    def test_extra_time_is_scoreable_with_explicit_90_minute_score(self):
+        is_final, scoreable, reason = result_evidence.classify(
+            'FT_PEN', 0, 0, '2ND_HALF',
+        )
+        self.assertTrue(is_final)
+        self.assertTrue(scoreable)
+        self.assertEqual(reason, '')
+
+    def test_extra_time_current_score_remains_quarantined(self):
+        is_final, scoreable, reason = result_evidence.classify(
+            'FT_PEN', 4, 2, 'CURRENT',
+        )
+        self.assertTrue(is_final)
+        self.assertFalse(scoreable)
+        self.assertEqual(reason, 'extra_time_not_90min')
+
+    def test_explicit_second_half_score_wins_over_current(self):
+        fixture = _fixture(8110, status='FT_PEN', home=4, away=2)
+        fixture['scores'].extend([
+            {'description': '2ND_HALF', 'score': {'participant': 'home', 'goals': 0}},
+            {'description': '2ND_HALF', 'score': {'participant': 'away', 'goals': 0}},
+        ])
+        home, away, score_type, _ = result_evidence._pick_fulltime_score(fixture)
+        self.assertEqual((home, away, score_type), (0, 0, '2ND_HALF'))
+
+    def test_old_penalty_row_with_90_minute_score_is_reingested(self):
+        _obs(fixture_id=8111)
+        raw_scores = [
+            {'description': 'CURRENT', 'score': {'participant': 'home', 'goals': 4}},
+            {'description': 'CURRENT', 'score': {'participant': 'away', 'goals': 2}},
+            {'description': '2ND_HALF', 'score': {'participant': 'home', 'goals': 0}},
+            {'description': '2ND_HALF', 'score': {'participant': 'away', 'goals': 0}},
+        ]
+        FixtureResultObservation.objects.create(
+            result_id=uuid.uuid4(), fixture_id=8111,
+            kickoff=timezone.now() - timedelta(hours=3),
+            provider_status='FT_PEN', home_score=4, away_score=2,
+            score_type='CURRENT', raw_scores=raw_scores,
+            is_final=True, is_scoreable=False,
+            ineligible_reason='extra_time_not_90min', confirmed=True,
+            result_version=1, captured_at=timezone.now(),
+            ingestion_run_id='old-classifier', source_payload_hash=uuid.uuid4().hex,
+        )
+
+        self.assertIn(8111, result_evidence.fixtures_needing_results())
+
     def test_a_final_without_a_score_is_not_scoreable(self):
         is_final, scoreable, reason = result_evidence.classify('FT', None, None)
         self.assertFalse(is_final)

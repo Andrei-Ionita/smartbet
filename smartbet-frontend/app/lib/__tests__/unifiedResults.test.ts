@@ -32,6 +32,16 @@ describe('unified public Results', () => {
     expect(results).toContain('Pending selections remain visible')
   })
 
+  it('links every homepage and strategy row to a permanent receipt', () => {
+    const receipt = read('app/results/selection/[selectionId]/SelectionReceiptContent.tsx')
+    const detailRoute = read('app/api/results-selections/[selectionId]/route.ts')
+    expect(results).toContain('detailUrl: row.receipt_url')
+    expect(receipt).toContain('IMMUTABLE PUBLIC RECEIPT')
+    expect(receipt).toContain('published_proof_opened')
+    expect(receipt).toContain('selection.selection_hash')
+    expect(detailRoute).toContain('/api/results/selections/${params.selectionId}/')
+  })
+
   it('removes technical research and calibration from the primary navigation', () => {
     expect(navigation).toContain("href: '/track-record'")
     expect(navigation).not.toContain("href: '/monitoring'")

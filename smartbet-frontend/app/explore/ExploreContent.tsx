@@ -137,6 +137,7 @@ export default function ExploreContent() {
   }, [initialQueryReady, searchQuery, selectedLeague]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const openFixture = async (fixtureId: number) => {
+    track('fixture_opened', { surface: 'explore' })
     fixtureInFlight.current?.abort()
     const controller = new AbortController()
     fixtureInFlight.current = controller

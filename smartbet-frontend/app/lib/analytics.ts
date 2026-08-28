@@ -47,6 +47,20 @@ type Win = Window & {
 
 const SESSION_KEY = 'betglitch_product_session'
 
+/** Keep deployment checks, browser automation and synthetic smoke routes out
+ * of the already-small public traction sample. This is evaluated before a
+ * session id is created, so automated runs cannot inflate session counts. */
+function isAutomationTraffic(): boolean {
+  const pathname = window.location.pathname.toLowerCase()
+  const userAgent = window.navigator.userAgent.toLowerCase()
+  return Boolean(
+    window.navigator.webdriver
+    || pathname.startsWith('/deployment-smoke')
+    || userAgent.includes('playwright')
+    || userAgent.includes('headlesschrome')
+  )
+}
+
 function sessionId(): string | null {
   try {
     const existing = window.sessionStorage.getItem(SESSION_KEY)
@@ -72,6 +86,7 @@ function normalizedSurface(surface?: string): string | undefined {
 function sendToEvidenceStore(event: AnalyticsEvent, props: Props): void {
   if (process.env.NEXT_PUBLIC_PRODUCT_ANALYTICS_ENABLED === 'false') return
   if (window.navigator.doNotTrack === '1') return
+  if (isAutomationTraffic()) return
   const session_id = sessionId()
   if (!session_id) return
 
@@ -95,6 +110,7 @@ function sendToEvidenceStore(event: AnalyticsEvent, props: Props): void {
 
 export function track(event: AnalyticsEvent, props: Props = {}): void {
   if (typeof window === 'undefined') return
+  if (isAutomationTraffic()) return
 
   try {
     const w = window as Win

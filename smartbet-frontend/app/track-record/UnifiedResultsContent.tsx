@@ -12,6 +12,7 @@ type ResultStatus = 'PENDING' | 'WON' | 'HALF_WON' | 'PUSH' | 'HALF_LOST' | 'LOS
 
 interface SelectionRow {
   selection_id: string; category: 'homepage' | 'strategy'; source_key: string
+  receipt_url: string
   fixture_id: number; home_team: string; away_team: string; league: string
   kickoff: string; market_type: string; predicted_outcome: string; odds: number
   bookmaker: string | null; published_at: string; integrity_ok: boolean
@@ -173,7 +174,7 @@ export default function UnifiedResultsContent() {
   }, [])
 
   const rows = useMemo<Row[]>(() => {
-    const selected = (selections ?? []).map(row => ({ id: row.selection_id, category: row.category, sourceKey: row.source_key, fixtureId: row.fixture_id, homeTeam: row.home_team, awayTeam: row.away_team, league: row.league, kickoff: row.kickoff, market: row.market_type, selection: row.predicted_outcome, odds: row.odds, bookmaker: row.bookmaker, publishedAt: row.published_at, status: row.status, unitProfit: row.unit_profit, homeScore: row.actual_score_home, awayScore: row.actual_score_away, counted: row.counts_towards_record, detailUrl: null } satisfies Row))
+    const selected = (selections ?? []).map(row => ({ id: row.selection_id, category: row.category, sourceKey: row.source_key, fixtureId: row.fixture_id, homeTeam: row.home_team, awayTeam: row.away_team, league: row.league, kickoff: row.kickoff, market: row.market_type, selection: row.predicted_outcome, odds: row.odds, bookmaker: row.bookmaker, publishedAt: row.published_at, status: row.status, unitProfit: row.unit_profit, homeScore: row.actual_score_home, awayScore: row.actual_score_away, counted: row.counts_towards_record, detailUrl: row.receipt_url } satisfies Row))
     const gems = (claims ?? []).filter(row => !row.superseded).map(row => ({ id: row.claim_id, category: 'gems' as const, sourceKey: 'gems', fixtureId: row.fixture_id, homeTeam: row.home_team, awayTeam: row.away_team, league: row.league, kickoff: row.kickoff, market: row.market_type, selection: row.predicted_outcome, odds: row.odds, bookmaker: row.bookmaker, publishedAt: row.published_at, status: row.claim_state as ResultStatus, unitProfit: row.claim_state === 'WON' ? row.odds - 1 : row.claim_state === 'LOST' ? -1 : row.claim_state === 'VOID' || row.claim_state === 'CANCELLED' ? 0 : null, homeScore: row.result?.actual_score_home ?? null, awayScore: row.result?.actual_score_away ?? null, counted: row.counts_towards_verified_record, detailUrl: row.proof_url } satisfies Row))
     return [...selected, ...gems].sort((a, b) => Date.parse(b.publishedAt) - Date.parse(a.publishedAt))
   }, [selections, claims])

@@ -6,6 +6,7 @@ import FixtureDecisionWorkspace, {
   type FixtureDecisionFixture,
 } from '../../components/FixtureDecisionWorkspace'
 import ProofCapturePanel from '../../components/ProofCapturePanel'
+import FixtureSelectionReceipts from '../../components/FixtureSelectionReceipts'
 
 interface PredictionContentProps {
   fixture: FixtureDecisionFixture
@@ -26,6 +27,8 @@ export default function PredictionContent({ fixture, lastUpdated }: PredictionCo
       </nav>
 
       <FixtureDecisionWorkspace fixture={fixture} lastUpdated={lastUpdated} />
+
+      <FixtureSelectionReceipts fixtureId={fixture.fixture_id} />
 
       <div className="mt-8">
         <ProofCapturePanel

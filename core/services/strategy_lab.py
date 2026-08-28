@@ -622,27 +622,61 @@ def _direct_win(observation, result):
     return None
 
 
-def _profit_for(observation, result):
-    if observation.market == 'asian_handicap':
+def profit_for_frozen_selection(*, market, side, line, odds, result):
+    """Grade immutable market terms against one confirmed 90-minute result.
+
+    Public selections and Strategy Lab decisions are separate ledgers.  A
+    displayed public selection must therefore be settled from the exact market,
+    side, line and price that were frozen when it was published — not from
+    whichever StrategyLabObservation later became the experiment's canonical
+    one-hour decision.
+    """
+    if market == 'asian_handicap':
+        if line is None:
+            return None
         return unit_profit(
-            observation.side, observation.handicap, observation.odds,
+            side, line, odds,
             result.home_score, result.away_score,
         )
-    if observation.market == 'asian_goal_line':
+    if market == 'asian_goal_line':
+        if line is None:
+            return None
         return total_unit_profit(
-            observation.side, observation.handicap, observation.odds,
+            side, line, odds,
             result.home_score + result.away_score,
         )
-    if observation.market == 'team_total_goals':
-        team = observation.side.split('_', 1)[0]
+    if market == 'team_total_goals':
+        if line is None:
+            return None
+        team = side.split('_', 1)[0]
         goals = result.home_score if team == 'home' else result.away_score
         return total_unit_profit(
-            observation.side, observation.handicap, observation.odds, goals,
+            side, line, odds, goals,
         )
-    won = _direct_win(observation, result)
+
+    # _direct_win deliberately reads only these plain settlement fields.  The
+    # adapter prevents any mutable model or experimental qualification state
+    # from entering the calculation.
+    class FrozenTerms:
+        pass
+
+    terms = FrozenTerms()
+    terms.market = market
+    terms.side = side
+    won = _direct_win(terms, result)
     if won is None:
         return None
-    return observation.odds - 1 if won else -1
+    return odds - 1 if won else -1
+
+
+def _profit_for(observation, result):
+    return profit_for_frozen_selection(
+        market=observation.market,
+        side=observation.side,
+        line=observation.handicap,
+        odds=observation.odds,
+        result=result,
+    )
 
 
 def _settle_one(experiment):

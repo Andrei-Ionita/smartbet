@@ -35,6 +35,13 @@ describe('fixture pages are decision workspaces, not recommendation cards', () =
     expect(exploreSource).not.toContain('RecommendationCard')
     expect(workspaceSource).not.toContain('GemCard')
   })
+
+  it('surfaces any immutable public receipts attached to the fixture', () => {
+    const receiptSource = read('components/FixtureSelectionReceipts.tsx')
+    expect(contentSource).toContain('<FixtureSelectionReceipts fixtureId={fixture.fixture_id} />')
+    expect(receiptSource).toContain('/api/results-selections?fixture_id=')
+    expect(receiptSource).toContain('receipt.receipt_url')
+  })
 })
 
 describe('live fixture intelligence carries visible freshness', () => {

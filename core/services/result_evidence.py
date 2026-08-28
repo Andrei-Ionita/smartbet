@@ -36,6 +36,32 @@ BATCH_SIZE = 25  # provider multi-id endpoint; one request per 25 fixtures
 CONFIRMATION_MIN_AGE_MINUTES = 30
 
 
+def _score_by_description(scores, descriptions):
+    by_desc = {}
+    for entry in scores or []:
+        desc = str(entry.get('description') or '').upper().replace(' ', '_')
+        score = entry.get('score') or {}
+        participant = score.get('participant')
+        goals = score.get('goals')
+        if participant in ('home', 'away') and isinstance(goals, int):
+            by_desc.setdefault(desc, {})[participant] = goals
+    for description in descriptions:
+        score = by_desc.get(description)
+        if score and 'home' in score and 'away' in score:
+            return score['home'], score['away'], description
+    return None
+
+
+def _recoverable_regulation_score(result):
+    """Return an explicit 90-minute score hidden in an older ET/PEN row."""
+    if (result.provider_status or '').upper() not in FixtureResultObservation.STATUS_EXTRA_TIME:
+        return None
+    return _score_by_description(
+        result.raw_scores,
+        ('2ND_HALF', 'FULLTIME', 'FT'),
+    )
+
+
 def _token():
     token = os.environ.get('SPORTMONKS_API_TOKEN')
     if not token:
@@ -75,7 +101,11 @@ def fixtures_needing_results(now=None, limit=500):
         latest.setdefault(row.fixture_id, row)
     for fixture_id, row in latest.items():
         terminal_void = row.provider_status in FixtureResultObservation.STATUS_VOIDLIKE
-        if (row.is_final and row.confirmed) or terminal_void:
+        # Older releases quarantined every AET/FT_PEN row, even when raw_scores
+        # contained an explicit 90-minute score. Keep polling those rows so the
+        # new classifier can append corrected evidence without mutating them.
+        recoverable = _recoverable_regulation_score(row)
+        if (row.is_final and row.confirmed and not recoverable) or terminal_void:
             settled.add(fixture_id)
 
     return sorted(observed - settled)[:limit]
@@ -106,24 +136,18 @@ def _pick_fulltime_score(fixture):
     result, so anything else must not be mistaken for it.
     """
     scores = fixture.get('scores') or []
-    by_desc = {}
-    for entry in scores:
-        desc = (entry.get('description') or '').upper()
-        score = entry.get('score') or {}
-        participant = score.get('participant')
-        goals = score.get('goals')
-        if participant not in ('home', 'away') or goals is None:
-            continue
-        by_desc.setdefault(desc, {})[participant] = goals
-
-    for desc in ('CURRENT', '2ND_HALF', 'FULLTIME', 'FT'):
-        entry = by_desc.get(desc)
-        if entry and 'home' in entry and 'away' in entry:
-            return entry['home'], entry['away'], desc, scores
+    # Prefer an explicit end-of-regulation score. CURRENT is safe for an
+    # ordinary FT state, but can represent the score after extra time on some
+    # provider payloads.
+    selected = _score_by_description(
+        scores, ('2ND_HALF', 'FULLTIME', 'FT', 'CURRENT'),
+    )
+    if selected:
+        return selected[0], selected[1], selected[2], scores
     return None, None, '', scores
 
 
-def classify(provider_status, home_score, away_score):
+def classify(provider_status, home_score, away_score, score_type=''):
     """(is_final, is_scoreable, reason). Never invents a result."""
     status = (provider_status or '').upper()
     model = FixtureResultObservation
@@ -137,8 +161,12 @@ def classify(provider_status, home_score, away_score):
     if status in model.STATUS_IN_PLAY:
         return False, False, 'in_play'
     if status in model.STATUS_EXTRA_TIME:
-        # A score exists, but it is not the 90-minute result these markets
-        # settle on. Recorded, deliberately not scored.
+        # Extra-time/penalty states are scoreable only when the payload carries
+        # an explicit end-of-regulation score. A generic CURRENT score may
+        # include extra time, so it remains quarantined.
+        regulation_types = {'2ND_HALF', 'FULLTIME', 'FT'}
+        if has_score and str(score_type or '').upper() in regulation_types:
+            return True, True, ''
         return True, False, 'extra_time_not_90min'
     if status in model.STATUS_ELIGIBLE_FINAL:
         if not has_score:
@@ -178,7 +206,9 @@ def capture(fixtures, ingestion_run_id=None, now=None):
         state = fixture.get('state') or {}
         status = state.get('state') or state.get('short_name') or fixture.get('state_id') or ''
         home_score, away_score, score_type, raw_scores = _pick_fulltime_score(fixture)
-        is_final, is_scoreable, reason = classify(status, home_score, away_score)
+        is_final, is_scoreable, reason = classify(
+            status, home_score, away_score, score_type,
+        )
 
         digest = result_hash(fixture_id, status, home_score, away_score, score_type)
         existing = list(

@@ -3,6 +3,7 @@ import { getFixtureDetails } from '@/src/services/fixtureService'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import PredictionContent from './PredictionContent'
+import TrackOnMount from '../../components/TrackOnMount'
 
 interface PageProps {
   params: { slug: string[] }
@@ -61,6 +62,7 @@ export default async function PredictionPage({ params }: PageProps) {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <TrackOnMount event="fixture_opened" surface="prediction_page" />
       <main className="min-h-screen bg-slate-50 px-4 py-8">
         <PredictionContent fixture={fixture} lastUpdated={data.lastUpdated} />
       </main>

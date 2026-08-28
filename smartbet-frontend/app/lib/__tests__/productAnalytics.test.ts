@@ -33,4 +33,19 @@ describe('privacy-minimal product analytics', () => {
     expect(collector).not.toContain("request.headers.get('cookie')")
     expect(collector).not.toContain("request.headers.get('authorization')")
   })
+
+  it('suppresses browser automation before creating an analytics session', () => {
+    expect(analytics).toContain('window.navigator.webdriver')
+    expect(analytics).toContain("pathname.startsWith('/deployment-smoke')")
+    expect(analytics.indexOf('if (isAutomationTraffic()) return')).toBeLessThan(
+      analytics.indexOf('const session_id = sessionId()'),
+    )
+  })
+
+  it('tracks fixture discovery from Explore and direct prediction landings', () => {
+    const explore = read('app/explore/ExploreContent.tsx')
+    const prediction = read('app/prediction/[...slug]/page.tsx')
+    expect(explore).toContain("track('fixture_opened', { surface: 'explore' })")
+    expect(prediction).toContain('<TrackOnMount event="fixture_opened" surface="prediction_page" />')
+  })
 })

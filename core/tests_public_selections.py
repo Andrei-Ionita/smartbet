@@ -137,6 +137,46 @@ class PublicSelectionTests(TestCase):
         self.assertEqual(settled.status, PublicSelectionResult.STATUS_HALF_WON)
         self.assertEqual(settled.unit_profit, 0.45)
 
+    def test_strategy_selection_settles_from_its_frozen_terms_without_lab_row(self):
+        experiment = StrategyLabExperiment.objects.create(
+            strategy_key='asian-handicap-score-distribution', version='test-v2',
+            name='AH test', market='asian_handicap', status='shadow',
+            rules={}, rules_hash=uuid.uuid4().hex,
+        )
+        observation = StrategyLabObservation.objects.create(
+            experiment=experiment, evidence_phase='forward',
+            ingestion_run_id='strategy-public-run',
+            source_payload_hash=uuid.uuid4().hex,
+            fixture_id=700021, home_team='Home', away_team='Away',
+            league='League', kickoff=self.now + timedelta(hours=3),
+            observed_at=self.now - timedelta(hours=2), hours_to_kickoff=5,
+            market='asian_handicap', side='home', handicap=-0.75,
+            label='Home -0.75', odds=1.90, bookmaker='Book',
+            bookmaker_count=4, price_min=1.85, price_max=1.90,
+            odds_captured_at=self.now - timedelta(hours=2), model_mass=0.60,
+            expected_return_lower=0.05, expected_return_upper=0.12,
+            robust_positive_edge=True,
+        )
+        row = self.selection(
+            category=PublicSelection.CATEGORY_STRATEGY,
+            source_key=experiment.strategy_key,
+            source_version=experiment.version,
+            source_ref=f'strategy:{observation.observation_id}',
+            reason_code=PublicSelection.REASON_STRATEGY,
+            source_strategy_observation=observation, fixture_id=700021,
+            market_type='asian_handicap', predicted_outcome='Home -0.75',
+            side='home', line=-0.75, odds=1.90,
+        )
+        self.result(fixture_id=700021, home=2, away=1)
+
+        summary = public_selections.settle_public_selections(now=self.now)
+
+        self.assertEqual(summary['settled'], 1)
+        settled = PublicSelectionResult.objects.get(selection=row)
+        self.assertEqual(settled.status, PublicSelectionResult.STATUS_HALF_WON)
+        self.assertAlmostEqual(settled.unit_profit, 0.45)
+        self.assertEqual(StrategyLabSettlement.objects.count(), 0)
+
     def test_strategy_publication_never_exceeds_five_active_selections(self):
         strategy_key = 'full-time-result-value'
         experiment = StrategyLabExperiment.objects.create(
@@ -209,3 +249,22 @@ class PublicSelectionTests(TestCase):
     def test_public_api_rejects_unknown_filter(self):
         response = APIClient().get('/api/results/selections/?category=combined')
         self.assertEqual(response.status_code, 400)
+
+    def test_public_receipt_is_permanent_and_fixture_filter_is_supported(self):
+        row = self.selection()
+        self.selection(fixture_id=700002, source_ref='homepage:other')
+
+        filtered = APIClient().get('/api/results/selections/?fixture_id=700001')
+        self.assertEqual(filtered.status_code, 200)
+        self.assertEqual(filtered.json()['total'], 1)
+
+        receipt = APIClient().get(f'/api/results/selections/{row.selection_id}/')
+        self.assertEqual(receipt.status_code, 200)
+        body = receipt.json()
+        self.assertEqual(body['selection']['selection_id'], str(row.selection_id))
+        self.assertEqual(
+            body['selection']['receipt_url'],
+            f'/results/selection/{row.selection_id}',
+        )
+        self.assertTrue(body['selection']['integrity_ok'])
+        self.assertTrue(body['policy']['selection_is_immutable'])

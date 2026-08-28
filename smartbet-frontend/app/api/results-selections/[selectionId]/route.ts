@@ -1,22 +1,26 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
-export async function GET(request: NextRequest) {
+export async function GET(
+  _request: Request,
+  { params }: { params: { selectionId: string } },
+) {
   const api = (process.env.DJANGO_API_URL
     || process.env.NEXT_PUBLIC_API_URL
     || 'https://api.betglitch.com').replace(/\/$/, '')
-  const incoming = new URL(request.url)
-  const params = new URLSearchParams()
-  for (const key of ['category', 'source_key', 'state', 'fixture_id']) {
-    const value = incoming.searchParams.get(key)
-    if (value) params.set(key, value)
+
+  if (!/^[0-9a-f-]{36}$/i.test(params.selectionId)) {
+    return NextResponse.json(
+      { success: false, error: 'Invalid selection receipt.' },
+      { status: 400, headers: { 'Cache-Control': 'no-store' } },
+    )
   }
 
   try {
     const response = await fetch(
-      `${api}/api/results/selections/${params.size ? `?${params}` : ''}`,
+      `${api}/api/results/selections/${params.selectionId}/`,
       { cache: 'no-store', signal: AbortSignal.timeout(8000) },
     )
     const body = await response.json().catch(() => ({}))
@@ -28,7 +32,7 @@ export async function GET(request: NextRequest) {
     })
   } catch {
     return NextResponse.json(
-      { success: false, selections: [], error: 'Results are temporarily unavailable.' },
+      { success: false, error: 'Selection receipt is temporarily unavailable.' },
       { status: 503, headers: { 'Cache-Control': 'no-store' } },
     )
   }

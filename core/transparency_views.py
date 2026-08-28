@@ -8,6 +8,7 @@ from rest_framework.permissions import AllowAny, IsAdminUser
 from rest_framework.response import Response
 from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from django.views.decorators.cache import cache_page
 import logging
@@ -75,6 +76,7 @@ def public_selections_list(request):
     category = request.query_params.get('category', '').strip()
     source_key = request.query_params.get('source_key', '').strip()
     state = request.query_params.get('state', '').strip()
+    fixture_id = request.query_params.get('fixture_id', '').strip()
     if category and category not in {
         PublicSelection.CATEGORY_HOMEPAGE,
         PublicSelection.CATEGORY_STRATEGY,
@@ -82,9 +84,17 @@ def public_selections_list(request):
         return Response({'success': False, 'error': 'unsupported category'}, status=400)
     if state and state not in {'pending', 'settled'}:
         return Response({'success': False, 'error': 'unsupported state'}, status=400)
+    if fixture_id:
+        try:
+            fixture_id = int(fixture_id)
+        except (TypeError, ValueError):
+            return Response({'success': False, 'error': 'invalid fixture_id'}, status=400)
+    else:
+        fixture_id = None
 
     rows = public_selections.public_rows(
         category=category, source_key=source_key, state=state,
+        fixture_id=fixture_id,
     )
     return Response({
         'success': True,
@@ -95,6 +105,30 @@ def public_selections_list(request):
             'flat_stake': 10,
             'published_before_kickoff': True,
             'results_are_insert_only': True,
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@cache_page(60)
+def public_selection_detail(request, selection_id):
+    """Permanent receipt for one immutable homepage or strategy selection."""
+    from core.models import PublicSelection
+    from core.services import public_selections
+
+    selection = get_object_or_404(
+        PublicSelection.objects.select_related('result'),
+        selection_id=selection_id,
+    )
+    return Response({
+        'success': True,
+        'selection': public_selections.serialize_selection(selection),
+        'policy': {
+            'published_before_kickoff': True,
+            'selection_is_immutable': True,
+            'result_is_insert_only': True,
+            'flat_stake': 10,
         },
     })
 

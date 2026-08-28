@@ -285,15 +285,36 @@ def _settlement_for(selection):
 
     observation = selection.source_strategy_observation
     if observation is not None:
+        # The public row is its own immutable promise. Strategy Lab freezes the
+        # closest qualifying observation at its registered horizon, which is
+        # not necessarily the newer observation displayed on the strategy
+        # page. Waiting for a settlement attached to that exact observation
+        # left otherwise gradeable public rows pending forever. Grade the
+        # frozen public terms directly against the same confirmed result.
         lab = (
             observation.settlements.filter(result=result)
             .order_by('-settled_at').first()
         )
-        if lab is None:
+        if lab is not None:
+            return {
+                'status': STRATEGY_STATUS_MAP[lab.outcome],
+                'unit_profit': lab.unit_profit,
+                'result': result,
+            }
+        profit = strategy_lab.profit_for_frozen_selection(
+            market=selection.market_type,
+            side=selection.side,
+            line=selection.line,
+            odds=selection.odds,
+            result=result,
+        )
+        if profit is None:
             return None
         return {
-            'status': STRATEGY_STATUS_MAP[lab.outcome],
-            'unit_profit': lab.unit_profit,
+            'status': STRATEGY_STATUS_MAP[
+                strategy_lab.outcome_for(profit, selection.odds)
+            ],
+            'unit_profit': profit,
             'result': result,
         }
 
@@ -351,6 +372,7 @@ def serialize_selection(selection):
     integrity_ok = selection.verify_integrity()
     return {
         'selection_id': str(selection.selection_id),
+        'receipt_url': f'/results/selection/{selection.selection_id}',
         'category': selection.category,
         'source_key': selection.source_key,
         'source_version': selection.source_version,
@@ -386,12 +408,14 @@ def serialize_selection(selection):
     }
 
 
-def public_rows(category='', source_key='', state=''):
+def public_rows(category='', source_key='', state='', fixture_id=None):
     rows = PublicSelection.objects.select_related('result').all()
     if category:
         rows = rows.filter(category=category)
     if source_key:
         rows = rows.filter(source_key=source_key)
+    if fixture_id is not None:
+        rows = rows.filter(fixture_id=fixture_id)
     if state == 'pending':
         rows = rows.filter(result__isnull=True)
     elif state == 'settled':
