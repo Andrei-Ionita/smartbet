@@ -246,6 +246,50 @@ class PublicSelectionTests(TestCase):
         self.assertEqual(body['selections'][0]['category'], 'homepage')
         self.assertTrue(body['policy']['categories_are_separate'])
 
+    def test_public_api_returns_canonical_performance_and_cohorts(self):
+        won = self.selection(fixture_id=700101, source_ref='homepage:won')
+        lost = self.selection(
+            category=PublicSelection.CATEGORY_STRATEGY,
+            source_key='full-time-result-value',
+            source_ref='strategy:lost', fixture_id=700102, odds=1.80,
+        )
+        PublicSelectionResult.objects.create(
+            selection=won, status=PublicSelectionResult.STATUS_WON,
+            unit_profit=1.10, actual_score_home=2, actual_score_away=0,
+            result_source='sportmonks', result_reference='test:won',
+        )
+        PublicSelectionResult.objects.create(
+            selection=lost, status=PublicSelectionResult.STATUS_LOST,
+            unit_profit=-1, actual_score_home=0, actual_score_away=1,
+            result_source='sportmonks', result_reference='test:lost',
+        )
+
+        body = APIClient().get('/api/results/selections/').json()
+        summary = body['performance']['overall']
+        self.assertEqual(summary['published'], 2)
+        self.assertEqual(summary['settled'], 2)
+        self.assertEqual(summary['profit_units'], 0.1)
+        self.assertEqual(summary['roi_percent'], 5.0)
+        self.assertEqual(summary['sample_band'], 'very_early')
+        self.assertEqual(
+            body['performance']['by_strategy'][0]['key'],
+            'full-time-result-value',
+        )
+
+    def test_audit_regrades_settlement_without_changing_the_ledger(self):
+        row = self.selection(fixture_id=700103, source_ref='homepage:audit')
+        result = self.result(fixture_id=700103, home=2, away=0)
+        PublicSelectionResult.objects.create(
+            selection=row, status=PublicSelectionResult.STATUS_WON,
+            unit_profit=1.10, actual_score_home=2, actual_score_away=0,
+            result_source=result.provider,
+            result_reference=f'fixture-result:{result.result_id}',
+        )
+        report = public_selections.audit_ledger()
+        self.assertEqual(report['checked'], 1)
+        self.assertEqual(report['issue_count'], 0)
+        self.assertEqual(PublicSelectionResult.objects.count(), 1)
+
     def test_public_api_rejects_unknown_filter(self):
         response = APIClient().get('/api/results/selections/?category=combined')
         self.assertEqual(response.status_code, 400)

@@ -6,6 +6,7 @@ import { ArrowLeft, CheckCircle2, Clock3, Hash, ShieldCheck } from 'lucide-react
 import ShareResearchButton from '../../../components/ShareResearchButton'
 import TrackOnMount from '../../../components/TrackOnMount'
 import { useLanguage } from '../../../contexts/LanguageContext'
+import { STRATEGIES } from '../../../lib/strategyLibrary'
 
 export interface PublicSelectionReceipt {
   selection_id: string
@@ -14,6 +15,7 @@ export interface PublicSelectionReceipt {
   source_key: string
   source_version: string
   reason_code: string
+  explanation: { title: string; why_selected: string; evidence: string; risk: string }
   fixture_id: number
   home_team: string
   away_team: string
@@ -56,6 +58,25 @@ export default function SelectionReceiptContent({ selection }: { selection: Publ
     PENDING: 'Pending', WON: 'Won', HALF_WON: 'Half won', PUSH: 'Push',
     HALF_LOST: 'Half lost', LOST: 'Lost', VOID: 'Void', CANCELLED: 'Cancelled',
   }[selection.status]
+  const strategy = STRATEGIES.find(item => item.strategyKey === selection.source_key)
+  const strategyUrl = selection.category === 'strategy' && strategy
+    ? `/strategies/${strategy.slug}` : null
+  const explanation = !ro ? selection.explanation : selection.reason_code === 'strategy_match' ? {
+    title: 'Potrivire de strategie',
+    why_selected: `Meciul a trecut regulile blocate ale strategiei ${strategy?.copy.ro.name ?? selection.source_key}, versiunea ${selection.source_version || 'înregistrată'}.`,
+    evidence: `${selection.predicted_outcome} la cota ${selection.odds.toFixed(2)}, verificată la ${selection.bookmaker_count} operatori.`,
+    risk: 'Strategia este experimentală și eșantionul este încă în formare. Potrivirea regulilor nu este o garanție sau o instrucțiune de pariere.',
+  } : selection.reason_code === 'potential_value' ? {
+    title: 'Valoare potențială',
+    why_selected: 'Modelul de preț și cota înregistrată au susținut același rezultat, cu o diferență suficientă pentru investigație.',
+    evidence: `${selection.bookmaker_count} cote verificate; selecția și prețul au fost blocate înainte de start.`,
+    risk: 'O diferență între model și piață nu dovedește că modelul are dreptate. Cotele și informațiile despre echipe se pot schimba.',
+  } : {
+    title: 'Semnal puternic al modelului',
+    why_selected: 'Modelul a separat clar acest rezultat de alternative, iar piața a oferit un preț de referință utilizabil.',
+    evidence: `${selection.bookmaker_count} cote verificate și blocate înainte de start.`,
+    risk: 'Puterea semnalului nu este o probabilitate calibrată și nu dovedește singură că prețul oferă valoare.',
+  }
 
   return (
     <main className="min-h-screen bg-slate-50 px-4 py-10">
@@ -114,6 +135,12 @@ export default function SelectionReceiptContent({ selection }: { selection: Publ
             ))}
           </dl>
 
+          <section className="mt-6 grid gap-3 lg:grid-cols-3">
+            <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-blue-700">{ro ? 'De ce a fost selectat' : 'Why it was selected'}</p><h2 className="mt-2 font-black text-blue-950">{explanation.title}</h2><p className="mt-2 text-sm leading-6 text-blue-900">{explanation.why_selected}</p></div>
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-emerald-700">{ro ? 'Dovezi înregistrate' : 'Evidence recorded'}</p><p className="mt-2 text-sm leading-6 text-emerald-950">{explanation.evidence}</p></div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5"><p className="text-xs font-black uppercase tracking-wide text-amber-800">{ro ? 'Ce poate fi greșit' : 'What could make it wrong'}</p><p className="mt-2 text-sm leading-6 text-amber-950">{explanation.risk}</p></div>
+          </section>
+
           {!pending && selection.actual_score_home !== null && selection.actual_score_away !== null && (
             <section className="mt-6 rounded-2xl border border-slate-200 p-5">
               <h2 className="font-black text-slate-950">{ro ? 'Rezultat confirmat' : 'Confirmed result'}</h2>
@@ -147,6 +174,7 @@ export default function SelectionReceiptContent({ selection }: { selection: Publ
             <Link href="/methodology" className="inline-flex min-h-11 items-center rounded-xl border border-slate-300 px-5 text-sm font-black text-slate-800 hover:bg-slate-50">
               {ro ? 'Metodologie' : 'Methodology'}
             </Link>
+            {strategyUrl && <Link href={strategyUrl} className="inline-flex min-h-11 items-center rounded-xl border border-violet-300 px-5 text-sm font-black text-violet-800 hover:bg-violet-50">{ro ? 'Explicația strategiei' : 'Strategy explanation'}</Link>}
           </div>
         </div>
       </article>

@@ -19,6 +19,7 @@ type Reason = 'potential_value' | 'strategy_match' | 'strong_signal'
 
 interface TrackedSelection {
   selection_id: string
+  receipt_url: string
   category: 'homepage' | 'strategy'
   source_key: string
   fixture_id: number
@@ -64,6 +65,7 @@ interface DisplaySelection {
   tracked: boolean
   strategy_key: string | null
   strategy_name: string | null
+  receipt_url: string | null
 }
 
 const COPY = {
@@ -80,7 +82,7 @@ const COPY = {
     strongReason: 'The model separates one outcome clearly from the alternatives.',
     trackedCaveat: 'The selection and displayed price were frozen before kickoff and remain in Results.',
     candidateCaveat: 'This is a current candidate. It does not enter Results unless it is recorded before kickoff.',
-    analyse: 'Analyse fixture', learn: 'Understand strategy', results: 'Open complete Results',
+    analyse: 'Analyse fixture', learn: 'Understand strategy', receipt: 'Inspect receipt', results: 'Open complete Results',
     loading: 'Building today’s varied fixture list…',
     partial: 'Some current evidence is temporarily unavailable; the valid selections we do have remain visible.',
     emptyTitle: 'No current fixture passes the board checks',
@@ -100,7 +102,7 @@ const COPY = {
     strongReason: 'Modelul separă clar un rezultat de alternative.',
     trackedCaveat: 'Selecția și cota afișată au fost blocate înainte de start și rămân în Rezultate.',
     candidateCaveat: 'Acesta este un candidat actual. Nu intră în Rezultate decât dacă este înregistrat înainte de start.',
-    analyse: 'Analizează meciul', learn: 'Înțelege strategia', results: 'Deschide toate Rezultatele',
+    analyse: 'Analizează meciul', learn: 'Înțelege strategia', receipt: 'Verifică recipisa', results: 'Deschide toate Rezultatele',
     loading: 'Construim lista variată de meciuri de astăzi…',
     partial: 'Unele dovezi actuale sunt temporar indisponibile; selecțiile valide disponibile rămân vizibile.',
     emptyTitle: 'Niciun meci actual nu trece verificările panoului',
@@ -186,6 +188,7 @@ function trackedRows(payload: unknown, language: Lang): DisplaySelection[] {
     tracked: true,
     strategy_key: item.category === 'strategy' ? item.source_key : null,
     strategy_name: item.category === 'strategy' ? strategyName(item.source_key, language) : null,
+    receipt_url: item.receipt_url,
   }))
 }
 
@@ -211,6 +214,7 @@ function liveSignalRows(payload: unknown): DisplaySelection[] {
     tracked: false,
     strategy_key: null,
     strategy_name: null,
+    receipt_url: null,
   })))
 }
 
@@ -232,6 +236,7 @@ function liveStrategyRows(payload: unknown, language: Lang): DisplaySelection[] 
     tracked: false,
     strategy_key: item.strategy_key,
     strategy_name: strategyName(item.strategy_key, language),
+    receipt_url: null,
   }))
 }
 
@@ -353,6 +358,7 @@ export default function HomepageSelections({ language }: { language: Lang }) {
                         <Link href={fixtureHref(item)} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
                           {c.analyse}<ArrowRight className="h-4 w-4" />
                         </Link>
+                        {item.receipt_url && <Link href={item.receipt_url} className="text-center text-xs font-bold text-blue-800 underline-offset-4 hover:underline">{c.receipt}</Link>}
                         {item.strategy_key && (
                           <Link href={strategyHref(item.strategy_key)} className="text-center text-xs font-bold text-violet-800 underline-offset-4 hover:underline">{c.learn}</Link>
                         )}

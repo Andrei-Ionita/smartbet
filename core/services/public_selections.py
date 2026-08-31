@@ -7,9 +7,11 @@ Results and are graded at the frozen price and market.
 """
 
 import logging
+from collections import defaultdict
 from datetime import timedelta, timezone as dt_timezone
 
 from django.db import IntegrityError, transaction
+from django.db.models import Count
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 
@@ -30,6 +32,84 @@ HOMEPAGE_LIMIT = 5
 STRATEGY_LIMIT = 5
 MINIMUM_LEAD = timedelta(hours=1)
 MAXIMUM_PRICE_AGE = timedelta(hours=24)
+
+SCORED_STATUSES = {
+    PublicSelectionResult.STATUS_WON,
+    PublicSelectionResult.STATUS_HALF_WON,
+    PublicSelectionResult.STATUS_PUSH,
+    PublicSelectionResult.STATUS_HALF_LOST,
+    PublicSelectionResult.STATUS_LOST,
+}
+
+
+def _sample_band(count):
+    if count < 30:
+        return 'very_early'
+    if count < 100:
+        return 'early'
+    if count < 300:
+        return 'developing'
+    return 'maturing'
+
+
+def _selection_explanation(selection):
+    """Plain-language context derived only from frozen selection metadata."""
+    plural = 's' if selection.bookmaker_count != 1 else ''
+    if selection.reason_code == PublicSelection.REASON_VALUE:
+        return {
+            'title': 'Potential value',
+            'why_selected': (
+                'The price model and the recorded market price supported the '
+                'same outcome with enough disagreement to merit investigation.'
+            ),
+            'evidence': (
+                f'{selection.bookmaker_count} bookmaker price{plural} checked; '
+                'selection and price frozen before kickoff.'
+            ),
+            'risk': (
+                'A model-market disagreement is not proof that the model is '
+                'right. Prices and team information can change after publication.'
+            ),
+        }
+    if selection.reason_code == PublicSelection.REASON_STRATEGY:
+        definition = next((
+            item for item in strategy_lab.STRATEGY_DEFINITIONS
+            if item['strategy_key'] == selection.source_key
+        ), None)
+        name = definition['name'] if definition else selection.source_key.replace('-', ' ')
+        return {
+            'title': 'Strategy match',
+            'why_selected': (
+                f'This fixture passed the frozen rules for {name} '
+                f'({selection.source_version or "recorded version"}).'
+            ),
+            'evidence': (
+                f'{selection.predicted_outcome} at {selection.odds:.2f}, checked '
+                f'across {selection.bookmaker_count} bookmaker{plural}.'
+            ),
+            'risk': (
+                'This is an experimental strategy with a developing sample. '
+                'A rule match is not a guarantee or an instruction to bet.'
+            ),
+        }
+    signal = (
+        f'Signal score {selection.model_score:.2f}; '
+        if selection.model_score is not None else ''
+    )
+    return {
+        'title': 'Strong model signal',
+        'why_selected': (
+            'The model separated this outcome clearly from its alternatives '
+            'and the recorded market supplied a usable reference price.'
+        ),
+        'evidence': (
+            f'{signal}{selection.bookmaker_count} bookmaker price{plural} checked.'
+        ),
+        'risk': (
+            'Signal strength is not a calibrated win probability and does not '
+            'by itself establish that the recorded odds offered value.'
+        ),
+    }
 
 
 def _aware(value):
@@ -377,6 +457,7 @@ def serialize_selection(selection):
         'source_key': selection.source_key,
         'source_version': selection.source_version,
         'reason_code': selection.reason_code,
+        'explanation': _selection_explanation(selection),
         'fixture_id': selection.fixture_id,
         'home_team': selection.home_team,
         'away_team': selection.away_team,
@@ -405,6 +486,189 @@ def serialize_selection(selection):
                 PublicSelectionResult.STATUS_CANCELLED,
             }
         ),
+    }
+
+
+def summarize_rows(rows):
+    """Canonical flat-stake performance summary for serialized ledger rows."""
+    statuses = (
+        PublicSelectionResult.STATUS_PENDING,
+        PublicSelectionResult.STATUS_WON,
+        PublicSelectionResult.STATUS_HALF_WON,
+        PublicSelectionResult.STATUS_PUSH,
+        PublicSelectionResult.STATUS_HALF_LOST,
+        PublicSelectionResult.STATUS_LOST,
+        PublicSelectionResult.STATUS_VOID,
+        PublicSelectionResult.STATUS_CANCELLED,
+    )
+    valid_rows = [row for row in rows if row['integrity_ok']]
+    status_counts = {
+        status: sum(1 for row in valid_rows if row['status'] == status)
+        for status in statuses
+    }
+    scored = [
+        row for row in rows
+        if row['integrity_ok'] and row['status'] in SCORED_STATUSES
+    ]
+    profit_units = round(sum(float(row['unit_profit'] or 0) for row in scored), 4)
+    success_units = (
+        status_counts[PublicSelectionResult.STATUS_WON]
+        + 0.5 * status_counts[PublicSelectionResult.STATUS_HALF_WON]
+    )
+    accuracy_denominator = (
+        success_units
+        + status_counts[PublicSelectionResult.STATUS_LOST]
+        + 0.5 * status_counts[PublicSelectionResult.STATUS_HALF_LOST]
+    )
+    return {
+        'published': len(rows),
+        'pending': status_counts[PublicSelectionResult.STATUS_PENDING],
+        'settled': len(scored),
+        'won': status_counts[PublicSelectionResult.STATUS_WON],
+        'half_won': status_counts[PublicSelectionResult.STATUS_HALF_WON],
+        'push': status_counts[PublicSelectionResult.STATUS_PUSH],
+        'half_lost': status_counts[PublicSelectionResult.STATUS_HALF_LOST],
+        'lost': status_counts[PublicSelectionResult.STATUS_LOST],
+        'void_or_cancelled': (
+            status_counts[PublicSelectionResult.STATUS_VOID]
+            + status_counts[PublicSelectionResult.STATUS_CANCELLED]
+        ),
+        'integrity_excluded': sum(1 for row in rows if not row['integrity_ok']),
+        'profit_units': profit_units,
+        'profit_at_10': round(profit_units * 10, 2),
+        'roi_percent': round(profit_units / len(scored) * 100, 2) if scored else None,
+        'win_rate': round(
+            success_units / accuracy_denominator * 100, 2,
+        ) if accuracy_denominator else None,
+        'average_odds': round(
+            sum(float(row['odds']) for row in scored) / len(scored), 3,
+        ) if scored else None,
+        'sample_band': _sample_band(len(scored)),
+    }
+
+
+def _odds_band(odds):
+    value = float(odds)
+    if value < 1.50:
+        return '1.01–1.49'
+    if value < 2.00:
+        return '1.50–1.99'
+    if value < 3.00:
+        return '2.00–2.99'
+    return '3.00+'
+
+
+def performance_report(rows):
+    """One public source for totals and non-prescriptive diagnostics."""
+    dimensions = {
+        'by_category': lambda row: row['category'],
+        'by_strategy': lambda row: (
+            row['source_key']
+            if row['category'] == PublicSelection.CATEGORY_STRATEGY else None
+        ),
+        'by_market': lambda row: row['market_type'],
+        'by_reason': lambda row: row['reason_code'],
+        'by_odds_band': lambda row: _odds_band(row['odds']),
+        'by_league': lambda row: row['league'] or 'Unknown league',
+    }
+    report = {'overall': summarize_rows(rows)}
+    for name, key_fn in dimensions.items():
+        groups = defaultdict(list)
+        for row in rows:
+            key = key_fn(row)
+            if key:
+                groups[str(key)].append(row)
+        cohorts = [
+            {'key': key, **summarize_rows(group)}
+            for key, group in groups.items()
+        ]
+        report[name] = sorted(
+            cohorts,
+            key=lambda item: (-item['settled'], -item['published'], item['key']),
+        )
+    return report
+
+
+def audit_ledger():
+    """Re-grade the immutable ledger and report structural discrepancies."""
+    issues = []
+    duplicate_groups = PublicSelection.objects.values(
+        'category', 'source_key', 'fixture_id',
+    ).annotate(row_count=Count('selection_id')).filter(row_count__gt=1)
+    for group in duplicate_groups:
+        issues.append({
+            'selection_id': None,
+            'code': 'duplicate_category_source_fixture',
+            'category': group['category'],
+            'source_key': group['source_key'],
+            'fixture_id': group['fixture_id'],
+        })
+    rows = PublicSelection.objects.select_related(
+        'result', 'source_strategy_observation',
+    ).all()
+    for selection in rows:
+        selection_id = str(selection.selection_id)
+        if not selection.verify_integrity():
+            issues.append({'selection_id': selection_id, 'code': 'hash_mismatch'})
+        if selection.published_at > selection.kickoff - MINIMUM_LEAD:
+            issues.append({
+                'selection_id': selection_id,
+                'code': 'insufficient_pre_kickoff_lead',
+            })
+        if selection.odds_captured_at > selection.published_at + timedelta(minutes=5):
+            issues.append({
+                'selection_id': selection_id,
+                'code': 'price_captured_after_publication',
+            })
+        if selection.odds <= 1:
+            issues.append({'selection_id': selection_id, 'code': 'invalid_odds'})
+        stored = getattr(selection, 'result', None)
+        derived = _settlement_for(selection)
+        if stored is not None and derived is None:
+            issues.append({
+                'selection_id': selection_id,
+                'code': 'settlement_has_no_confirmed_evidence',
+            })
+        elif stored is not None and derived is not None:
+            if stored.status != derived['status']:
+                issues.append({
+                    'selection_id': selection_id,
+                    'code': 'settlement_status_mismatch',
+                })
+            if abs(float(stored.unit_profit) - float(derived['unit_profit'])) > 0.0001:
+                issues.append({
+                    'selection_id': selection_id,
+                    'code': 'settlement_profit_mismatch',
+                })
+            expected_reference = f"fixture-result:{derived['result'].result_id}"
+            if stored.result_reference != expected_reference:
+                issues.append({
+                    'selection_id': selection_id,
+                    'code': 'result_reference_mismatch',
+                })
+            if (
+                stored.actual_score_home != derived['result'].home_score
+                or stored.actual_score_away != derived['result'].away_score
+            ):
+                issues.append({
+                    'selection_id': selection_id,
+                    'code': 'result_score_mismatch',
+                })
+            if stored.result_source != derived['result'].provider:
+                issues.append({
+                    'selection_id': selection_id,
+                    'code': 'result_source_mismatch',
+                })
+    counts = defaultdict(int)
+    for issue in issues:
+        counts[issue['code']] += 1
+    affected = {item['selection_id'] for item in issues if item['selection_id']}
+    return {
+        'checked': len(rows),
+        'passed': len(rows) - len(affected),
+        'issue_count': len(issues),
+        'issues_by_code': dict(sorted(counts.items())),
+        'issues': issues,
     }
 
 

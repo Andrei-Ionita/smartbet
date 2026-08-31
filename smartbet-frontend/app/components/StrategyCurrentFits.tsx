@@ -9,6 +9,7 @@ import type { StrategyDefinition } from '../lib/strategyLibrary'
 
 interface StrategySelection {
   selection_id: string
+  receipt_url: string
   fixture_id: number
   home_team: string
   away_team: string
@@ -27,7 +28,7 @@ const COPY = {
     loading: 'Loading current tracked selections…', unavailable: 'Current strategy selections are temporarily unavailable.',
     emptyTitle: 'No tracked selection is active right now', emptyBody: 'No fixture passed every rule in the latest scan. The next qualifying selection will be recorded automatically.',
     selection: 'Selection', price: 'Recorded odds', recorded: 'Recorded before kickoff', checked: 'bookmakers checked',
-    analyse: 'Analyse fixture', results: 'Open Strategy Results', experimental: 'Experimental strategy',
+    analyse: 'Analyse fixture', receipt: 'Inspect receipt', results: 'Open Strategy Results', experimental: 'Experimental strategy',
     experimentalBody: 'Its record is still developing. Judge the strategy from its complete Results history, not from one selection.',
   },
   ro: {
@@ -37,7 +38,7 @@ const COPY = {
     loading: 'Încărcăm selecțiile urmărite…', unavailable: 'Selecțiile actuale ale strategiei sunt temporar indisponibile.',
     emptyTitle: 'Nu există acum o selecție activă urmărită', emptyBody: 'Niciun meci nu a trecut toate regulile la ultima scanare. Următoarea selecție eligibilă va fi înregistrată automat.',
     selection: 'Selecție', price: 'Cotă înregistrată', recorded: 'Înregistrată înainte de start', checked: 'operatori verificați',
-    analyse: 'Analizează meciul', results: 'Deschide Rezultatele Strategiei', experimental: 'Strategie experimentală',
+    analyse: 'Analizează meciul', receipt: 'Verifică recipisa', results: 'Deschide Rezultatele Strategiei', experimental: 'Strategie experimentală',
     experimentalBody: 'Istoricul ei este încă în formare. Evaluează strategia din istoricul complet de Rezultate, nu dintr-o singură selecție.',
   },
 } as const
@@ -110,7 +111,7 @@ export default function StrategyCurrentFits({ strategy, language }: { strategy: 
               </dl>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-4 w-4" />{c.recorded} · {item.bookmaker_count} {c.checked}</span>
-                <Link href={fixtureHref(item)} className="font-bold text-blue-700 hover:underline">{c.analyse} →</Link>
+                <span className="flex flex-wrap gap-3"><Link href={item.receipt_url} className="font-bold text-blue-700 hover:underline">{c.receipt} →</Link><Link href={fixtureHref(item)} className="font-bold text-blue-700 hover:underline">{c.analyse} →</Link></span>
               </div>
             </article>
           ))}

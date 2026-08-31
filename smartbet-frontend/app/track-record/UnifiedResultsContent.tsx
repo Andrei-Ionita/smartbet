@@ -20,6 +20,20 @@ interface SelectionRow {
   actual_score_away: number | null; counts_towards_record: boolean
 }
 
+interface PerformanceSummary {
+  key?: string; published: number; pending: number; settled: number
+  won: number; half_won: number; push: number; half_lost: number; lost: number
+  profit_units: number; profit_at_10: number; roi_percent: number | null
+  win_rate: number | null; average_odds: number | null; sample_band: string
+}
+
+interface PerformanceReport {
+  overall: PerformanceSummary
+  by_category: PerformanceSummary[]; by_strategy: PerformanceSummary[]
+  by_market: PerformanceSummary[]; by_reason: PerformanceSummary[]
+  by_odds_band: PerformanceSummary[]; by_league: PerformanceSummary[]
+}
+
 interface GemRow {
   claim_id: string; fixture_id: number; home_team: string; away_team: string
   league: string; kickoff: string; market_type: string; predicted_outcome: string
@@ -58,6 +72,10 @@ const COPY = {
     policy: 'One $10 flat stake per settled selection. Voids and cancellations remain visible but do not enter ROI. Past performance does not guarantee future results.',
     early: (n: number) => `Only ${n} settled selections. This is too little evidence to claim an edge.`,
     recordRules: 'How this record works', methodology: 'Methodology', verification: 'Technical verification', unavailable: 'Results are temporarily unavailable.',
+    strategyBreakdown: 'Evidence by strategy', diagnostics: 'What the record is showing',
+    diagnosticsBody: 'Descriptive cuts of the complete record—not recommendations to change rules. Small samples can move sharply by chance.',
+    market: 'Market', reason: 'Selection reason', oddsBand: 'Odds band', league: 'League', sample: 'Sample',
+    sampleBands: { very_early: 'Very early', early: 'Early', developing: 'Developing', maturing: 'Maturing' },
   },
   ro: {
     eyebrow: 'Rezultate', title: 'Fiecare selecție. Fiecare rezultat.',
@@ -77,6 +95,10 @@ const COPY = {
     policy: 'O miză fixă de 10 $ pentru fiecare selecție încheiată. Selecțiile void și anulate rămân vizibile, dar nu intră în ROI. Rezultatele anterioare nu garantează rezultate viitoare.',
     early: (n: number) => `Doar ${n} selecții încheiate. Sunt prea puține dovezi pentru a afirma existența unui avantaj.`,
     recordRules: 'Cum funcționează acest istoric', methodology: 'Metodologie', verification: 'Verificare tehnică', unavailable: 'Rezultatele sunt temporar indisponibile.',
+    strategyBreakdown: 'Dovezi pentru fiecare strategie', diagnostics: 'Ce indică istoricul',
+    diagnosticsBody: 'Segmentări descriptive ale istoricului complet, nu recomandări de schimbare a regulilor. Eșantioanele mici pot varia puternic din întâmplare.',
+    market: 'Piață', reason: 'Motivul selecției', oddsBand: 'Interval de cote', league: 'Ligă', sample: 'Eșantion',
+    sampleBands: { very_early: 'Foarte timpuriu', early: 'Timpuriu', developing: 'În dezvoltare', maturing: 'În maturizare' },
   },
 } as const
 
@@ -101,16 +123,19 @@ function strategyLabel(key: string, language: 'en' | 'ro') {
 
 function summarize(rows: Row[]) {
   const counted = rows.filter(row => row.counted)
-  const wins = counted.filter(row => row.status === 'WON' || row.status === 'HALF_WON').length
-  const losses = counted.filter(row => row.status === 'LOST' || row.status === 'HALF_LOST').length
+  const wins = counted.filter(row => row.status === 'WON').length
+  const halfWins = counted.filter(row => row.status === 'HALF_WON').length
+  const losses = counted.filter(row => row.status === 'LOST').length
+  const halfLosses = counted.filter(row => row.status === 'HALF_LOST').length
   const pushes = counted.filter(row => row.status === 'PUSH').length
   const profit = counted.reduce((total, row) => total + (row.unitProfit ?? 0) * 10, 0)
-  const decisive = wins + losses
+  const successUnits = wins + (halfWins * 0.5)
+  const decisive = successUnits + losses + (halfLosses * 0.5)
   return {
-    published: rows.length, settled: counted.length, wins, losses, pushes,
+    published: rows.length, settled: counted.length, wins, halfWins, losses, halfLosses, pushes,
     profit: Math.round(profit * 100) / 100,
     roi: counted.length ? Math.round((profit / (counted.length * 10)) * 1000) / 10 : null,
-    hitRate: decisive ? Math.round((wins / decisive) * 1000) / 10 : null,
+    hitRate: decisive ? Math.round((successUnits / decisive) * 1000) / 10 : null,
     averageOdds: counted.length ? Math.round((counted.reduce((n, row) => n + row.odds, 0) / counted.length) * 100) / 100 : null,
   }
 }
@@ -134,12 +159,23 @@ function Metrics({ rows, language }: { rows: Row[]; language: 'en' | 'ro' }) {
   const profit = `${value.profit > 0 ? '+' : value.profit < 0 ? '−' : ''}$${Math.abs(value.profit).toFixed(2)}`
   const metrics = [
     [c.published, value.published], [c.settled, value.settled],
-    [c.record, `${value.wins}W–${value.losses}L${value.pushes ? `–${value.pushes}P` : ''}`],
+    [c.record, `${value.wins}W / ${value.halfWins}HW / ${value.pushes}P / ${value.halfLosses}HL / ${value.losses}L`],
     [c.hitRate, value.hitRate === null ? '—' : `${value.hitRate}%`],
     [c.averageOdds, value.averageOdds === null ? '—' : value.averageOdds.toFixed(2)],
     [c.returned, value.settled ? profit : '—'],
   ]
   return <><div className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-6">{metrics.map(([label, metric]) => <div key={String(label)} className="rounded-xl border border-slate-200 bg-slate-50 p-4"><p className="text-[11px] font-bold uppercase tracking-wide text-slate-500">{label}</p><p className="mt-2 text-2xl font-black text-slate-950">{metric}</p></div>)}</div>{value.settled > 0 && <p className="mt-3 text-sm font-semibold text-slate-600">{c.roi}: {value.roi! > 0 ? '+' : ''}{value.roi}%</p>}{value.settled > 0 && value.settled < 30 && <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{c.early(value.settled)}</p>}</>
+}
+
+function EvidenceTable({ title, rows, language, label }: { title: string; rows: PerformanceSummary[]; language: 'en' | 'ro'; label?: (key: string) => string }) {
+  const c = COPY[language]
+  if (!rows.length) return null
+  return <section className="rounded-2xl border border-slate-200 bg-white p-5"><h3 className="font-black text-slate-950">{title}</h3><div className="mt-4 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500"><th className="pb-3">{title}</th><th className="pb-3">{c.sample}</th><th className="pb-3">{c.record}</th><th className="pb-3">ROI</th><th className="pb-3">{c.averageOdds}</th></tr></thead><tbody>{rows.slice(0, 10).map(row => <tr key={row.key} className="border-b border-slate-100 last:border-0"><td className="py-3 pr-3 font-bold text-slate-900">{label ? label(row.key ?? '') : row.key}</td><td className="py-3 pr-3"><span className="font-bold">{row.settled}</span><span className="ml-2 rounded-full bg-amber-50 px-2 py-1 text-[11px] font-bold text-amber-900">{c.sampleBands[row.sample_band as keyof typeof c.sampleBands] ?? row.sample_band}</span></td><td className="whitespace-nowrap py-3 pr-3">{row.won}W / {row.half_won}HW / {row.push}P / {row.half_lost}HL / {row.lost}L</td><td className={`py-3 pr-3 font-black ${row.roi_percent !== null && row.roi_percent < 0 ? 'text-red-700' : 'text-emerald-700'}`}>{row.roi_percent === null ? '—' : `${row.roi_percent > 0 ? '+' : ''}${row.roi_percent}%`}</td><td className="py-3">{row.average_odds?.toFixed(2) ?? '—'}</td></tr>)}</tbody></table></div></section>
+}
+
+function Diagnostics({ report, language }: { report: PerformanceReport; language: 'en' | 'ro' }) {
+  const c = COPY[language]
+  return <section className="mt-8"><h2 className="text-2xl font-black text-slate-950">{c.diagnostics}</h2><p className="mt-2 max-w-4xl text-slate-600">{c.diagnosticsBody}</p><div className="mt-5 grid gap-5 lg:grid-cols-2"><EvidenceTable title={c.market} rows={report.by_market} language={language} /><EvidenceTable title={c.reason} rows={report.by_reason} language={language} /><EvidenceTable title={c.oddsBand} rows={report.by_odds_band} language={language} /><EvidenceTable title={c.league} rows={report.by_league} language={language} /></div></section>
 }
 
 function ResultsList({ rows, language, empty }: { rows: Row[]; language: 'en' | 'ro'; empty: string }) {
@@ -160,6 +196,7 @@ export default function UnifiedResultsContent() {
   const [category, setCategory] = useState<Category>('overview')
   const [selections, setSelections] = useState<SelectionRow[] | null>(null)
   const [claims, setClaims] = useState<GemRow[] | null>(null)
+  const [performance, setPerformance] = useState<PerformanceReport | null>(null)
   const [error, setError] = useState(false)
 
   useEffect(() => {
@@ -169,6 +206,7 @@ export default function UnifiedResultsContent() {
   useEffect(() => {
     Promise.all([getJson('/api/results-selections'), getJson('/api/published-claims')]).then(([a, b]) => {
       setSelections(Array.isArray(a.selections) ? a.selections : [])
+      setPerformance(a.performance ?? null)
       setClaims(Array.isArray(b.claims) ? b.claims : [])
     }).catch(() => setError(true))
   }, [])
@@ -189,6 +227,6 @@ export default function UnifiedResultsContent() {
   const tabs: Array<{ key: Category; icon: typeof Home }> = [{ key: 'overview', icon: Trophy }, { key: 'homepage', icon: Home }, { key: 'strategy', icon: FlaskConical }, { key: 'gems', icon: Gem }, { key: 'pending', icon: Clock3 }]
 
   return <div className="min-h-screen bg-slate-50"><header className="border-b border-slate-200 bg-white"><div className="mx-auto max-w-7xl px-4 py-10 sm:px-6"><p className="text-xs font-black uppercase tracking-[0.2em] text-blue-700">{c.eyebrow}</p><h1 className="mt-3 text-4xl font-black tracking-tight text-slate-950 sm:text-5xl">{c.title}</h1><p className="mt-4 max-w-3xl text-lg leading-8 text-slate-600">{c.intro}</p><div className="mt-6 max-w-3xl rounded-2xl border border-blue-200 bg-blue-50 px-5 py-4"><p className="font-black text-blue-950">{c.resetTitle}</p><p className="mt-1 text-sm leading-6 text-blue-900">{c.resetBody}</p></div></div></header><main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12"><nav aria-label={c.eyebrow} className="flex gap-2 overflow-x-auto rounded-2xl border border-slate-200 bg-white p-2">{tabs.map(tab => { const Icon = tab.icon; const on = category === tab.key; return <button key={tab.key} type="button" onClick={() => setCategory(tab.key)} className={`inline-flex min-h-11 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-black ${on ? 'bg-slate-950 text-white' : 'text-slate-600 hover:bg-slate-100'}`}><Icon className="h-4 w-4" />{c.tabs[tab.key]}</button> })}</nav>
-    {error ? <div role="alert" className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">{c.unavailable}</div> : selections === null || claims === null ? <div role="status" className="mt-8 grid animate-pulse gap-4 md:grid-cols-3">{[1, 2, 3].map(n => <div key={n} className="h-52 rounded-2xl bg-slate-200" />)}</div> : category === 'overview' ? <section className="mt-8"><h2 className="text-2xl font-black text-slate-950">{c.overviewTitle}</h2><p className="mt-2 max-w-3xl text-slate-600">{c.overviewBody}</p><div className="mt-6 grid gap-5 lg:grid-cols-3">{(['homepage', 'strategy', 'gems'] as const).map(key => { const item = sections[key]; const value = summarize(item.rows); return <button key={key} type="button" onClick={() => setCategory(key)} className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"><h3 className="text-xl font-black text-slate-950">{item.title}</h3><p className="mt-2 min-h-[3rem] text-sm leading-6 text-slate-600">{item.body}</p><dl className="mt-5 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-slate-500">{c.published}</dt><dd className="mt-1 text-2xl font-black">{value.published}</dd></div><div><dt className="text-slate-500">{c.settled}</dt><dd className="mt-1 text-2xl font-black">{value.settled}</dd></div><div><dt className="text-slate-500">{c.roi}</dt><dd className="mt-1 text-2xl font-black">{value.roi === null ? '—' : `${value.roi > 0 ? '+' : ''}${value.roi}%`}</dd></div></dl><span className="mt-5 inline-flex items-center gap-2 font-bold text-blue-700">{c.tabs[key]} <ArrowRight className="h-4 w-4" /></span></button> })}</div></section> : category === 'pending' ? <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-2xl font-black text-slate-950">{c.pendingTitle}</h2><p className="mt-2 max-w-3xl text-slate-600">{c.pendingBody}</p><ResultsList rows={pending} language={lang} empty={c.noPending} /></section> : active ? <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-2xl font-black text-slate-950">{active.title}</h2><p className="mt-2 max-w-3xl text-slate-600">{active.body}</p><Metrics rows={active.rows} language={lang} /><ResultsList rows={active.rows} language={lang} empty={c.noRows} /></section> : null}
+    {error ? <div role="alert" className="mt-8 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-950">{c.unavailable}</div> : selections === null || claims === null ? <div role="status" className="mt-8 grid animate-pulse gap-4 md:grid-cols-3">{[1, 2, 3].map(n => <div key={n} className="h-52 rounded-2xl bg-slate-200" />)}</div> : category === 'overview' ? <section className="mt-8"><h2 className="text-2xl font-black text-slate-950">{c.overviewTitle}</h2><p className="mt-2 max-w-3xl text-slate-600">{c.overviewBody}</p><div className="mt-6 grid gap-5 lg:grid-cols-3">{(['homepage', 'strategy', 'gems'] as const).map(key => { const item = sections[key]; const value = summarize(item.rows); return <button key={key} type="button" onClick={() => setCategory(key)} className="rounded-2xl border border-slate-200 bg-white p-6 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md"><h3 className="text-xl font-black text-slate-950">{item.title}</h3><p className="mt-2 min-h-[3rem] text-sm leading-6 text-slate-600">{item.body}</p><dl className="mt-5 grid grid-cols-3 gap-2 text-sm"><div><dt className="text-slate-500">{c.published}</dt><dd className="mt-1 text-2xl font-black">{value.published}</dd></div><div><dt className="text-slate-500">{c.settled}</dt><dd className="mt-1 text-2xl font-black">{value.settled}</dd></div><div><dt className="text-slate-500">{c.roi}</dt><dd className="mt-1 text-2xl font-black">{value.roi === null ? '—' : `${value.roi > 0 ? '+' : ''}${value.roi}%`}</dd></div></dl><span className="mt-5 inline-flex items-center gap-2 font-bold text-blue-700">{c.tabs[key]} <ArrowRight className="h-4 w-4" /></span></button> })}</div>{performance && <Diagnostics report={performance} language={lang} />}</section> : category === 'pending' ? <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-2xl font-black text-slate-950">{c.pendingTitle}</h2><p className="mt-2 max-w-3xl text-slate-600">{c.pendingBody}</p><ResultsList rows={pending} language={lang} empty={c.noPending} /></section> : active ? <section className="mt-8 rounded-2xl border border-slate-200 bg-white p-5 sm:p-7"><h2 className="text-2xl font-black text-slate-950">{active.title}</h2><p className="mt-2 max-w-3xl text-slate-600">{active.body}</p><Metrics rows={active.rows} language={lang} />{category === 'strategy' && performance && <div className="mt-6"><EvidenceTable title={c.strategyBreakdown} rows={performance.by_strategy} language={lang} label={key => strategyLabel(key, lang)} /></div>}<ResultsList rows={active.rows} language={lang} empty={c.noRows} /></section> : null}
     <section className="mt-8 rounded-2xl border border-blue-100 bg-blue-50 p-5 sm:p-6"><div className="flex items-start gap-3"><Info className="mt-0.5 h-5 w-5 text-blue-700" /><div><h2 className="font-black text-blue-950">{c.recordRules}</h2><p className="mt-2 text-sm leading-6 text-blue-900">{c.policy}</p><div className="mt-3 flex flex-wrap gap-4 text-sm font-bold"><Link href="/methodology" className="text-blue-800 hover:underline">{c.methodology} →</Link><Link href="/proof/anchors" className="text-blue-800 hover:underline">{c.verification} →</Link></div></div></div></section></main></div>
 }

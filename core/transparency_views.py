@@ -100,6 +100,7 @@ def public_selections_list(request):
         'success': True,
         'selections': rows,
         'total': len(rows),
+        'performance': public_selections.performance_report(rows),
         'policy': {
             'categories_are_separate': True,
             'flat_stake': 10,
