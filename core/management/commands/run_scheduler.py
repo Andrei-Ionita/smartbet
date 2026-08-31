@@ -40,10 +40,16 @@ class Command(BaseCommand):
             action='store_true',
             help='Run tasks immediately on start'
         )
+        parser.add_argument(
+            '--once',
+            action='store_true',
+            help='Run one complete scheduler cycle and exit (for Railway Cron)'
+        )
 
     def handle(self, *args, **options):
         interval_minutes = options['interval']
         run_now = options['run_now']
+        run_once = options['once']
         
         self.stdout.write(self.style.SUCCESS('\n' + '='*50))
         self.stdout.write(self.style.SUCCESS('🤖 SMARTBET AUTOMATION SYSTEM'))
@@ -57,6 +63,12 @@ class Command(BaseCommand):
         self.stdout.write('  5. Append signal evidence (capture_signal_evidence)')
         self.stdout.write('  6. Append fixture results (capture_fixture_results)')
         self.stdout.write('  7. Settle private strategy experiments (settle_strategy_lab)')
+
+        if run_once:
+            self.stdout.write('Mode: One complete cycle, then exit.\n')
+            self.run_startup_cycle(interval_minutes)
+            return
+
         self.stdout.write('\nPress Ctrl+C to stop.\n')
 
         if run_now:

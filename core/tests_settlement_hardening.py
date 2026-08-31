@@ -86,6 +86,24 @@ class RemovedSettlementEndpointTests(TestCase):
 class SchedulerPipelineIntactTests(TestCase):
     """Removing the endpoints must not change what the scheduler does."""
 
+    def test_once_mode_runs_exactly_one_complete_cycle_and_exits(self):
+        from core.management.commands.run_scheduler import Command
+
+        cmd = Command(stdout=io.StringIO(), stderr=io.StringIO())
+        with mock.patch.object(cmd, 'run_startup_cycle') as run_cycle:
+            cmd.handle(interval=60, run_now=False, once=True)
+
+        run_cycle.assert_called_once_with(60)
+
+    def test_once_mode_does_not_double_run_when_run_now_is_also_set(self):
+        from core.management.commands.run_scheduler import Command
+
+        cmd = Command(stdout=io.StringIO(), stderr=io.StringIO())
+        with mock.patch.object(cmd, 'run_startup_cycle') as run_cycle:
+            cmd.handle(interval=60, run_now=True, once=True)
+
+        run_cycle.assert_called_once_with(60)
+
     def test_scheduler_runs_the_settlement_pipeline_in_order(self):
         from core.management.commands.run_scheduler import Command
 
