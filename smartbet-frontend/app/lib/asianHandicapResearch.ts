@@ -92,6 +92,25 @@ export const scoreBuckets = (predictions: unknown): ScoreBucket[] => {
   return buckets
 }
 
+export const validatedScoreDistribution = (
+  predictions: unknown,
+): { buckets: ScoreBucket[]; rawMass: number } | null => {
+  const raw = scoreBuckets(predictions)
+  const rawMass = raw.reduce((sum, bucket) => sum + bucket.probability, 0)
+  // A score vector is a probability distribution, not an arbitrary score.
+  // v2 capped an overflowing mass only after using the unscaled buckets in EV,
+  // which could manufacture a return larger than odds - 1. Reject materially
+  // invalid vectors and explicitly normalise provider rounding only.
+  if (!Number.isFinite(rawMass) || Math.abs(rawMass - 1) > 0.025) return null
+  return {
+    rawMass,
+    buckets: raw.map(bucket => ({
+      ...bucket,
+      probability: bucket.probability / rawMass,
+    })) as ScoreBucket[],
+  }
+}
+
 const bucketProfitBounds = (
   bucket: ScoreBucket,
   side: 'home' | 'away',
@@ -138,10 +157,9 @@ export function buildAsianHandicapResearchCandidates(
   odds: SportMonksOdd[] | null | undefined,
   ctx: TeamContext = {},
 ): AsianHandicapResearchCandidate[] {
-  const buckets = scoreBuckets(predictions)
-  if (!buckets.length) return []
-  const modelMass = buckets.reduce((sum, bucket) => sum + bucket.probability, 0)
-  if (!(modelMass > 0)) return []
+  const distribution = validatedScoreDistribution(predictions)
+  if (!distribution) return []
+  const { buckets, rawMass: modelMass } = distribution
 
   const groups = new Map<string, {
     marketId: 6 | 104
@@ -204,9 +222,8 @@ export function buildAsianHandicapResearchCandidates(
       lower += bucket.probability * minProfit
       upper += bucket.probability * maxProfit
     }
-    const missingMass = Math.max(0, 1 - modelMass)
-    lower += missingMass * -1
-    upper += missingMass * (chosen.price - 1)
+    // Validated buckets are normalised to exactly one. Unknown "Other"
+    // buckets already contribute conservative settlement bounds above.
 
     candidates.push({
       market_id: group.marketId,
@@ -228,7 +245,7 @@ export function buildAsianHandicapResearchCandidates(
         captured_at: chosen.capturedAt,
         selection_policy: ODDS_SELECTION_POLICY,
       },
-      model_mass: Math.min(1, modelMass),
+      model_mass: modelMass,
       expected_return_lower: lower,
       expected_return_upper: upper,
       robust_positive_edge: lower > 0.02,

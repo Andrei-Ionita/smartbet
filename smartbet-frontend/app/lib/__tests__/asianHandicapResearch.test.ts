@@ -70,4 +70,23 @@ describe('Asian handicap shadow research', () => {
     ])
     expect(candidates).toEqual([])
   })
+
+  it('rejects overflowing score mass instead of manufacturing impossible EV', () => {
+    const candidates = buildAsianHandicapResearchCandidates(
+      [{ type_id: 240, predictions: { scores: { '2-0': 80, '1-0': 60 } } }],
+      [ah({})],
+    )
+
+    expect(candidates).toEqual([])
+  })
+
+  it('normalises only small provider rounding differences', () => {
+    const candidate = buildAsianHandicapResearchCandidates(
+      [{ type_id: 240, predictions: { scores: { '2-0': 60, '1-0': 20, '0-0': 21 } } }],
+      [ah({})],
+    )[0]
+
+    expect(candidate.model_mass).toBeCloseTo(1.01)
+    expect(candidate.expected_return_lower).toBeLessThanOrEqual(candidate.odds - 1)
+  })
 })

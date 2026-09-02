@@ -6,6 +6,7 @@ from .models import (
     PredictionLog,
     ProductEvent,
     PublicSelection,
+    PublicSelectionClosingPrice,
     PublicSelectionResult,
     SchedulerHeartbeat,
     StrategyLabExperiment,
@@ -35,6 +36,22 @@ class PublicSelectionResultAdmin(admin.ModelAdmin):
     list_filter = ('status', 'selection__category', 'settled_at')
     readonly_fields = tuple(
         field.name for field in PublicSelectionResult._meta.fields
+    )
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return False
+
+
+@admin.register(PublicSelectionClosingPrice)
+class PublicSelectionClosingPriceAdmin(admin.ModelAdmin):
+    list_display = (
+        'selection', 'odds', 'closing_line_value', 'odds_captured_at',
+    )
+    readonly_fields = tuple(
+        field.name for field in PublicSelectionClosingPrice._meta.fields
     )
 
     def has_add_permission(self, request):

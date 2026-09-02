@@ -119,7 +119,7 @@ def public_selection_detail(request, selection_id):
     from core.services import public_selections
 
     selection = get_object_or_404(
-        PublicSelection.objects.select_related('result'),
+        PublicSelection.objects.select_related('result', 'closing_price'),
         selection_id=selection_id,
     )
     return Response({

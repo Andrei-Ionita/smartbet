@@ -976,6 +976,62 @@ class PublicSelectionResult(models.Model):
         return f'{self.selection_id} -> {self.status} ({self.unit_profit:+.3f}u)'
 
 
+class PublicSelectionClosingPrice(models.Model):
+    """Append-only closest verified pre-kickoff price for a public selection."""
+
+    closing_price_id = models.UUIDField(
+        primary_key=True, default=uuid.uuid4, editable=False,
+    )
+    selection = models.OneToOneField(
+        PublicSelection, on_delete=models.PROTECT,
+        related_name='closing_price',
+    )
+    odds = models.FloatField()
+    bookmaker = models.CharField(max_length=64, blank=True, default='')
+    bookmaker_count = models.PositiveIntegerField(default=1)
+    odds_captured_at = models.DateTimeField()
+    recorded_at = models.DateTimeField(default=timezone.now)
+    source_ref = models.CharField(max_length=160)
+    closing_line_value = models.FloatField(
+        help_text='Published decimal odds / closing decimal odds - 1.',
+    )
+    evidence_hash = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        ordering = ['-recorded_at']
+
+    def canonical_payload(self):
+        from core.services.integrity import norm_dt, norm_num
+
+        return {
+            'selection_id': str(self.selection_id),
+            'odds': norm_num(self.odds),
+            'bookmaker': self.bookmaker,
+            'bookmaker_count': self.bookmaker_count,
+            'odds_captured_at': norm_dt(self.odds_captured_at),
+            'recorded_at': norm_dt(self.recorded_at),
+            'source_ref': self.source_ref,
+            'closing_line_value': norm_num(self.closing_line_value),
+        }
+
+    def save(self, *args, **kwargs):
+        from core.services.integrity import canonical_sha256
+
+        if not self._state.adding:
+            raise ValueError(
+                'PublicSelectionClosingPrice is insert-only — closing '
+                'evidence cannot be rewritten.'
+            )
+        self.evidence_hash = canonical_sha256(self.canonical_payload())
+        super().save(*args, **kwargs)
+
+    def __str__(self):
+        return (
+            f'{self.selection_id} close {self.odds:.2f} '
+            f'({self.closing_line_value:+.3%})'
+        )
+
+
 class PerformanceSnapshot(models.Model):
     """
     Daily/weekly snapshots of overall performance metrics.

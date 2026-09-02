@@ -1,9 +1,9 @@
-import { scoreBuckets, type ScoreBucket } from './asianHandicapResearch'
+import { validatedScoreDistribution, type ScoreBucket } from './asianHandicapResearch'
 import { ODDS_SELECTION_POLICY, type SportMonksOdd, type TeamContext } from './oddsSelection'
 
 export interface ScoreDistributionMarketCandidate {
   strategy_key: 'asian-goal-line-score-distribution' | 'team-total-score-distribution'
-  strategy_version: 'v2'
+  strategy_version: 'v3'
   market: 'asian_goal_line' | 'team_total_goals'
   market_id: 7 | 86 | 105
   market_name: string
@@ -186,7 +186,7 @@ const baseCandidate = (
     captured_at: chosen.capturedAt,
     selection_policy: ODDS_SELECTION_POLICY as typeof ODDS_SELECTION_POLICY,
   },
-  model_mass: Math.min(1, modelMass),
+  model_mass: modelMass,
   expected_return_lower: edgeBounds[0],
   expected_return_upper: edgeBounds[1],
   robust_positive_edge: edgeBounds[0] > 0.02,
@@ -198,9 +198,9 @@ export function buildAsianGoalLineResearchCandidates(
   predictions: unknown,
   odds: SportMonksOdd[] | null | undefined,
 ): ScoreDistributionMarketCandidate[] {
-  const buckets = scoreBuckets(predictions)
-  const modelMass = buckets.reduce((sum, bucket) => sum + bucket.probability, 0)
-  if (!(modelMass > 0)) return []
+  const distribution = validatedScoreDistribution(predictions)
+  if (!distribution) return []
+  const { buckets, rawMass: modelMass } = distribution
   const groups = quoteGroups(odds, [7, 105], (odd) => {
     const side = norm(odd.label || odd.name)
     return side === 'over' || side === 'under' ? side : null
@@ -210,11 +210,11 @@ export function buildAsianGoalLineResearchCandidates(
     const selected = lowerMedian(group.quotes)
     if (!selected || (group.side !== 'over' && group.side !== 'under')) continue
     const edge = bounds(
-      buckets, modelMass, totalPossibilities, group.side, group.line, selected.chosen.price,
+      buckets, 1, totalPossibilities, group.side, group.line, selected.chosen.price,
     )
     out.push({
       strategy_key: 'asian-goal-line-score-distribution',
-      strategy_version: 'v2',
+      strategy_version: 'v3',
       market: 'asian_goal_line',
       side: group.side,
       label: `${group.side === 'over' ? 'Over' : 'Under'} ${group.line}`,
@@ -230,9 +230,9 @@ export function buildTeamTotalResearchCandidates(
   odds: SportMonksOdd[] | null | undefined,
   ctx: TeamContext = {},
 ): ScoreDistributionMarketCandidate[] {
-  const buckets = scoreBuckets(predictions)
-  const modelMass = buckets.reduce((sum, bucket) => sum + bucket.probability, 0)
-  if (!(modelMass > 0)) return []
+  const distribution = validatedScoreDistribution(predictions)
+  if (!distribution) return []
+  const { buckets, rawMass: modelMass } = distribution
   const groups = quoteGroups(odds, [86], (odd) => {
     const team = norm(odd.label) === '1' ? 'home' : norm(odd.label) === '2' ? 'away' : null
     const side = /^over\b/i.test(String(odd.total ?? ''))
@@ -247,7 +247,7 @@ export function buildTeamTotalResearchCandidates(
     if (!selected || !team || !side) continue
     const edge = bounds(
       buckets,
-      modelMass,
+      1,
       (bucket) => teamGoalPossibilities(bucket, team),
       side,
       group.line,
@@ -256,7 +256,7 @@ export function buildTeamTotalResearchCandidates(
     const teamName = team === 'home' ? ctx.homeTeam || 'Home' : ctx.awayTeam || 'Away'
     out.push({
       strategy_key: 'team-total-score-distribution',
-      strategy_version: 'v2',
+      strategy_version: 'v3',
       market: 'team_total_goals',
       side: `${team}_${side}`,
       label: `${teamName} ${side === 'over' ? 'Over' : 'Under'} ${group.line}`,

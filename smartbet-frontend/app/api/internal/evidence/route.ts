@@ -249,7 +249,7 @@ export async function GET(request: NextRequest) {
         )) {
           strategyCandidates.push({
             strategy_key: 'asian-handicap-score-distribution',
-            strategy_version: 'v2',
+            strategy_version: 'v3',
             strategy_status: 'shadow',
             fixture_id: fixture.id,
             home_team: home?.name ?? 'Home',

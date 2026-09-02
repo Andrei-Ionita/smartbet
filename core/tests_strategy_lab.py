@@ -25,7 +25,7 @@ def candidate(*, fixture_id=7001, hours=6, odds=1.9, handicap=-.25,
     kickoff = now + timedelta(hours=hours)
     return {
         'strategy_key': 'asian-handicap-score-distribution',
-        'strategy_version': 'v2',
+        'strategy_version': 'v3',
         'strategy_status': 'shadow',
         'fixture_id': fixture_id,
         'home_team': 'Home',
@@ -92,6 +92,41 @@ def signal(*, fixture_id=7301, market='1x2', outcome='home', probability=.6,
 
 
 class StrategyLabCaptureTests(TestCase):
+    def test_v3_is_preregistered_and_failed_markets_are_quarantined(self):
+        self.assertTrue(all(
+            definition['version'] == 'v3'
+            for definition in strategy_lab.STRATEGY_DEFINITIONS
+        ))
+        by_key = {
+            definition['strategy_key']: definition
+            for definition in strategy_lab.STRATEGY_DEFINITIONS
+        }
+        self.assertTrue(
+            by_key['full-time-result-value']['rules']['publication_enabled'],
+        )
+        for key in (
+            'both-teams-score-value', 'total-goals-2-5-value',
+            'correct-score-value', 'asian-handicap-score-distribution',
+        ):
+            self.assertFalse(by_key[key]['rules']['publication_enabled'])
+
+    @patch('core.services.strategy_lab._calibration_pairs')
+    def test_calibration_excludes_results_after_the_signal_timestamp(self, pairs):
+        row = signal(fixture_id=7000, probability=.60, odds=2.0)
+        pairs.return_value = (
+            (row.observed_at - timedelta(days=2), .60, 1),
+            (row.observed_at + timedelta(days=2), .60, 0),
+        )
+
+        context = strategy_lab._conservative_probability(
+            row, strategy_lab.COMMON_VALUE_RULES,
+        )
+
+        self.assertEqual(context['calibration_observations'], 1)
+        self.assertGreater(
+            context['calibrated_probability'], context['market_probability'],
+        )
+
     def test_capture_is_append_only_and_idempotent(self):
         payload = {'strategy_candidates': [candidate()]}
         first = strategy_lab.capture(payload, 'run-1')
@@ -125,7 +160,7 @@ class StrategyLabCaptureTests(TestCase):
 
     def test_versioned_rules_gate_candidates_without_retroactive_selection(self):
         payload = {'strategy_candidates': [
-            candidate(fixture_id=7101, lower=.04, bookmakers=2),
+            candidate(fixture_id=7101, lower=.04, bookmakers=3),
             candidate(fixture_id=7102, lower=.01, bookmakers=5),
             candidate(fixture_id=7103, lower=.08, bookmakers=1),
         ]}
@@ -142,6 +177,18 @@ class StrategyLabCaptureTests(TestCase):
         strategy_lab.capture({'strategy_candidates': [row]}, 'run-stale-price')
 
         self.assertEqual(strategy_lab.choose_decisions(), [])
+
+    def test_impossible_return_and_overflowing_probability_mass_are_rejected(self):
+        overflow = candidate(fixture_id=7105, model_mass=1.20)
+        impossible = candidate(fixture_id=7106, odds=1.9, lower=1.0)
+        impossible['expected_return_upper'] = 1.1
+
+        summary = strategy_lab.capture(
+            {'strategy_candidates': [overflow, impossible]}, 'run-invalid-math',
+        )
+
+        self.assertEqual(summary['strategy_written'], 0)
+        self.assertEqual(summary['strategy_invalid'], 2)
 
     def test_multiple_qualified_lines_become_one_fixture_decision(self):
         payload = {'strategy_candidates': [
@@ -239,9 +286,21 @@ class DirectMarketLabTests(TestCase):
 
         self.assertEqual(summary['signal_strategy_written'], 1)
         self.assertEqual(lab_row.evidence_phase, 'retrospective')
-        self.assertAlmostEqual(lab_row.expected_return_lower, .2)
+        self.assertLess(lab_row.expected_return_lower, 0)
+        self.assertFalse(lab_row.robust_positive_edge)
+        self.assertEqual(
+            lab_row.selection_payload['probability_method'],
+            'market_shrunk_calibration_lower_bound_v3',
+        )
 
-    def test_direct_value_decision_settles_against_confirmed_score(self):
+    @patch('core.services.strategy_lab._conservative_probability')
+    def test_direct_value_decision_settles_against_confirmed_score(self, calibrated):
+        calibrated.return_value = {
+            'raw_probability': .6, 'market_probability': .5,
+            'calibrated_probability': .65, 'conservative_probability': .60,
+            'calibration_observations': 100, 'model_weight': .5,
+            'uncertainty_penalty': .05,
+        }
         row = signal(fixture_id=7302)
         # Preserve the six-hour observation horizon while making kickoff past.
         kickoff = timezone.now() - timedelta(hours=2)
@@ -309,6 +368,15 @@ class StrategyLabVisibilityTests(TestCase):
     def setUp(self):
         cache.clear()
 
+    def enable_specialist_publication(self):
+        experiment = strategy_lab.ensure_experiment()
+        rules = {**experiment.rules, 'publication_enabled': True}
+        strategy_lab.StrategyLabExperiment.objects.filter(
+            pk=experiment.pk,
+        ).update(rules=rules)
+        experiment.refresh_from_db()
+        return experiment
+
     def test_public_report_is_narrow_read_only_and_anonymous(self):
         before = strategy_lab.StrategyLabExperiment.objects.count()
         response = self.client.get('/api/transparency/strategies/')
@@ -327,6 +395,7 @@ class StrategyLabVisibilityTests(TestCase):
         side_effect=AssertionError('private report must stay off public requests'),
     )
     def test_public_endpoints_never_rebuild_private_research_report(self, _private):
+        self.enable_specialist_publication()
         strategy_lab.capture(
             {'strategy_candidates': [candidate(fixture_id=8001)]},
             'public-fast-path',
@@ -351,7 +420,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.client.force_login(staff)
         response = self.client.get('/api/internal/strategies-lab/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['lab_version'], 'strategies-lab-v2')
+        self.assertEqual(response.json()['lab_version'], 'strategies-lab-v3')
         self.assertIn('blocked_or_queued', response.json())
 
     def test_small_sample_can_never_be_promotion_ready(self):
@@ -361,6 +430,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertFalse(report['promotion_ready'])
 
     def test_public_current_fits_are_capped_ranked_and_one_per_fixture(self):
+        self.enable_specialist_publication()
         rows = []
         for index in range(7):
             rows.append(candidate(
@@ -391,6 +461,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertTrue(body['policy']['fit_enters_strategy_results'])
 
     def test_homepage_highlights_use_distinct_strategies_and_fixtures(self):
+        self.enable_specialist_publication()
         strategy_lab.capture(
             {'strategy_candidates': [candidate(fixture_id=8151)]},
             'homepage-specialist',
@@ -418,6 +489,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertFalse(body['policy']['fit_is_public_pick'])
 
     def test_public_current_fits_exclude_failed_or_stale_latest_state(self):
+        self.enable_specialist_publication()
         now = timezone.now()
         kickoff = now + timedelta(hours=8)
         first = candidate(fixture_id=8201, hours=8, lower=.08)
@@ -441,6 +513,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertEqual(body['eligible_fixture_count'], 0)
 
     def test_public_current_fit_exposes_price_context_not_private_rules(self):
+        self.enable_specialist_publication()
         strategy_lab.capture(
             {'strategy_candidates': [candidate(fixture_id=8301)]},
             'public-allowlist',
@@ -464,7 +537,14 @@ class StrategyLabVisibilityTests(TestCase):
         )
         self.assertEqual(response.status_code, 404)
 
-    def test_direct_fit_includes_model_fair_price_and_margin_removed_market_view(self):
+    @patch('core.services.strategy_lab._conservative_probability')
+    def test_direct_fit_includes_model_fair_price_and_margin_removed_market_view(self, calibrated):
+        calibrated.return_value = {
+            'raw_probability': .6, 'market_probability': 1 / 3,
+            'calibrated_probability': .62, 'conservative_probability': .60,
+            'calibration_observations': 100, 'model_weight': .5,
+            'uncertainty_penalty': .02,
+        }
         source = signal(fixture_id=8401, probability=.6, odds=2.0)
         strategy_lab.capture_signal_observations(
             [source], phase=StrategyLabObservation.PHASE_FORWARD,
@@ -475,8 +555,9 @@ class StrategyLabVisibilityTests(TestCase):
             'full-time-result-value/current-fits/',
         ).json()['data']['fits'][0]
 
-        self.assertEqual(row['probability']['kind'], 'point_estimate')
-        self.assertEqual(row['probability']['model_probability_percent'], 60.0)
+        self.assertEqual(row['probability']['kind'], 'calibrated_conservative_bound')
+        self.assertEqual(row['probability']['model_probability_percent'], 62.0)
+        self.assertEqual(row['probability']['model_probability_low_percent'], 60.0)
         self.assertEqual(row['probability']['model_fair_odds'], 1.67)
         self.assertEqual(row['probability']['market_no_vig_probability_percent'], 33.3)
 

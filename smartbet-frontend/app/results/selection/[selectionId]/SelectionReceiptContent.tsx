@@ -36,6 +36,14 @@ export interface PublicSelectionReceipt {
   actual_score_home: number | null
   actual_score_away: number | null
   settled_at: string | null
+  closing_price: {
+    odds: number
+    bookmaker: string | null
+    bookmaker_count: number
+    odds_captured_at: string
+    closing_line_value_percent: number
+    evidence_hash: string
+  } | null
 }
 
 function slug(value: string) {
@@ -146,6 +154,24 @@ export default function SelectionReceiptContent({ selection }: { selection: Publ
               <h2 className="font-black text-slate-950">{ro ? 'Rezultat confirmat' : 'Confirmed result'}</h2>
               <p className="mt-2 text-3xl font-black">{selection.actual_score_home}–{selection.actual_score_away}</p>
               {selection.unit_profit !== null && <p className="mt-2 text-sm text-slate-600">{ro ? 'Rezultat la o unitate' : 'One-unit return'}: {selection.unit_profit > 0 ? '+' : ''}{selection.unit_profit.toFixed(2)}u</p>}
+            </section>
+          )}
+
+          {selection.closing_price && (
+            <section className="mt-6 rounded-2xl border border-violet-200 bg-violet-50 p-5">
+              <h2 className="font-black text-violet-950">
+                {ro ? 'Comparație cu prețul de închidere' : 'Closing-price comparison'}
+              </h2>
+              <p className="mt-2 text-sm leading-6 text-violet-900">
+                {ro ? 'Cota publicată' : 'Published odds'} {selection.odds.toFixed(2)} ·{' '}
+                {ro ? 'cota de închidere' : 'closing odds'} {selection.closing_price.odds.toFixed(2)} ·{' '}
+                CLV {selection.closing_price.closing_line_value_percent > 0 ? '+' : ''}
+                {selection.closing_price.closing_line_value_percent.toFixed(2)}%
+              </p>
+              <p className="mt-1 text-xs text-violet-700">
+                {ro ? 'Cea mai apropiată cotă verificată înainte de start, capturată la' : 'Closest verified pre-kickoff quote, captured'}{' '}
+                {date(selection.closing_price.odds_captured_at)}.
+              </p>
             </section>
           )}
 

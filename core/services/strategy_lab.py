@@ -10,6 +10,7 @@ Nothing in this module publishes a Gem automatically.
 import math
 from collections import Counter, defaultdict
 from datetime import timedelta
+from functools import lru_cache
 
 from django.db.models import Count
 from django.utils import timezone
@@ -21,19 +22,27 @@ from core.models import (
     StrategyLabObservation,
     StrategyLabSettlement,
 )
+from core.services import market_outcomes
 from core.services.integrity import canonical_sha256, norm_dt, norm_num
 
 
 COMMON_VALUE_RULES = {
     'expected_return_lower_gt': 0.03,
-    'minimum_model_mass': 0.95,
-    'maximum_model_mass': 1.05,
-    'minimum_bookmakers': 2,
+    'minimum_model_mass': 0.975,
+    'maximum_model_mass': 1.025,
+    'minimum_bookmakers': 3,
     'minimum_odds': 1.50,
-    'maximum_odds': 4.00,
-    'maximum_quote_age_hours': 24,
+    'maximum_odds': 3.00,
+    'maximum_quote_age_hours': 2,
+    'maximum_hours_to_kickoff': 24,
     'require_complete_vector': True,
     'require_complete_price_vector': True,
+    'minimum_calibration_observations': 30,
+    'minimum_model_market_gap': 0.02,
+    'calibration_prior_strength': 50,
+    'calibration_maximum_model_weight': 0.50,
+    'calibration_lower_bound_z': 1.28,
+    'publication_enabled': True,
     'staking': 'flat_one_unit',
     'result_basis': 'confirmed_90_minute_score',
     'settlement_supported': True,
@@ -45,7 +54,7 @@ def _direct_definition(key, name, market, **rule_overrides):
     rules = {**COMMON_VALUE_RULES, **rule_overrides}
     return {
         'strategy_key': key,
-        'version': 'v2',
+        'version': 'v3',
         'name': name,
         'market': market,
         'source': 'signal_observation',
@@ -55,9 +64,9 @@ def _direct_definition(key, name, market, **rule_overrides):
     }
 
 
-ASIAN_HANDICAP_V2 = {
+ASIAN_HANDICAP_V3 = {
     'strategy_key': 'asian-handicap-score-distribution',
-    'version': 'v2',
+    'version': 'v3',
     'name': 'Asian Handicap — score-distribution value',
     'market': 'asian_handicap',
     'source': 'specialist_candidate',
@@ -65,12 +74,13 @@ ASIAN_HANDICAP_V2 = {
     'minimum_settled_for_review': 100,
     'rules': {
         'expected_return_lower_gt': 0.02,
-        'minimum_model_mass': 0.95,
-        'maximum_model_mass': 1.05,
-        'minimum_bookmakers': 2,
+        'minimum_model_mass': 0.975,
+        'maximum_model_mass': 1.025,
+        'minimum_bookmakers': 3,
         'minimum_odds': 1.50,
         'maximum_odds': 3.50,
-        'maximum_quote_age_hours': 24,
+        'maximum_quote_age_hours': 2,
+        'maximum_hours_to_kickoff': 24,
         'require_complete_vector': True,
         'require_complete_price_vector': False,
         'result_basis': 'confirmed_90_minute_score',
@@ -78,28 +88,32 @@ ASIAN_HANDICAP_V2 = {
         'staking': 'flat_one_unit',
         'quarter_line_settlement': 'split_equal_stake',
         'maximum_forward_drawdown_units': 20,
+        # Specialist markets restart in shadow after the v2 probability-mass
+        # defect. They cannot publish until clean v3 forward evidence exists.
+        'publication_enabled': False,
+        'quarantine_reason': 'v3_forward_validation_required',
     },
 }
 
-ASIAN_GOAL_LINE_V2 = {
-    **ASIAN_HANDICAP_V2,
+ASIAN_GOAL_LINE_V3 = {
+    **ASIAN_HANDICAP_V3,
     'strategy_key': 'asian-goal-line-score-distribution',
     'name': 'Asian goal line — score-distribution value',
     'market': 'asian_goal_line',
     'rules': {
-        **ASIAN_HANDICAP_V2['rules'],
+        **ASIAN_HANDICAP_V3['rules'],
         'result_basis': 'confirmed_90_minute_total_goals',
         'quarter_line_settlement': 'split_equal_stake',
     },
 }
 
-TEAM_TOTAL_V2 = {
-    **ASIAN_HANDICAP_V2,
+TEAM_TOTAL_V3 = {
+    **ASIAN_HANDICAP_V3,
     'strategy_key': 'team-total-score-distribution',
     'name': 'Team total goals — bounded score-distribution value',
     'market': 'team_total_goals',
     'rules': {
-        **ASIAN_HANDICAP_V2['rules'],
+        **ASIAN_HANDICAP_V3['rules'],
         'result_basis': 'confirmed_team_90_minute_goals',
         'maximum_odds': 5.00,
     },
@@ -107,47 +121,57 @@ TEAM_TOTAL_V2 = {
 
 
 STRATEGY_DEFINITIONS = (
-    ASIAN_HANDICAP_V2,
-    ASIAN_GOAL_LINE_V2,
-    TEAM_TOTAL_V2,
+    ASIAN_HANDICAP_V3,
+    ASIAN_GOAL_LINE_V3,
+    TEAM_TOTAL_V3,
     _direct_definition(
         'full-time-result-value', 'Full-time result — model/price value', '1x2',
     ),
     _direct_definition(
         'both-teams-score-value', 'Both teams to score — model/price value', 'btts',
-        maximum_odds=3.50,
+        maximum_odds=3.00, publication_enabled=False,
+        quarantine_reason='v2_forward_record_failed',
     ),
     _direct_definition(
         'total-goals-1-5-value', 'Total goals 1.5 — model/price value',
         'over_under_1.5', minimum_odds=1.35, maximum_odds=3.50,
+        publication_enabled=False, quarantine_reason='v2_forward_record_failed',
     ),
     _direct_definition(
         'total-goals-2-5-value', 'Total goals 2.5 — model/price value',
         'over_under_2.5', maximum_odds=3.50,
+        publication_enabled=False, quarantine_reason='v2_forward_record_failed',
     ),
     _direct_definition(
         'total-goals-3-5-value', 'Total goals 3.5 — model/price value',
         'over_under_3.5', maximum_odds=4.00,
+        publication_enabled=False, quarantine_reason='v2_forward_record_failed',
     ),
     _direct_definition(
         'double-chance-value', 'Double chance — model/price value',
         'double_chance', minimum_model_mass=1.90, maximum_model_mass=2.10,
         minimum_odds=1.25, maximum_odds=2.50,
+        publication_enabled=False,
+        quarantine_reason='dependent_market_requires_dedicated_calibration',
     ),
     _direct_definition(
         'half-time-result-value', 'Half-time result — model/price value',
         'half_time_result', result_basis='confirmed_half_time_score',
+        publication_enabled=False,
+        quarantine_reason='calibration_outcome_not_supported',
     ),
     _direct_definition(
         'half-time-full-time-value', 'Half-time/full-time — model/price value',
         'half_time_full_time', result_basis='confirmed_half_time_and_90_minute_score',
         minimum_odds=2.00, maximum_odds=12.00,
+        publication_enabled=False, quarantine_reason='high_variance_market',
     ),
     _direct_definition(
         'correct-score-value', 'Correct score — model/price value',
         'correct_score', expected_return_lower_gt=0.05,
         minimum_odds=4.00, maximum_odds=30.00,
         require_complete_price_vector=False,
+        publication_enabled=False, quarantine_reason='v2_forward_record_failed',
     ),
 )
 
@@ -216,7 +240,7 @@ def _rules_hash(definition):
 
 def ensure_experiment(definition=None):
     """Return one registered experiment, refusing silent rule changes."""
-    definition = definition or ASIAN_HANDICAP_V2
+    definition = definition or ASIAN_HANDICAP_V3
     digest = _rules_hash(definition)
     experiment, created = StrategyLabExperiment.objects.get_or_create(
         strategy_key=definition['strategy_key'],
@@ -301,10 +325,27 @@ def capture(payload, ingestion_run_id):
             candidate.get('fixture_id'), candidate.get('side'),
             candidate.get('handicap'), candidate.get('odds'), captured_at,
         )
+        try:
+            odds = float(candidate.get('odds') or 0)
+            model_mass = float(candidate.get('model_mass') or 0)
+            return_lower = float(candidate.get('expected_return_lower'))
+            return_upper = float(candidate.get('expected_return_upper'))
+        except (TypeError, ValueError):
+            invalid += 1
+            continue
         if (kickoff is None or any(value is None for value in required)
                 or candidate.get('side') not in allowed_sides
                 or candidate.get('market_id') not in allowed_markets
-                or float(candidate.get('odds') or 0) <= 1):
+                or odds <= 1
+                or not all(math.isfinite(value) for value in (
+                    odds, model_mass, return_lower, return_upper,
+                ))
+                or not 0.975 <= model_mass <= 1.025
+                # A one-unit decimal-odds return cannot exceed odds - 1. This
+                # invariant catches the v2 overflowing score-mass defect at
+                # the trust boundary even if a producer regresses.
+                or return_lower < -1 or return_upper > odds - 1 + 1e-9
+                or return_lower > return_upper):
             invalid += 1
             continue
         hours = (kickoff - observed_at).total_seconds() / 3600.0
@@ -339,16 +380,16 @@ def capture(payload, ingestion_run_id):
                 'edge_bounds': [candidate.get('expected_return_lower'),
                                 candidate.get('expected_return_upper')],
             },
-            odds=float(candidate['odds']),
+            odds=odds,
             bookmaker=(candidate.get('bookmaker') or '')[:64],
             bookmaker_count=max(0, int(candidate.get('bookmaker_count') or 0)),
             price_min=float(candidate.get('price_min') or candidate['odds']),
             price_max=float(candidate.get('price_max') or candidate['odds']),
             odds_captured_at=captured_at,
             price_provenance=candidate.get('price_provenance') or {},
-            model_mass=float(candidate.get('model_mass') or 0),
-            expected_return_lower=float(candidate.get('expected_return_lower') or 0),
-            expected_return_upper=float(candidate.get('expected_return_upper') or 0),
+            model_mass=model_mass,
+            expected_return_lower=return_lower,
+            expected_return_upper=return_upper,
             robust_positive_edge=bool(candidate.get('robust_positive_edge')),
             calculation_version=(candidate.get('calculation_version') or '')[:80],
         )
@@ -371,6 +412,125 @@ def _provenance_number(provenance, key, default):
         return default
 
 
+def _signal_market_probability(signal):
+    """Return a de-vigged selected-outcome market probability, or ``None``.
+
+    Only complete mutually-exclusive price vectors qualify. Dependent markets
+    such as double chance require a dedicated transformation and remain
+    quarantined in v3 rather than being normalised as if they summed to one.
+    """
+    if signal.market == 'double_chance' or not signal.price_vector_complete:
+        return None
+    vector = signal.market_price_vector
+    if not isinstance(vector, dict) or signal.outcome not in vector:
+        return None
+    implied = {}
+    try:
+        for outcome, entry in vector.items():
+            odds = float(entry.get('odds') if isinstance(entry, dict) else entry)
+            if not math.isfinite(odds) or odds <= 1:
+                return None
+            implied[outcome] = 1 / odds
+    except (TypeError, ValueError):
+        return None
+    total = sum(implied.values())
+    return implied[signal.outcome] / total if total > 0 else None
+
+
+@lru_cache(maxsize=64)
+def _calibration_pairs(market, outcome):
+    """Chronological, one-row-per-fixture calibration evidence.
+
+    All outcome candidates are eligible for this evidence set; using only
+    previously selected bets would repeat v2's selection bias. The cache is
+    explicitly refreshed at the start of every capture sweep.
+    """
+    if market not in market_outcomes.MARKETS or market == 'double_chance':
+        return ()
+    observations = (
+        SignalObservation.objects
+        .filter(
+            market=market,
+            outcome=outcome,
+            vector_complete=True,
+            hours_to_kickoff__gte=1,
+            kickoff__lt=timezone.now(),
+        )
+        .only(
+            'fixture_id', 'normalized_probability', 'hours_to_kickoff',
+            'kickoff', 'observed_at',
+        )
+        .order_by('fixture_id', 'hours_to_kickoff', '-observed_at')
+    )
+    chosen = {}
+    for row in observations:
+        chosen.setdefault(row.fixture_id, row)
+    latest_results = {}
+    for result in (
+        FixtureResultObservation.objects
+        .filter(fixture_id__in=chosen, is_scoreable=True, confirmed=True)
+        .order_by('fixture_id', '-result_version', '-captured_at')
+    ):
+        latest_results.setdefault(result.fixture_id, result)
+    pairs = []
+    for fixture_id, row in chosen.items():
+        result = latest_results.get(fixture_id)
+        probability = row.normalized_probability
+        if result is None or probability is None or not 0 <= probability <= 1:
+            continue
+        try:
+            truth = market_outcomes.outcome_vector(
+                market, result.home_score, result.away_score,
+            )
+        except ValueError:
+            continue
+        if outcome in truth:
+            # Keep the evidence timestamp so a retrospective observation can
+            # never be calibrated with a result that was not known when that
+            # observation was captured.
+            pairs.append((row.kickoff, float(probability), int(truth[outcome])))
+    return tuple(pairs)
+
+
+def _conservative_probability(signal, rules):
+    """Calibrate toward the no-vig market and return a lower confidence bound."""
+    raw = signal.normalized_probability
+    market_probability = _signal_market_probability(signal)
+    if raw is None or market_probability is None:
+        return None
+    neighbourhood = [
+        (probability, actual)
+        for kickoff, probability, actual
+        in _calibration_pairs(signal.market, signal.outcome)
+        if kickoff < signal.observed_at and abs(probability - raw) <= 0.10
+    ]
+    count = len(neighbourhood)
+    successes = sum(actual for _probability, actual in neighbourhood)
+    # A weak Beta(2, 2) guard avoids zero/one empirical estimates. The model
+    # receives at most half the weight; price remains the default prior until
+    # a large forward calibration sample earns more influence.
+    empirical = (successes + 2) / (count + 4)
+    maximum_weight = float(rules.get('calibration_maximum_model_weight', 0.5))
+    weight = min(maximum_weight, count / 200)
+    calibrated = (1 - weight) * market_probability + weight * empirical
+    prior_strength = float(rules.get('calibration_prior_strength', 50))
+    z = float(rules.get('calibration_lower_bound_z', 1.28))
+    uncertainty = max(
+        0.02,
+        z * math.sqrt(calibrated * (1 - calibrated) / (count + prior_strength)),
+    )
+    lower = max(0.0, calibrated - uncertainty)
+    return {
+        'raw_probability': raw,
+        'market_probability': market_probability,
+        'calibrated_probability': calibrated,
+        'conservative_probability': lower,
+        'calibration_observations': count,
+        'model_weight': weight,
+        'uncertainty_penalty': uncertainty,
+    }
+
+
 def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
     """Materialise direct model-vs-price hypotheses from immutable signals.
 
@@ -380,6 +540,9 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
     if phase not in dict(StrategyLabObservation.PHASE_CHOICES):
         raise ValueError('phase must be retrospective or forward')
     ensure_all_experiments()
+    # A long-lived scheduler process can see newly settled fixtures between
+    # sweeps. Refresh the read-only calibration evidence once per capture run.
+    _calibration_pairs.cache_clear()
     written = skipped = unsupported = invalid = 0
 
     for signal in signals:
@@ -388,9 +551,9 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
             unsupported += 1
             continue
         experiment = ensure_experiment(definition)
-        probability = signal.normalized_probability
-        if (signal.odds is None or signal.odds <= 1 or probability is None
-                or probability < 0 or probability > 1
+        raw_probability = signal.normalized_probability
+        if (signal.odds is None or signal.odds <= 1 or raw_probability is None
+                or raw_probability < 0 or raw_probability > 1
                 or signal.odds_captured_at is None):
             invalid += 1
             continue
@@ -401,7 +564,12 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
         ))
         price_min = _provenance_number(provenance, 'odds_min', signal.odds)
         price_max = _provenance_number(provenance, 'odds_max', signal.odds)
-        expected_return = probability * signal.odds - 1
+        probability_context = _conservative_probability(signal, experiment.rules)
+        conservative_probability = (
+            probability_context['conservative_probability']
+            if probability_context else 0.0
+        )
+        expected_return = conservative_probability * signal.odds - 1
         digest = canonical_sha256({
             'v': 1,
             'rules_hash': experiment.rules_hash,
@@ -432,7 +600,9 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
             handicap=None,
             label=signal.outcome.replace('_', ' ')[:120],
             selection_payload={
-                'normalized_probability': probability,
+                'normalized_probability': raw_probability,
+                'probability_method': 'market_shrunk_calibration_lower_bound_v3',
+                'probability_context': probability_context,
                 'raw_vector': signal.raw_vector,
                 'vector_complete': signal.vector_complete,
                 'price_vector_complete': signal.price_vector_complete,
@@ -448,7 +618,15 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
             model_mass=signal.vector_sum,
             expected_return_lower=expected_return,
             expected_return_upper=expected_return,
-            robust_positive_edge=expected_return > definition['rules']['expected_return_lower_gt'],
+            robust_positive_edge=bool(
+                probability_context
+                and probability_context['calibration_observations']
+                >= definition['rules']['minimum_calibration_observations']
+                and probability_context['conservative_probability']
+                - probability_context['market_probability']
+                >= definition['rules']['minimum_model_market_gap']
+                and expected_return > definition['rules']['expected_return_lower_gt']
+            ),
             calculation_version=signal.calculation_version,
         )
         written += 1
@@ -479,15 +657,32 @@ def qualifies(observation):
     quote_age = (
         observation.observed_at - observation.odds_captured_at
     ).total_seconds() / 3600.0
+    context = payload.get('probability_context') or {}
+    calibration_ready = (
+        observation.source_signal is None
+        or (
+            context.get('calibration_observations', 0)
+            >= rules.get('minimum_calibration_observations', 0)
+            and context.get('conservative_probability') is not None
+            and context.get('market_probability') is not None
+            and context['conservative_probability'] - context['market_probability']
+            >= rules.get('minimum_model_market_gap', 0)
+        )
+    )
     return (
         price_provenance_ready
         and
         observation.robust_positive_edge
         and observation.expected_return_lower > rules['expected_return_lower_gt']
+        and observation.expected_return_lower <= observation.expected_return_upper
+        and observation.expected_return_upper <= observation.odds - 1 + 1e-9
         and rules['minimum_model_mass'] <= observation.model_mass <= rules['maximum_model_mass']
         and observation.bookmaker_count >= rules['minimum_bookmakers']
         and rules['minimum_odds'] <= observation.odds <= rules['maximum_odds']
         and -1 <= quote_age <= rules.get('maximum_quote_age_hours', 24)
+        and observation.hours_to_kickoff
+        <= rules.get('maximum_hours_to_kickoff', float('inf'))
+        and calibration_ready
         and (not rules.get('require_complete_vector') or complete_vector)
         and (not rules.get('require_complete_price_vector') or complete_prices)
     )
@@ -495,10 +690,13 @@ def qualifies(observation):
 
 def choose_decisions(experiment=None, *, phase=None):
     """Freeze the closest eligible state outside the horizon, one bet/fixture."""
-    experiment = experiment or ensure_experiment(ASIAN_HANDICAP_V2)
+    experiment = experiment or ensure_experiment(ASIAN_HANDICAP_V3)
     rows = StrategyLabObservation.objects.filter(
         experiment=experiment,
         hours_to_kickoff__gte=experiment.decision_horizon_hours,
+        hours_to_kickoff__lte=experiment.rules.get(
+            'maximum_hours_to_kickoff', 24,
+        ),
     )
     if phase:
         rows = rows.filter(evidence_phase=phase)
@@ -518,13 +716,37 @@ def choose_decisions(experiment=None, *, phase=None):
     decisions = []
     for fixture_rows in by_fixture.values():
         fixture_rows.sort(key=lambda row: (
-            -row.expected_return_lower,
+            -_risk_adjusted_score(row),
             -row.bookmaker_count,
             abs(row.handicap or 0),
             row.side,
         ))
         decisions.append(fixture_rows[0])
     return decisions
+
+
+def _risk_adjusted_score(observation):
+    """Prefer robust, well-supported and fresh edges over headline EV."""
+    rules = observation.experiment.rules
+    quote_age = max(0.0, (
+        observation.observed_at - observation.odds_captured_at
+    ).total_seconds() / 3600.0)
+    freshness = max(
+        0.0,
+        1 - quote_age / max(1.0, rules.get('maximum_quote_age_hours', 24)),
+    )
+    coverage = min(1.0, observation.bookmaker_count / 8)
+    width_penalty = max(0.0, observation.price_max - observation.price_min)
+    context = (observation.selection_payload or {}).get('probability_context') or {}
+    calibration_count = context.get('calibration_observations', 0)
+    reliability = min(1.0, calibration_count / 200) if context else 0.5
+    return (
+        observation.expected_return_lower
+        * (0.5 + 0.5 * reliability)
+        * (0.5 + 0.5 * freshness)
+        * (0.5 + 0.5 * coverage)
+        - 0.05 * width_penalty
+    )
 
 
 def _handicap_legs(line):
@@ -896,7 +1118,7 @@ def build_report():
     experiments = ensure_all_experiments()
     reports = [_experiment_report(experiment) for experiment in experiments]
     return {
-        'lab_version': 'strategies-lab-v2',
+        'lab_version': 'strategies-lab-v3',
         'generated_at': timezone.now().isoformat(),
         'experiments': reports,
         'blocked_or_queued': list(BLOCKED_STRATEGIES),
@@ -983,7 +1205,7 @@ def build_public_report():
             ),
         })
     return {
-        'lab_version': 'strategies-lab-v2',
+        'lab_version': 'strategies-lab-v3',
         'generated_at': timezone.now().isoformat(),
         'strategies': strategies,
         'policy': {
@@ -1054,6 +1276,26 @@ def _market_probability(observation):
 def _public_probability_summary(observation):
     """Expose probability context only where the stored evidence supports it."""
     payload = observation.selection_payload or {}
+    context = payload.get('probability_context') or {}
+    if context.get('conservative_probability') is not None:
+        return {
+            'kind': 'calibrated_conservative_bound',
+            'model_probability_percent': round(
+                context['calibrated_probability'] * 100, 1,
+            ),
+            'model_probability_low_percent': round(
+                context['conservative_probability'] * 100, 1,
+            ),
+            'model_probability_high_percent': None,
+            'model_fair_odds': round(
+                1 / context['conservative_probability'], 2,
+            ) if context['conservative_probability'] > 0 else None,
+            'market_no_vig_probability_percent': round(
+                context['market_probability'] * 100, 1,
+            ),
+            'score_distribution_coverage_percent': None,
+            'calibration_observations': context['calibration_observations'],
+        }
     probability = payload.get('normalized_probability')
     if probability is not None:
         try:
@@ -1102,7 +1344,7 @@ def _fit_rank(observation):
     """Deterministic internal ordering; scores are deliberately not public."""
     price_width = max(0.0, observation.price_max - observation.price_min)
     return (
-        observation.expected_return_lower,
+        _risk_adjusted_score(observation),
         observation.bookmaker_count,
         -price_width,
         observation.observed_at.timestamp(),
@@ -1133,6 +1375,9 @@ def build_public_current_fits(strategy_key, *, limit=5):
     ).first()
     now = timezone.now()
     if experiment is None:
+        publication_enabled = definition['rules'].get(
+            'publication_enabled', False,
+        )
         return {
             'strategy_key': definition['strategy_key'],
             'version': definition['version'],
@@ -1144,8 +1389,29 @@ def build_public_current_fits(strategy_key, *, limit=5):
             'policy': {
                 'maximum_fits': 5,
                 'empty_is_valid': True,
-                'fit_is_public_pick': True,
-                'fit_enters_strategy_results': True,
+                'fit_is_public_pick': publication_enabled,
+                'fit_enters_strategy_results': publication_enabled,
+                'publication_enabled': publication_enabled,
+                'quarantine_reason': definition['rules'].get('quarantine_reason'),
+            },
+        }
+
+    if not experiment.rules.get('publication_enabled', False):
+        return {
+            'strategy_key': definition['strategy_key'],
+            'version': definition['version'],
+            'market': definition['market'],
+            'evidence_status': 'shadow_quarantined',
+            'generated_at': now.isoformat(),
+            'eligible_fixture_count': 0,
+            'fits': [],
+            'policy': {
+                'maximum_fits': 5,
+                'empty_is_valid': True,
+                'fit_is_public_pick': False,
+                'fit_enters_strategy_results': False,
+                'publication_enabled': False,
+                'quarantine_reason': experiment.rules.get('quarantine_reason'),
             },
         }
 

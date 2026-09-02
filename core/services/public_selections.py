@@ -19,7 +19,9 @@ from core.models import (
     FixtureResultObservation,
     GemFeedCache,
     PublicSelection,
+    PublicSelectionClosingPrice,
     PublicSelectionResult,
+    SignalObservation,
     StrategyLabExperiment,
     StrategyLabObservation,
     StrategyLabSettlement,
@@ -31,7 +33,7 @@ logger = logging.getLogger(__name__)
 HOMEPAGE_LIMIT = 5
 STRATEGY_LIMIT = 5
 MINIMUM_LEAD = timedelta(hours=1)
-MAXIMUM_PRICE_AGE = timedelta(hours=24)
+MAXIMUM_PRICE_AGE = timedelta(hours=2)
 
 SCORED_STATUSES = {
     PublicSelectionResult.STATUS_WON,
@@ -173,9 +175,11 @@ def publish_homepage_selections(now=None, limit=HOMEPAGE_LIMIT):
 
     payload = cache.payload or {}
     board = payload.get('decision_board') or {}
+    # Strong signals remain useful research cards, but are not tracked as
+    # price-qualified betting selections. v2 proved that a high hit rate at
+    # short odds can still produce a negative return.
     lanes = [
         (PublicSelection.REASON_VALUE, board.get('price_watchlist') or []),
-        (PublicSelection.REASON_STRONG, board.get('strong_signals') or []),
     ]
     existing_fixtures = set(
         PublicSelection.objects.filter(
@@ -291,6 +295,9 @@ def publish_strategy_selections(now=None, limit=STRATEGY_LIMIT):
                 invalid += 1
                 continue
 
+            probability_context = (
+                observation.selection_payload or {}
+            ).get('probability_context') or {}
             _, created = _create_selection(
                 category=PublicSelection.CATEGORY_STRATEGY,
                 source_key=report['strategy_key'],
@@ -308,7 +315,7 @@ def publish_strategy_selections(now=None, limit=STRATEGY_LIMIT):
                 predicted_outcome=observation.label,
                 side=observation.side,
                 line=observation.handicap,
-                model_score=observation.model_mass,
+                model_score=probability_context.get('conservative_probability'),
                 odds=observation.odds,
                 bookmaker=observation.bookmaker,
                 bookmaker_count=observation.bookmaker_count,
@@ -417,9 +424,98 @@ def _settlement_for(selection):
     }
 
 
+def _closing_candidate(selection):
+    observation = selection.source_strategy_observation
+    if observation is not None:
+        query = StrategyLabObservation.objects.filter(
+            experiment=observation.experiment,
+            fixture_id=selection.fixture_id,
+            side=selection.side,
+            evidence_phase=observation.evidence_phase,
+            hours_to_kickoff__gte=0,
+            odds_captured_at__lte=selection.kickoff,
+        )
+        query = query.filter(
+            handicap__isnull=True,
+        ) if selection.line is None else query.filter(handicap=selection.line)
+        row = query.order_by('hours_to_kickoff', '-observed_at').first()
+        if row is None or row.odds <= 1:
+            return None
+        return {
+            'odds': row.odds,
+            'bookmaker': row.bookmaker,
+            'bookmaker_count': row.bookmaker_count,
+            'captured_at': row.odds_captured_at,
+            'source_ref': f'strategy-observation:{row.observation_id}',
+        }
+
+    outcome = selection.predicted_outcome.strip().lower().replace(' ', '_')
+    row = (
+        SignalObservation.objects
+        .filter(
+            fixture_id=selection.fixture_id,
+            market=selection.market_type,
+            outcome=outcome,
+            price_status='verified',
+            provenance_complete=True,
+            odds__gt=1,
+            odds_captured_at__lte=selection.kickoff,
+            hours_to_kickoff__gte=0,
+        )
+        .order_by('hours_to_kickoff', '-observed_at')
+        .first()
+    )
+    if row is None:
+        return None
+    provenance = row.odds_provenance or {}
+    return {
+        'odds': row.odds,
+        'bookmaker': row.bookmaker,
+        'bookmaker_count': max(1, int(
+            provenance.get('odds_bookmaker_count') or 1
+        )),
+        'captured_at': row.odds_captured_at,
+        'source_ref': f'signal-observation:{row.observation_id}',
+    }
+
+
+def capture_closing_prices(now=None):
+    """Freeze the closest stored verified quote after kickoff becomes known."""
+    now = now or timezone.now()
+    captured = unavailable = 0
+    rows = PublicSelection.objects.filter(
+        kickoff__lte=now,
+        closing_price__isnull=True,
+    ).select_related(
+        'source_strategy_observation',
+        'source_strategy_observation__experiment',
+    )
+    for selection in rows:
+        candidate = _closing_candidate(selection)
+        if candidate is None:
+            unavailable += 1
+            continue
+        try:
+            PublicSelectionClosingPrice.objects.create(
+                selection=selection,
+                odds=candidate['odds'],
+                bookmaker=candidate['bookmaker'],
+                bookmaker_count=candidate['bookmaker_count'],
+                odds_captured_at=candidate['captured_at'],
+                recorded_at=now,
+                source_ref=candidate['source_ref'],
+                closing_line_value=selection.odds / candidate['odds'] - 1,
+            )
+            captured += 1
+        except IntegrityError:
+            pass
+    return {'captured': captured, 'unavailable': unavailable}
+
+
 def settle_public_selections(now=None):
     """Settle every unresolved selection from confirmed provider evidence."""
     now = now or timezone.now()
+    closing = capture_closing_prices(now=now)
     settled = pending = 0
     rows = PublicSelection.objects.filter(result__isnull=True).select_related(
         'source_strategy_observation',
@@ -444,12 +540,16 @@ def settle_public_selections(now=None):
             settled += 1
         except IntegrityError:
             pass
-    return {'settled': settled, 'pending': pending}
+    return {'settled': settled, 'pending': pending, 'closing_prices': closing}
 
 
 def serialize_selection(selection):
     result = getattr(selection, 'result', None)
     integrity_ok = selection.verify_integrity()
+    try:
+        closing = selection.closing_price
+    except PublicSelectionClosingPrice.DoesNotExist:
+        closing = None
     return {
         'selection_id': str(selection.selection_id),
         'receipt_url': f'/results/selection/{selection.selection_id}',
@@ -480,6 +580,16 @@ def serialize_selection(selection):
         'actual_score_home': result.actual_score_home if result else None,
         'actual_score_away': result.actual_score_away if result else None,
         'settled_at': result.settled_at.isoformat() if result else None,
+        'closing_price': ({
+            'odds': closing.odds,
+            'bookmaker': closing.bookmaker or None,
+            'bookmaker_count': closing.bookmaker_count,
+            'odds_captured_at': closing.odds_captured_at.isoformat(),
+            'closing_line_value_percent': round(
+                closing.closing_line_value * 100, 2,
+            ),
+            'evidence_hash': closing.evidence_hash,
+        } if closing else None),
         'counts_towards_record': bool(
             integrity_ok and result and result.status not in {
                 PublicSelectionResult.STATUS_VOID,
@@ -564,6 +674,10 @@ def performance_report(rows):
         'by_category': lambda row: row['category'],
         'by_strategy': lambda row: (
             row['source_key']
+            if row['category'] == PublicSelection.CATEGORY_STRATEGY else None
+        ),
+        'by_strategy_version': lambda row: (
+            f"{row['source_key']}:{row['source_version'] or 'unversioned'}"
             if row['category'] == PublicSelection.CATEGORY_STRATEGY else None
         ),
         'by_market': lambda row: row['market_type'],
@@ -673,7 +787,7 @@ def audit_ledger():
 
 
 def public_rows(category='', source_key='', state='', fixture_id=None):
-    rows = PublicSelection.objects.select_related('result').all()
+    rows = PublicSelection.objects.select_related('result', 'closing_price').all()
     if category:
         rows = rows.filter(category=category)
     if source_key:

@@ -10,7 +10,9 @@ from core.models import (
     FixtureResultObservation,
     GemFeedCache,
     PublicSelection,
+    PublicSelectionClosingPrice,
     PublicSelectionResult,
+    SignalObservation,
     StrategyLabExperiment,
     StrategyLabObservation,
     StrategyLabSettlement,
@@ -87,6 +89,74 @@ class PublicSelectionTests(TestCase):
         self.assertEqual(row.reason_code, PublicSelection.REASON_VALUE)
         with self.assertRaises(ValueError):
             row.save()
+
+    def test_strong_signal_without_price_value_is_not_published(self):
+        captured = self.now - timedelta(minutes=5)
+        candidate = {
+            'fixture_id': 700011, 'home_team': 'Alpha', 'away_team': 'Beta',
+            'league': 'League', 'kickoff': (self.now + timedelta(hours=6)).isoformat(),
+            'leading_selection': 'Home', 'signal_strength': 0.80,
+            'verified_price': 1.30, 'bookmakers_checked': 5,
+            'odds_provenance': {
+                'odds_captured_at': captured.isoformat(),
+                'odds_bookmaker_name': 'Book', 'odds_bookmaker_count': 5,
+            },
+        }
+        GemFeedCache.objects.create(
+            key=GemFeedCache.CACHE_KEY,
+            payload={'decision_board': {
+                'price_watchlist': [], 'strong_signals': [candidate],
+            }},
+            generated_at=self.now, ranking_version='rank-v3',
+            recommendation_count=0,
+        )
+
+        summary = public_selections.publish_homepage_selections(now=self.now)
+
+        self.assertEqual(summary['published'], 0)
+        self.assertFalse(PublicSelection.objects.exists())
+
+    def test_closing_price_is_append_only_and_exposed_on_receipt(self):
+        kickoff = self.now - timedelta(hours=1)
+        row = self.selection(
+            fixture_id=700012, kickoff=kickoff,
+            odds=2.10, published_at=kickoff - timedelta(hours=6),
+            odds_captured_at=kickoff - timedelta(hours=6),
+        )
+        SignalObservation.objects.create(
+            observation_id=uuid.uuid4(), ingestion_run_id='closing-run',
+            source_payload_hash=uuid.uuid4().hex, fixture_id=row.fixture_id,
+            home_team='Home', away_team='Away', league='Test League',
+            kickoff=kickoff, observed_at=kickoff - timedelta(minutes=5),
+            hours_to_kickoff=5 / 60, market='1x2', outcome='home',
+            raw_probability=55, normalized_probability=.55,
+            raw_vector={'home': .55, 'draw': .25, 'away': .20},
+            vector_sum=1, vector_complete=True, price_status='verified',
+            odds=2.0, bookmaker='Closing Book',
+            odds_captured_at=kickoff - timedelta(minutes=5),
+            odds_provenance={'odds_bookmaker_count': 6},
+            provenance_complete=True,
+            market_price_vector={
+                'home': {'odds': 2.0}, 'draw': {'odds': 3.5},
+                'away': {'odds': 4.0},
+            },
+            price_vector_complete=True,
+        )
+
+        first = public_selections.capture_closing_prices(now=self.now)
+        second = public_selections.capture_closing_prices(now=self.now)
+
+        self.assertEqual(first['captured'], 1)
+        self.assertEqual(second['captured'], 0)
+        close = PublicSelectionClosingPrice.objects.get(selection=row)
+        self.assertAlmostEqual(close.closing_line_value, .05)
+        body = APIClient().get(
+            f'/api/results/selections/{row.selection_id}/',
+        ).json()['selection']
+        self.assertEqual(body['closing_price']['odds'], 2.0)
+        self.assertEqual(
+            body['closing_price']['closing_line_value_percent'], 5.0,
+        )
 
     def test_homepage_selection_settles_at_its_frozen_price(self):
         row = self.selection()
