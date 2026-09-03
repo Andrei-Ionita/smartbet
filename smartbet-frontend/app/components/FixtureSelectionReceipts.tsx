@@ -5,6 +5,7 @@ import useSWR from 'swr'
 import { ScrollText } from 'lucide-react'
 
 import { useLanguage } from '../contexts/LanguageContext'
+import { PUBLIC_RESULTS_VISIBLE } from '../lib/publicResultsMode'
 
 interface Receipt {
   selection_id: string
@@ -24,11 +25,11 @@ const fetcher = async (url: string) => {
 export default function FixtureSelectionReceipts({ fixtureId }: { fixtureId: number }) {
   const { language } = useLanguage()
   const ro = language === 'ro'
-  const { data } = useSWR(`/api/results-selections?fixture_id=${fixtureId}`, fetcher, {
+  const { data } = useSWR(PUBLIC_RESULTS_VISIBLE ? `/api/results-selections?fixture_id=${fixtureId}` : null, fetcher, {
     revalidateOnFocus: true, refreshInterval: 120_000, errorRetryCount: 1,
   })
   const receipts: Receipt[] = Array.isArray(data?.selections) ? data.selections : []
-  if (!receipts.length) return null
+  if (!PUBLIC_RESULTS_VISIBLE || !receipts.length) return null
 
   return (
     <section className="mt-8 rounded-2xl border border-blue-200 bg-blue-50 p-5 sm:p-6">

@@ -7,6 +7,7 @@ import FixtureDecisionWorkspace, {
 } from '../../components/FixtureDecisionWorkspace'
 import ProofCapturePanel from '../../components/ProofCapturePanel'
 import FixtureSelectionReceipts from '../../components/FixtureSelectionReceipts'
+import { PUBLIC_RESULTS_VISIBLE } from '../../lib/publicResultsMode'
 
 interface PredictionContentProps {
   fixture: FixtureDecisionFixture
@@ -30,14 +31,14 @@ export default function PredictionContent({ fixture, lastUpdated }: PredictionCo
 
       <FixtureSelectionReceipts fixtureId={fixture.fixture_id} />
 
-      <div className="mt-8">
+      {PUBLIC_RESULTS_VISIBLE && <div className="mt-8">
         <ProofCapturePanel
           source="prediction_page"
           leagueInterest={fixture.league}
           title="Inspect the published evidence."
           description="See every current-strategy Gem BetGlitch published before kickoff and how it settled — wins and losses alike. No email or account is required."
         />
-      </div>
+      </div>}
 
       <p className="mx-auto my-10 max-w-3xl text-center text-xs leading-relaxed text-slate-400">
         Model probabilities and market-implied probabilities are separate reference views. BetGlitch does not accept bets, and this workspace is not betting advice.

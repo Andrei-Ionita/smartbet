@@ -7,6 +7,7 @@ import { useLanguage } from '../contexts/LanguageContext'
 import { STRATEGIES, type StrategyCategory } from '../lib/strategyLibrary'
 import { useStrategyEvidence } from '../lib/useStrategyEvidence'
 import StrategyEvidenceBadge from '../components/StrategyEvidenceBadge'
+import { PUBLIC_RESULTS_VISIBLE } from '../lib/publicResultsMode'
 
 const ICONS = { handicaps: Scale, goals: Goal, results: BarChart3, specialists: TimerReset }
 
@@ -14,11 +15,11 @@ const COPY = {
   en: {
     eyebrow: 'Learn first. Test second. Claim last.',
     title: 'Football strategies, without the certainty theatre.',
-    intro: 'Explore how popular football betting strategies work, what must be true for them to have value, and where they fail. Qualifying fixtures are frozen before kickoff and every outcome is tracked under Results.',
+    intro: 'Explore how popular football betting strategies work, what must be true for them to have value, and where they fail. Current fits are research candidates while the selection engine is being validated.',
     educational: 'Understand the strategy first',
     educationalBody: 'Each page explains the market and hypothesis before showing any current selection. A fit never implies that profit will follow.',
     evidence: 'Evidence stays attached',
-    evidenceBody: 'Each card shows the live forward-testing status. Every displayed selection now remains in the separate Strategy Results record.',
+    evidenceBody: 'Each card shows the current validation status. Public performance history will begin only after the engine rules are locked.',
     disciplined: 'One decision per fixture',
     disciplinedBody: 'The lab avoids manufacturing a sample from many correlated lines on the same match.',
     all: 'All strategies', handicaps: 'Handicaps', goals: 'Goals', results: 'Results', specialists: 'Specialist markets',
@@ -34,11 +35,11 @@ const COPY = {
   ro: {
     eyebrow: 'Întâi înveți. Apoi testezi. Abia la final concluzionezi.',
     title: 'Strategii de fotbal, fără spectacolul certitudinii.',
-    intro: 'Înțelege cum funcționează strategiile populare, ce trebuie să fie adevărat pentru a avea valoare și unde pot eșua. Meciurile eligibile sunt blocate înainte de start, iar fiecare rezultat este urmărit în Rezultate.',
+    intro: 'Înțelege cum funcționează strategiile populare, ce trebuie să fie adevărat pentru a avea valoare și unde pot eșua. Potrivirile actuale sunt candidați de cercetare cât timp motorul este validat.',
     educational: 'Înțelege mai întâi strategia',
     educationalBody: 'Fiecare pagină explică piața și ipoteza înainte de a arăta o selecție actuală. O potrivire nu garantează profit.',
     evidence: 'Dovezile rămân atașate',
-    evidenceBody: 'Fiecare card arată starea testării forward. Fiecare selecție afișată rămâne acum în istoricul separat al Strategiilor.',
+    evidenceBody: 'Fiecare card arată starea actuală a validării. Istoricul public va începe numai după blocarea regulilor motorului.',
     disciplined: 'O decizie pe meci',
     disciplinedBody: 'Laboratorul nu construiește artificial un eșantion din linii corelate ale aceluiași meci.',
     all: 'Toate strategiile', handicaps: 'Handicapuri', goals: 'Goluri', results: 'Rezultate', specialists: 'Piețe specializate',
@@ -70,7 +71,7 @@ export default function StrategiesContent() {
           <p className="text-sm font-bold uppercase tracking-[0.18em] text-blue-300">{c.eyebrow}</p>
           <h1 className="mt-4 text-4xl font-black tracking-tight sm:text-5xl">{c.title}</h1>
           <p className="mt-5 max-w-2xl text-lg leading-8 text-slate-300">{c.intro}</p>
-          <Link href="/track-record?category=strategy" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 hover:bg-blue-50">{c.resultsCta}<ArrowRight className="h-4 w-4" /></Link>
+          {PUBLIC_RESULTS_VISIBLE && <Link href="/track-record?category=strategy" className="mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-5 font-black text-slate-950 hover:bg-blue-50">{c.resultsCta}<ArrowRight className="h-4 w-4" /></Link>}
         </div>
         <div className="relative mt-10 grid gap-4 md:grid-cols-3">
           {[
@@ -115,7 +116,7 @@ export default function StrategiesContent() {
       <section className="mt-12 rounded-3xl border border-gray-200 bg-white p-6 sm:p-9">
         <h2 className="text-2xl font-black text-gray-950">{c.pathwayTitle}</h2>
         <div className="mt-6 grid gap-4 md:grid-cols-3">
-          {[[c.libraryTitle, c.libraryBody, '/strategies'], [c.labTitle, c.labBody, '/track-record?category=strategy'], [c.gemsTitle, c.gemsBody, '/track-record?category=gems']].map(([title, body, href], index) => (
+          {[[c.libraryTitle, c.libraryBody, '/strategies'], [c.labTitle, c.labBody, PUBLIC_RESULTS_VISIBLE ? '/track-record?category=strategy' : '/methodology'], [c.gemsTitle, c.gemsBody, PUBLIC_RESULTS_VISIBLE ? '/track-record?category=gems' : '/explore']].map(([title, body, href], index) => (
             <Link key={title} href={href} className="rounded-2xl bg-gray-50 p-5 transition hover:bg-blue-50"><span className="text-xs font-black text-blue-700">0{index + 1}</span><h3 className="mt-2 font-black text-gray-950">{title}</h3><p className="mt-2 text-sm leading-6 text-gray-600">{body}</p></Link>
           ))}
         </div>

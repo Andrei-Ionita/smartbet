@@ -1,13 +1,17 @@
 import { Metadata } from 'next'
 
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
+import { PUBLIC_RESULTS_VISIBLE } from '@/app/lib/publicResultsMode'
+import ResultsValidationContent from './ResultsValidationContent'
 import UnifiedResultsContent from './UnifiedResultsContent'
 
 export const metadata: Metadata = {
-  title: 'Results — homepage, strategies and Hidden Gems',
-  description:
-    'See every frozen BetGlitch homepage selection, named strategy and Hidden Gem, including pending selections, wins and losses.',
+  title: PUBLIC_RESULTS_VISIBLE ? 'Results — homepage, strategies and Hidden Gems' : 'Results — engine validation in progress',
+  description: PUBLIC_RESULTS_VISIBLE
+    ? 'See every frozen BetGlitch homepage selection, named strategy and Hidden Gem, including pending selections, wins and losses.'
+    : 'BetGlitch is validating its selection engine before beginning a new public performance record.',
   alternates: { canonical: '/track-record' },
+  robots: PUBLIC_RESULTS_VISIBLE ? undefined : { index: false, follow: true },
   openGraph: {
     title: 'Complete BetGlitch Results',
     description:
@@ -23,7 +27,7 @@ export default function TrackRecordPage() {
         { name: 'Home', url: 'https://www.betglitch.com' },
         { name: 'Results', url: 'https://www.betglitch.com/track-record' },
       ]} />
-      <UnifiedResultsContent />
+      {PUBLIC_RESULTS_VISIBLE ? <UnifiedResultsContent /> : <ResultsValidationContent />}
     </>
   )
 }

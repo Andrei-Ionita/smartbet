@@ -14,6 +14,7 @@ import {
 import { STRATEGIES } from '../lib/strategyLibrary'
 import type { Lang } from '../lib/terminology'
 import type { StrategyFit } from '../lib/useStrategyFits'
+import { PUBLIC_RESULTS_VISIBLE } from '../lib/publicResultsMode'
 
 type Reason = 'potential_value' | 'strategy_match' | 'strong_signal'
 
@@ -73,15 +74,15 @@ const COPY = {
     eyebrow: 'Today’s football selections',
     heading: 'Five fixtures worth a closer look',
     supporting: 'A varied shortlist from current value, strategy and model evidence. Each card tells you exactly why the fixture is here.',
-    boundary: 'One selection per fixture. Frozen selections enter Results; current candidates do not count until they are recorded before kickoff.',
+    boundary: 'One selection per fixture. Recorded selections support engine validation; the public performance history is paused until the engine rules are locked.',
     value: 'Potential value', strategy: 'Strategy match', strong: 'Strong signal',
-    tracked: 'Tracked in Results', candidate: 'Current candidate',
+    tracked: 'Recorded for validation', candidate: 'Current candidate',
     selection: 'Selection', odds: 'Verified odds', market: 'Market', books: 'bookmakers checked',
     valueReason: 'The model and the verified market price disagree enough to merit a closer look.',
     strategyReason: 'This fixture matches the registered rules of a named market strategy.',
     strongReason: 'The model separates one outcome clearly from the alternatives.',
-    trackedCaveat: 'The selection and displayed price were frozen before kickoff and remain in Results.',
-    candidateCaveat: 'This is a current candidate. It does not enter Results unless it is recorded before kickoff.',
+    trackedCaveat: 'The selection and displayed price were frozen before kickoff for internal engine validation. No public performance claim is being made.',
+    candidateCaveat: 'This is a current research candidate. It is not a performance claim or an instruction to bet.',
     analyse: 'Analyse fixture', learn: 'Understand strategy', receipt: 'Inspect receipt', results: 'Open complete Results',
     loading: 'Building today’s varied fixture list…',
     partial: 'Some current evidence is temporarily unavailable; the valid selections we do have remain visible.',
@@ -93,15 +94,15 @@ const COPY = {
     eyebrow: 'Selecțiile de fotbal de astăzi',
     heading: 'Cinci meciuri care merită analizate',
     supporting: 'O listă variată bazată pe valoare, strategii și semnalele actuale ale modelului. Fiecare card explică exact de ce apare meciul.',
-    boundary: 'O selecție pe meci. Selecțiile blocate intră în Rezultate; candidații actuali nu sunt numărați până când nu sunt înregistrați înainte de start.',
+    boundary: 'O selecție pe meci. Selecțiile înregistrate susțin validarea motorului; istoricul public este suspendat până când regulile motorului sunt blocate.',
     value: 'Valoare potențială', strategy: 'Potrivire de strategie', strong: 'Semnal puternic',
-    tracked: 'Urmărită în Rezultate', candidate: 'Candidat actual',
+    tracked: 'Înregistrată pentru validare', candidate: 'Candidat actual',
     selection: 'Selecție', odds: 'Cotă verificată', market: 'Piață', books: 'operatori verificați',
     valueReason: 'Modelul și cota verificată diferă suficient pentru ca meciul să merite o analiză atentă.',
     strategyReason: 'Meciul corespunde regulilor înregistrate ale unei strategii de piață denumite.',
     strongReason: 'Modelul separă clar un rezultat de alternative.',
-    trackedCaveat: 'Selecția și cota afișată au fost blocate înainte de start și rămân în Rezultate.',
-    candidateCaveat: 'Acesta este un candidat actual. Nu intră în Rezultate decât dacă este înregistrat înainte de start.',
+    trackedCaveat: 'Selecția și cota afișată au fost blocate înainte de start pentru validarea internă a motorului. Nu reprezintă o afirmație publică de performanță.',
+    candidateCaveat: 'Acesta este un candidat actual pentru cercetare. Nu reprezintă o afirmație de performanță sau o recomandare de pariere.',
     analyse: 'Analizează meciul', learn: 'Înțelege strategia', receipt: 'Verifică recipisa', results: 'Deschide toate Rezultatele',
     loading: 'Construim lista variată de meciuri de astăzi…',
     partial: 'Unele dovezi actuale sunt temporar indisponibile; selecțiile valide disponibile rămân vizibile.',
@@ -300,9 +301,9 @@ export default function HomepageSelections({ language }: { language: Lang }) {
           <p className="mt-3 max-w-3xl leading-7 text-slate-600">{c.supporting}</p>
           <p className="mt-2 max-w-4xl text-sm font-semibold text-slate-800">{c.boundary}</p>
         </div>
-        <Link href="/track-record" className="shrink-0 font-bold text-blue-700 hover:underline">
+        {PUBLIC_RESULTS_VISIBLE && <Link href="/track-record" className="shrink-0 font-bold text-blue-700 hover:underline">
           {c.results} <ArrowRight className="inline h-4 w-4" />
-        </Link>
+        </Link>}
       </div>
 
       {partial && <p className="mt-5 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">{c.partial}</p>}
@@ -358,7 +359,7 @@ export default function HomepageSelections({ language }: { language: Lang }) {
                         <Link href={fixtureHref(item)} className="inline-flex min-h-[44px] items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 text-sm font-bold text-white hover:bg-slate-800">
                           {c.analyse}<ArrowRight className="h-4 w-4" />
                         </Link>
-                        {item.receipt_url && <Link href={item.receipt_url} className="text-center text-xs font-bold text-blue-800 underline-offset-4 hover:underline">{c.receipt}</Link>}
+                        {PUBLIC_RESULTS_VISIBLE && item.receipt_url && <Link href={item.receipt_url} className="text-center text-xs font-bold text-blue-800 underline-offset-4 hover:underline">{c.receipt}</Link>}
                         {item.strategy_key && (
                           <Link href={strategyHref(item.strategy_key)} className="text-center text-xs font-bold text-violet-800 underline-offset-4 hover:underline">{c.learn}</Link>
                         )}

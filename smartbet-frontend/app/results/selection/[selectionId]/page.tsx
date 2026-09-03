@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 
+import { PUBLIC_RESULTS_VISIBLE } from '@/app/lib/publicResultsMode'
 import SelectionReceiptContent, { type PublicSelectionReceipt } from './SelectionReceiptContent'
 
 const API_URL = (process.env.DJANGO_API_URL
@@ -31,6 +32,7 @@ export async function generateMetadata(
   return {
     title, description,
     alternates: { canonical: selection.receipt_url },
+    robots: PUBLIC_RESULTS_VISIBLE ? undefined : { index: false, follow: false },
     openGraph: { title, description, type: 'article', url: `https://www.betglitch.com${selection.receipt_url}` },
   }
 }

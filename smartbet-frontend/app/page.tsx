@@ -23,6 +23,7 @@ import { StatusBadge } from './components/StatusBadge'
 import { getCopy } from './lib/terminology'
 import { SEARCHABLE_COMPETITION_COUNT } from './lib/coverage'
 import { track } from './lib/analytics'
+import { PUBLIC_RESULTS_VISIBLE } from './lib/publicResultsMode'
 import { useLanguage } from './contexts/LanguageContext'
 import { Recommendation } from '../src/types/recommendation'
 import useSWR from 'swr'
@@ -83,7 +84,7 @@ export default function HomePage() {
     shouldRetryOnError: true,
   })
 
-  const { data: performanceData } = useSWR('/api/performance', fetcher, {
+  const { data: performanceData } = useSWR(PUBLIC_RESULTS_VISIBLE ? '/api/performance' : null, fetcher, {
     refreshInterval: 120000,
   })
 
@@ -376,7 +377,9 @@ export default function HomePage() {
           <h2 id="learning-heading" className="mt-2 text-2xl font-bold text-gray-900 sm:text-3xl">{copy.home.learningHeading}</h2>
           <p className="mt-2 max-w-3xl text-sm leading-6 text-gray-600">{copy.home.learningSupporting}</p>
           <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            {copy.home.learningLinks.map((item, index) => {
+            {copy.home.learningLinks.map((item, index) => ({ item, index }))
+              .filter(({ item }) => PUBLIC_RESULTS_VISIBLE || !item.href.startsWith('/track-record'))
+              .map(({ item, index }) => {
               const Icon = LEARNING_ICONS[index] ?? BarChart3
               return (
                 <Link key={item.href} href={item.href} className="group rounded-2xl border border-gray-200 bg-white p-6 transition hover:-translate-y-0.5 hover:border-blue-300 hover:shadow-md">
@@ -388,10 +391,10 @@ export default function HomePage() {
               )
             })}
           </div>
-          <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
+          {PUBLIC_RESULTS_VISIBLE && <div className="mt-5 flex flex-col gap-4 rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 sm:flex-row sm:items-center sm:justify-between">
             <div className="max-w-3xl"><h3 className="font-bold text-indigo-950">{copy.home.differenceHeading}</h3><p className="mt-1 text-sm leading-6 text-indigo-900">{copy.home.differenceBody}</p></div>
             <Link href="/track-record" className="shrink-0 text-sm font-bold text-indigo-800 underline-offset-4 hover:underline">{copy.home.openRecord} →</Link>
-          </div>
+          </div>}
         </section>
 
         {/* Final CTA. */}
@@ -406,13 +409,13 @@ export default function HomePage() {
             {copy.home.finalBody}
           </p>
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
-            <Link
+            {PUBLIC_RESULTS_VISIBLE && <Link
               href="/track-record"
               onClick={() => track('home_verified_record_cta', { surface: 'homepage_final' })}
               className="inline-flex min-h-[48px] items-center justify-center rounded-xl bg-white px-7 py-3 font-semibold text-gray-900 transition-colors hover:bg-gray-100"
             >
               {copy.home.openRecord}
-            </Link>
+            </Link>}
             <button
               onClick={goExplore}
               className="inline-flex min-h-[48px] items-center justify-center gap-2 rounded-xl border border-gray-600 px-7 py-3 font-semibold text-white transition-colors hover:bg-gray-800"

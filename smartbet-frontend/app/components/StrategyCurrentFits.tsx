@@ -6,6 +6,7 @@ import { ArrowRight, CheckCircle2, FlaskConical, ShieldAlert } from 'lucide-reac
 
 import type { Lang } from '../lib/terminology'
 import type { StrategyDefinition } from '../lib/strategyLibrary'
+import { PUBLIC_RESULTS_VISIBLE } from '../lib/publicResultsMode'
 
 interface StrategySelection {
   selection_id: string
@@ -22,24 +23,24 @@ interface StrategySelection {
 
 const COPY = {
   en: {
-    eyebrow: 'Current strategy selections', title: 'Up to 5 fixtures, frozen and tracked',
+    eyebrow: 'Current strategy selections', title: 'Up to 5 current validation fixtures',
     intro: 'Each fixture passed this strategy version’s registered rules. Its selection and displayed price were recorded before kickoff.',
-    boundary: 'Every result remains permanently visible in Strategy Results, including losses. These selections are not guarantees or instructions to bet.',
-    loading: 'Loading current tracked selections…', unavailable: 'Current strategy selections are temporarily unavailable.',
-    emptyTitle: 'No tracked selection is active right now', emptyBody: 'No fixture passed every rule in the latest scan. The next qualifying selection will be recorded automatically.',
+    boundary: 'Selections are recorded for engine validation, but public performance history is paused until the engine rules are locked. These are not guarantees or instructions to bet.',
+    loading: 'Loading current validation selections…', unavailable: 'Current strategy selections are temporarily unavailable.',
+    emptyTitle: 'No validation selection is active right now', emptyBody: 'No fixture passed every rule in the latest scan. The next qualifying selection will be recorded automatically.',
     selection: 'Selection', price: 'Recorded odds', recorded: 'Recorded before kickoff', checked: 'bookmakers checked',
     analyse: 'Analyse fixture', receipt: 'Inspect receipt', results: 'Open Strategy Results', experimental: 'Experimental strategy',
-    experimentalBody: 'Its record is still developing. Judge the strategy from its complete Results history, not from one selection.',
+    experimentalBody: 'This hypothesis is being tested privately. No public performance conclusion is presented during engine validation.',
   },
   ro: {
-    eyebrow: 'Selecțiile actuale ale strategiei', title: 'Până la 5 meciuri, blocate și urmărite',
+    eyebrow: 'Selecțiile actuale ale strategiei', title: 'Până la 5 meciuri actuale pentru validare',
     intro: 'Fiecare meci a trecut regulile înregistrate ale acestei versiuni. Selecția și cota afișată au fost înregistrate înainte de start.',
-    boundary: 'Fiecare rezultat rămâne permanent vizibil în Rezultatele Strategiilor, inclusiv pierderile. Aceste selecții nu sunt garanții sau instrucțiuni de pariere.',
-    loading: 'Încărcăm selecțiile urmărite…', unavailable: 'Selecțiile actuale ale strategiei sunt temporar indisponibile.',
-    emptyTitle: 'Nu există acum o selecție activă urmărită', emptyBody: 'Niciun meci nu a trecut toate regulile la ultima scanare. Următoarea selecție eligibilă va fi înregistrată automat.',
+    boundary: 'Selecțiile sunt înregistrate pentru validarea motorului, dar istoricul public este suspendat până când regulile sunt blocate. Acestea nu sunt garanții sau instrucțiuni de pariere.',
+    loading: 'Încărcăm selecțiile actuale pentru validare…', unavailable: 'Selecțiile actuale ale strategiei sunt temporar indisponibile.',
+    emptyTitle: 'Nu există acum o selecție activă pentru validare', emptyBody: 'Niciun meci nu a trecut toate regulile la ultima scanare. Următoarea selecție eligibilă va fi înregistrată automat.',
     selection: 'Selecție', price: 'Cotă înregistrată', recorded: 'Înregistrată înainte de start', checked: 'operatori verificați',
     analyse: 'Analizează meciul', receipt: 'Verifică recipisa', results: 'Deschide Rezultatele Strategiei', experimental: 'Strategie experimentală',
-    experimentalBody: 'Istoricul ei este încă în formare. Evaluează strategia din istoricul complet de Rezultate, nu dintr-o singură selecție.',
+    experimentalBody: 'Această ipoteză este testată în mod privat. În timpul validării motorului nu prezentăm nicio concluzie publică de performanță.',
   },
 } as const
 
@@ -84,9 +85,9 @@ export default function StrategyCurrentFits({ strategy, language }: { strategy: 
             <p className="mt-2 max-w-3xl text-sm font-semibold leading-6 text-slate-950">{c.boundary}</p>
           </div>
         </div>
-        <Link href="/track-record?category=strategy" className="inline-flex shrink-0 items-center gap-2 font-bold text-blue-700 hover:underline">
+        {PUBLIC_RESULTS_VISIBLE && <Link href="/track-record?category=strategy" className="inline-flex shrink-0 items-center gap-2 font-bold text-blue-700 hover:underline">
           {c.results}<ArrowRight className="h-4 w-4" />
-        </Link>
+        </Link>}
       </div>
 
       {isLoading ? (
@@ -111,7 +112,7 @@ export default function StrategyCurrentFits({ strategy, language }: { strategy: 
               </dl>
               <div className="mt-4 flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 pt-4">
                 <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-800"><CheckCircle2 className="h-4 w-4" />{c.recorded} · {item.bookmaker_count} {c.checked}</span>
-                <span className="flex flex-wrap gap-3"><Link href={item.receipt_url} className="font-bold text-blue-700 hover:underline">{c.receipt} →</Link><Link href={fixtureHref(item)} className="font-bold text-blue-700 hover:underline">{c.analyse} →</Link></span>
+                <span className="flex flex-wrap gap-3">{PUBLIC_RESULTS_VISIBLE && <Link href={item.receipt_url} className="font-bold text-blue-700 hover:underline">{c.receipt} →</Link>}<Link href={fixtureHref(item)} className="font-bold text-blue-700 hover:underline">{c.analyse} →</Link></span>
               </div>
             </article>
           ))}

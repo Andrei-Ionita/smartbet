@@ -18,11 +18,12 @@ describe('homepage tracked selections', () => {
     expect(home).not.toContain('<HomepageStrategyFits')
   })
 
-  it('separates frozen selections from current candidates without overstating the record', () => {
-    expect(selections).toContain('Frozen selections enter Results')
-    expect(selections).toContain('current candidates do not count until they are recorded')
-    expect(selections).toContain('Tracked in Results')
+  it('separates recorded validation selections from current candidates without claiming a public record', () => {
+    expect(selections).toContain('Recorded selections support engine validation')
+    expect(selections).toContain('the public performance history is paused until the engine rules are locked')
+    expect(selections).toContain('Recorded for validation')
     expect(selections).toContain('Current candidate')
+    expect(selections).toContain('No public performance claim is being made')
     expect(selections).not.toContain('permanently tracked')
   })
 
@@ -68,8 +69,9 @@ describe('homepage tracked selections', () => {
     expect(engine).toContain('price_watchlist: priceWatchlist')
   })
 
-  it('opens permanent fixture pages and the complete homepage record', () => {
+  it('opens permanent fixture pages and gates the historical record', () => {
     expect(selections).toContain("return `/prediction/${slug(")
+    expect(selections).toContain('PUBLIC_RESULTS_VISIBLE && <Link href="/track-record"')
     expect(selections).toContain('href="/track-record"')
     expect(selections).not.toContain('href={`/explore?fixture=')
   })
