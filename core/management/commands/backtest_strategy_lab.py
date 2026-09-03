@@ -31,7 +31,9 @@ class Command(BaseCommand):
         # this command again months later must never clone forward observations
         # into a backtest phase.
         for experiment in experiments:
-            definition = strategy_lab.DEFINITION_BY_MARKET.get(experiment.market)
+            definition = strategy_lab.DEFINITION_BY_KEY.get((
+                experiment.strategy_key, experiment.version,
+            ))
             if not definition:
                 continue
             summary = strategy_lab.capture_signal_observations(
@@ -41,6 +43,7 @@ class Command(BaseCommand):
                 ).iterator(),
                 phase=StrategyLabObservation.PHASE_RETROSPECTIVE,
                 ingestion_run_id='strategy-lab-retrospective-v2',
+                definitions=[definition],
             )
             materialised.update(summary)
         settlement = None

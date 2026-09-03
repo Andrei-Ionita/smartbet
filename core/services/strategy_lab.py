@@ -142,6 +142,29 @@ STRATEGY_DEFINITIONS = (
         'over_under_2.5', maximum_odds=3.50,
         publication_enabled=False, quarantine_reason='v2_forward_record_failed',
     ),
+    # Registered on 2026-09-03 after a chronological screen of the clean,
+    # append-only evidence archive (2026-08-17 through 2026-09-02).  The exact
+    # corridor produced 30/13 train/holdout decisions, with both point estimates
+    # above 60% accuracy and above 0% ROI.  Those samples are far too small to
+    # validate an edge, so this version starts in shadow and can only be judged
+    # from observations captured after registration.
+    _direct_definition(
+        'total-goals-2-5-accuracy-corridor',
+        'Total goals 2.5 — accuracy/value corridor',
+        'over_under_2.5',
+        selection_mode='accuracy_value_corridor',
+        minimum_model_probability=0.60,
+        minimum_market_probability=0.50,
+        minimum_odds=1.40,
+        maximum_odds=1.80,
+        minimum_bookmakers=3,
+        maximum_quote_age_hours=2,
+        target_forward_accuracy=0.60,
+        target_forward_flat_stake_roi=0.10,
+        minimum_accuracy_wilson_lower=0.50,
+        publication_enabled=False,
+        quarantine_reason='v4_forward_validation_required',
+    ) | {'version': 'v4'},
     _direct_definition(
         'total-goals-3-5-value', 'Total goals 3.5 — model/price value',
         'over_under_3.5', maximum_odds=4.00,
@@ -179,10 +202,17 @@ DEFINITION_BY_KEY = {
     (definition['strategy_key'], definition['version']): definition
     for definition in STRATEGY_DEFINITIONS
 }
+DIRECT_DEFINITIONS_BY_MARKET = defaultdict(list)
+for _definition in STRATEGY_DEFINITIONS:
+    if _definition.get('source') == 'signal_observation':
+        DIRECT_DEFINITIONS_BY_MARKET[_definition['market']].append(_definition)
+
+# Compatibility for callers that need the original, canonical v3 definition.
+# New code must use DIRECT_DEFINITIONS_BY_MARKET because one market may carry
+# several independently versioned hypotheses without blending their evidence.
 DEFINITION_BY_MARKET = {
-    definition['market']: definition
-    for definition in STRATEGY_DEFINITIONS
-    if definition.get('source') == 'signal_observation'
+    market: definitions[0]
+    for market, definitions in DIRECT_DEFINITIONS_BY_MARKET.items()
 }
 
 # "All markets" must never be interpreted as "pretend every market is
@@ -531,7 +561,8 @@ def _conservative_probability(signal, rules):
     }
 
 
-def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
+def capture_signal_observations(
+        signals, *, phase, ingestion_run_id=None, definitions=None):
     """Materialise direct model-vs-price hypotheses from immutable signals.
 
     ``phase`` is mandatory. A backfill caller cannot accidentally label old
@@ -545,12 +576,24 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
     _calibration_pairs.cache_clear()
     written = skipped = unsupported = invalid = 0
 
+    allowed_identities = None
+    if definitions is not None:
+        allowed_identities = {
+            (definition['strategy_key'], definition['version'])
+            for definition in definitions
+        }
+
     for signal in signals:
-        definition = DEFINITION_BY_MARKET.get(signal.market)
-        if not definition:
+        market_definitions = DIRECT_DEFINITIONS_BY_MARKET.get(signal.market, ())
+        if allowed_identities is not None:
+            market_definitions = [
+                definition for definition in market_definitions
+                if (definition['strategy_key'], definition['version'])
+                in allowed_identities
+            ]
+        if not market_definitions:
             unsupported += 1
             continue
-        experiment = ensure_experiment(definition)
         raw_probability = signal.normalized_probability
         if (signal.odds is None or signal.odds <= 1 or raw_probability is None
                 or raw_probability < 0 or raw_probability > 1
@@ -564,72 +607,106 @@ def capture_signal_observations(signals, *, phase, ingestion_run_id=None):
         ))
         price_min = _provenance_number(provenance, 'odds_min', signal.odds)
         price_max = _provenance_number(provenance, 'odds_max', signal.odds)
-        probability_context = _conservative_probability(signal, experiment.rules)
-        conservative_probability = (
-            probability_context['conservative_probability']
-            if probability_context else 0.0
-        )
-        expected_return = conservative_probability * signal.odds - 1
-        digest = canonical_sha256({
-            'v': 1,
-            'rules_hash': experiment.rules_hash,
-            'signal_hash': signal.source_payload_hash,
-            'phase': phase,
-        })
-        if StrategyLabObservation.objects.filter(source_payload_hash=digest).exists():
-            skipped += 1
-            continue
+        for definition in market_definitions:
+            experiment = ensure_experiment(definition)
+            probability_context = _conservative_probability(
+                signal, experiment.rules,
+            )
+            conservative_probability = (
+                probability_context['conservative_probability']
+                if probability_context else 0.0
+            )
+            expected_return = conservative_probability * signal.odds - 1
+            digest = canonical_sha256({
+                'v': 1,
+                'rules_hash': experiment.rules_hash,
+                'signal_hash': signal.source_payload_hash,
+                'phase': phase,
+            })
+            if StrategyLabObservation.objects.filter(
+                    source_payload_hash=digest).exists():
+                skipped += 1
+                continue
 
-        StrategyLabObservation.objects.create(
-            experiment=experiment,
-            source_signal=signal,
-            evidence_phase=phase,
-            ingestion_run_id=(ingestion_run_id or signal.ingestion_run_id)[:64],
-            source_payload_hash=digest,
-            fixture_id=signal.fixture_id,
-            home_team=signal.home_team,
-            away_team=signal.away_team,
-            league=signal.league,
-            league_id=signal.league_id,
-            kickoff=signal.kickoff,
-            observed_at=signal.observed_at,
-            hours_to_kickoff=signal.hours_to_kickoff,
-            market=signal.market,
-            market_id=provenance.get('odds_market_id'),
-            side=signal.outcome[:32],
-            handicap=None,
-            label=signal.outcome.replace('_', ' ')[:120],
-            selection_payload={
-                'normalized_probability': raw_probability,
-                'probability_method': 'market_shrunk_calibration_lower_bound_v3',
-                'probability_context': probability_context,
-                'raw_vector': signal.raw_vector,
-                'vector_complete': signal.vector_complete,
-                'price_vector_complete': signal.price_vector_complete,
-                'pipeline_version': signal.pipeline_version,
-            },
-            odds=signal.odds,
-            bookmaker=signal.bookmaker,
-            bookmaker_count=max(0, bookmaker_count),
-            price_min=price_min,
-            price_max=price_max,
-            odds_captured_at=signal.odds_captured_at,
-            price_provenance=provenance,
-            model_mass=signal.vector_sum,
-            expected_return_lower=expected_return,
-            expected_return_upper=expected_return,
-            robust_positive_edge=bool(
-                probability_context
-                and probability_context['calibration_observations']
-                >= definition['rules']['minimum_calibration_observations']
-                and probability_context['conservative_probability']
-                - probability_context['market_probability']
-                >= definition['rules']['minimum_model_market_gap']
-                and expected_return > definition['rules']['expected_return_lower_gt']
-            ),
-            calculation_version=signal.calculation_version,
-        )
-        written += 1
+            StrategyLabObservation.objects.create(
+                experiment=experiment,
+                source_signal=signal,
+                evidence_phase=phase,
+                ingestion_run_id=(
+                    ingestion_run_id or signal.ingestion_run_id
+                )[:64],
+                source_payload_hash=digest,
+                fixture_id=signal.fixture_id,
+                home_team=signal.home_team,
+                away_team=signal.away_team,
+                league=signal.league,
+                league_id=signal.league_id,
+                kickoff=signal.kickoff,
+                observed_at=signal.observed_at,
+                hours_to_kickoff=signal.hours_to_kickoff,
+                market=signal.market,
+                market_id=provenance.get('odds_market_id'),
+                side=signal.outcome[:32],
+                handicap=None,
+                label=signal.outcome.replace('_', ' ')[:120],
+                selection_payload={
+                    'normalized_probability': raw_probability,
+                    'probability_method': (
+                        'accuracy_value_corridor_v4'
+                        if definition['rules'].get('selection_mode')
+                        == 'accuracy_value_corridor'
+                        else 'market_shrunk_calibration_lower_bound_v3'
+                    ),
+                    'probability_context': probability_context,
+                    'raw_vector': signal.raw_vector,
+                    'vector_complete': signal.vector_complete,
+                    'price_vector_complete': signal.price_vector_complete,
+                    'pipeline_version': signal.pipeline_version,
+                },
+                odds=signal.odds,
+                bookmaker=signal.bookmaker,
+                bookmaker_count=max(0, bookmaker_count),
+                price_min=price_min,
+                price_max=price_max,
+                odds_captured_at=signal.odds_captured_at,
+                price_provenance=provenance,
+                model_mass=signal.vector_sum,
+                expected_return_lower=expected_return,
+                expected_return_upper=expected_return,
+                # For the corridor experiment this flag means the immutable
+                # signal passed the pre-registered candidate rule.  It does
+                # not claim the edge is validated; the experiment stays
+                # quarantined until every forward promotion gate passes.
+                robust_positive_edge=bool(
+                    probability_context
+                    and (
+                        (
+                            definition['rules'].get('selection_mode')
+                            == 'accuracy_value_corridor'
+                            and raw_probability >= definition['rules'][
+                                'minimum_model_probability'
+                            ]
+                            and probability_context['market_probability']
+                            >= definition['rules']['minimum_market_probability']
+                        )
+                        or (
+                            probability_context['calibration_observations']
+                            >= definition['rules'][
+                                'minimum_calibration_observations'
+                            ]
+                            and probability_context[
+                                'conservative_probability'
+                            ] - probability_context['market_probability']
+                            >= definition['rules']['minimum_model_market_gap']
+                            and expected_return > definition['rules'][
+                                'expected_return_lower_gt'
+                            ]
+                        )
+                    )
+                ),
+                calculation_version=signal.calculation_version,
+            )
+            written += 1
 
     return {
         'signal_strategy_written': written,
@@ -658,8 +735,10 @@ def qualifies(observation):
         observation.observed_at - observation.odds_captured_at
     ).total_seconds() / 3600.0
     context = payload.get('probability_context') or {}
+    corridor_mode = rules.get('selection_mode') == 'accuracy_value_corridor'
     calibration_ready = (
         observation.source_signal is None
+        or corridor_mode
         or (
             context.get('calibration_observations', 0)
             >= rules.get('minimum_calibration_observations', 0)
@@ -669,11 +748,19 @@ def qualifies(observation):
             >= rules.get('minimum_model_market_gap', 0)
         )
     )
+    strategy_rule_ready = (
+        context.get('raw_probability', -1)
+        >= rules.get('minimum_model_probability', 0)
+        and context.get('market_probability', -1)
+        >= rules.get('minimum_market_probability', 0)
+    ) if corridor_mode else (
+        observation.expected_return_lower > rules['expected_return_lower_gt']
+    )
     return (
         price_provenance_ready
         and
         observation.robust_positive_edge
-        and observation.expected_return_lower > rules['expected_return_lower_gt']
+        and strategy_rule_ready
         and observation.expected_return_lower <= observation.expected_return_upper
         and observation.expected_return_upper <= observation.odds - 1 + 1e-9
         and rules['minimum_model_mass'] <= observation.model_mass <= rules['maximum_model_mass']
@@ -988,6 +1075,22 @@ def _mean_ci(values, z=2.87):
     return [round(mean - margin, 4), round(mean + margin, 4)]
 
 
+def _wilson_interval(successes, count, z=1.96):
+    """Two-sided Wilson interval for an accuracy proportion."""
+    if count <= 0:
+        return None
+    rate = successes / count
+    denominator = 1 + z * z / count
+    centre = (rate + z * z / (2 * count)) / denominator
+    margin = z * math.sqrt(
+        rate * (1 - rate) / count + z * z / (4 * count * count)
+    ) / denominator
+    return [
+        round(max(0.0, centre - margin), 4),
+        round(min(1.0, centre + margin), 4),
+    ]
+
+
 def _latest_settlements(decisions):
     decision_ids = {row.observation_id for row in decisions}
     latest = {}
@@ -1029,6 +1132,17 @@ def _phase_report(experiment, phase):
     closing_values = _closing_line_value(experiment, decisions)
     count = len(settled)
     total = sum(profits)
+    resolved = [
+        row for row in settled
+        if row.outcome != StrategyLabSettlement.OUTCOME_PUSH
+    ]
+    wins = sum(
+        row.outcome in (
+            StrategyLabSettlement.OUTCOME_FULL_WIN,
+            StrategyLabSettlement.OUTCOME_HALF_WIN,
+        )
+        for row in resolved
+    )
     midpoint = count // 2
     earlier = profits[:midpoint]
     later = profits[midpoint:]
@@ -1038,6 +1152,9 @@ def _phase_report(experiment, phase):
         'settled': count,
         'pending': len(decisions) - count,
         'outcomes': dict(Counter(row.outcome for row in settled)),
+        'accuracy_sample': len(resolved),
+        'accuracy': round(wins / len(resolved), 4) if resolved else None,
+        'accuracy_wilson_95': _wilson_interval(wins, len(resolved)),
         'total_profit_units': round(total, 4),
         'flat_stake_roi': round(total / count, 4) if count else None,
         'roi_mean_familywise_95': _mean_ci(profits),
@@ -1089,6 +1206,26 @@ def _experiment_report(experiment):
                 StrategyLabExperiment.STATUS_VALIDATED,
             ),
         }
+    target_accuracy = rules.get('target_forward_accuracy')
+    if target_accuracy is not None:
+        accuracy_interval = forward['accuracy_wilson_95']
+        gates.update({
+            'forward_accuracy_above_target': bool(
+                forward['accuracy'] is not None
+                and forward['accuracy'] > target_accuracy
+            ),
+            'forward_accuracy_confidence_floor': bool(
+                accuracy_interval
+                and accuracy_interval[0]
+                > rules.get('minimum_accuracy_wilson_lower', 0.50)
+            ),
+        })
+    target_roi = rules.get('target_forward_flat_stake_roi')
+    if target_roi is not None:
+        gates['forward_roi_above_target'] = bool(
+            forward['flat_stake_roi'] is not None
+            and forward['flat_stake_roi'] > target_roi
+        )
     return {
         'strategy_key': experiment.strategy_key,
         'version': experiment.version,
@@ -1118,7 +1255,7 @@ def build_report():
     experiments = ensure_all_experiments()
     reports = [_experiment_report(experiment) for experiment in experiments]
     return {
-        'lab_version': 'strategies-lab-v3',
+        'lab_version': 'strategies-lab-v4',
         'generated_at': timezone.now().isoformat(),
         'experiments': reports,
         'blocked_or_queued': list(BLOCKED_STRATEGIES),
@@ -1205,7 +1342,7 @@ def build_public_report():
             ),
         })
     return {
-        'lab_version': 'strategies-lab-v3',
+        'lab_version': 'strategies-lab-v4',
         'generated_at': timezone.now().isoformat(),
         'strategies': strategies,
         'policy': {

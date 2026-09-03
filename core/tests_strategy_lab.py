@@ -11,12 +11,12 @@ from django.test import TestCase
 from django.utils import timezone
 
 from core.models import (
-    FixtureResultObservation,
+    FixtureResultObservation, PublicSelection,
     SignalObservation,
     StrategyLabObservation,
     StrategyLabSettlement,
 )
-from core.services import strategy_lab
+from core.services import public_selections, strategy_lab
 
 
 def candidate(*, fixture_id=7001, hours=6, odds=1.9, handicap=-.25,
@@ -92,10 +92,12 @@ def signal(*, fixture_id=7301, market='1x2', outcome='home', probability=.6,
 
 
 class StrategyLabCaptureTests(TestCase):
-    def test_v3_is_preregistered_and_failed_markets_are_quarantined(self):
+    def test_versions_are_preregistered_and_failed_markets_are_quarantined(self):
         self.assertTrue(all(
             definition['version'] == 'v3'
             for definition in strategy_lab.STRATEGY_DEFINITIONS
+            if definition['strategy_key']
+            != 'total-goals-2-5-accuracy-corridor'
         ))
         by_key = {
             definition['strategy_key']: definition
@@ -109,6 +111,12 @@ class StrategyLabCaptureTests(TestCase):
             'correct-score-value', 'asian-handicap-score-distribution',
         ):
             self.assertFalse(by_key[key]['rules']['publication_enabled'])
+        corridor = by_key['total-goals-2-5-accuracy-corridor']
+        self.assertEqual(corridor['version'], 'v4')
+        self.assertEqual(
+            corridor['rules']['selection_mode'], 'accuracy_value_corridor',
+        )
+        self.assertFalse(corridor['rules']['publication_enabled'])
 
     @patch('core.services.strategy_lab._calibration_pairs')
     def test_calibration_excludes_results_after_the_signal_timestamp(self, pairs):
@@ -277,6 +285,80 @@ class AsianHandicapSettlementTests(TestCase):
 
 
 class DirectMarketLabTests(TestCase):
+    def test_accuracy_corridor_is_a_separate_forward_shadow_experiment(self):
+        row = signal(
+            fixture_id=7299,
+            market='over_under_2.5',
+            outcome='over',
+            probability=.60,
+            odds=1.60,
+            vector={'over': .60, 'under': .40},
+        )
+
+        strategy_lab.capture_signal_observations(
+            [row], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        corridor = StrategyLabObservation.objects.get(
+            experiment__strategy_key='total-goals-2-5-accuracy-corridor',
+            source_signal=row,
+        )
+        self.assertEqual(corridor.experiment.version, 'v4')
+        self.assertTrue(corridor.robust_positive_edge)
+        self.assertTrue(strategy_lab.qualifies(corridor))
+        self.assertFalse(corridor.experiment.rules['publication_enabled'])
+        self.assertEqual(
+            corridor.selection_payload['probability_method'],
+            'accuracy_value_corridor_v4',
+        )
+        # The existing v3 value hypothesis remains an independent experiment;
+        # the two records and promotion denominators can never be blended.
+        self.assertTrue(StrategyLabObservation.objects.filter(
+            experiment__strategy_key='total-goals-2-5-value',
+            source_signal=row,
+        ).exists())
+
+    def test_accuracy_corridor_rejects_below_sixty_percent(self):
+        row = signal(
+            fixture_id=7300,
+            market='over_under_2.5',
+            outcome='over',
+            probability=.59,
+            odds=1.60,
+            vector={'over': .59, 'under': .41},
+        )
+
+        strategy_lab.capture_signal_observations(
+            [row], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        corridor = StrategyLabObservation.objects.get(
+            experiment__strategy_key='total-goals-2-5-accuracy-corridor',
+            source_signal=row,
+        )
+        self.assertFalse(corridor.robust_positive_edge)
+        self.assertFalse(strategy_lab.qualifies(corridor))
+
+    def test_accuracy_corridor_cannot_publish_while_in_shadow(self):
+        row = signal(
+            fixture_id=7304,
+            market='over_under_2.5',
+            outcome='over',
+            probability=.60,
+            odds=1.60,
+            vector={'over': .60, 'under': .40},
+        )
+        strategy_lab.capture_signal_observations(
+            [row], phase=StrategyLabObservation.PHASE_FORWARD,
+        )
+
+        summary = public_selections.publish_strategy_selections()
+
+        self.assertEqual(summary['published'], 0)
+        self.assertFalse(PublicSelection.objects.filter(
+            source_key='total-goals-2-5-accuracy-corridor',
+        ).exists())
+
     def test_historical_signal_is_materialised_only_as_retrospective(self):
         row = signal()
         summary = strategy_lab.capture_signal_observations(
@@ -384,7 +466,7 @@ class StrategyLabVisibilityTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(strategy_lab.StrategyLabExperiment.objects.count(), before)
         body = response.json()['data']
-        self.assertEqual(len(body['strategies']), 12)
+        self.assertEqual(len(body['strategies']), 13)
         self.assertEqual(body['strategies'][0]['evidence_status'], 'not_started')
         self.assertNotIn('rules_hash', body['strategies'][0])
         self.assertNotIn('retrospective_backtest', body['strategies'][0])
@@ -420,13 +502,30 @@ class StrategyLabVisibilityTests(TestCase):
         self.client.force_login(staff)
         response = self.client.get('/api/internal/strategies-lab/')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json()['lab_version'], 'strategies-lab-v3')
+        self.assertEqual(response.json()['lab_version'], 'strategies-lab-v4')
         self.assertIn('blocked_or_queued', response.json())
 
     def test_small_sample_can_never_be_promotion_ready(self):
         strategy_lab.ensure_experiment()
         report = strategy_lab.build_report()['experiments'][0]
         self.assertFalse(report['promotion_gates']['minimum_forward_sample'])
+        self.assertFalse(report['promotion_ready'])
+
+    def test_accuracy_corridor_has_accuracy_and_roi_promotion_targets(self):
+        strategy_lab.ensure_all_experiments()
+        report = next(
+            item for item in strategy_lab.build_report()['experiments']
+            if item['strategy_key']
+            == 'total-goals-2-5-accuracy-corridor'
+        )
+
+        self.assertFalse(
+            report['promotion_gates']['forward_accuracy_above_target'],
+        )
+        self.assertFalse(
+            report['promotion_gates']['forward_accuracy_confidence_floor'],
+        )
+        self.assertFalse(report['promotion_gates']['forward_roi_above_target'])
         self.assertFalse(report['promotion_ready'])
 
     def test_public_current_fits_are_capped_ranked_and_one_per_fixture(self):
