@@ -311,9 +311,9 @@ describe('the verified record page does not promise a proven history', () => {
     expect(src.toLowerCase()).not.toContain('real roi')
   })
 
-  it('describes the three separate public result universes in its metadata', () => {
-    expect(src).toContain('Results — homepage, strategies and Hidden Gems')
-    expect(src).toContain('every frozen BetGlitch homepage selection, named strategy and Hidden Gem')
+  it('describes the current market record and shared homepage receipts', () => {
+    expect(src).toContain('Results — market selections and homepage record')
+    expect(src).toContain('Homepage selections reuse the same receipts')
   })
 })
 

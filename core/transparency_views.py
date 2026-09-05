@@ -64,6 +64,14 @@ def public_strategy_fits(request, strategy_key):
 @api_view(['GET'])
 @permission_classes([AllowAny])
 @cache_page(60)
+def selection_portfolio(request):
+    from core.services.selection_portfolio import read_portfolio, read_results
+    return Response(read_results() if request.query_params.get('view') == 'results' else read_portfolio())
+
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+@cache_page(60)
 def public_selections_list(request):
     """Homepage and named-strategy selections frozen before kickoff.
 

@@ -56,6 +56,13 @@ def _sample_band(count):
 
 def _selection_explanation(selection):
     """Plain-language context derived only from frozen selection metadata."""
+    if selection.source_key.startswith('market-portfolio-'):
+        return {
+            'title': 'Market selection',
+            'why_selected': 'The model estimated a positive return at the checked price. This selection passed the registered data, price and settlement checks for its market.',
+            'evidence': f'{selection.predicted_outcome} at {selection.odds:.2f}; {selection.bookmaker_count} bookmakers checked. These terms were recorded before kickoff.',
+            'risk': 'The model estimate is under evaluation. A positive model EV can still have a negative conservative estimate, and neither guarantees a profit.',
+        }
     plural = 's' if selection.bookmaker_count != 1 else ''
     if selection.reason_code == PublicSelection.REASON_VALUE:
         return {
@@ -159,10 +166,16 @@ def _create_selection(**fields):
 
 
 def publish_homepage_selections(now=None, limit=HOMEPAGE_LIMIT):
-    """Fill the rolling homepage with up to five frozen upcoming selections."""
+    """Freeze the v4 multi-market portfolio before kickoff for validation.
+
+    Public history remains a presentation decision. Recording both potential-
+    value and strong-signal lanes here is what lets the new engine establish an
+    honest forward record instead of optimizing against completed fixtures.
+    """
     now = now or timezone.now()
     active = PublicSelection.objects.filter(
         category=PublicSelection.CATEGORY_HOMEPAGE,
+        source_key='portfolio-v4',
         kickoff__gt=now,
     ).count()
     available = max(0, int(limit) - active)
@@ -175,15 +188,14 @@ def publish_homepage_selections(now=None, limit=HOMEPAGE_LIMIT):
 
     payload = cache.payload or {}
     board = payload.get('decision_board') or {}
-    # Strong signals remain useful research cards, but are not tracked as
-    # price-qualified betting selections. v2 proved that a high hit rate at
-    # short odds can still produce a negative return.
     lanes = [
         (PublicSelection.REASON_VALUE, board.get('price_watchlist') or []),
+        (PublicSelection.REASON_STRONG, board.get('strong_signals') or []),
     ]
     existing_fixtures = set(
         PublicSelection.objects.filter(
             category=PublicSelection.CATEGORY_HOMEPAGE,
+            source_key='portfolio-v4',
         ).values_list('fixture_id', flat=True)
     )
     published = invalid = 0
@@ -206,10 +218,12 @@ def publish_homepage_selections(now=None, limit=HOMEPAGE_LIMIT):
 
                 _, created = _create_selection(
                     category=PublicSelection.CATEGORY_HOMEPAGE,
-                    source_key='homepage',
-                    source_version=cache.ranking_version or '',
+                    source_key='portfolio-v4',
+                    source_version=(
+                        f"portfolio-v4:{cache.ranking_version or 'unversioned'}"
+                    )[:128],
                     source_ref=(
-                        f'homepage:{cache.generated_at.isoformat()}:{fixture_id}'
+                        f'portfolio-v4:{cache.generated_at.isoformat()}:{fixture_id}'
                     ),
                     reason_code=reason,
                     fixture_id=fixture_id,
@@ -217,7 +231,7 @@ def publish_homepage_selections(now=None, limit=HOMEPAGE_LIMIT):
                     away_team=str(item.get('away_team') or '')[:100],
                     league=str(item.get('league') or '')[:100],
                     kickoff=kickoff,
-                    market_type='1x2',
+                    market_type=str(item.get('market_type') or '1x2')[:40],
                     predicted_outcome=str(item.get('leading_selection') or '')[:120],
                     model_score=float(item.get('signal_strength') or 0),
                     odds=odds,
@@ -333,10 +347,8 @@ def publish_strategy_selections(now=None, limit=STRATEGY_LIMIT):
 
 def publish_current_selections(now=None):
     now = now or timezone.now()
-    return {
-        'homepage': publish_homepage_selections(now=now),
-        'strategies': publish_strategy_selections(now=now),
-    }
+    from core.services.selection_portfolio import publish_portfolio
+    return {'portfolio': publish_portfolio(now=now)}
 
 
 STRATEGY_STATUS_MAP = {
@@ -449,7 +461,7 @@ def _closing_candidate(selection):
             'source_ref': f'strategy-observation:{row.observation_id}',
         }
 
-    outcome = selection.predicted_outcome.strip().lower().replace(' ', '_')
+    outcome = selection.side or selection.predicted_outcome.strip().lower().replace(' ', '_')
     row = (
         SignalObservation.objects
         .filter(

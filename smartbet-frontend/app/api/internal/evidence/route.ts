@@ -23,6 +23,7 @@
  * variable unset the route returns 503 and serves nothing; it never falls open.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { fetchProviderPages } from '@/app/lib/providerPagination'
 
 import { MARKET_SPECS, type ProductMarket } from '@/app/lib/oddsSelection'
 import { expectedValue as canonicalEV, priceMarket } from '@/app/lib/marketPricing'
@@ -163,10 +164,11 @@ export async function GET(request: NextRequest) {
   const fmt = (d: Date) => d.toISOString().slice(0, 10)
 
   try {
-    const leaguesData = await api(
+    const leaguesData = await fetchProviderPages(
       `https://api.sportmonks.com/v3/football/leagues?api_token=${token}&per_page=50`,
+      api,
     )
-    const leagueIds: number[] = (leaguesData.data || []).map((l: any) => l.id).slice(0, 30)
+    const leagueIds: number[] = Array.from(new Set<number>((leaguesData.data || []).map((l: any) => l.id)))
 
     const candidates: any[] = []
     const strategyCandidates: any[] = []
@@ -212,7 +214,7 @@ export async function GET(request: NextRequest) {
       let leaguePerformancePayload: any = { data: [] }
       try {
         const [fixturesResult, performanceResult] = await Promise.all([
-          api(`https://api.sportmonks.com/v3/football/fixtures/between/${fmt(start)}/${fmt(end)}?${params}`),
+          fetchProviderPages(`https://api.sportmonks.com/v3/football/fixtures/between/${fmt(start)}/${fmt(end)}?${params}`, api),
           api(
             `https://api.sportmonks.com/v3/football/predictions/predictability/leagues/${leagueId}` +
             `?api_token=${token}&include=type&per_page=50`,

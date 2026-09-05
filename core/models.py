@@ -928,6 +928,46 @@ class PublicSelection(models.Model):
         )
 
 
+class SelectionBoard(models.Model):
+    """Atomic, append-only publication of the market boards and homepage."""
+    version = models.CharField(max_length=64, db_index=True)
+    generated_at = models.DateTimeField(default=timezone.now, db_index=True)
+    payload = models.JSONField(default=dict)
+    evidence_hash = models.CharField(max_length=64, unique=True)
+
+    class Meta:
+        ordering = ['-generated_at', '-pk']
+
+    def save(self, *args, **kwargs):
+        from core.services.integrity import canonical_sha256
+        if not self._state.adding:
+            raise ValueError('Selection boards are immutable')
+        self.evidence_hash = canonical_sha256({
+            'version': self.version, 'at': self.generated_at.isoformat(),
+            'payload': self.payload,
+        })
+        super().save(*args, **kwargs)
+
+
+class HomepageSelectionAppearance(models.Model):
+    """Homepage membership, pointing to the same market selection receipt."""
+    version = models.CharField(max_length=64)
+    fixture_id = models.IntegerField()
+    selection = models.ForeignKey(PublicSelection, on_delete=models.PROTECT)
+    board = models.ForeignKey(SelectionBoard, on_delete=models.PROTECT)
+    published_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        constraints = [models.UniqueConstraint(
+            fields=['version', 'fixture_id'], name='uniq_homepage_version_fixture',
+        )]
+
+    def save(self, *args, **kwargs):
+        if not self._state.adding:
+            raise ValueError('Homepage membership is immutable')
+        super().save(*args, **kwargs)
+
+
 class PublicSelectionResult(models.Model):
     """Insert-only settlement for a displayed public selection."""
 

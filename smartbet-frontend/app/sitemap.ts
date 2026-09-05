@@ -2,7 +2,6 @@ import { MetadataRoute } from 'next'
 import { ACCOUNT_FEATURES_ENABLED, PAYMENTS_ENABLED } from '@/app/lib/commercialMode'
 import { getAllPosts } from './blog/posts'
 import { STRATEGIES } from './lib/strategyLibrary'
-import { PUBLIC_RESULTS_VISIBLE } from './lib/publicResultsMode'
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.betglitch.com'
 
@@ -11,9 +10,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const staticRoutes = [
         '',
         '/explore',
+        '/markets',
         '/strategies',
         ...STRATEGIES.map((strategy) => `/strategies/${strategy.slug}`),
-        ...(PUBLIC_RESULTS_VISIBLE ? ['/track-record'] : []),
+        '/track-record',
         '/calibration',
         '/about',
         ...(ACCOUNT_FEATURES_ENABLED ? ['/bankroll'] : []),

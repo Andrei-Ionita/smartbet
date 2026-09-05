@@ -9,7 +9,6 @@ import { Trophy, Search, Wallet, LogIn, LogOut, User, LayoutDashboard, Menu, X, 
 import { useAuth } from '../app/contexts/AuthContext'
 import { useLanguage } from '../app/contexts/LanguageContext'
 import { ProBadge } from '../app/components/ProGate'
-import { PUBLIC_RESULTS_VISIBLE } from '@/app/lib/publicResultsMode'
 
 export default function Navigation() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
@@ -26,8 +25,9 @@ export default function Navigation() {
     { href: '/', label: t('nav.home'), icon: Trophy },
     ...(ACCOUNT_FEATURES_ENABLED && isAuthenticated ? [{ href: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard }] : []),
     { href: '/explore', label: t('nav.explore'), icon: Search },
+    { href: '/markets', label: language === 'ro' ? 'Piețe' : 'Markets', icon: Tag },
     { href: '/strategies', label: t('nav.strategies'), icon: LibraryBig },
-    ...(PUBLIC_RESULTS_VISIBLE ? [{ href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText }] : []),
+    { href: '/track-record', label: t('nav.trackRecord'), icon: ScrollText },
     ...(ACCOUNT_FEATURES_ENABLED ? [{ href: '/bankroll', label: t('nav.bankroll'), icon: Wallet }] : []),
     // Hidden while BetGlitch is a free public beta. One flag controls every
     // commercial surface — see app/lib/commercialMode.ts.

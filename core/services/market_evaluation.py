@@ -74,12 +74,23 @@ def evaluate_prediction(market_type, predicted_outcome, home_score, away_score,
         predicted_yes = 'yes' in predicted
         return predicted_yes == both_scored
 
-    if market_type == 'over_under_2.5':
+    if market_type in {
+            'over_under_1.5', 'over_under_2.5', 'over_under_3.5'}:
         if not have_scores:
             return None
-        is_over = (home_score + away_score) > 2.5
+        try:
+            line = float(market_type.rsplit('_', 1)[-1])
+        except (ValueError, IndexError):
+            return None
+        is_over = (home_score + away_score) > line
         predicted_over = 'over' in predicted
         return predicted_over == is_over
+
+    if market_type == 'correct_score':
+        if not have_scores:
+            return None
+        expected = predicted.replace(':', '-').replace(' ', '')
+        return expected == f'{home_score}-{away_score}'
 
     if market_type == 'double_chance':
         if not result_1x2:
@@ -92,7 +103,11 @@ def evaluate_prediction(market_type, predicted_outcome, home_score, away_score,
             return result_1x2 in (OUTCOME_HOME, OUTCOME_AWAY)
         return None
 
-    # 1x2, and any unknown market, fall back to match-result grading.
+    # Only the explicit match-result market may use 1X2 grading. Silently
+    # treating a new market as 1X2 would corrupt the immutable performance
+    # record, so unknown markets remain unscored until a grader is registered.
+    if market_type != '1x2':
+        return None
     if not result_1x2:
         return None
     return predicted == result_1x2

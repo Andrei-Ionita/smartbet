@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   buildModelShortlistCandidate,
   compareModelShortlist,
+  selectDiversifiedModelShortlist,
   toPublicModelShortlistItem,
 } from '../modelShortlist'
 import type { StrategyEvaluation } from '../providerStrategy'
@@ -36,7 +37,7 @@ const provenance = {
 
 const input = (strategyEvaluation = evaluation()) => ({
   fixtureId: 1, homeTeam: 'Home', awayTeam: 'Away', league: 'League',
-  kickoff: '2099-08-18 20:00:00', predictedOutcome: 'Home',
+  kickoff: '2099-08-18 20:00:00', marketType: '1x2' as const, predictedOutcome: 'Home',
   signalStrength: 0.62, signalGap: 0.14, odds: 1.9,
   oddsProvenance: provenance, strategyEvaluation,
 })
@@ -50,7 +51,7 @@ describe('model shortlist', () => {
       'utf8',
     )
     expect(engine).toContain('model_shortlist_generated: true')
-    expect(engine).toContain("feed_schema_version: 'gem-feed-v4-decision-board-v1'")
+    expect(engine).toContain("feed_schema_version: 'gem-feed-v4-multi-market-board-v2'")
     expect(engine).toContain('price_watchlist: priceWatchlist')
     expect(engine).toContain('strong_signals: strongSignals')
   })
@@ -102,5 +103,36 @@ describe('model shortlist', () => {
       fairOddsBuffer: 1.9 / 1.88 - 1,
     })))!
     expect(candidate.value_signal_aligned).toBe(false)
+  })
+
+  it('admits a separately gated non-1x2 market without calling it a Gem', () => {
+    const candidate = buildModelShortlistCandidate({
+      ...input(),
+      marketType: 'btts',
+      predictedOutcome: 'BTTS Yes',
+      signalStrength: 0.64,
+      signalGap: 0.28,
+      odds: 1.82,
+    })
+    expect(candidate?.market_type).toBe('btts')
+    expect(candidate?.value_signal_aligned).toBe(false)
+    const publicItem = toPublicModelShortlistItem(candidate!)
+    expect(publicItem.market_type).toBe('btts')
+    expect(publicItem.why_not_gem.join(' ')).toMatch(/forward validation/i)
+  })
+
+  it('diversifies a board before filling spare capacity', () => {
+    const rows = [
+      buildModelShortlistCandidate(input())!,
+      { ...buildModelShortlistCandidate(input())!, fixture_id: 2 },
+      { ...buildModelShortlistCandidate(input())!, fixture_id: 3 },
+      buildModelShortlistCandidate({
+        ...input(), fixtureId: 4, marketType: 'btts', predictedOutcome: 'BTTS Yes',
+        signalStrength: 0.64, signalGap: 0.28, odds: 1.82,
+      })!,
+    ]
+    const selected = selectDiversifiedModelShortlist(rows, 3, 2)
+    expect(selected).toHaveLength(3)
+    expect(new Set(selected.map(item => item.market_type))).toEqual(new Set(['1x2', 'btts']))
   })
 })

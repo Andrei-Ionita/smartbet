@@ -1,50 +1,29 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-
 const ROOT = join(__dirname, '..', '..', '..')
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8')
 
-describe('unified public Results', () => {
-  const page = read('app/track-record/page.tsx')
-  const results = read('app/track-record/UnifiedResultsContent.tsx')
-  const navigation = read('components/Navigation.tsx')
-
-  it('uses one Results page with separate records for each public selection standard', () => {
-    expect(page).toContain('<UnifiedResultsContent')
-    expect(results).toContain("tabs: { overview: 'Overview', homepage: 'Homepage', strategy: 'Strategies', gems: 'Hidden Gems', pending: 'Pending' }")
-    expect(results).toContain("rows.filter(row => row.category === 'homepage')")
-    expect(results).toContain("rows.filter(row => row.category === 'strategy')")
-    expect(results).toContain("rows.filter(row => row.category === 'gems')")
+describe('current portfolio Results', () => {
+  const results = read('app/track-record/PortfolioResultsContent.tsx')
+  it('treats homepage as a subset of one overall ledger', () => {
+    expect(results).toContain('homepage_performance')
+    expect(results).toContain('Each bet counts once')
+    expect(results).not.toContain('/api/proof/claims')
   })
-
-  it('shows the useful public metrics without blending denominators', () => {
-    expect(results).toContain("record: 'Record'")
-    expect(results).toContain("hitRate: 'Hit rate'")
-    expect(results).toContain("averageOdds: 'Average odds'")
-    expect(results).toContain("roi: 'ROI'")
-    expect(results).toContain('Nothing is blended into a more flattering denominator')
+  it('shows individual results while waiting for a sample', () => {
+    expect(results).toContain('summary.settled < 30')
+    expect(results).toContain('every individual result is visible below')
+    expect(results).toContain("LOST: ['Lost', 'Pierdut']")
+    expect(results).toContain('row.unit_profit')
   })
-
-  it('keeps pending selections and losses visible', () => {
+  it('does not disguise Asian partial settlements as binary accuracy', () => {
+    expect(results).toContain('!m.half_won && !m.half_lost && !m.push')
+    expect(results).toContain('Full-win rate for markets without pushes or partial settlements')
+  })
+  it('offers market and status filters plus permanent receipt links', () => {
+    expect(results).toContain('market === row.market_type')
     expect(results).toContain("row.status === 'PENDING'")
-    expect(results).toContain("status === 'LOST' || status === 'HALF_LOST'")
-    expect(results).toContain('Pending selections remain visible')
-  })
-
-  it('links every homepage and strategy row to a permanent receipt', () => {
-    const receipt = read('app/results/selection/[selectionId]/SelectionReceiptContent.tsx')
-    const detailRoute = read('app/api/results-selections/[selectionId]/route.ts')
-    expect(results).toContain('detailUrl: row.receipt_url')
-    expect(receipt).toContain('IMMUTABLE PUBLIC RECEIPT')
-    expect(receipt).toContain('published_proof_opened')
-    expect(receipt).toContain('selection.selection_hash')
-    expect(detailRoute).toContain('/api/results/selections/${params.selectionId}/')
-  })
-
-  it('removes technical research and calibration from the primary navigation', () => {
-    expect(navigation).toContain("href: '/track-record'")
-    expect(navigation).not.toContain("href: '/monitoring'")
-    expect(navigation).not.toContain("href: '/calibration'")
+    expect(results).toContain('href={row.receipt_url}')
   })
 })

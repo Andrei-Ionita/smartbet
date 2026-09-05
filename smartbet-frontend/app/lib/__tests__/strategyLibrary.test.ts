@@ -51,7 +51,7 @@ describe('public strategy library', () => {
     const component = read('app/components/StrategyCurrentFits.tsx')
     const route = read('app/api/results-selections/route.ts')
 
-    expect(detail).toContain('<StrategyCurrentFits')
+    expect(detail).toContain('<MarketSelections')
     expect(component).toContain('Up to 5 current validation fixtures')
     expect(component).toContain('.slice(0, 5)')
     expect(component).toContain('category=strategy&source_key=')
@@ -67,10 +67,8 @@ describe('public strategy library', () => {
     const results = read('app/track-record/UnifiedResultsContent.tsx')
 
     expect(home).toContain('<HomepageSelections')
-    expect(component).toContain('category=homepage&state=pending')
-    expect(component).toContain('category=strategy&state=pending')
-    expect(component).toContain('Strategy match')
-    expect(component).toContain('Recorded for validation')
+    expect(component).toContain('useSelectionPortfolio')
+    expect(component).toContain('data.homepage.map')
     expect(results).toContain("category: 'homepage' | 'strategy'")
     expect(results).toContain("row.category === 'strategy'")
   })

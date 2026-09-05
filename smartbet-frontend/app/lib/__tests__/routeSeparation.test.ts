@@ -48,11 +48,12 @@ const INTERNAL_FIXTURE = {
 const INTERNAL_SHORTLIST_ITEM = {
   fixture_id: 2,
   home_team: 'C', away_team: 'D', league: 'L',
-  kickoff: '2099-08-13 18:45:00', leading_selection: 'Home',
+  kickoff: '2099-08-13 18:45:00', market_type: '1x2', leading_selection: 'Home',
   signal_strength: 0.62, signal_gap: 0.14, verified_price: 1.9,
   bookmaker: 'X', bookmakers_checked: 3, price_age_hours: 2,
   relative_price_spread: 0.08, supporting_models: 1,
   explicit_contradictions: 0, value_signal_aligned: false,
+  portfolio_score: 0.5,
   strategy_evaluation: {
     eligible: false,
     rejectionReasons: ['provider_value_bet_missing'],

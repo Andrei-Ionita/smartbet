@@ -1,21 +1,16 @@
 import { Metadata } from 'next'
 
 import BreadcrumbSchema from '@/components/BreadcrumbSchema'
-import { PUBLIC_RESULTS_VISIBLE } from '@/app/lib/publicResultsMode'
-import ResultsValidationContent from './ResultsValidationContent'
-import UnifiedResultsContent from './UnifiedResultsContent'
+import PortfolioResultsContent from './PortfolioResultsContent'
 
 export const metadata: Metadata = {
-  title: PUBLIC_RESULTS_VISIBLE ? 'Results — homepage, strategies and Hidden Gems' : 'Results — engine validation in progress',
-  description: PUBLIC_RESULTS_VISIBLE
-    ? 'See every frozen BetGlitch homepage selection, named strategy and Hidden Gem, including pending selections, wins and losses.'
-    : 'BetGlitch is validating its selection engine before beginning a new public performance record.',
+  title: 'Results — market selections and homepage record',
+  description: 'Every published selection from the current market engine, with frozen prices, pending results, wins and losses. Homepage selections reuse the same receipts.',
   alternates: { canonical: '/track-record' },
-  robots: PUBLIC_RESULTS_VISIBLE ? undefined : { index: false, follow: true },
   openGraph: {
     title: 'Complete BetGlitch Results',
     description:
-      'Separate, complete records for homepage selections, named strategies and Hidden Gems.',
+      'One record across markets, with a separately viewable homepage subset.',
     url: 'https://www.betglitch.com/track-record',
   },
 }
@@ -27,7 +22,7 @@ export default function TrackRecordPage() {
         { name: 'Home', url: 'https://www.betglitch.com' },
         { name: 'Results', url: 'https://www.betglitch.com/track-record' },
       ]} />
-      {PUBLIC_RESULTS_VISIBLE ? <UnifiedResultsContent /> : <ResultsValidationContent />}
+      <PortfolioResultsContent />
     </>
   )
 }

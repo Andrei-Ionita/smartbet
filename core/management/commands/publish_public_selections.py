@@ -1,4 +1,4 @@
-from django.core.management.base import BaseCommand
+from django.core.management.base import BaseCommand, CommandError
 
 from core.services import public_selections
 
@@ -9,11 +9,11 @@ class Command(BaseCommand):
 
     def handle(self, *args, **options):
         summary = public_selections.publish_current_selections()
-        home = summary['homepage']
-        strategies = summary['strategies']
+        portfolio = summary['portfolio']
+        if portfolio['status'] != 'ok':
+            raise CommandError('No fresh selection input. Run capture_signal_evidence before publication.')
         self.stdout.write(
             'public selections: '
-            f"homepage +{home['published']} ({home['active']} active, "
-            f"{home['invalid']} invalid); strategies +{strategies['published']} "
-            f"({strategies['already']} already, {strategies['invalid']} invalid)"
+            f"portfolio +{portfolio['published']}; "
+            f"{portfolio['markets']} market selections, {portfolio['homepage']} homepage selections"
         )

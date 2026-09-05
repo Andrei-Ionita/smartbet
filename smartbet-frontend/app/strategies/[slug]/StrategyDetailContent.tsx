@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { ArrowLeft, ArrowRight, Calculator, CheckCircle2, FlaskConical, Info, ShieldAlert, Target } from 'lucide-react'
 import StrategyEvidenceBadge from '../../components/StrategyEvidenceBadge'
-import StrategyCurrentFits from '../../components/StrategyCurrentFits'
+import MarketSelections from '../../components/MarketSelections'
 import { useLanguage } from '../../contexts/LanguageContext'
 import { STRATEGIES, type StrategyDefinition } from '../../lib/strategyLibrary'
 import { useStrategyEvidence } from '../../lib/useStrategyEvidence'
@@ -40,7 +40,7 @@ export default function StrategyDetailContent({ strategy }: { strategy: Strategy
         <div className="flex items-start gap-4"><Target className="mt-1 h-6 w-6 shrink-0 text-blue-700" /><div><h2 className="text-sm font-black uppercase tracking-wider text-blue-900">{c.hypothesis}</h2><p className="mt-3 text-base leading-7 text-blue-950">{s.thesis}</p></div></div>
       </section>
 
-      <StrategyCurrentFits strategy={strategy} language={language} />
+      <MarketSelections strategySlug={strategy.slug} language={language} />
 
       <div className="mt-6 grid gap-6 lg:grid-cols-2">
         <section className="rounded-2xl border border-gray-200 bg-white p-6"><h2 className="flex items-center gap-2 text-lg font-black text-gray-950"><Info className="h-5 w-5 text-blue-700" />{c.mechanics}</h2><ul className="mt-4 space-y-3">{s.mechanics.map((item) => <li key={item} className="flex gap-3 text-sm leading-6 text-gray-700"><CheckCircle2 className="mt-1 h-4 w-4 shrink-0 text-blue-600" />{item}</li>)}</ul></section>

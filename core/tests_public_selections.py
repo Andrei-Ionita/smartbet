@@ -64,7 +64,8 @@ class PublicSelectionTests(TestCase):
         candidate = {
             'fixture_id': 700010, 'home_team': 'Alpha', 'away_team': 'Beta',
             'league': 'League', 'kickoff': (self.now + timedelta(hours=6)).isoformat(),
-            'leading_selection': 'Home', 'signal_strength': 0.64,
+            'market_type': 'btts', 'leading_selection': 'BTTS Yes',
+            'signal_strength': 0.64,
             'verified_price': 2.05, 'bookmakers_checked': 5,
             'odds_provenance': {
                 'odds_captured_at': captured.isoformat(),
@@ -87,15 +88,18 @@ class PublicSelectionTests(TestCase):
         row = PublicSelection.objects.get()
         self.assertTrue(row.verify_integrity())
         self.assertEqual(row.reason_code, PublicSelection.REASON_VALUE)
+        self.assertEqual(row.source_key, 'portfolio-v4')
+        self.assertEqual(row.market_type, 'btts')
         with self.assertRaises(ValueError):
             row.save()
 
-    def test_strong_signal_without_price_value_is_not_published(self):
+    def test_strong_signal_is_frozen_for_forward_engine_validation(self):
         captured = self.now - timedelta(minutes=5)
         candidate = {
             'fixture_id': 700011, 'home_team': 'Alpha', 'away_team': 'Beta',
             'league': 'League', 'kickoff': (self.now + timedelta(hours=6)).isoformat(),
-            'leading_selection': 'Home', 'signal_strength': 0.80,
+            'market_type': 'over_under_2.5',
+            'leading_selection': 'Over 2.5', 'signal_strength': 0.80,
             'verified_price': 1.30, 'bookmakers_checked': 5,
             'odds_provenance': {
                 'odds_captured_at': captured.isoformat(),
@@ -113,8 +117,11 @@ class PublicSelectionTests(TestCase):
 
         summary = public_selections.publish_homepage_selections(now=self.now)
 
-        self.assertEqual(summary['published'], 0)
-        self.assertFalse(PublicSelection.objects.exists())
+        self.assertEqual(summary['published'], 1)
+        row = PublicSelection.objects.get()
+        self.assertEqual(row.reason_code, PublicSelection.REASON_STRONG)
+        self.assertEqual(row.source_key, 'portfolio-v4')
+        self.assertEqual(row.market_type, 'over_under_2.5')
 
     def test_closing_price_is_append_only_and_exposed_on_receipt(self):
         kickoff = self.now - timedelta(hours=1)
@@ -166,6 +173,51 @@ class PublicSelectionTests(TestCase):
         settled = PublicSelectionResult.objects.get(selection=row)
         self.assertEqual(settled.status, PublicSelectionResult.STATUS_WON)
         self.assertAlmostEqual(settled.unit_profit, 1.10)
+
+    def test_multi_market_portfolio_uses_registered_fulltime_graders(self):
+        cases = (
+            (700101, 'over_under_1.5', 'Over 1.5', (1, 1), True),
+            (700102, 'over_under_3.5', 'Under 3.5', (2, 1), True),
+            (700103, 'correct_score', '2-1', (2, 1), True),
+            (700104, 'correct_score', '1-1', (2, 1), False),
+        )
+        rows = []
+        for fixture_id, market, outcome, score, _ in cases:
+            rows.append(self.selection(
+                fixture_id=fixture_id,
+                source_key='portfolio-v4',
+                source_ref=f'portfolio-v4:test:{fixture_id}',
+                market_type=market,
+                predicted_outcome=outcome,
+            ))
+            self.result(fixture_id=fixture_id, home=score[0], away=score[1])
+
+        summary = public_selections.settle_public_selections(now=self.now)
+
+        self.assertEqual(summary['settled'], len(cases))
+        for row, case in zip(rows, cases):
+            expected_won = case[-1]
+            result = PublicSelectionResult.objects.get(selection=row)
+            self.assertEqual(
+                result.status,
+                PublicSelectionResult.STATUS_WON if expected_won
+                else PublicSelectionResult.STATUS_LOST,
+            )
+
+    def test_unknown_market_stays_pending_instead_of_being_misgraded_as_1x2(self):
+        row = self.selection(
+            fixture_id=700105,
+            source_key='portfolio-v4',
+            source_ref='portfolio-v4:test:unknown',
+            market_type='half_time_result',
+            predicted_outcome='Home at half-time',
+        )
+        self.result(fixture_id=row.fixture_id, home=2, away=0)
+
+        summary = public_selections.settle_public_selections(now=self.now)
+
+        self.assertEqual(summary['settled'], 0)
+        self.assertFalse(PublicSelectionResult.objects.filter(selection=row).exists())
 
     def test_strategy_half_win_reuses_exact_lab_settlement(self):
         experiment = StrategyLabExperiment.objects.create(

@@ -7,7 +7,6 @@ import { Trophy, Mail, AlertTriangle } from 'lucide-react'
 import { useLanguage } from '@/app/contexts/LanguageContext'
 import { getCopy } from '@/app/lib/terminology'
 import { PUBLIC_LEGAL_IDENTITY_COMPLETE, publicLegalIdentity } from '@/app/lib/publicLegalIdentity'
-import { PUBLIC_RESULTS_VISIBLE } from '@/app/lib/publicResultsMode'
 
 export default function Footer() {
     const currentYear = new Date().getFullYear()
@@ -74,11 +73,11 @@ export default function Footer() {
                                   </Link>
                               </li>
                             )}
-                            {PUBLIC_RESULTS_VISIBLE && <li>
+                            <li>
                                 <Link href="/track-record" className="text-gray-600 hover:text-primary-600 transition-colors">
                                     {f.trackRecord}
                                 </Link>
-                            </li>}
+                            </li>
                             {PAYMENTS_ENABLED && (
                               <li>
                                   <Link href="/pricing" className="text-gray-600 hover:text-primary-600 transition-colors">

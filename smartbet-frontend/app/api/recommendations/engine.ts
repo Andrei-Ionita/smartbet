@@ -46,6 +46,7 @@ import {
   buildModelShortlistCandidate,
   compareModelShortlist,
   MODEL_SHORTLIST_POLICY,
+  selectDiversifiedModelShortlist,
   type InternalModelShortlistCandidate,
 } from '@/app/lib/modelShortlist'
 import { SIGNAL_COMPETITIONS } from '@/app/lib/coverage'
@@ -595,6 +596,47 @@ export async function buildRecommendationPayload(): Promise<
               (candidate) => candidate.robust_positive_edge,
             ).length
 
+            // ============= MULTI-MARKET RESEARCH PORTFOLIO =============
+            // The homepage shortlist and the Gem publication boundary are
+            // deliberately different decisions. Every reliably priceable and
+            // settleable market competes here; only a separately validated
+            // strategy may become a Gem below. Pick one market per fixture so
+            // contradictory cards for the same match can never reach users.
+            const fixturePortfolioCandidates = allMarketsData.flatMap((market) => {
+              if (
+                market.price_status !== 'verified' ||
+                market.odds === null ||
+                market.odds_provenance === null
+              ) return []
+              const evaluation = evaluateValueStrategy({
+                market: market.market_type,
+                predictedOutcome: market.predicted_outcome,
+                metadata: fixture.metadata,
+                predictions,
+                leaguePerformancePayload,
+                odds: market.odds,
+                oddsProvenance: market.odds_provenance,
+              })
+              const candidate = buildModelShortlistCandidate({
+                fixtureId: fixture.id,
+                homeTeam,
+                awayTeam,
+                league: league.name,
+                kickoff: fixture.starting_at,
+                marketType: market.market_type,
+                predictedOutcome: market.predicted_outcome,
+                signalStrength: market.probability,
+                signalGap: market.probability_gap,
+                odds: market.odds,
+                oddsProvenance: market.odds_provenance,
+                strategyEvaluation: evaluation,
+              })
+              return candidate ? [candidate] : []
+            }).sort(compareModelShortlist)
+            if (fixturePortfolioCandidates[0]) {
+              allShortlistCandidates.push(fixturePortfolioCandidates[0])
+            }
+
             // ============= SELECT BEST MARKET =============
             // Uniform confidence floor. The response advertises a 55% confidence
             // threshold, but historically only over_under_2.5 enforced it — the
@@ -662,20 +704,6 @@ export async function buildRecommendationPayload(): Promise<
               v3QualifiedFixtures++
             }
 
-            const shortlistCandidate = buildModelShortlistCandidate({
-              fixtureId: fixture.id,
-              homeTeam,
-              awayTeam,
-              league: league.name,
-              kickoff: fixture.starting_at,
-              predictedOutcome: bestMarket.predicted_outcome,
-              signalStrength: bestMarket.probability,
-              signalGap: bestMarket.probability_gap,
-              odds: bestMarketOdds,
-              oddsProvenance: bestMarketProvenance,
-              strategyEvaluation,
-            })
-            if (shortlistCandidate) allShortlistCandidates.push(shortlistCandidate)
             strategyEvaluatedFixtures++
             if (!strategyEvaluation.eligible) {
               recordGemRejection(
@@ -945,14 +973,17 @@ export async function buildRecommendationPayload(): Promise<
       compareGemStrategy(a.strategy_evaluation, b.strategy_evaluation))
 
     const qualifiedGemCount = allRecommendations.length
+    const qualifiedGemFixtureIds = new Set(
+      allRecommendations.map(recommendation => Number(recommendation.fixture_id)),
+    )
     let featuredGems = allRecommendations
       .slice(0, VALUE_STRATEGY_POLICY.maximumSelections)
       .map((rec, index) => ({ ...rec, is_recommended: true, gem_rank: index + 1 }))
-    const researchCandidates = allShortlistCandidates
+    const researchCandidates = selectDiversifiedModelShortlist(allShortlistCandidates
       // Keep this cohort technically and semantically separate from Gems. A
       // fixture that qualified as a Gem belongs only in the Gem collection.
-      .filter(candidate => !candidate.strategy_evaluation.eligible)
-      .sort(compareModelShortlist)
+      .filter(candidate => !qualifiedGemFixtureIds.has(candidate.fixture_id))
+      .sort(compareModelShortlist))
     const priceWatchlist = researchCandidates
       .filter(candidate => candidate.value_signal_aligned)
       .slice(0, MODEL_SHORTLIST_POLICY.maximumPerDecisionLane)
@@ -1111,7 +1142,7 @@ export async function buildRecommendationPayload(): Promise<
         // and therefore contain no array at all; an empty array with this flag
         // means the current engine genuinely ran and found zero eligible rows.
         model_shortlist_generated: true,
-        feed_schema_version: 'gem-feed-v4-decision-board-v1',
+        feed_schema_version: 'gem-feed-v4-multi-market-board-v2',
         gem_scan: {
           fixtures_scanned: totalFixtures,
           fixtures_with_predictions: fixturesWithPredictions,

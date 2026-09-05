@@ -69,7 +69,12 @@ export default function SelectionReceiptContent({ selection }: { selection: Publ
   const strategy = STRATEGIES.find(item => item.strategyKey === selection.source_key)
   const strategyUrl = selection.category === 'strategy' && strategy
     ? `/strategies/${strategy.slug}` : null
-  const explanation = !ro ? selection.explanation : selection.reason_code === 'strategy_match' ? {
+  const explanation = !ro ? selection.explanation : selection.source_key.startsWith('market-portfolio-') ? {
+    title: 'Selecție de piață',
+    why_selected: 'Modelul estima un randament pozitiv la cota verificată. Selecția a trecut verificările de date, preț și decontare pentru această piață.',
+    evidence: `${selection.predicted_outcome} la cota ${selection.odds.toFixed(2)}, verificată la ${selection.bookmaker_count} operatori înainte de start.`,
+    risk: 'Estimarea modelului este în evaluare. EV-ul conservator poate fi negativ chiar dacă EV-ul modelului este pozitiv.',
+  } : selection.reason_code === 'strategy_match' ? {
     title: 'Potrivire de strategie',
     why_selected: `Meciul a trecut regulile blocate ale strategiei ${strategy?.copy.ro.name ?? selection.source_key}, versiunea ${selection.source_version || 'înregistrată'}.`,
     evidence: `${selection.predicted_outcome} la cota ${selection.odds.toFixed(2)}, verificată la ${selection.bookmaker_count} operatori.`,

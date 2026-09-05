@@ -19,7 +19,7 @@ import requests
 from django.utils import timezone
 
 from core.models import (
-    FixtureContextObservation, SignalObservation, StrategyLabObservation,
+    FixtureContextObservation, SignalObservation, StrategyLabObservation, GemFeedCache,
 )
 from core.services.integrity import canonical_sha256, norm_dt, norm_num
 from core.services import strategy_lab
@@ -352,4 +352,19 @@ def capture(payload, ingestion_run_id=None):
         phase=StrategyLabObservation.PHASE_FORWARD,
         ingestion_run_id=run_id,
     ))
+    # Keep only the latest input set for publication. Unchanged model/price
+    # values remain deduplicated in the archive, while a fresh quote check can
+    # still prove availability. Each published board freezes the evidence it
+    # actually used. This avoids thousands of duplicate signal rows per scan.
+    GemFeedCache.objects.update_or_create(
+        key='portfolio_input', defaults={
+            'generated_at': _as_aware(payload.get('observed_at')) or timezone.now(),
+            'payload': {
+                'candidates': payload.get('candidates') or [],
+                'strategy_candidates': payload.get('strategy_candidates') or [],
+                'fixtures_seen': payload.get('fixtures_seen', 0),
+            },
+            'recommendation_count': 0,
+        },
+    )
     return summary

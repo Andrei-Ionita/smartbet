@@ -64,6 +64,7 @@ urlpatterns = [
     path('api/transparency/strategies/', transparency_views.public_strategy_lab, name='public_strategy_lab'),
     path('api/transparency/strategies/current-fits/', transparency_views.public_strategy_highlights, name='public_strategy_highlights'),
     path('api/transparency/strategies/<str:strategy_key>/current-fits/', transparency_views.public_strategy_fits, name='public_strategy_fits'),
+    path('api/selection-portfolio/', transparency_views.selection_portfolio, name='selection_portfolio'),
     path('api/results/selections/', transparency_views.public_selections_list, name='public_selections_list'),
     path('api/results/selections/<uuid:selection_id>/', transparency_views.public_selection_detail, name='public_selection_detail'),
     # REMOVED 2026-08-03: 'api/transparency/update-results/'. Same class of
